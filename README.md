@@ -1,4 +1,4 @@
-# Pepper Android Realtime 🤖
+# Pepper Android Realtime Chat 🤖
 
 A sophisticated conversational AI application for the Pepper robot using OpenAI's GPT-4o Realtime API. This app enables natural voice conversations with advanced features like vision analysis, internet search, and dynamic gesture control.
 
@@ -29,8 +29,8 @@ A sophisticated conversational AI application for the Pepper robot using OpenAI'
 ### 1. Clone and Configure
 
 ```bash
-git clone https://github.com/yourusername/pepper_android_realtime.git
-cd pepper_android_realtime
+git clone https://github.com/studerus/pepper-android-realtime-chat.git
+cd pepper-android-realtime-chat
 
 # Copy configuration template
 cp local.properties.example local.properties
@@ -164,7 +164,7 @@ app/src/main/java/com/example/pepper_test2/
 ### Key Configuration Files
 - `local.properties.example` - API key template
 - `app/build.gradle` - Build configuration and key injection
-- `app/src/main/assets/witze.json` - Joke database
+- `app/src/main/assets/jokes.json` - Joke database
 
 ## 🔧 Troubleshooting
 
@@ -223,8 +223,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 For issues and questions:
 1. Check the [troubleshooting section](#-troubleshooting)
-2. Search [existing issues](https://github.com/yourusername/pepper_android_realtime/issues)
-3. Create a [new issue](https://github.com/yourusername/pepper_android_realtime/issues/new) with details
+2. Search [existing issues](https://github.com/studerus/pepper-android-realtime-chat/issues)
+3. Create a [new issue](https://github.com/studerus/pepper-android-realtime-chat/issues/new) with details
 
 ---
 
