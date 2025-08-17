@@ -1,0 +1,80 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    compileSdk 32
+
+    defaultConfig {
+        applicationId "com.example.pepper_test2"
+        minSdk 23
+        targetSdk 32
+        versionCode 1
+        versionName "1.0"
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        
+        // Load API keys from local.properties
+        Properties localProps = new Properties()
+        try {
+            localProps.load(new FileInputStream(rootProject.file("local.properties")))
+        } catch (Exception e) {
+            // local.properties doesn't exist - use empty values
+            // This allows the app to build and run, showing setup messages for missing keys
+            logger.warn("local.properties not found. Some features will require API key configuration.")
+        }
+        
+        // Core API keys (required for basic functionality)
+        buildConfigField "String", "AZURE_OPENAI_KEY", "\"${localProps.getProperty('AZURE_OPENAI_KEY', '')}\""
+        buildConfigField "String", "AZURE_OPENAI_ENDPOINT", "\"${localProps.getProperty('AZURE_OPENAI_ENDPOINT', '')}\""
+        buildConfigField "String", "AZURE_SPEECH_KEY", "\"${localProps.getProperty('AZURE_SPEECH_KEY', '')}\""
+        buildConfigField "String", "AZURE_SPEECH_REGION", "\"${localProps.getProperty('AZURE_SPEECH_REGION', 'switzerlandnorth')}\""
+        
+        // Optional API keys (enable additional features)
+        buildConfigField "String", "GROQ_API_KEY", "\"${localProps.getProperty('GROQ_API_KEY', '')}\""
+        buildConfigField "String", "TAVILY_API_KEY", "\"${localProps.getProperty('TAVILY_API_KEY', '')}\""
+        buildConfigField "String", "OPENWEATHER_API_KEY", "\"${localProps.getProperty('OPENWEATHER_API_KEY', '')}\""
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    packagingOptions {
+        exclude 'META-INF/androidx.localbroadcastmanager_localbroadcastmanager.version'
+        // Add additional exclude rules as needed if new errors occur
+    }
+}
+
+dependencies {
+
+    // Pepper SDK - ONLY THIS LINE IS NEEDED
+    implementation 'com.aldebaran:qisdk:1.7.5'
+    implementation 'com.aldebaran:qisdk-design:1.7.5'
+
+    // Azure Speech SDK
+    implementation 'com.microsoft.cognitiveservices.speech:client-sdk:1.31.0'
+
+    // Networking
+    implementation 'com.squareup.okhttp3:okhttp:4.9.3'
+
+    // Adapted AndroidX libraries (compatible with SDK 32)
+    implementation 'androidx.appcompat:appcompat:1.4.2'
+    implementation 'com.google.android.material:material:1.6.1'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    implementation 'androidx.activity:activity:1.5.0'
+    implementation 'androidx.core:core-ktx:1.8.0'
+    implementation 'androidx.recyclerview:recyclerview:1.2.1'
+
+
+    // Test dependencies
+    testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+}

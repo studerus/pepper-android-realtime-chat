@@ -1,0 +1,476 @@
+{
+    "jokes": [
+      {
+        "id": 1,
+        "text": "Meine besten Witze hab ich erzählt, das Publikum lächelte nur leicht gequält. Doch Heiterkeit ohne Maß und Ziel erregte ich, als ich vom Fahrrad fiel."
+      },
+      {
+        "id": 2,
+        "text": "Zwei Künstler treffen sich nach einer Ausstellung: «He, deine Bilder waren die einzigen, die man anschauen konnte.» «Danke für dein Kompliment!» «Ja weißt du, vor den anderen Bildern standen immer so viele Leute…»"
+      },
+      {
+        "id": 3,
+        "text": "«Wo hast du denn deine Uhr?» «Die ist bestimmt schon zu Hause, die geht immer vor!»"
+      },
+      {
+        "id": 4,
+        "text": "Fritzchen kommt zur Mama sagt: Mama, ich habe Bauchschmerzen. Sagt die Mama: Das kommt, weil du nichts im Bauch hast. Oh, sagt Fritzchen, jetzt weiss ich, warum der Lehrer immer Kopfschmerzen hat."
+      },
+      {
+        "id": 5,
+        "text": "Ein Gast fragt: «Hat es in diesem lausigen Gasthof auch eine Toilette?» Der Wirt: «Ja, sie müssen die Treppe runter, dann rechts. Es steht 'Gentlemen' an der Türe, aber gehen Sie trotzdem rein.»"
+      },
+      {
+        "id": 6,
+        "text": "Der Pfarrer spricht zum Brautpaar: «Nun erkläre ich euch zu Mann und Frau.» Der Bräutigam verdutzt: «Was waren wir denn vorher?»"
+      },
+      {
+        "id": 7,
+        "text": "«Mein Hund lügt.» «Glaube ich nicht.» «Doch, pass mal auf! Hasso, wie macht eine Katze?» «Wuff! Wuff!» «Siehst du?!»"
+      },
+      {
+        "id": 8,
+        "text": "«Na, bin ich im Urlaub nicht schön braun geworden?» – «Die Hellste warst du noch nie!»"
+      },
+      {
+        "id": 9,
+        "text": "Ein 16-Jähriger fährt mit dem Auto. Er wird von einem Polizisten angehalten: «Ihren Führerschein bitte!» Der Jugendliche antwortet erstaunt: «Ich dachte, den braucht man erst ab 18.»"
+      },
+      {
+        "id": 10,
+        "text": "Ein Skifahrer und ein Snowboarder stehen zusammen am Lift. Skifahrer: «Was findest du besser, mega oder cool?» Snowboarder: «Ich finde mega cooler.»"
+      },
+      {
+        "id": 11,
+        "text": "Fred fragt seinen Freund Bernd: «Weißt du, warum Flugzeuge einen Propeller haben?» «Nein, weißt du es denn?» «Natürlich!», antwortet Fred, «Damit dem Piloten nicht zu heiß wird!» «Nee, das glaube ich nicht!», entgegnet ihm Bernd. «Doch!», beharrt Fred, «Ich habe einmal in einem Film ein Flugzeug gesehen, bei dem der Propeller nicht ging. Da hättest du sehen sollen, wie der Pilot geschwitzt hat!»"
+      },
+      {
+        "id": 12,
+        "text": "Meier kommt pfeifend ins Büro, küsst die Sekretärin, leert dem Chef einen Aschenbecher auf den Schreibtisch aus und haut dem Abteilungsleiter eine runter. Eine Arbeitskollegin stürzt auf ihn zu: «Meier, hör damit auf! Du hast gar nicht im Lotto gewonnen … wir haben dich reingelegt!»"
+      },
+      {
+        "id": 13,
+        "text": "Was machst du, wenn du in der Wüste eine Schlange siehst? – Hinten anstehen!"
+      },
+      {
+        "id": 14,
+        "text": "Eine Frau geht mit ihrem Kind einen Waldweg entlang. Plötzlich bleibt das Kind stehen: «Mami, warum heißt es hier Waldweg? Es ist doch gar kein Wald da!» – «Eben, weil der WALD WEG ist»!"
+      },
+      {
+        "id": 15,
+        "text": "Lehrer: «Heute rechnen wir mit Computern.» Die ganze Klasse freut sich. Lehrer: «Also, was gibt sieben minus drei Computer?»"
+      },
+      {
+        "id": 16,
+        "text": "Lehrer: «Evi, wenn du drei Eier auf den Tisch legst und ich dir zwei wegnehme, wie viele sind dann übrig?» Evi: «Ich kann keine Eier legen…»"
+      },
+      {
+        "id": 17,
+        "text": "«Was hast du gesagt? Er soll reich sein?» – «Du hast mich falsch verstanden! Hab bloß gesagt, dass er mehr Geld als Verstand habe.»"
+      },
+      {
+        "id": 18,
+        "text": "Auf dem Markt: «Guten Tag, ich hätte gerne 10 Kilo Kartoffeln. Aber kleine bitte, ich darf nicht mehr so schwer tragen!»"
+      },
+      {
+        "id": 19,
+        "text": "Zwei Telefonhörer sitzen auf einem Baum und stricken Öl. Ein Kühlschrank fliegt vorbei. Der eine Telefonhörer zum anderen: «Sachen gibt's!»"
+      },
+      {
+        "id": 20,
+        "text": "«Hallo, Sahara!» – «Ich heiße Sarah, nicht Sahara!» – «Ist einerlei, eine Wüste bist du sowieso!»"
+      },
+      {
+        "id": 21,
+        "text": "Tante Erna schenkt Sophie einen Apfel. «Und», fragt sie, «was sagt man?» – «Schälen, bitte.»"
+      },
+      {
+        "id": 22,
+        "text": "Lehrer: «Hanspeter, konjugiere mal das Verb 'spazieren'.» Hanspeter: «Ich spaziere … du spazierst … er spaziert …» – «Etwas schneller, bitte!» – «… wir rennen, ihr rennt …»"
+      },
+      {
+        "id": 23,
+        "text": "Ein Ausländer bestellt im Restaurant Schnecken: «Ich hätte gerne langsames Fleisch mit Haus …»"
+      },
+      {
+        "id": 24,
+        "text": "Eine Regenwurmdame fragt eine andere: «Wo ist eigentlich dein Mann? Ich habe ihn schon lange nicht mehr gesehen.» Die andere schluchzt: «Er ist zum Angeln gegangen.»"
+      },
+      {
+        "id": 25,
+        "text": "Warum darf ein Elefant nicht Fahrrad fahren? – Weil er keinen Daumen zum Klingeln hat!"
+      },
+      {
+        "id": 26,
+        "text": "«Mein Name ist Kurz!» – «Meiner auch, ich heiße Lang!»"
+      },
+      {
+        "id": 27,
+        "text": "«Was isst du da?» – «Apfelkerne.» – «Apfelkerne??? Wozu soll das gut sein?» – «Die machen schlau, unheimlich schlau.» – «Kann ich auch mal probieren?» – «Ja, sicher, ein Stück kostet einen Franken.» – «Bitte schön, hier sind drei Franken …» Nach eine Weile: «He, du hast mich betrogen! Für drei Franken hätte ich ein ganzes Kilo Äpfel bekommen!» – «Siehst du, es wirkt schon!»"
+      },
+      {
+        "id": 28,
+        "text": "«Ich war in den Ferien in der Wüste. Einmal kam plötzlich ein wilder Löwe hinter mir her. Ich bin sofort auf den nächsten Baum geklettert!» - «He, in der Wüste gibt es doch gar keine Bäume …» - «Ach … das war mir in dem Moment völlig egal!»"
+      },
+      {
+        "id": 29,
+        "text": "«Na, sagen Sie mal, ist Ihre Wohnung tatsächlich so feucht?» – «Weiß nicht, wie Sie das sehen ... heute Morgen lag jedenfalls ein Fisch in der Mausefalle!»"
+      },
+      {
+        "id": 30,
+        "text": "Zwei Gefangene brechen aus: Sie klettern bei Nacht über die Mauer. Der Wärter hört etwas und ruft: «Halt, wer da?» Der erste Gefangene ruft: «Miiiauuu» und kann glücklich entfliehen. Der zweite Gefangene springt ins Gebüsch, und wieder hört der Wächter das Geräusch und ruft: «Wer da?» Der zweite Gefangene antwortet: «Ich bin auch eine Katze!»"
+      },
+      {
+        "id": 31,
+        "text": "«Was ist denn dir passiert? Weshalb hast du den Kopf eingebunden?» – «Ich war am Bügeln. Das Telefon klingelte … und statt des Hörers hielt ich mir das Bügeleisen ans Ohr!» – «Aber warum hast du denn beide Ohren dick eingebunden?» – «Ich wollte danach gleich den Arzt anrufen.»"
+      },
+      {
+        "id": 32,
+        "text": "Lehrer: «Weißt du eine Bauernregel, Michael? Kannst du eine sagen?» – «Logo: Sind die Hühner platt wie Teller, war der Traktor wieder schneller.»"
+      },
+      {
+        "id": 33,
+        "text": "Der Trainer: «Meine Fußballer sind jetzt fairer als früher. Nach dem Spiel gehen sie die Gegner im Spital besuchen.»"
+      },
+      {
+        "id": 34,
+        "text": "Ein Holzwurm kommt freudestrahlend nach Hause: «Zieht euch mal chic an! Heute gehen wir groß aus und essen chinesisch. Im Antiquitätenladen sind Möbel aus Hongkong eingetroffen.»"
+      },
+      {
+        "id": 35,
+        "text": "Kommt ein Junge in ein Uhrengeschäft: «Sie haben hier sicher viele Uhren.» – «Ja sicher, was möchtest du denn?» – «Ich möchte gerne wissen, wie spät es ist.»"
+      },
+      {
+        "id": 36,
+        "text": "Der Kapitän brüllt den Matrosen im Ausguck an: «Schrei nicht immer 'Land in Sicht', solange wir noch im Hafen sind!»"
+      },
+      {
+        "id": 37,
+        "text": "Frage: Wie endet die Ewigkeit? – Antwort: mit einem t."
+      },
+      {
+        "id": 38,
+        "text": "Ein Mädchen fragt einen Jungen: «Weißt du eigentlich, dass Mädchen gescheiter sind als Jungen?» Junge: «Nein!» Mädchen: «Siehst du!?»"
+      },
+      {
+        "id": 39,
+        "text": "Sherlock Holmes und Dr. Watson übernachten auf dem Campingplatz. Sie legen sich hin, um zu schlafen. Holmes: «Watson, guck rauf zum Himmel und sag mir, was du siehst!» - «Ich sehe Millionen von Sternen.» – «Und was sagt dir das?» Watson: «Astronomisch gesehen bedeutet das, dass es Millionen von Milchstrassen gibt und möglicherweise Milliarden von Planeten. Theologisch, dass Gott allmächtig ist und wir dagegen klein und bedeutungslos. Meteorologisch, dass es morgen sicher ein schöner Tag wird. Und was sagt es dir?» Holmes: «Dass jemand unser Zelt geklaut hat…»"
+      },
+      {
+        "id": 40,
+        "text": "«Kennst du den Witz vom hinteren Bahnwagen?» – «Nein. Wie geht er denn?» – «Ich weiß auch nicht, ich saß im vorderen.»"
+      },
+      {
+        "id": 41,
+        "text": "Lehrer: «Wann wurde Rom erbaut?» Dominique: «In der Nacht.» – «Wie kommst du denn darauf?» – «Sie haben doch gesagt, man habe Rom nicht an einem Tag erbaut …»"
+      },
+      {
+        "id": 42,
+        "text": "Ein Mann betritt ein Musikgeschäft: «Guten Tag, ich hätte gerne die rote Trompete da hinten und die weiße Handharmonika.» Der Verkäufer schaut sich um: «Naja, wenn Sie drauf bestehen … Den Feuerlöscher kann ich Ihnen geben, aber der Heizkörper bleibt hier!!»"
+      },
+      {
+        "id": 43,
+        "text": "«Hast du mich vermisst, als ich weg war?» – «Warst du weg?»"
+      },
+      {
+        "id": 44,
+        "text": "Am Telefon: «Hallo, Sarah, ich habe schreckliche Sehnsucht nach dir! Darf ich vorbeikommen?» – «Natürlich, Dominique, komm nur.» – «Aber ich heiße doch gar nicht Dominique!» – «Macht nichts, ich bin auch nicht Sarah.»"
+      },
+      {
+        "id": 45,
+        "text": "Ein Ei sagt: «Meine Schale ist hart. Aber tief im Inneren habe ich einen weichen Kern!» Rührei: «Ich bin gerührt!»"
+      },
+      {
+        "id": 46,
+        "text": "«Ich habe es satt, hier herumzuhängen!», sprach die Glühbirne und brannte durch."
+      },
+      {
+        "id": 47,
+        "text": "«Herbert, wie schreibst du Rhythmus?» – «R-ü-t-m-u-s-s.» – «Im Wörterbuch aber steht R-h-y-t-h-m-u-s.» – «Im Wörterbuch, im Wörterbuch … du hast aber gefragt, wie ICH es schreibe!»"
+      },
+      {
+        "id": 48,
+        "text": "«Gestern habe ich deinen Bruder getroffen!» – «Wo?» – «Mitten auf die Nase.»"
+      },
+      {
+        "id": 49,
+        "text": "Ein Polizist hält die Radfahrerin Lena auf: «Stopp! Keine Glocke – 5 Franken, kein Rücklicht – 10 Franken, keine Bremse – 20 Franken! Das macht zusammen 35 Franken.» Lena: «Schauen Sie mal! Da drüben kommt das Geschäft Ihres Lebens, da kommt einer ganz ohne Fahrrad!»"
+      },
+      {
+        "id": 50,
+        "text": "«Angeklagter, sind Sie vorher schon einmal verhaftet worden?» – «Nein, immer erst hinterher.»"
+      },
+      {
+        "id": 51,
+        "text": "Der Arzt zum Patienten: «Ich kann nicht genau feststellen, was Sie haben. Ich glaube, es liegt am Alkohol.» Patient: «Okay, dann komme ich später nochmal, wenn Sie wieder nüchtern sind!»"
+      },
+      {
+        "id": 52,
+        "text": "«Unser Lehrer behandelt uns wie rohe Eier.» – «Was? So nett ist er mit euch?» – «Nett? Ständig haut er uns in die Pfanne!»"
+      },
+      {
+        "id": 53,
+        "text": "Im Museum kommt ein Besucher zur Aufsichtsperson: «Sagen Sie, ist dieser Schädel da wirklich von Kleopatra?» – «Ganz bestimmt!» – «Und der kleine Schädel nebenan?» – «Ist auch von Kleopatra, als sie noch klein war.»"
+      },
+      {
+        "id": 54,
+        "text": "Richter zum Angeklagten: «Warum haben Sie parkende Autos aufgebrochen?» – «Für fahrende Autos bin ich nicht schnell genug!»"
+      },
+      {
+        "id": 55,
+        "text": "Ein Mann kommt in einen Kleintierladen und holt einen Zettel hervor: «Ich hätte gerne drei Ratten, vier Mäuse, elf Kellerrasseln und sieben Spinnen!» – «Wozu brauchen Sie all die Tiere?» – «Ich ziehe aus der Wohnung aus, und im Mietvertrag steht, ich müsse die Wohnung so übergeben, wie ich sie angetroffen habe ...»"
+      },
+      {
+        "id": 56,
+        "text": "Der Zoodirektor sagt zum Wärter: «Sie haben gestern Abend den Käfig offen gelassen.» – «Na und? Wer klaut schon einen Löwen?»"
+      },
+      {
+        "id": 57,
+        "text": "An der Grenze stoppt der Zöllner einen Autofahrer und fragt: «Wein? Wodka? Tabak?» – «Nein danke, von diesem Zeug hab ich selber den ganzen Kofferraum voll!»"
+      },
+      {
+        "id": 58,
+        "text": "Der Ober tritt an den Tisch eines Gastes und fragt: «Ihr Glas ist leer, mein Herr, soll ich Ihnen noch eins bringen?» – «Was soll ich denn mit zwei leeren Gläsern?»"
+      },
+      {
+        "id": 59,
+        "text": "Kuno steht in der Küche. «Oh, jetzt haben wir zu viel Wasser gekocht!» – «Macht nichts, den Rest frieren wir ein. Heißes Wasser kann man immer brauchen!»"
+      },
+      {
+        "id": 60,
+        "text": "Herr Meier fährt mit seinem uralten Auto bei Rot über die Kreuzung. Ein Polizist stoppt ihn und sagt barsch: «Fünfzig Franken!» Herr Meier verlässt sofort sein Auto: «In Ordnung, der Wagen gehört Ihnen!»"
+      },
+      {
+        "id": 61,
+        "text": "Ein Angler macht ins Eis ein Loch zum Angeln. Wie er da so sitzt, hört er von oben eine Stimme: «Hier gibt es keine Fische!» Er schaut sich um, sieht aber niemanden. Da hört er die Stimme wieder: «Hier gibt es keine Fische!» Abermals blickt er um sich und sieht niemanden. Schüchtern ruft er: «Bist du das, Gott?» – «Nein, ich bin der Speaker dieser Eishockeyhalle!»"
+      },
+      {
+        "id": 62,
+        "text": "Ein Kunde im Fischgeschäft: «Können Sie mir bitte zwei Forellen zuwerfen? Dann kann ich zu Hause erzählen, ich hätte sie gefangen.»"
+      },
+      {
+        "id": 63,
+        "text": "«Wie ist deine Aufnahmeprüfung verlaufen?» – «Schlecht! Die ersten vier Fragen habe ich tadellos beantwortet. Danach war Sense.» – «Wie lauteten die ersten Fragen?» – «Name, Vorname, Geburtsdatum und Wohnort.»"
+      },
+      {
+        "id": 64,
+        "text": "Ein Ehepaar sitzt im Flugzeug. Die Frau blickt aus dem Fenster und sagt zu ihrem Mann: «Sieh mal hinunter, die Menschen sehen aus wie Ameisen.» – «Das sind Ameisen! Wir sind noch gar nicht gestartet!»"
+      },
+      {
+        "id": 65,
+        "text": "In einer fremden Stadt treffen sich zwei Psychiater. Der eine: «Hallo, kannst du mir sagen, wo es hier zum Bahnhof geht?» – «Nein, keine Ahnung. Aber es tut mir gut, dass wir zusammen darüber gesprochen haben.» Nach einigen Wochen treffen sich die beiden wieder an einem anderen Ort: «Na, hast du unterdessen den Bahnhof gefunden?» – «Nein, aber ich kann inzwischen besser damit umgehen!»"
+      },
+      {
+        "id": 66,
+        "text": "Herr und Frau Meier machen eine Kreuzfahrt auf dem Nil. Das Boot kentert und alle schwimmen im Fluss. Da nähern sich auch schon die ersten Krokodile. Frau Meier sagt zu ihrem Mann: «Das ist wirklich luxuriös hier. Die Rettungsboote sind von Lacoste!»"
+      },
+      {
+        "id": 67,
+        "text": "Die Krankenschwester meldet dem Stationsarzt: «Der Simulant von Zimmer 113 ist gestorben!» – «Jetzt übertreibt er aber!»"
+      },
+      {
+        "id": 68,
+        "text": "Henry fragt seinen Vater: «Was heißt Stroh auf italienisch?» – «Ach, ich hab's im Kopf, aber es fällt mir gerade nicht ein.»"
+      },
+      {
+        "id": 69,
+        "text": "Sagt eine Gans zur andern: „Glaubst du an ein Leben nach Weihnachten?""
+      },
+      {
+        "id": 70,
+        "text": "Ein Betrunkener wirft bereits zum zehnten Mal Geld in einen Automaten und holt jeweils ein Sandwich heraus. Ein Herr, der zuschaut, meint: «Ach, hören Sie doch auf!» Der Betrunkene erwidert: «Sicher nicht jetzt, wo ich gerade so eine Glückssträhne habe!»"
+      },
+      {
+        "id": 71,
+        "text": "Fritz berichtet stolz: «Mutti, heute war ich der Einzige der Klasse, der die Frage beantworten konnte!» – «Wie lautete denn die Frage?» – «Wer hat die Fensterscheibe zerschlagen?»"
+      },
+      {
+        "id": 72,
+        "text": "Treffen sich zwei Hunde im Park. Fragt der eine: «Ich heiße Carlos vom Schlosshof. Und du, bist du auch adelig?» – «Ja, bin ich!», antwortet der andere. «Ich heiße Runter vom Sofa.»"
+      },
+      {
+        "id": 73,
+        "text": "Der Vater geht mit seinem Sohn in eine Kneipe. Nach einer Weile fragt der Sohn: «Du, wie merkt man eigentlich, wenn jemand betrunken ist?» Der Vater setzt zur Antwort an: «Siehst du die zwei Männer dort hinten?» Da entgegnet der Sohn: «Also ich sehe nur einen.»"
+      },
+      {
+        "id": 74,
+        "text": "«Hast du alle diese Fische allein gefangen?» – «Ehrlich gesagt, nein. Ich habe immer einen kleinen Wurm, der mir hilft.»"
+      },
+      {
+        "id": 75,
+        "text": "«Sag mal, was sind eigentlich Egoisten?» – «Egoisten sind jene Leute, die nicht an mich denken!»"
+      },
+      {
+        "id": 76,
+        "text": "Was ist orange und wandert? - Eine Wanderine."
+      },
+      {
+        "id": 77,
+        "text": "Was ist gelb, krumm und schwimmt auf dem Wasser? Eine Schwawane."
+      },
+      {
+        "id": 78,
+        "text": "Ein Besucher einer geschlossenen Anstalt fragt den Direktor, nach welchen Kriterien entschieden wird, wann ein Patient aufgenommen wird oder nicht. Der Direktor antwortet: „Wir füllen eine Badewanne, geben dem Kandidaten einen Teelöffel, eine Tasse und einen Eimer und bitten ihn, die Badewanne zu leeren." Der Besucher lächelt: „Ich verstehe. Ein normaler Mensch würde den Eimer nehmen, richtig?" Und jetzt lächelt der Direktor: „Nein, ein normaler Mensch würde den Stöpsel ziehen. Möchten Sie ein Zimmer mit oder ohne Balkon?""
+      },
+      {
+        "id": 79,
+        "text": "„Du Vati", säuselt Klara an ihrem 18. Geburtstag, „glaubst du nicht, dass ich jetzt alt genug wäre, den Führerschein zu machen?" Der Vater antwortet: „Ja, du schon, aber unser Auto noch nicht!""
+      },
+      {
+        "id": 80,
+        "text": "„Was weißt du über das Tote Meer?" - „Nichts. Ich wusste nicht mal, dass es krank war.""
+      },
+      {
+        "id": 81,
+        "text": "Die Frau hat Drillinge geboren. Der Mann kommt ins Spital. Es werden ihm seine drei Kinder gezeigt. Er sagt: „Das ist aber ein gutes Spital. Hier kann man sein Kind auswählen. Ich nehme das in der Mitte.""
+      },
+      {
+        "id": 82,
+        "text": "Ein kleiner Junge steht vor der Haustüre und versucht vergeblich, die Klingel zu erreichen. Er ist einfach zu klein. Da kommt ein Mann vorbei und meint: «Warte! Ich helfe dir, Kleiner.», und drückt auf die Klingel. «Danke!», sagt der kleine Junge. «Jetzt nichts wie weg hier!»"
+      },
+      {
+        "id": 83,
+        "text": "Der Lehrer erzählt in der Schule: „Zum Laufen sind Füße, zum Riechen die Nase." Da meldet sich Kevin und sagt: „Aber bei meinem Vater läuft die Nase und die Füße riechen.""
+      },
+      {
+        "id": 84,
+        "text": "Lehrer: „Susi, was heißt Glocke auf Englisch?" Susi: „Weiß ich nicht." Lehrer: „Bell!" Susi: „Wau!""
+      },
+      {
+        "id": 85,
+        "text": "Das Flugzeug ist über dem Ozean am Abstürzen. Über die Lautsprecheranlage meldet sich der Pilot: ,,Ich wünsche allen Schwimmern eine gute Weiterreise und verabschiede mich hier von den Nichtschwimmern...!""
+      },
+      {
+        "id": 86,
+        "text": "Lehrerin: „Lisa du kommst ja wieder zu spät!" - Lisa: „Aber sie sagen doch immer: zum Lernen ist es nie zu spät!""
+      },
+      {
+        "id": 87,
+        "text": "Der Fußballprofi kommt stolz nach Hause: „Ich habe heute zwei Tore geschossen!" - „Und wie ist das Spiel ausgegangen?" - „1:1""
+      },
+      {
+        "id": 88,
+        "text": "Frau Meier steht eines Morgens auf die Waage und ruft: „Ich habe drei Kilo abgenommen!" Darauf meint ihr Mann: „Kein Wunder, du hast dich ja noch gar nicht geschminkt!""
+      },
+      {
+        "id": 89,
+        "text": "Am Abend ruft die Holzwurmmutter ihren Kindern zu: „Husch, husch, ins Brettchen!""
+      },
+      {
+        "id": 90,
+        "text": "Eine dicke Frau steht vor dem Spiegel: „Spieglein, Spieglein an der Wand, wer ist die Schönste im ganzen Land?" Antwortet der Spiegel: „Geh mal weg, ich kann nix sehen!""
+      },
+      {
+        "id": 91,
+        "text": "Ein paar Tage vor Weihnachten kommt Rolf zur Mutter: „Du, Mama, die Eisenbahn kannst du wieder von meinem Wunschzettel streichen. Ich habe zufällig eine ganz tolle im Schlafzimmerschrank gefunden!""
+      },
+      {
+        "id": 92,
+        "text": "Frau Knüsli ruft aufgeregt in den Telefonhörer: „Es brennt, es brennt! Machen Sie bitte schnell!" Der Feuerwehrmann am anderen Ende: „Wie kommen wir denn zu Ihnen?" Frau Knüsli: „Ja, haben Sie denn diese großen roten Autos nicht mehr?""
+      },
+      {
+        "id": 93,
+        "text": "Unterhalten sich zwei Kerzen: „Ist Wasser eigentlich gefährlich?" „Davon kannst du ausgehen.""
+      },
+      {
+        "id": 94,
+        "text": "Polizist: „Sie sind mit 80 durch die Ortschaft gefahren." Oma: „Unverschämt! Ich bin erst 78.""
+      },
+      {
+        "id": 95,
+        "text": "Der Lehrer fragt Wanda: „Warum warst du in der letzten Mathestunde nicht da?" Wanda antwortet: „Wenn ich gewusst hätte, dass es die letzte Mathestunde wär, wäre ich bestimmt gekommen.""
+      },
+      {
+        "id": 96,
+        "text": "Gast im Restaurant: „Herr Ober, ich habe Hunger wie ein Wolf." – „Tut mir leid, Großmutter steht nicht auf dem Menüplan.""
+      },
+      {
+        "id": 97,
+        "text": "Boss: „Sie sind gefeuert!" Mitarbeiter: „Aber warum? Ich habe doch nichts getan." Boss: „Eben!""
+      },
+      {
+        "id": 98,
+        "text": "Was sagt der kleine Stift zum großen Stift? Wachsmalstift!"
+      },
+      {
+        "id": 99,
+        "text": "Friseur: „Langsam werden Ihre Haare grau." Kundin: „Kein Wunder bei Ihrem Tempo!""
+      },
+      {
+        "id": 100,
+        "text": "Ein schon etwas älterer Millionär erzählt in seinem Club, er werde wieder heiraten, eine superhübsche Blondine. Als er gefragt wird, wie man mit 70 denn eine so junge Frau dazu bewegen könne zu heiraten, meint er: „Ich habe ihr gesagt, ich wäre 90.""
+      },
+      {
+        "id": 101,
+        "text": "„Kuno, funktioniert der Blinker?" „Ja. Warte nein. Doch jetzt wieder. Nein. Ja. Nein. Ja. Nein.""
+      },
+      {
+        "id": 102,
+        "text": "Man kann alle Pilze essen. Einige allerdings nur einmal."
+      },
+      {
+        "id": 103,
+        "text": "Interessiert erkundigt sich der Vater: „Na, Junge, wie war es heute im Chemieunterricht?" - „Gar nicht langweilig", erzählt der Junge. „Wir haben gelernt, wie man Sprengstoff herstellt." - „Und was habt ihr morgen in der Schule?" - „In welcher Schule?""
+      },
+      {
+        "id": 104,
+        "text": "Hugo: „Du Papa, was ist eine Oper?" Vater: „Das ist, wenn jemand ein Messer in den Rücken bekommt und anstatt zu sterben, anfängt zu singen.""
+      },
+      {
+        "id": 105,
+        "text": "Patient: „Stimmt es, Herr Doktor, dass Sie die Zähne schmerzlos ziehen können?" Zahnarzt: „Nicht immer! Einmal habe ich mir den Arm verrenkt!""
+      },
+      {
+        "id": 106,
+        "text": "Was ist der Unterschied zwischen einem Beinbruch und einem Einbruch? – Nach einem Beinbruch muss man drei Monate liegen, nach einem Einbruch drei Monate sitzen."
+      },
+      {
+        "id": 107,
+        "text": "Am Waldrand stehen zwei Zahnstocher. Kommt ein Igel vorbei. Sagt der eine Zahnstocher zum andern: „Ich wusste nicht, dass hier ein Bus fährt!""
+      },
+      {
+        "id": 108,
+        "text": "Was sitzt auf einem Baum und schreit „Aha"? - Ein Uhu mit Sprachfehler."
+      },
+      {
+        "id": 109,
+        "text": "Lehrer: „Lena, aufwachen! Das Klassenzimmer ist nicht der richtige Ort für ein Nickerchen!" „Doch, doch. Wenn Sie etwas leiser sprechen, geht das prima.""
+      },
+      {
+        "id": 110,
+        "text": "Lehrer: „Petra, weißt du, wie lange Fische leben?" Petra: Wahrscheinlich genauso wie kurze.""
+      },
+      {
+        "id": 111,
+        "text": "Lehrer: „70 % der Schülerinnen und Schüler dieser Klasse haben keine Ahnung von Prozentrechnungen." Emil: „Aber so viele sind wir doch gar nicht in unserer Klasse!""
+      },
+      {
+        "id": 112,
+        "text": "Lehrer: „Ronny, sag deinem Opa, er soll morgen zu mir in die Schule kommen." Ronny: „Der Opa? Nicht mein Papa?" Lehrer: „Nein, ich möchte deinem Opa zeigen, wie viele Fehler sein Sohn bei den Hausaugaben gemacht hat.""
+      },
+      {
+        "id": 113,
+        "text": "„Sag mal, Papa, sind Fußballspieler immer so eingebildet?" „Ja, mein Sohn, das ist schon so. Ich kenne einige Spieler in meiner Mannschaft, die sich einbilden, dass sie besser spielen als ich.""
+      },
+      {
+        "id": 114,
+        "text": "„Wie hast du dein neues Auto bezahlt?" „Ich habe meine Trompete in Zahlung gegeben." „Und die war so viel wert?" „Ja, der Autohändler wohnt direkt über uns.""
+      },
+      {
+        "id": 115,
+        "text": "Tobias findet einen Spiegel im Sperrmüll. Er sieht kritisch hinein und murmelt dann: „Dieses blöde Bild hätte ich auch weggeworfen!""
+      },
+      {
+        "id": 116,
+        "text": "Treffen sich zwei Jäger im Wald. Beide sind tot."
+      },
+      {
+        "id": 117,
+        "text": "Es klingelt an der Haustür. „Papi, hier ist jemand, der für das neue Hallenbad sammelt." - „Gut, gib ihm ein Glas Wasser!""
+      },
+      {
+        "id": 118,
+        "text": "Der Arzt fragt: „Sprechen Sie im Schlaf?" „Nein", antwortet der Patient, aber ich spreche, wenn andere schlafen." „Echt? Wie das?", wundert sich der Arzt. „Ich bin Lehrer!""
+      }
+    ]
+  }

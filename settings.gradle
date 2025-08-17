@@ -1,0 +1,18 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        google()
+        mavenCentral()
+    }
+}
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+        maven { url 'https://qisdk.softbankrobotics.com/sdk/maven' }
+        maven { url 'https://csspeechstorage.blob.core.windows.net/maven/' }
+    }
+}
+rootProject.name = "pepper_test2"
+include ':app'
