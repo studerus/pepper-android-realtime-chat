@@ -66,4 +66,12 @@
 
     <!-- Content Descriptions -->
     <string name="interrupt_button_description">Interrupt assistant</string>
+    
+    <!-- Memory Game Strings -->
+    <string name="memory_game_title">Memory Game</string>
+    <string name="memory_close_button">✕</string>
+    <string name="memory_moves_format">Moves: %d</string>
+    <string name="memory_pairs_format" formatted="false">Pairs: %d/%d</string>
+    <string name="memory_time_format" formatted="false">Time: %02d:%02d</string>
+    <string name="memory_card_face_down">?</string>
 </resources>

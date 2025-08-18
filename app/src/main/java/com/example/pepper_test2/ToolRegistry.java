@@ -145,6 +145,19 @@ public class ToolRegistry {
                 Log.d(TAG, "Weather tool NOT registered (OpenWeatherMap API key missing)");
             }
 
+            // start_memory_game
+            JSONObject t8 = new JSONObject();
+            t8.put("type", "function");
+            t8.put("name", "start_memory_game");
+            t8.put("description", "Starts a memory matching game with cards that the user has to match in pairs. The user will see a grid of face-down cards and needs to find matching pairs by flipping two cards at a time.");
+            JSONObject p8 = new JSONObject();
+            p8.put("type", "object");
+            JSONObject props8 = new JSONObject();
+            props8.put("difficulty", new JSONObject().put("type", "string").put("description", "Game difficulty level").put("enum", new JSONArray().put("easy").put("medium").put("hard")).put("default", "medium"));
+            p8.put("properties", props8);
+            t8.put("parameters", p8);
+            tools.put(t8);
+
         } catch (Exception e) {
             Log.e(TAG, "Error building tools definition for Azure", e);
         }

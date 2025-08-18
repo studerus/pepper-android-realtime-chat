@@ -32,6 +32,7 @@ import okhttp3.Response;
 public class ToolExecutor {
 	public interface ToolUi {
 		void showQuiz(String question, String[] options, String correctAnswer);
+		void showMemoryGame(String difficulty);
 	}
 
 	private static final String TAG = "ToolExecutor";
@@ -66,6 +67,8 @@ public class ToolExecutor {
 					return handleSearchInternet(args);
 				case "get_weather":
 					return handleGetWeather(args);
+				case "start_memory_game":
+					return handleStartMemoryGame(args);
 				default:
 					return new JSONObject().put("error", "Unknown tool: " + toolName).toString();
 			}
@@ -166,6 +169,12 @@ public class ToolExecutor {
 		for (int i = 0; i < 4; i++) opts[i] = optionsJson.getString(i);
 		if (ui != null) ui.showQuiz(question, opts, correct);
 		return new JSONObject().put("status", "Quiz presented to user.").toString();
+	}
+
+	private String handleStartMemoryGame(JSONObject args) throws Exception {
+		String difficulty = args.optString("difficulty", "medium");
+		if (ui != null) ui.showMemoryGame(difficulty);
+		return new JSONObject().put("status", "Memory game started.").put("difficulty", difficulty).toString();
 	}
 
 	private String handleSearchInternet(JSONObject args) throws Exception {

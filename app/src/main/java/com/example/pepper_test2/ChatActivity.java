@@ -83,6 +83,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     private volatile boolean hasActiveResponse = false;
     private volatile String currentResponseId = null;
     private volatile String cancelledResponseId = null;
+    private volatile String lastChatBubbleResponseId = null;
     private Promise<Void> connectionPromise;
     private volatile boolean expectingFinalAnswerAfterToolCall = false;
     private final GestureController gestureController = new GestureController();
@@ -249,8 +250,17 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                 }); 
             }
         });
-        toolExecutor = new ToolExecutor(this, (question, options, correct) -> 
-            runOnUiThread(() -> showQuizDialog(question, options, correct)));
+        toolExecutor = new ToolExecutor(this, new ToolExecutor.ToolUi() {
+            @Override
+            public void showQuiz(String question, String[] options, String correctAnswer) {
+                runOnUiThread(() -> showQuizDialog(question, options, correctAnswer));
+            }
+            
+            @Override
+            public void showMemoryGame(String difficulty) {
+                runOnUiThread(() -> showMemoryGameDialog(difficulty));
+            }
+        });
         audioPlayer.setListener(new OptimizedAudioPlayer.Listener() {
             @Override public void onPlaybackStarted() {
                 turnManager.setState(TurnManager.State.SPEAKING);
@@ -369,6 +379,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             hasFocusInitialized = true;
             isWarmingUp = true;
             isMuted = false; // Reset mute state on initial startup
+            lastChatBubbleResponseId = null; // Reset response tracking
 
             // Set initial volume from settings
             applyVolume(settingsManager.getVolume());
@@ -387,10 +398,22 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
 
                 if (future.hasError()) {
                     Log.e(TAG, "Error during initial setup (ws or warmup)", future.getError());
-                    runOnUiThread(() -> {
-                        addMessage(getString(R.string.setup_error_during, future.getError().getMessage()), ChatMessage.Sender.ROBOT);
-                        statusTextView.setText(getString(R.string.error_connection_failed));
-                    });
+                    
+                    // Check if only warmup failed but WebSocket is OK
+                    if (!connectFuture.hasError() && warmupFuture.hasError()) {
+                        Log.i(TAG, "WebSocket connected but speech warmup failed - app can still function");
+                        runOnUiThread(() -> {
+                            addMessage("Connected to AI, but speech recognition warmup failed. You can still use the app, speech recognition will initialize when first used.", ChatMessage.Sender.ROBOT);
+                            statusTextView.setText("Ready (Speech Recognition will initialize on first use)");
+                        });
+                        if (turnManager != null) turnManager.setState(TurnManager.State.LISTENING);
+                    } else {
+                        // WebSocket failed - this is more critical
+                        runOnUiThread(() -> {
+                            addMessage(getString(R.string.setup_error_during, future.getError().getMessage()), ChatMessage.Sender.ROBOT);
+                            statusTextView.setText(getString(R.string.error_connection_failed));
+                        });
+                    }
                 } else {
                     Log.i(TAG, "Initial Setup complete. Starting recognition now.");
                     // This will correctly set the status to "Listening" after warmup.
@@ -446,12 +469,15 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                     expectingFinalAnswerAfterToolCall = false; // Reset flag
                 } else if (messageList.isEmpty() || messageList.get(messageList.size() - 1).getSender() != ChatMessage.Sender.ROBOT) {
                     createNewMessage = true;
+                } else if (!Objects.equals(respId, lastChatBubbleResponseId)) {
+                    createNewMessage = true; // New response ID means new bubble
                 }
 
                 if (createNewMessage) {
                     messageList.add(new ChatMessage(delta, ChatMessage.Sender.ROBOT));
                     chatAdapter.notifyItemInserted(messageList.size() - 1);
                     chatRecyclerView.scrollToPosition(messageList.size() - 1);
+                    lastChatBubbleResponseId = respId;
                 } else {
                     ChatMessage lastMessage = messageList.get(messageList.size() - 1);
                     lastMessage.setMessage(lastMessage.getMessage() + delta);
@@ -577,6 +603,9 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         // Reset mute state for new session
         isMuted = false;
         
+        // Reset response tracking for clean chat bubbles
+        lastChatBubbleResponseId = null;
+        
         // Update UI immediately
         runOnUiThread(() -> {
             statusTextView.setText(getString(R.string.status_starting_new_session));
@@ -668,10 +697,12 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                             statusTextView.append(delta);
                             boolean needNew = expectingFinalAnswerAfterToolCall
                                     || messageList.isEmpty()
-                                    || messageList.get(messageList.size() - 1).getSender() != ChatMessage.Sender.ROBOT;
+                                    || messageList.get(messageList.size() - 1).getSender() != ChatMessage.Sender.ROBOT
+                                    || !Objects.equals(responseId, lastChatBubbleResponseId);
                             if (needNew) {
                                 addMessage(delta, ChatMessage.Sender.ROBOT);
                                 expectingFinalAnswerAfterToolCall = false;
+                                lastChatBubbleResponseId = responseId;
                             } else {
                                 ChatMessage last = messageList.get(messageList.size() - 1);
                                 last.setMessage(last.getMessage() + delta);
@@ -841,10 +872,40 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                 runOnUiThread(() -> statusTextView.setText(getString(R.string.status_listening)));
                 Log.i(TAG, "Continuous recognition started.");
             } catch (Exception ex) {
-                Log.e(TAG, "startContinuousRecognition failed", ex);
+                Log.e(TAG, "startContinuousRecognition failed, attempting lazy initialization", ex);
+                
+                // If recognition fails, try to re-initialize (for first-launch scenarios)
+                if (isFirstLaunchSpeechError(ex)) {
+                    Log.i(TAG, "Detected first-launch speech error, attempting lazy re-initialization");
+                    try {
+                        String langCode = settingsManager.getLanguage();
+                        int silenceTimeout = settingsManager.getSilenceTimeout();
+                        sttManager.initialize(keyManager.getAzureSpeechKey(), keyManager.getAzureSpeechRegion(), langCode, silenceTimeout);
+                        
+                        // Try again after brief delay
+                        Thread.sleep(1000);
+                        sttManager.startContinuous();
+                        runOnUiThread(() -> statusTextView.setText(getString(R.string.status_listening)));
+                        Log.i(TAG, "Lazy speech initialization successful");
+                        return;
+                    } catch (Exception retryEx) {
+                        Log.e(TAG, "Lazy speech initialization also failed", retryEx);
+                    }
+                }
+                
                 runOnUiThread(() -> statusTextView.setText(getString(R.string.error_starting_listener, ex.getMessage())));
             }
         });
+    }
+    
+    private boolean isFirstLaunchSpeechError(Exception ex) {
+        String msg = ex.getMessage();
+        return msg != null && (
+            msg.contains("0x22") || 
+            msg.contains("SPXERR_INVALID_RECOGNIZER") ||
+            msg.contains("invalid recognizer") ||
+            msg.contains("not initialized")
+        );
     }
 
     private void stopContinuousRecognition() {
@@ -1108,6 +1169,91 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         // Make dialog full-screen
         if (dialog.getWindow() != null) {
             dialog.getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+        }
+    }
+
+    private void showMemoryGameDialog(String difficulty) {
+        if (isFinishing()) { 
+            Log.w(TAG, "Not showing memory game dialog because activity is finishing."); 
+            return; 
+        }
+        
+        MemoryGameDialog memoryGame = new MemoryGameDialog(this, new MemoryGameDialog.GameEventListener() {
+            @Override
+            public void sendContextUpdate(String message) {
+                // Send context update without requesting a response
+                sendContextToModel(message, false);
+            }
+            
+            @Override
+            public void sendContextUpdateWithResponse(String message) {
+                // Send context update and request a response
+                sendContextToModel(message, true);
+            }
+            
+            @Override
+            public void onGameClosed() {
+                Log.i(TAG, "Memory game closed by user");
+            }
+        });
+        
+        memoryGame.show(difficulty);
+    }
+
+    private void sendContextToModel(String message, boolean requestResponse) {
+        if (sessionManager == null || !sessionManager.isConnected()) {
+            Log.e(TAG, "WebSocket is not connected. Cannot send context update.");
+            return;
+        }
+
+        try {
+            // Interrupt any active response if we're requesting a new response
+            if (requestResponse && turnManager != null && turnManager.getState() == TurnManager.State.SPEAKING) {
+                if (hasActiveResponse || (audioPlayer != null && audioPlayer.isPlaying())) {
+                    fabInterrupt.performClick();
+                }
+            }
+
+            // Step 1: Send the context message to add it to the server-side history
+            JSONObject createItemPayload = new JSONObject();
+            createItemPayload.put("type", "conversation.item.create");
+
+            JSONObject item = new JSONObject();
+            item.put("type", "message");
+            item.put("role", "user");
+
+            JSONArray contentArray = new JSONArray();
+            JSONObject content = new JSONObject();
+            content.put("type", "input_text");
+            content.put("text", message);
+            contentArray.put(content);
+
+            item.put("content", contentArray);
+            createItemPayload.put("item", item);
+
+            sessionManager.send(createItemPayload.toString());
+            Log.d(TAG, "Sent context update: " + message);
+
+            // Step 2: If response is requested, ask the model to respond
+            if (requestResponse) {
+                JSONObject createResponsePayload = new JSONObject();
+                createResponsePayload.put("type", "response.create");
+                
+                JSONObject responseDetails = new JSONObject();
+                responseDetails.put("modalities", new JSONArray().put("audio").put("text"));
+                createResponsePayload.put("response", responseDetails);
+
+                sessionManager.send(createResponsePayload.toString());
+                Log.d(TAG, "Requested response after context update");
+                
+                // Update turn manager state for expected response
+                if (turnManager != null) {
+                    turnManager.setState(TurnManager.State.THINKING);
+                }
+            }
+
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to send context update", e);
         }
     }
 

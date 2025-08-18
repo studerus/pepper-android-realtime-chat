@@ -40,6 +40,9 @@ public class SpeechRecognizerManager {
                     try { recognizer.close(); } catch (Exception ignored) {}
                 }
                 recognizer = new SpeechRecognizer(cfg);
+                
+                // Give Azure Speech SDK time to fully initialize internally
+                Thread.sleep(500);
 
                 recognizer.recognizing.addEventListener((s, e) -> {
                     if (listener != null && e != null) {
@@ -92,42 +95,71 @@ public class SpeechRecognizerManager {
         }
         
         if (recognizer == null) {
-            throw new RuntimeException("Recognizer initialization timed out - recognizer is still null after 5 seconds");
+            Log.w(TAG, "Recognizer initialization timed out - this is expected on first launch");
+            throw new RuntimeException("Recognizer not initialized - will retry on first use");
         }
         
         Log.i(TAG, "Recognizer is ready, starting connection warmup...");
-
+        
+        // Attempt warmup with retry for first-launch scenarios
+        Exception lastError = null;
+        for (int attempt = 1; attempt <= 2; attempt++) {
+            try {
+                attemptWarmupConnection(attempt);
+                Log.i(TAG, "Recognizer warmup completed successfully" + (attempt > 1 ? " on retry #" + attempt : ""));
+                return; // Success!
+            } catch (Exception e) {
+                lastError = e;
+                Log.w(TAG, "Warmup attempt #" + attempt + " failed: " + e.getMessage());
+                
+                if (attempt == 1 && isFirstLaunchError(e)) {
+                    Log.i(TAG, "First-launch error detected, retrying after delay...");
+                    try {
+                        Thread.sleep(1000); // Extra delay for Azure SDK to settle
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new RuntimeException("Warmup interrupted during retry delay.", ie);
+                    }
+                } else {
+                    throw e; // Re-throw on final attempt or non-recoverable errors
+                }
+            }
+        }
+        
+        // This should never be reached, but for safety
+        throw lastError != null ? lastError : new RuntimeException("Warmup failed for unknown reason");
+    }
+    
+    private void attemptWarmupConnection(int attemptNumber) throws Exception {
         final Object lock = new Object();
         final Exception[] error = { null };
 
         Connection connection = Connection.fromRecognizer(recognizer);
 
         connection.connected.addEventListener((s, e) -> {
-            Log.i(TAG, "Recognizer connection established.");
-            connection.connected.removeEventListener((s1, e1) -> {}); // Clear listeners
+            Log.i(TAG, "Recognizer connection established (attempt #" + attemptNumber + ")");
             synchronized (lock) {
                 lock.notify();
             }
         });
 
         connection.disconnected.addEventListener((s, e) -> {
-            Log.e(TAG, "Recognizer connection failed (disconnected).");
-            connection.disconnected.removeEventListener((s1, e1) -> {}); // Clear listeners
-            error[0] = new RuntimeException("Recognizer disconnected during warmup.");
+            Log.e(TAG, "Recognizer connection failed - disconnected (attempt #" + attemptNumber + ")");
+            error[0] = new RuntimeException("Recognizer disconnected during warmup");
             synchronized (lock) {
                 lock.notify();
             }
         });
 
-        Log.i(TAG, "Opening recognizer connection...");
+        Log.i(TAG, "Opening recognizer connection (attempt #" + attemptNumber + ")...");
         connection.openConnection(true);
 
         synchronized (lock) {
             try {
-                lock.wait(10000); // 10 second timeout for connection
+                lock.wait(8000); // 8 second timeout per attempt
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                throw new RuntimeException("Warmup interrupted during connection.", e);
+                throw new RuntimeException("Warmup interrupted during connection", e);
             }
         }
 
@@ -135,15 +167,24 @@ public class SpeechRecognizerManager {
             throw error[0];
         }
         
-        // Additional verification: try a quick test to ensure recognizer is truly ready
+        // Verify recognizer is truly ready
         try {
-            // This will succeed only if the recognizer is fully initialized
             if (recognizer.getProperties() != null) {
-                Log.i(TAG, "Recognizer warmup and verification complete - ready for continuous recognition.");
+                Log.i(TAG, "Recognizer verification passed");
             }
         } catch (Exception e) {
-            Log.w(TAG, "Recognizer properties check failed, but proceeding anyway", e);
+            Log.w(TAG, "Recognizer properties check failed", e);
+            throw new RuntimeException("Recognizer not fully ready: " + e.getMessage(), e);
         }
+    }
+    
+    private boolean isFirstLaunchError(Exception e) {
+        String msg = e.getMessage();
+        return msg != null && (
+            msg.contains("0x22") || 
+            msg.contains("SPXERR_INVALID_RECOGNIZER") ||
+            msg.contains("invalid recognizer")
+        );
     }
 
     public void shutdown() {
