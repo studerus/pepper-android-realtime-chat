@@ -11,18 +11,22 @@ import android.util.DisplayMetrics;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.RotateAnimation;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
 import java.io.File;
 import java.util.List;
 
-public class ChatMessageAdapter extends RecyclerView.Adapter<ChatMessageAdapter.MessageViewHolder> {
+public class ChatMessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     private static final int VIEW_TYPE_USER = 1;
     private static final int VIEW_TYPE_ROBOT = 2;
+    private static final int VIEW_TYPE_FUNCTION_CALL = 3;
 
     private final List<ChatMessage> messages;
 
@@ -33,7 +37,9 @@ public class ChatMessageAdapter extends RecyclerView.Adapter<ChatMessageAdapter.
     @Override
     public int getItemViewType(int position) {
         ChatMessage message = messages.get(position);
-        if (message.getSender() == ChatMessage.Sender.USER) {
+        if (message.getType() == ChatMessage.Type.FUNCTION_CALL) {
+            return VIEW_TYPE_FUNCTION_CALL;
+        } else if (message.getSender() == ChatMessage.Sender.USER) {
             return VIEW_TYPE_USER;
         } else {
             return VIEW_TYPE_ROBOT;
@@ -42,55 +48,67 @@ public class ChatMessageAdapter extends RecyclerView.Adapter<ChatMessageAdapter.
 
     @NonNull
     @Override
-    public MessageViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View view;
-        if (viewType == VIEW_TYPE_USER) {
-            view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_chat_user, parent, false);
-        } else {
-            view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_chat_robot, parent, false);
+    public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        LayoutInflater inflater = LayoutInflater.from(parent.getContext());
+        
+        switch (viewType) {
+            case VIEW_TYPE_FUNCTION_CALL:
+                View functionView = inflater.inflate(R.layout.item_function_call, parent, false);
+                return new FunctionCallViewHolder(functionView, this);
+            case VIEW_TYPE_USER:
+                View userView = inflater.inflate(R.layout.item_chat_user, parent, false);
+                return new MessageViewHolder(userView);
+            default:
+                View robotView = inflater.inflate(R.layout.item_chat_robot, parent, false);
+                return new MessageViewHolder(robotView);
         }
-        return new MessageViewHolder(view);
     }
 
     @Override
-    public void onBindViewHolder(@NonNull MessageViewHolder holder, int position) {
+    public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
         ChatMessage message = messages.get(position);
-        String text = message.getMessage();
-        holder.messageTextView.setText(text);
+        
+        if (holder instanceof FunctionCallViewHolder) {
+            ((FunctionCallViewHolder) holder).bind(message);
+        } else if (holder instanceof MessageViewHolder) {
+            MessageViewHolder messageHolder = (MessageViewHolder) holder;
+            String text = message.getMessage();
+            messageHolder.messageTextView.setText(text);
 
-        FrameLayout bubbleContainer = holder.itemView.findViewById(R.id.bubble_container);
+            FrameLayout bubbleContainer = messageHolder.itemView.findViewById(R.id.bubble_container);
 
-        if (TextUtils.isEmpty(text)) {
-            if (bubbleContainer != null) {
-                bubbleContainer.setVisibility(View.GONE);
-            }
-        } else {
-            if (bubbleContainer != null) {
-                bubbleContainer.setVisibility(View.VISIBLE);
-                // Forcefully apply a programmatically created drawable to bypass themes
-                if (message.getSender() == ChatMessage.Sender.ROBOT) {
-                    GradientDrawable robotBubble = new GradientDrawable();
-                    robotBubble.setShape(GradientDrawable.RECTANGLE);
-                    robotBubble.setColor(Color.parseColor("#E5E5EA")); // Light gray
-                    robotBubble.setCornerRadius(dpToPx(holder.itemView.getContext(), 20));
-                    bubbleContainer.setBackground(robotBubble);
+            if (TextUtils.isEmpty(text)) {
+                if (bubbleContainer != null) {
+                    bubbleContainer.setVisibility(View.GONE);
                 }
-            }
-            int screenMax = (int) (holder.itemView.getResources().getDisplayMetrics().widthPixels * 0.8f);
-            holder.messageTextView.setMaxWidth(screenMax);
-        }
-
-        ImageView imageView = holder.messageImageView;
-        if (imageView != null) {
-            String path = message.getImagePath();
-            if (path != null && new File(path).exists()) {
-                imageView.setVisibility(View.VISIBLE);
-                int thumbPx = dpToPx(holder.itemView.getContext(), 220);
-                imageView.setImageBitmap(decodeSampledBitmapFromPath(path, thumbPx, thumbPx));
-                imageView.setOnClickListener(v -> openFullscreen(v.getContext(), path));
             } else {
-                imageView.setVisibility(View.GONE);
-                imageView.setOnClickListener(null);
+                if (bubbleContainer != null) {
+                    bubbleContainer.setVisibility(View.VISIBLE);
+                    // Forcefully apply a programmatically created drawable to bypass themes
+                    if (message.getSender() == ChatMessage.Sender.ROBOT) {
+                        GradientDrawable robotBubble = new GradientDrawable();
+                        robotBubble.setShape(GradientDrawable.RECTANGLE);
+                        robotBubble.setColor(Color.parseColor("#E5E5EA")); // Light gray
+                        robotBubble.setCornerRadius(dpToPx(messageHolder.itemView.getContext(), 20));
+                        bubbleContainer.setBackground(robotBubble);
+                    }
+                }
+                int screenMax = (int) (messageHolder.itemView.getResources().getDisplayMetrics().widthPixels * 0.8f);
+                messageHolder.messageTextView.setMaxWidth(screenMax);
+            }
+
+            ImageView imageView = messageHolder.messageImageView;
+            if (imageView != null) {
+                String path = message.getImagePath();
+                if (path != null && new File(path).exists()) {
+                    imageView.setVisibility(View.VISIBLE);
+                    int thumbPx = dpToPx(messageHolder.itemView.getContext(), 220);
+                    imageView.setImageBitmap(decodeSampledBitmapFromPath(path, thumbPx, thumbPx));
+                    imageView.setOnClickListener(v -> openFullscreen(v.getContext(), path));
+                } else {
+                    imageView.setVisibility(View.GONE);
+                    imageView.setOnClickListener(null);
+                }
             }
         }
     }
@@ -140,6 +158,154 @@ public class ChatMessageAdapter extends RecyclerView.Adapter<ChatMessageAdapter.
             super(itemView);
             messageTextView = itemView.findViewById(R.id.messageTextView);
             messageImageView = itemView.findViewById(R.id.messageImageView);
+        }
+    }
+    
+    static class FunctionCallViewHolder extends RecyclerView.ViewHolder {
+        private final TextView functionIcon;
+        private final TextView functionName;
+        private final TextView functionStatus;
+        private final TextView functionSummary;
+        private final TextView functionArgs;
+        private final TextView functionResult;
+        private final TextView functionResultLabel;
+        private final ImageView expandIcon;
+        private final LinearLayout functionHeader;
+        private final LinearLayout detailsContainer;
+        private final ChatMessageAdapter adapter;
+        
+        public FunctionCallViewHolder(@NonNull View itemView, ChatMessageAdapter adapter) {
+            super(itemView);
+            this.adapter = adapter;
+            functionIcon = itemView.findViewById(R.id.function_icon);
+            functionName = itemView.findViewById(R.id.function_name);
+            functionStatus = itemView.findViewById(R.id.function_status);
+            functionSummary = itemView.findViewById(R.id.function_summary);
+            functionArgs = itemView.findViewById(R.id.function_args);
+            functionResult = itemView.findViewById(R.id.function_result);
+            functionResultLabel = itemView.findViewById(R.id.function_result_label);
+            expandIcon = itemView.findViewById(R.id.expand_icon);
+            functionHeader = itemView.findViewById(R.id.function_header);
+            detailsContainer = itemView.findViewById(R.id.function_details_container);
+            
+            // Set up click listener for expand/collapse
+            functionHeader.setOnClickListener(v -> toggleExpanded());
+        }
+        
+        public void bind(ChatMessage message) {
+            // Set function icon based on function name
+            functionIcon.setText(getFunctionIcon(message.getFunctionName()));
+            
+            // Set function display name
+            functionName.setText(getFunctionDisplayName(message.getFunctionName()));
+            
+            // Set status with appropriate colors
+            boolean hasResult = message.getFunctionResult() != null;
+            if (hasResult) {
+                functionStatus.setText("✅");
+                functionStatus.setTextColor(ContextCompat.getColor(itemView.getContext(), R.color.function_call_status_success));
+            } else {
+                functionStatus.setText("⏳");
+                functionStatus.setTextColor(ContextCompat.getColor(itemView.getContext(), R.color.function_call_status_pending));
+            }
+            
+            // Set summary
+            functionSummary.setText(generateSummary(message));
+            
+            // Set arguments
+            functionArgs.setText(formatJson(message.getFunctionArgs()));
+            
+            // Show/hide result
+            if (hasResult) {
+                functionResult.setText(formatJson(message.getFunctionResult()));
+                functionResult.setVisibility(View.VISIBLE);
+                functionResultLabel.setVisibility(View.VISIBLE);
+            } else {
+                functionResult.setVisibility(View.GONE);
+                functionResultLabel.setVisibility(View.GONE);
+            }
+            
+            // Set expand/collapse state
+            updateExpandState(message.isExpanded());
+        }
+        
+        private void toggleExpanded() {
+            int position = getAdapterPosition();
+            if (position != RecyclerView.NO_POSITION && position < adapter.messages.size()) {
+                ChatMessage message = adapter.messages.get(position);
+                message.setExpanded(!message.isExpanded());
+                updateExpandState(message.isExpanded());
+            }
+        }
+        
+        private void updateExpandState(boolean expanded) {
+            detailsContainer.setVisibility(expanded ? View.VISIBLE : View.GONE);
+            
+            // Rotate expand icon
+            RotateAnimation rotate = new RotateAnimation(
+                expanded ? 0 : 180, expanded ? 180 : 0,
+                RotateAnimation.RELATIVE_TO_SELF, 0.5f,
+                RotateAnimation.RELATIVE_TO_SELF, 0.5f
+            );
+            rotate.setDuration(200);
+            rotate.setFillAfter(true);
+            expandIcon.startAnimation(rotate);
+        }
+        
+        private String getFunctionIcon(String functionName) {
+            switch (functionName) {
+                case "search_internet": return "🌐";
+                case "get_weather": return "🌤️";
+                case "analyze_vision": return "👁️";
+                case "play_animation": return "🤖";
+                case "get_current_datetime": return "🕐";
+                case "get_random_joke": return "😄";
+                case "present_quiz_question": return "❓";
+                case "start_memory_game": return "🧠";
+                default: return "🔧";
+            }
+        }
+        
+        private String getFunctionDisplayName(String functionName) {
+            switch (functionName) {
+                case "search_internet": return "Internet Search";
+                case "get_weather": return "Weather";
+                case "analyze_vision": return "Vision Analysis";
+                case "play_animation": return "Animation";
+                case "get_current_datetime": return "Date/Time";
+                case "get_random_joke": return "Random Joke";
+                case "present_quiz_question": return "Quiz Question";
+                case "start_memory_game": return "Memory Game";
+                default: return functionName.replace("_", " ");
+            }
+        }
+        
+        private String generateSummary(ChatMessage message) {
+            String functionName = message.getFunctionName();
+            boolean hasResult = message.getFunctionResult() != null;
+            
+            switch (functionName) {
+                case "search_internet":
+                    return hasResult ? "Internet search completed" : "Searching internet...";
+                case "get_weather":
+                    return hasResult ? "Weather information retrieved" : "Getting weather...";
+                case "analyze_vision":
+                    return hasResult ? "Image analysis completed" : "Analyzing image...";
+                case "play_animation":
+                    return hasResult ? "Animation played" : "Playing animation...";
+                default:
+                    return hasResult ? "Function completed" : "Function executing...";
+            }
+        }
+        
+        private String formatJson(String json) {
+            if (json == null || json.isEmpty()) return "";
+            
+            // Simple formatting - add line breaks after commas and format braces
+            return json.replace(",", ",\n")
+                      .replace("{", "{\n  ")
+                      .replace("}", "\n}")
+                      .replace("\":", "\": ");
         }
     }
 }

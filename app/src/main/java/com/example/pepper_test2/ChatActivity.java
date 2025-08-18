@@ -1017,14 +1017,14 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
 
                                 final String fToolName = toolName;
                                 final String fArgsString = args.toString();
-                                runOnUiThread(() -> addMessage(getString(R.string.function_call_prefix, fToolName, fArgsString), ChatMessage.Sender.ROBOT));
+                                runOnUiThread(() -> addFunctionCall(fToolName, fArgsString));
 
                                 if ("analyze_vision".equals(toolName)) {
                                     startAnalyzeVisionFlow(callId, args.optString("prompt", ""));
                                     } else {
                                     String result = toolExecutor.execute(toolName, args);
                                     final String fResult = result;
-                                    runOnUiThread(() -> addMessage(getString(R.string.function_result_prefix, fResult), ChatMessage.Sender.ROBOT));
+                                    runOnUiThread(() -> updateFunctionCallResult(fResult));
                                     sendToolResult(callId, result);
                                 }
                                 expectingFinalAnswerAfterToolCall = true;
@@ -1348,6 +1348,26 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         });
     }
 
+    private void addFunctionCall(String functionName, String args) {
+        ChatMessage functionCall = ChatMessage.createFunctionCall(functionName, args, ChatMessage.Sender.ROBOT);
+        messageList.add(functionCall);
+        chatAdapter.notifyItemInserted(messageList.size() - 1);
+        chatRecyclerView.scrollToPosition(messageList.size() - 1);
+    }
+
+    private void updateFunctionCallResult(String result) {
+        // Find the last function call without a result and update it
+        for (int i = messageList.size() - 1; i >= 0; i--) {
+            ChatMessage message = messageList.get(i);
+            if (message.getType() == ChatMessage.Type.FUNCTION_CALL && 
+                message.getFunctionResult() == null) {
+                message.setFunctionResult(result);
+                chatAdapter.notifyItemChanged(i);
+                break;
+            }
+        }
+    }
+
 
 
     private void addImageMessage(String imagePath) {
@@ -1372,11 +1392,11 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                     if (!desc.isEmpty()) obj.put("description", desc + context);
                     String adjusted = obj.toString();
                     sendToolResult(callId, adjusted);
-                    runOnUiThread(() -> addMessage(getString(R.string.function_result_prefix, adjusted), ChatMessage.Sender.ROBOT));
+                    runOnUiThread(() -> updateFunctionCallResult(adjusted));
                 } catch (Exception e) {
                     // Fallback: if parsing fails, send original string
                     sendToolResult(callId, resultJson);
-                    runOnUiThread(() -> addMessage(getString(R.string.function_result_prefix, resultJson), ChatMessage.Sender.ROBOT));
+                    runOnUiThread(() -> updateFunctionCallResult(resultJson));
                 }
             }
             @Override public void onError(String errorMessage) {

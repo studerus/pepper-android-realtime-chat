@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Function call colors for dark theme -->
+    <color name="function_call_background">#FF1E293B</color>
+    <color name="function_call_title">#FF94A3B8</color>
+    <color name="function_call_summary">#FF64748B</color>
+    <color name="function_call_status_success">#FF10B981</color>
+    <color name="function_call_status_pending">#FFF59E0B</color>
+    <color name="function_call_icon">#FF60A5FA</color>
+    <color name="function_call_label">#FFD1D5DB</color>
+    <color name="function_call_code">#FFF1F5F9</color>
+    <color name="code_background">#FF0F172A</color>
+</resources>
