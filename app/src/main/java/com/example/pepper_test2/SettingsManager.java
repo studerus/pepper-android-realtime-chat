@@ -4,12 +4,17 @@ import android.content.SharedPreferences;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
+import android.widget.CheckBox;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.SeekBar;
 import android.widget.Spinner;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class SettingsManager {
 
@@ -21,6 +26,7 @@ public class SettingsManager {
     private static final String KEY_TEMPERATURE = "temperature";
     private static final String KEY_VOLUME = "volume";
     private static final String KEY_SILENCE_TIMEOUT = "silenceTimeout";
+    private static final String KEY_ENABLED_TOOLS = "enabledTools";
 
     private final ChatActivity activity;
     private final SharedPreferences settings;
@@ -36,11 +42,13 @@ public class SettingsManager {
     private TextView volumeValue;
     private SeekBar silenceTimeoutSeekBar;
     private TextView silenceTimeoutValue;
+    private android.widget.LinearLayout functionCallsContainer;
 
     public interface SettingsListener {
         void onSettingsChanged();
         void onRecognizerSettingsChanged();
         void onVolumeChanged(int volume);
+        void onToolsChanged();
     }
 
     private SettingsListener listener;
@@ -68,6 +76,7 @@ public class SettingsManager {
         volumeValue = navigationView.findViewById(R.id.volume_value);
         silenceTimeoutSeekBar = navigationView.findViewById(R.id.silence_timeout_seekbar);
         silenceTimeoutValue = navigationView.findViewById(R.id.silence_timeout_value);
+        functionCallsContainer = navigationView.findViewById(R.id.function_calls_container);
     }
 
     private void loadSettings() {
@@ -114,6 +123,9 @@ public class SettingsManager {
         int silenceTimeout = settings.getInt(KEY_SILENCE_TIMEOUT, 500);
         silenceTimeoutSeekBar.setProgress(silenceTimeout);
         silenceTimeoutValue.setText(activity.getString(R.string.silence_timeout_format, silenceTimeout));
+
+        // Setup Function Calls UI
+        setupFunctionCallsUI();
     }
 
     private void setupListeners() {
@@ -162,6 +174,7 @@ public class SettingsManager {
         String oldPrompt = settings.getString(KEY_SYSTEM_PROMPT, "");
         int oldTemp = settings.getInt(KEY_TEMPERATURE, 33);
         if (oldTemp < 0 || oldTemp > 100) oldTemp = 33;
+        Set<String> oldTools = getEnabledTools();
         
         String newModel = (String) modelSpinner.getSelectedItem();
         String newVoice = (String) voiceSpinner.getSelectedItem();
@@ -169,6 +182,7 @@ public class SettingsManager {
         String newLang = selectedLang.getCode();
         String newPrompt = systemPromptInput.getText().toString();
         int newTemp = temperatureSeekBar.getProgress();
+        Set<String> newTools = getCurrentlySelectedTools();
 
         SharedPreferences.Editor editor = settings.edit();
         editor.putString(KEY_SYSTEM_PROMPT, newPrompt);
@@ -176,15 +190,19 @@ public class SettingsManager {
         editor.putString(KEY_VOICE, newVoice);
         editor.putString(KEY_LANGUAGE, newLang);
         editor.putInt(KEY_TEMPERATURE, newTemp);
+        editor.putStringSet(KEY_ENABLED_TOOLS, newTools);
         editor.apply();
 
+        // Determine what type of change occurred and notify accordingly
         if (!oldModel.equals(newModel) || !oldVoice.equals(newVoice)) {
+            // Model or voice change requires new session
             if (listener != null) listener.onSettingsChanged();
         } else if (!oldLang.equals(newLang)) {
+            // Language change requires recognizer restart
             if (listener != null) listener.onRecognizerSettingsChanged();
-        } else if (!oldPrompt.equals(newPrompt) || oldTemp != newTemp) {
-            // This case can be handled by sending a session update, which is part of onSettingsChanged
-            if (listener != null) listener.onSettingsChanged();
+        } else if (!oldTools.equals(newTools) || !oldPrompt.equals(newPrompt) || oldTemp != newTemp) {
+            // Tools, prompt, or temperature change only requires session update
+            if (listener != null) listener.onToolsChanged();
         }
     }
 
@@ -216,6 +234,105 @@ public class SettingsManager {
         int tempProgress = settings.getInt(KEY_TEMPERATURE, 33);
         if (tempProgress < 0 || tempProgress > 100) tempProgress = 33;
         return convertProgressToTemperature(tempProgress);
+    }
+
+    public Set<String> getEnabledTools() {
+        Set<String> defaultTools = getDefaultEnabledTools();
+        return settings.getStringSet(KEY_ENABLED_TOOLS, defaultTools);
+    }
+
+    public void setEnabledTools(Set<String> enabledTools) {
+        settings.edit().putStringSet(KEY_ENABLED_TOOLS, enabledTools).apply();
+    }
+
+    public boolean isToolEnabled(String toolName) {
+        return getEnabledTools().contains(toolName);
+    }
+
+    private Set<String> getDefaultEnabledTools() {
+        // By default, all tools should be enabled
+        Set<String> defaultTools = new HashSet<>();
+        for (ToolRegistry.ToolInfo tool : ToolRegistry.getAllAvailableTools()) {
+            defaultTools.add(tool.getName());
+        }
+        return defaultTools;
+    }
+
+    private void setupFunctionCallsUI() {
+        if (functionCallsContainer == null) return;
+        
+        functionCallsContainer.removeAllViews();
+        
+        ApiKeyManager keyManager = new ApiKeyManager(activity);
+        Set<String> enabledTools = getEnabledTools();
+        
+        for (ToolRegistry.ToolInfo tool : ToolRegistry.getAllAvailableTools()) {
+            View toolItemView = activity.getLayoutInflater().inflate(R.layout.item_tool_setting, functionCallsContainer, false);
+            
+            CheckBox toolCheckbox = toolItemView.findViewById(R.id.tool_checkbox);
+            TextView toolName = toolItemView.findViewById(R.id.tool_name);
+            TextView toolApiKeyStatus = toolItemView.findViewById(R.id.tool_api_key_status);
+            TextView toolDescription = toolItemView.findViewById(R.id.tool_description);
+            ImageView expandIcon = toolItemView.findViewById(R.id.expand_icon);
+            LinearLayout descriptionContainer = toolItemView.findViewById(R.id.description_container);
+            
+            // Set tool information
+            toolName.setText(tool.getName());
+            toolDescription.setText(tool.getDescription());
+            toolCheckbox.setChecked(enabledTools.contains(tool.getName()));
+            
+            // Check API key availability if required
+            boolean isApiKeyAvailable = true;
+            if (tool.requiresApiKey()) {
+                switch (tool.getApiKeyType()) {
+                    case "Groq":
+                        isApiKeyAvailable = keyManager.isVisionAnalysisAvailable();
+                        break;
+                    case "Tavily":
+                        isApiKeyAvailable = keyManager.isInternetSearchAvailable();
+                        break;
+                    case "OpenWeatherMap":
+                        isApiKeyAvailable = keyManager.isWeatherAvailable();
+                        break;
+                }
+                
+                if (!isApiKeyAvailable) {
+                    toolApiKeyStatus.setVisibility(View.VISIBLE);
+                    toolApiKeyStatus.setText("API key required: " + tool.getApiKeyType());
+                    toolCheckbox.setEnabled(false);
+                    toolCheckbox.setChecked(false);
+                }
+            }
+            
+            // Setup expand/collapse functionality
+            View.OnClickListener toggleDescription = v -> {
+                boolean isExpanded = descriptionContainer.getVisibility() == View.VISIBLE;
+                descriptionContainer.setVisibility(isExpanded ? View.GONE : View.VISIBLE);
+                expandIcon.setRotation(isExpanded ? 0 : 180);
+            };
+            
+            toolItemView.setOnClickListener(toggleDescription);
+            expandIcon.setOnClickListener(toggleDescription);
+            
+            // Store tool name as tag for later retrieval
+            toolCheckbox.setTag(tool.getName());
+            
+            functionCallsContainer.addView(toolItemView);
+        }
+    }
+
+    public Set<String> getCurrentlySelectedTools() {
+        Set<String> selectedTools = new HashSet<>();
+        if (functionCallsContainer == null) return selectedTools;
+        
+        for (int i = 0; i < functionCallsContainer.getChildCount(); i++) {
+            View toolItemView = functionCallsContainer.getChildAt(i);
+            CheckBox toolCheckbox = toolItemView.findViewById(R.id.tool_checkbox);
+            if (toolCheckbox != null && toolCheckbox.isChecked() && toolCheckbox.getTag() != null) {
+                selectedTools.add((String) toolCheckbox.getTag());
+            }
+        }
+        return selectedTools;
     }
 
     private float convertProgressToTemperature(int progress) {

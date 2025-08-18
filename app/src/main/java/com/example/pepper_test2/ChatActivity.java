@@ -527,7 +527,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         settingsManager.setListener(new SettingsManager.SettingsListener() {
             @Override
             public void onSettingsChanged() {
-                // This covers model, voice, prompt, and temperature changes
+                // This covers model, voice changes - requires new session
                 Log.i(TAG, "Core settings changed. Starting new session.");
                 startNewSession();
             }
@@ -552,6 +552,13 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             @Override
             public void onVolumeChanged(int volume) {
                 applyVolume(volume);
+            }
+
+            @Override
+            public void onToolsChanged() {
+                // This covers tools, prompt, and temperature changes - only session update needed
+                Log.i(TAG, "Tools/prompt/temperature changed. Updating session.");
+                sendSessionUpdate();
             }
         });
 
@@ -1448,6 +1455,33 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             Log.d(TAG, "Sent initial session.update: " + payload);
         } catch (Exception e) {
             Log.e(TAG, "Failed to send initial session.update", e);
+        }
+    }
+
+    // Sends session.update with current settings during an active session
+    private void sendSessionUpdate() {
+        if (sessionManager == null || !sessionManager.isConnected()) return;
+        try {
+            String voice = settingsManager.getVoice();
+            float temperature = settingsManager.getTemperature();
+            String systemPrompt = settingsManager.getSystemPrompt();
+            java.util.Set<String> enabledTools = settingsManager.getEnabledTools();
+
+            JSONObject payload = new JSONObject();
+            payload.put("type", "session.update");
+
+            JSONObject sessionConfig = new JSONObject();
+            sessionConfig.put("voice", voice);
+            sessionConfig.put("temperature", temperature);
+            sessionConfig.put("instructions", systemPrompt);
+            sessionConfig.put("tools", ToolRegistry.buildToolsDefinitionForAzure(this, enabledTools));
+
+            payload.put("session", sessionConfig);
+
+            sessionManager.send(payload.toString());
+            Log.d(TAG, "Sent session.update: " + payload);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to send session.update", e);
         }
     }
 
