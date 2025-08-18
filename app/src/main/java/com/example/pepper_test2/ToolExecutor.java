@@ -41,11 +41,13 @@ public class ToolExecutor {
 	private final ToolUi ui;
 	private final ApiKeyManager keyManager;
 	private QiContext qiContext;
+	private final MovementController movementController;
 
 	public ToolExecutor(Context context, ToolUi ui) {
 		this.appContext = context.getApplicationContext();
 		this.ui = ui;
 		this.keyManager = new ApiKeyManager(context);
+		this.movementController = new MovementController();
 	}
 
 	public void setQiContext(QiContext qiContext) {
@@ -69,6 +71,8 @@ public class ToolExecutor {
 					return handleGetWeather(args);
 				case "start_memory_game":
 					return handleStartMemoryGame(args);
+				case "move_pepper":
+					return handleMovePepper(args);
 				default:
 					return new JSONObject().put("error", "Unknown tool: " + toolName).toString();
 			}
@@ -454,6 +458,44 @@ public class ToolExecutor {
 			return raw.substring(0, raw.length() - 2) + ":" + raw.substring(raw.length() - 2);
 		}
 		return raw;
+	}
+
+	private String handleMovePepper(JSONObject args) throws Exception {
+		String direction = args.optString("direction", "");
+		double distance = args.optDouble("distance", 0);
+		double speed = args.optDouble("speed", 0.4);
+		
+		// Validate required parameters
+		if (direction.isEmpty()) {
+			return new JSONObject().put("error", "Missing required parameter: direction").toString();
+		}
+		if (distance <= 0) {
+			return new JSONObject().put("error", "Missing or invalid parameter: distance").toString();
+		}
+		
+		// Validate direction
+		if (!direction.equals("forward") && !direction.equals("backward") && 
+			!direction.equals("left") && !direction.equals("right")) {
+			return new JSONObject().put("error", "Invalid direction. Use: forward, backward, left, right").toString();
+		}
+		
+		// Check if robot is ready
+		if (qiContext == null) {
+			return new JSONObject().put("error", "Robot not ready").toString();
+		}
+		
+		Log.i(TAG, "Starting movement: " + direction + " " + distance + "m at " + speed + "m/s");
+		
+		// Execute movement (this is asynchronous, but we return immediately)
+		movementController.movePepper(qiContext, direction, distance, speed);
+		
+		// Return success response
+		JSONObject result = new JSONObject();
+		result.put("status", "Movement started");
+		result.put("direction", direction);
+		result.put("distance", distance);
+		result.put("speed", speed);
+		return result.toString();
 	}
 
 	@SuppressWarnings("SpellCheckingInspection") // Animation names like bowshort, showfloor, showsky, showtablet

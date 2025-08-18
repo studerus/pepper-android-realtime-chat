@@ -68,6 +68,10 @@ public class ToolRegistry {
             "Starts a memory matching game with cards that the user has to match in pairs. The user will see a grid of face-down cards and needs to find matching pairs by flipping two cards at a time.", 
             false, null));
             
+        tools.add(new ToolInfo("move_pepper", 
+            "Move Pepper robot in a specific direction for a given distance. Use this when the user asks Pepper to move around the room.", 
+            false, null));
+            
         return tools;
     }
 
@@ -231,6 +235,24 @@ public class ToolRegistry {
                 p8.put("properties", props8);
                 t8.put("parameters", p8);
                 tools.put(t8);
+            }
+
+            // move_pepper
+            if (enabledTools == null || enabledTools.contains("move_pepper")) {
+                JSONObject t9 = new JSONObject();
+                t9.put("type", "function");
+                t9.put("name", "move_pepper");
+                t9.put("description", "Move Pepper robot in a specific direction for a given distance. Use this when the user asks Pepper to move around the room.");
+                JSONObject p9 = new JSONObject();
+                p9.put("type", "object");
+                JSONObject props9 = new JSONObject();
+                props9.put("direction", new JSONObject().put("type", "string").put("description", "Direction to move").put("enum", new JSONArray().put("forward").put("backward").put("left").put("right")));
+                props9.put("distance", new JSONObject().put("type", "number").put("description", "Distance to move in meters (0.5-3.0)").put("minimum", 0.5).put("maximum", 3.0));
+                props9.put("speed", new JSONObject().put("type", "number").put("description", "Optional maximum speed in m/s (0.1-0.55)").put("minimum", 0.1).put("maximum", 0.55).put("default", 0.4));
+                p9.put("properties", props9);
+                p9.put("required", new JSONArray().put("direction").put("distance"));
+                t9.put("parameters", p9);
+                tools.put(t9);
             }
 
         } catch (Exception e) {

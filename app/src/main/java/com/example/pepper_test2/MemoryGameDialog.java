@@ -407,7 +407,7 @@ public class MemoryGameDialog {
     }
 
     /**
-     * Calculate optimal text size based on card height
+     * Calculate optimal text size based on card height and difficulty
      */
     private float calculateOptimalTextSize(int cardHeightPx) {
         float density = context.getResources().getDisplayMetrics().density;
@@ -415,17 +415,29 @@ public class MemoryGameDialog {
         // Convert card height back to dp for calculation
         float cardHeightDp = cardHeightPx / density;
         
-        // Scale text size proportionally to card height
+        // Scale text size proportionally to card height, with bonus for easy difficulty
         float textSizeSp;
-        if (cardHeightDp <= 80) {
-            textSizeSp = 28; // Small cards
-        } else if (cardHeightDp <= 120) {
-            textSizeSp = 36; // Medium cards  
+        if (totalPairs <= 4) {
+            // Easy difficulty - extra large symbols since there's much more space
+            if (cardHeightDp <= 80) {
+                textSizeSp = 44; // Much larger for small cards
+            } else if (cardHeightDp <= 120) {
+                textSizeSp = 56; // Much larger for medium cards
+            } else {
+                textSizeSp = 72; // Extra extra large for easy mode
+            }
         } else {
-            textSizeSp = 48; // Large cards
+            // Medium/Hard difficulty - moderately larger than before
+            if (cardHeightDp <= 80) {
+                textSizeSp = 38; // Larger small cards (increased from 32)
+            } else if (cardHeightDp <= 120) {
+                textSizeSp = 46; // Larger medium cards (increased from 40)  
+            } else {
+                textSizeSp = 58; // Larger large cards (increased from 52)
+            }
         }
         
-        Log.i(TAG, "Calculated text size: " + textSizeSp + "sp for card height " + cardHeightDp + "dp");
+        Log.i(TAG, "Calculated text size: " + textSizeSp + "sp for card height " + cardHeightDp + "dp (pairs: " + totalPairs + ")");
         return textSizeSp;
     }
 }
