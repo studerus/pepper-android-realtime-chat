@@ -10,6 +10,8 @@
     <string name="status_updating_recognizer">Updating recognizer…</string>
     <string name="status_starting_new_session">Starting new session…</string>
     <string name="status_recognizer_not_ready">Recognizer not ready.</string>
+    <string name="status_warming_up">Warming up recognizer...</string>
+    <string name="status_please_wait">Please wait...</string>
     
     <!-- Error Messages -->
     <string name="error_microphone_permission_denied">Microphone permission denied.</string>
@@ -23,8 +25,6 @@
     <string name="status_listening_partial">Listening: %s</string>
     
     <!-- Chat Messages -->
-    <string name="chat_mode_activated">Chat mode activated. Let\'s talk!</string>
-    <string name="new_chat_started">New chat started. Please wait…</string>
     <string name="new_session_error">Error: Could not start a new session.</string>
     <string name="function_call_prefix">Function Call: %1$s\nArguments: %2$s</string>
     <string name="function_result_prefix">Function Result:\n%s</string>
@@ -62,4 +62,7 @@
     <string name="log_response_done_no_output">Response.done with no output. Finishing turn.</string>
     <string name="log_new_session_started">New session started successfully. Ready to listen.</string>
     <string name="log_websocket_closed">WebSocket connection closed.</string>
+
+    <!-- Content Descriptions -->
+    <string name="interrupt_button_description">Interrupt assistant</string>
 </resources>

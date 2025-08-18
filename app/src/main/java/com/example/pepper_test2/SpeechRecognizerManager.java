@@ -2,12 +2,14 @@ package com.example.pepper_test2;
 
 import android.util.Log;
 
+import com.microsoft.cognitiveservices.speech.Connection;
 import com.microsoft.cognitiveservices.speech.ResultReason;
 import com.microsoft.cognitiveservices.speech.SpeechConfig;
 import com.microsoft.cognitiveservices.speech.SpeechRecognizer;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeoutException;
 
 public class SpeechRecognizerManager {
     public interface Listener {
@@ -74,7 +76,51 @@ public class SpeechRecognizerManager {
         });
     }
 
+    public void warmup() throws Exception {
+        if (recognizer == null) {
+            return;
+        }
 
+        final Object lock = new Object();
+        final Exception[] error = { null };
+
+        Connection connection = Connection.fromRecognizer(recognizer);
+
+        connection.connected.addEventListener((s, e) -> {
+            Log.i(TAG, "Recognizer connection established.");
+            connection.connected.removeEventListener((s1, e1) -> {}); // Clear listeners
+            synchronized (lock) {
+                lock.notify();
+            }
+        });
+
+        connection.disconnected.addEventListener((s, e) -> {
+            Log.e(TAG, "Recognizer connection failed (disconnected).");
+            connection.disconnected.removeEventListener((s1, e1) -> {}); // Clear listeners
+            error[0] = new RuntimeException("Recognizer disconnected during warmup.");
+            synchronized (lock) {
+                lock.notify();
+            }
+        });
+
+        Log.i(TAG, "Warming up recognizer by opening connection...");
+        connection.openConnection(true);
+
+        synchronized (lock) {
+            try {
+                lock.wait(10000); // 10 second timeout
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException("Warmup interrupted.", e);
+            }
+        }
+
+        if (error[0] != null) {
+            throw error[0];
+        }
+        
+        Log.i(TAG, "Recognizer warmup complete.");
+    }
 
     public void shutdown() {
         try {

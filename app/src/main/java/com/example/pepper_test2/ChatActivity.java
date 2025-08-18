@@ -41,8 +41,6 @@ import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.Locale;
 
 import okhttp3.Response;
@@ -52,6 +50,7 @@ import android.view.Window;
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.graphics.Color;
+import android.widget.LinearLayout;
 
 public class ChatActivity extends AppCompatActivity implements RobotLifecycleCallbacks {
 
@@ -66,6 +65,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     private RecyclerView chatRecyclerView;
     private ChatMessageAdapter chatAdapter;
     private final List<ChatMessage> messageList = new ArrayList<>();
+    private LinearLayout warmupIndicatorLayout;
 
     private FloatingActionButton fabInterrupt;
     private ApiKeyManager keyManager;
@@ -86,6 +86,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     private Promise<Void> connectionPromise;
     private volatile boolean expectingFinalAnswerAfterToolCall = false;
     private final GestureController gestureController = new GestureController();
+    private volatile boolean isWarmingUp = false;
 
     private VisionService visionService;
 
@@ -112,6 +113,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         drawerLayout = findViewById(R.id.drawer_layout);
         statusTextView = findViewById(R.id.statusTextView);
         chatRecyclerView = findViewById(R.id.chatRecyclerView);
+        warmupIndicatorLayout = findViewById(R.id.warmup_indicator_layout);
 
         MaterialToolbar topAppBar = findViewById(R.id.topAppBar);
         setSupportActionBar(topAppBar);
@@ -326,18 +328,24 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         // Only perform initialization on first focus gain
         if (!hasFocusInitialized) {
             hasFocusInitialized = true;
-        String welcomeMessage = getString(R.string.chat_mode_activated);
-        addMessage(welcomeMessage, ChatMessage.Sender.ROBOT);
+            isWarmingUp = true;
 
             // Set initial volume from settings
             applyVolume(settingsManager.getVolume());
 
+            // Show warmup indicator before starting async operations
+            showWarmupIndicator();
+
             // Asynchronous initialization
             Future<Void> connectFuture = connectWebSocket();
-        Future<Void> warmupFuture = warmupSpeechRecognizer();
+            Future<Void> warmupFuture = warmupSpeechRecognizer();
 
             Future.waitAll(connectFuture, warmupFuture).thenConsume(future -> {
-            if (future.hasError()) {
+                // Hide warmup indicator after all setup is complete, regardless of outcome
+                hideWarmupIndicator();
+                isWarmingUp = false;
+
+                if (future.hasError()) {
                     Log.e(TAG, "Error during initial setup (ws or warmup)", future.getError());
                     runOnUiThread(() -> {
                         addMessage(getString(R.string.setup_error_during, future.getError().getMessage()), ChatMessage.Sender.ROBOT);
@@ -345,6 +353,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                     });
                 } else {
                     Log.i(TAG, "Initial Setup complete. Starting recognition now.");
+                    // This will correctly set the status to "Listening" after warmup.
                     if (turnManager != null) turnManager.setState(TurnManager.State.LISTENING);
                 }
             });
@@ -368,7 +377,10 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
 
         webSocketHandler.registerHandler("session.updated", message -> {
             Log.i(TAG, "Session configured successfully.");
-            runOnUiThread(() -> statusTextView.setText(getString(R.string.status_ready)));
+            // Do not change status to "Ready" if the app is still in the initial startup/warmup phase.
+            if (!isWarmingUp) {
+                runOnUiThread(() -> statusTextView.setText(getString(R.string.status_ready)));
+            }
             if (connectionPromise != null && !connectionPromise.getFuture().isDone()) {
                 connectionPromise.setValue(null);
                 connectionPromise = null;
@@ -529,7 +541,6 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             messageList.clear();
             //noinspection NotifyDataSetChanged
             chatAdapter.notifyDataSetChanged();
-            addMessage(getString(R.string.new_chat_started), ChatMessage.Sender.ROBOT);
         });
 
         // Perform disconnect and reconnect asynchronously on network thread
@@ -589,10 +600,13 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                                     }
                                 }
                             }
-            } catch (Exception e) {
+                        } catch (Exception e) {
                             Log.w(TAG, "Failed to apply session sample rate", e);
                         }
-                        runOnUiThread(() -> statusTextView.setText(getString(R.string.status_ready)));
+                        // Do not change status to "Ready" if the app is still in the initial startup/warmup phase.
+                        if (!isWarmingUp) {
+                            runOnUiThread(() -> statusTextView.setText(getString(R.string.status_ready)));
+                        }
                         if (connectionPromise != null && !connectionPromise.getFuture().isDone()) {
                             connectionPromise.setValue(null);
                             connectionPromise = null;
@@ -705,10 +719,14 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                 String langCode = settingsManager.getLanguage();
                 int silenceTimeout = settingsManager.getSilenceTimeout();
                 sttManager.initialize(keyManager.getAzureSpeechKey(), keyManager.getAzureSpeechRegion(), langCode, silenceTimeout);
-                Log.i(TAG, "Speech Recognizer initialized (manager).");
+
+                // Perform the actual warmup and wait for it to complete.
+                sttManager.warmup();
+
+                Log.i(TAG, "Speech Recognizer initialized and warmed up.");
                 promise.setValue(null);
             } catch (Exception ex) {
-                Log.e(TAG, "STT Init failed", ex);
+                Log.e(TAG, "STT Init/Warmup failed", ex);
                 runOnUiThread(() -> statusTextView.setText(getString(R.string.error_generic, ex.getMessage())));
                 promise.setError(ex.getMessage());
             }
@@ -1241,6 +1259,20 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             }
             sessionImagePaths.clear();
         }
+    }
+
+    private void showWarmupIndicator() {
+        runOnUiThread(() -> {
+            warmupIndicatorLayout.setVisibility(View.VISIBLE);
+            statusTextView.setText(getString(R.string.status_warming_up));
+        });
+    }
+
+    private void hideWarmupIndicator() {
+        runOnUiThread(() -> {
+            warmupIndicatorLayout.setVisibility(View.GONE);
+            // The status will be set to Listening by the TurnManager, so no need to set it here.
+        });
     }
 }
 
