@@ -48,7 +48,7 @@ public class VisionService {
 
     private final Context context;
     private final OkHttpClient http;
-    private final ExecutorService visionExecutor;
+    private final OptimizedThreadManager threadManager;
 
     private HandlerThread cameraThread;
     private Handler cameraHandler;
@@ -58,13 +58,10 @@ public class VisionService {
 
     public VisionService(Context context) {
         this.context = context.getApplicationContext();
-        this.http = new OkHttpClient.Builder()
-                .retryOnConnectionFailure(true)
-                .connectTimeout(30, TimeUnit.SECONDS)
-                .readTimeout(60, TimeUnit.SECONDS)
-                .writeTimeout(60, TimeUnit.SECONDS)
-                .build();
-        this.visionExecutor = Executors.newSingleThreadExecutor();
+        // Use optimized shared API client for better performance and connection reuse
+        this.http = OptimizedHttpClientManager.getInstance().getApiClient();
+        // Use optimized thread manager for computation tasks
+        this.threadManager = OptimizedThreadManager.getInstance();
     }
 
     public void startAnalyze(String prompt, String groqApiKey, Callback callback) {
@@ -122,8 +119,8 @@ public class VisionService {
                         Log.w(TAG, "Failed to save preview file", e);
                     }
                     String base64 = Base64.encodeToString(bytes, Base64.NO_WRAP);
-                    // Offload network analysis to dedicated executor (do NOT block camera handler)
-                    visionExecutor.submit(() -> analyzeWithGroq(base64, prompt, apiKey, callback));
+                    // Offload network analysis to dedicated computation thread (do NOT block camera handler)
+                    threadManager.executeComputation(() -> analyzeWithGroq(base64, prompt, apiKey, callback));
                 } catch (Exception e) {
                     Log.e(TAG, "Image read failed", e);
                     if (callback != null) callback.onError("Failed reading image: " + e.getMessage());

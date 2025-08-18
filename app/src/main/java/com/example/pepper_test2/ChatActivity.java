@@ -11,11 +11,7 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.ArrayAdapter;
 import android.widget.Button;
-import android.widget.EditText;
-import android.widget.SeekBar;
-import android.widget.Spinner;
 import android.widget.TextView;
 import android.view.ViewGroup;
 import android.content.res.ColorStateList;
@@ -50,7 +46,6 @@ import java.util.concurrent.Executors;
 import java.util.Locale;
 
 import okhttp3.Response;
-import android.content.SharedPreferences;
 import android.media.AudioManager;
 import android.content.Context;
 import android.view.Window;
@@ -63,15 +58,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     private static final String TAG = "ChatActivity";
 
     private static final int MICROPHONE_PERMISSION_REQUEST_CODE = 2;
-    private static final String PREFS_NAME = "PepperDialogPrefs";
-    private static final String KEY_SYSTEM_PROMPT = "systemPrompt";
-    private static final String KEY_MODEL = "model";
-    private static final String KEY_VOICE = "voice";
-    private static final String KEY_LANGUAGE = "language";
-    private static final String KEY_TEMPERATURE = "temperature";
-    private static final String KEY_VOLUME = "volume";
-    private static final String KEY_SILENCE_TIMEOUT = "silenceTimeout";
-
+    private static final int CAMERA_PERMISSION_REQUEST_CODE = 3;
 
     private QiContext qiContext;
     private DrawerLayout drawerLayout;
@@ -83,9 +70,8 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     private FloatingActionButton fabInterrupt;
     private ApiKeyManager keyManager;
     private SpeechRecognizerManager sttManager;
-    private final ExecutorService executorService = Executors.newSingleThreadExecutor();
-    private final ExecutorService gestureExecutor = Executors.newSingleThreadExecutor();
-    private SharedPreferences settings;
+    // Optimized threading - using specialized thread pools instead of single executors
+    private final OptimizedThreadManager threadManager = OptimizedThreadManager.getInstance();
 
     // WebSocket and audio playback
     private RealtimeSessionManager sessionManager;
@@ -93,7 +79,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     private TurnManager turnManager;
     private String lastAssistantItemId = null;
     private final List<String> sessionImagePaths = new ArrayList<>();
-    private AudioPlayer audioPlayer;
+    private OptimizedAudioPlayer audioPlayer;
     private volatile boolean hasActiveResponse = false;
     private volatile String currentResponseId = null;
     private volatile String cancelledResponseId = null;
@@ -107,37 +93,13 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     private boolean hasFocusInitialized = false;
 
     // Settings UI
-    private EditText systemPromptInput;
-    private Spinner modelSpinner;
-    private Spinner voiceSpinner;
-    private Spinner languageSpinner;
-    private SeekBar temperatureSeekBar;
+    private SettingsManager settingsManager;
 
+    private WebSocketMessageHandler webSocketHandler;
 
-    private TextView volumeValue;
-    private SeekBar silenceTimeoutSeekBar;
-    private TextView silenceTimeoutValue;
 
     // A simple helper class to hold language display name and code
-    private static class LanguageOption {
-        private final String name;
-        private final String code;
-
-        LanguageOption(String name, String code) {
-            this.name = name;
-            this.code = code;
-        }
-
-        public String getCode() {
-            return code;
-        }
-
-        @NonNull
-        @Override
-        public String toString() {
-            return name; // This is what will be displayed in the Spinner
-        }
-    }
+    // This class is now private to SettingsManager, so it's removed from here.
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -145,7 +107,6 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         supportRequestWindowFeature(Window.FEATURE_NO_TITLE);
         setContentView(R.layout.activity_chat);
 
-        settings = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         keyManager = new ApiKeyManager(this);
 
         drawerLayout = findViewById(R.id.drawer_layout);
@@ -213,7 +174,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                 @Override public void onOpen(Response response) {
                     ChatActivity.this.sendInitialSessionConfig();
                 }
-                @Override public void onTextMessage(String text) { if (eventHandler != null) eventHandler.handle(text); else handleWebSocketTextMessage(text); }
+                @Override public void onTextMessage(String text) { if (eventHandler != null) eventHandler.handle(text); else webSocketHandler.handleMessage(text); }
                 @Override public void onBinaryMessage(okio.ByteString bytes) { /* ignore */ }
                 @Override public void onClosing(int code, String reason) { }
                 @Override public void onClosed(int code, String reason) {
@@ -235,7 +196,8 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         // WebSocket client initialization handled by RealtimeSessionManager
 
         setupSettingsMenu();
-        audioPlayer = new AudioPlayer();
+        setupWebSocketHandler();
+        audioPlayer = new OptimizedAudioPlayer();
         turnManager = new TurnManager(new TurnManager.Callbacks() {
             @Override public void onEnterListening() { runOnUiThread(() -> { statusTextView.setText(getString(R.string.status_listening)); startContinuousRecognition(); findViewById(R.id.fab_interrupt).setVisibility(View.GONE); }); }
             @Override public void onEnterThinking() {
@@ -248,7 +210,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         });
         toolExecutor = new ToolExecutor(this, (question, options, correct) -> 
             runOnUiThread(() -> showQuizDialog(question, options, correct)));
-        audioPlayer.setListener(new AudioPlayer.Listener() {
+        audioPlayer.setListener(new OptimizedAudioPlayer.Listener() {
             @Override public void onPlaybackStarted() {
                 turnManager.setState(TurnManager.State.SPEAKING);
             }
@@ -265,6 +227,11 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             // Pre-initialize the recognizer if permission is already granted
             initializeSpeechRecognizer();
         }
+
+        // Request camera permission for vision analysis
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_REQUEST_CODE);
+        }
     }
 
     @Override
@@ -277,6 +244,12 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             } else {
                 runOnUiThread(() -> statusTextView.setText(getString(R.string.error_microphone_permission_denied)));
             }
+        } else if (requestCode == CAMERA_PERMISSION_REQUEST_CODE) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                Log.i(TAG, "Camera permission granted - vision analysis now available");
+            } else {
+                Log.w(TAG, "Camera permission denied - vision analysis will not work");
+            }
         }
     }
 
@@ -285,12 +258,16 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         if (sttManager != null) {
             sttManager.shutdown();
         }
-            executorService.shutdown();
-        if (gestureExecutor != null) {
-            try {
-                gestureExecutor.shutdownNow();
-            } catch (Exception ignored) {}
-        }
+        
+        // Shutdown optimized thread manager
+        threadManager.shutdown();
+        
+        // Clean up services and prevent memory leaks
+        cleanupServices();
+        
+        // Clean up network resources
+        OptimizedHttpClientManager.getInstance().shutdown();
+        
         // Clean up any session images
         deleteSessionImages();
         disconnectWebSocket(); // Disconnect WebSocket connection
@@ -298,6 +275,49 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         QiSDK.unregister(this, this);
         super.onDestroy();
     }
+    
+    /**
+     * Clean up services and listeners to prevent memory leaks
+     */
+    private void cleanupServices() {
+        try {
+            // Clear optimized audio player listener to prevent callback leaks
+            if (audioPlayer != null) {
+                audioPlayer.setListener(null);
+            }
+            
+            // Clear session manager listener
+            if (sessionManager != null) {
+                sessionManager.setListener(null);
+            }
+            
+            // Clear STT manager listener
+            if (sttManager != null) {
+                sttManager.setListener(null);
+            }
+            
+            // Clear vision service references
+            visionService = null;
+            
+            // Clear settings manager listener
+            if (settingsManager != null) {
+                settingsManager.setListener(null);
+            }
+            
+            // Clear tool executor reference
+            if (toolExecutor != null) {
+                toolExecutor.setQiContext(null);
+            }
+            
+            // Clear event handler
+            eventHandler = null;
+            
+            Log.i(TAG, "Services cleaned up successfully");
+        } catch (Exception e) {
+            Log.e(TAG, "Error during service cleanup", e);
+        }
+    }
+
 
     @Override
     public void onRobotFocusGained(QiContext qiContext) {
@@ -310,7 +330,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         addMessage(welcomeMessage, ChatMessage.Sender.ROBOT);
 
             // Set initial volume from settings
-            applyVolume(settings.getInt(KEY_VOLUME, 80));
+            applyVolume(settingsManager.getVolume());
 
             // Asynchronous initialization
             Future<Void> connectFuture = connectWebSocket();
@@ -343,127 +363,106 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         Log.e(TAG, "Robot focus refused: " + reason);
     }
 
+    private void setupWebSocketHandler() {
+        webSocketHandler = new WebSocketMessageHandler();
+
+        webSocketHandler.registerHandler("session.updated", message -> {
+            Log.i(TAG, "Session configured successfully.");
+            runOnUiThread(() -> statusTextView.setText(getString(R.string.status_ready)));
+            if (connectionPromise != null && !connectionPromise.getFuture().isDone()) {
+                connectionPromise.setValue(null);
+                connectionPromise = null;
+            }
+        });
+
+        webSocketHandler.registerHandler("response.audio_transcript.delta", message -> {
+            String delta = message.getString("delta");
+            runOnUiThread(() -> {
+                String respId = message.optString("response_id");
+                if (Objects.equals(respId, cancelledResponseId)) {
+                    return; // drop transcript of cancelled response
+                }
+                CharSequence current = statusTextView.getText();
+                if (current == null || current.length() == 0 || !current.toString().startsWith("Speaking — tap to interrupt: ")) {
+                    statusTextView.setText(getString(R.string.status_speaking_tap_to_interrupt));
+                }
+                statusTextView.append(delta);
+
+                boolean createNewMessage = false;
+                if (expectingFinalAnswerAfterToolCall) {
+                    createNewMessage = true;
+                    expectingFinalAnswerAfterToolCall = false; // Reset flag
+                } else if (messageList.isEmpty() || messageList.get(messageList.size() - 1).getSender() != ChatMessage.Sender.ROBOT) {
+                    createNewMessage = true;
+                }
+
+                if (createNewMessage) {
+                    messageList.add(new ChatMessage(delta, ChatMessage.Sender.ROBOT));
+                    chatAdapter.notifyItemInserted(messageList.size() - 1);
+                    chatRecyclerView.scrollToPosition(messageList.size() - 1);
+                } else {
+                    ChatMessage lastMessage = messageList.get(messageList.size() - 1);
+                    lastMessage.setMessage(lastMessage.getMessage() + delta);
+                    chatAdapter.notifyItemChanged(messageList.size() - 1);
+                }
+            });
+        });
+
+        webSocketHandler.registerHandler("response.audio.delta", message -> {
+            String base64Audio = message.getString("delta");
+            String respId = message.optString("response_id");
+            currentResponseId = respId;
+            if (Objects.equals(respId, cancelledResponseId)) {
+                return; // drop cancelled response chunks
+            }
+            byte[] audioData = android.util.Base64.decode(base64Audio, android.util.Base64.DEFAULT);
+            audioPlayer.addChunk(audioData);
+            audioPlayer.startIfNeeded();
+        });
+
+        webSocketHandler.registerHandler("response.audio.done", message -> {
+            Log.i(TAG, "Audio stream complete signaled by server.");
+            audioPlayer.markResponseDone();
+        });
+
+        webSocketHandler.registerHandler("response.done", this::handleResponseDone);
+
+        webSocketHandler.registerHandler("error", message -> {
+            JSONObject errorObject = message.getJSONObject("error");
+            String errorCode = errorObject.optString("code", "Unknown");
+            String errorMessage = errorObject.optString("message", "An unknown error occurred.");
+            Log.e(TAG, "WebSocket Error Received - Code: " + errorCode + ", Message: " + errorMessage);
+            runOnUiThread(() -> {
+                addMessage(getString(R.string.server_error_prefix, errorMessage), ChatMessage.Sender.ROBOT);
+                statusTextView.setText(getString(R.string.error_code_prefix, errorCode));
+            });
+            if (connectionPromise != null && !connectionPromise.getFuture().isDone()) {
+                connectionPromise.setError("Server returned an error during setup: " + errorMessage);
+                connectionPromise = null;
+            }
+        });
+    }
+
     private void setupSettingsMenu() {
         NavigationView navigationView = findViewById(R.id.navigation_view);
-        
-        systemPromptInput = navigationView.findViewById(R.id.system_prompt_input);
-        modelSpinner = navigationView.findViewById(R.id.model_spinner);
-        voiceSpinner = navigationView.findViewById(R.id.voice_spinner);
-        languageSpinner = navigationView.findViewById(R.id.language_spinner);
-        temperatureSeekBar = navigationView.findViewById(R.id.temperature_seekbar);
-        TextView temperatureValue = navigationView.findViewById(R.id.temperature_value);
-        SeekBar volumeSeekBar = navigationView.findViewById(R.id.volume_seekbar);
-        volumeValue = navigationView.findViewById(R.id.volume_value);
-        silenceTimeoutSeekBar = navigationView.findViewById(R.id.silence_timeout_seekbar);
-        silenceTimeoutValue = navigationView.findViewById(R.id.silence_timeout_value);
-
-        // Populate Model Spinner
-        String[] models = { "gpt-4o-realtime-preview", "gpt-4o-mini-realtime-preview" }; // Adapted for Azure
-        ArrayAdapter<String> modelAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, models);
-        modelAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        modelSpinner.setAdapter(modelAdapter);
-
-        // Populate Voice Spinner
-        String[] voices = { "alloy", "ash", "ballad", "coral", "echo", "sage", "shimmer", "verse" };
-        ArrayAdapter<String> voiceAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, voices);
-        voiceAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        voiceSpinner.setAdapter(voiceAdapter);
-
-        // Populate Language Spinner
-        List<LanguageOption> languages = getAvailableLanguages();
-        ArrayAdapter<LanguageOption> languageAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, languages);
-        languageAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        languageSpinner.setAdapter(languageAdapter);
-
-        // Load saved settings
-        systemPromptInput.setText(settings.getString(KEY_SYSTEM_PROMPT, getString(R.string.default_system_prompt)));
-        modelSpinner.setSelection(modelAdapter.getPosition(settings.getString(KEY_MODEL, "gpt-4o-realtime-preview")));
-        voiceSpinner.setSelection(voiceAdapter.getPosition(settings.getString(KEY_VOICE, "ash")));
-        // Set language selection
-        String savedLangCode = settings.getString(KEY_LANGUAGE, "de-CH");
-        for (int i = 0; i < languages.size(); i++) {
-            if (languages.get(i).getCode().equals(savedLangCode)) {
-                languageSpinner.setSelection(i);
-                break;
-            }
-        }
-        
-        // Temperature range is 0.6 to 1.2. SeekBar is 0-100.
-        // Default progress 33 corresponds to a temperature of ~0.8.
-        int tempProgress = settings.getInt(KEY_TEMPERATURE, 33);
-        // Sanitize old values that might be out of the new 0-100 range.
-        if (tempProgress < 0 || tempProgress > 100) {
-            tempProgress = 33; // Reset to default if value is out of bounds
-        }
-        temperatureSeekBar.setProgress(tempProgress);
-        temperatureValue.setText(getString(R.string.temperature_format, convertProgressToTemperature(tempProgress)));
-
-        int volProgress = settings.getInt(KEY_VOLUME, 80);
-        volumeSeekBar.setProgress(volProgress);
-        volumeValue.setText(getString(R.string.volume_format, volProgress));
-
-        int silenceTimeout = settings.getInt(KEY_SILENCE_TIMEOUT, 500);
-        silenceTimeoutSeekBar.setProgress(silenceTimeout);
-        silenceTimeoutValue.setText(getString(R.string.silence_timeout_format, silenceTimeout));
-
-        // Save on change
-        temperatureSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+        settingsManager = new SettingsManager(this, navigationView);
+        settingsManager.setListener(new SettingsManager.SettingsListener() {
             @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                temperatureValue.setText(getString(R.string.temperature_format, convertProgressToTemperature(progress)));
+            public void onSettingsChanged() {
+                // This covers model, voice, prompt, and temperature changes
+                Log.i(TAG, "Core settings changed. Starting new session.");
+                startNewSession();
             }
 
             @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {}
-
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {
-                // Temperature is saved and sent when closing the drawer
-                settings.edit().putInt(KEY_TEMPERATURE, seekBar.getProgress()).apply();
-            }
-        });
-
-        volumeSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                volumeValue.setText(getString(R.string.volume_format, progress));
-            }
-
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {}
-
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {
-                int progress = seekBar.getProgress();
-                settings.edit().putInt(KEY_VOLUME, progress).apply();
-                applyVolume(progress); // Apply volume immediately
-            }
-        });
-
-        silenceTimeoutSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                silenceTimeoutValue.setText(getString(R.string.silence_timeout_format, progress));
-            }
-
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {}
-
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {
-                int newTimeout = seekBar.getProgress();
-                int oldTimeout = settings.getInt(KEY_SILENCE_TIMEOUT, 500);
-                
-                settings.edit().putInt(KEY_SILENCE_TIMEOUT, newTimeout).apply();
-
-                // If the value has changed, re-initialize the recognizer immediately.
-                if (newTimeout != oldTimeout) {
-                    Log.i(TAG, "Silence timeout changed. Re-initializing speech recognizer immediately.");
+            public void onRecognizerSettingsChanged() {
+                // This covers language and silence timeout
+                Log.i(TAG, "Recognizer settings changed. Re-initializing speech recognizer.");
                     runOnUiThread(() -> statusTextView.setText(getString(R.string.status_updating_recognizer)));
                     stopContinuousRecognition();
                     initializeSpeechRecognizer().thenConsume(future -> {
                         if (future.hasError()) {
-                            Log.e(TAG, "Failed to re-initialize recognizer after timeout change", future.getError());
+                        Log.e(TAG, "Failed to re-initialize recognizer", future.getError());
                             runOnUiThread(() -> statusTextView.setText(getString(R.string.error_updating_settings)));
                         } else {
                             Log.i(TAG, "Recognizer re-initialized. Restarting recognition.");
@@ -471,75 +470,17 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                         }
                     });
                 }
+
+            @Override
+            public void onVolumeChanged(int volume) {
+                applyVolume(volume);
             }
         });
 
-        // The prompt and model are saved when the drawer is closed.
         drawerLayout.addDrawerListener(new DrawerLayout.SimpleDrawerListener() {
             @Override
-            @SuppressLint("NullableProblems") 
             public void onDrawerClosed(@NonNull View drawerView) {
-                // Get old values before saving new ones
-                String oldModel = settings.getString(KEY_MODEL, "gpt-4o-realtime-preview");
-                String oldVoice = settings.getString(KEY_VOICE, "ash");
-                String oldLang = settings.getString(KEY_LANGUAGE, "de-CH");
-                int oldSilenceTimeout = settings.getInt(KEY_SILENCE_TIMEOUT, 500);
-                String oldPrompt = settings.getString(KEY_SYSTEM_PROMPT, "");
-                int oldTemp = settings.getInt(KEY_TEMPERATURE, 33);
-                // Sanitize old values here as well, just in case.
-                if (oldTemp < 0 || oldTemp > 100) {
-                    oldTemp = 33;
-                }
-                
-                // Get new values from UI
-                String newModel = (String) modelSpinner.getSelectedItem();
-                String newVoice = (String) voiceSpinner.getSelectedItem();
-                LanguageOption selectedLang = (LanguageOption) languageSpinner.getSelectedItem();
-                String newLang = selectedLang.getCode();
-                int newSilenceTimeout = silenceTimeoutSeekBar.getProgress();
-                String newPrompt = systemPromptInput.getText().toString();
-                int newTemp = temperatureSeekBar.getProgress();
-
-                // Save new settings immediately
-                settings.edit()
-                        .putString(KEY_SYSTEM_PROMPT, newPrompt)
-                        .putString(KEY_MODEL, newModel)
-                        .putString(KEY_VOICE, newVoice)
-                        .putString(KEY_LANGUAGE, newLang)
-                        .putInt(KEY_SILENCE_TIMEOUT, newSilenceTimeout)
-                        .putInt(KEY_TEMPERATURE, newTemp)
-                        .apply();
-
-                // Check if a session restart is required
-                if (!oldModel.equals(newModel) || !oldVoice.equals(newVoice)) {
-                    Log.i(TAG, "Model or voice changed. Starting new session.");
-                    startNewSession();
-                } 
-                // Check if recognizer needs re-initialization
-                else if (!oldLang.equals(newLang) || oldSilenceTimeout != newSilenceTimeout) {
-                    Log.i(TAG, "Language or silence timeout changed. Re-initializing speech recognizer.");
-                    // Re-initialize with new language and then restart recognition.
-                    runOnUiThread(() -> statusTextView.setText(getString(R.string.status_updating_recognizer)));
-                    stopContinuousRecognition(); // Stop the old one first
-                    initializeSpeechRecognizer().thenConsume(future -> {
-                        if (future.hasError()) {
-                            Log.e(TAG, "Failed to re-initialize recognizer", future.getError());
-                            runOnUiThread(() -> statusTextView.setText(getString(R.string.error_updating_settings)));
-                        } else {
-                            Log.i(TAG, "Recognizer re-initialized. Restarting recognition.");
-                            startContinuousRecognition(); // Start the new one
-                        }
-                    });
-                }
-                // If not, check if an update is required
-                else {
-                    boolean promptChanged = !oldPrompt.equals(newPrompt);
-                    boolean tempChanged = oldTemp != newTemp;
-                    if (promptChanged || tempChanged) {
-                         Log.i(TAG, "Prompt or temperature changed. Sending session update.");
-                         sendSessionUpdate(promptChanged ? newPrompt : null, tempChanged ? convertProgressToTemperature(newTemp) : null);
-                    }
-                }
+                settingsManager.onDrawerClosed();
             }
         });
     }
@@ -591,10 +532,10 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             addMessage(getString(R.string.new_chat_started), ChatMessage.Sender.ROBOT);
         });
 
-        // Perform disconnect and reconnect asynchronously
-        executorService.submit(() -> {
-            // Clean up session-scoped images
-            deleteSessionImages();
+        // Perform disconnect and reconnect asynchronously on network thread
+        threadManager.executeNetwork(() -> {
+            // Clean up session-scoped images on I/O thread
+            threadManager.executeIO(this::deleteSessionImages);
             // 1. Disconnect the old session
             disconnectWebSocket();
 
@@ -628,7 +569,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
 
     private Future<Void> warmupSpeechRecognizer() {
         Promise<Void> promise = new Promise<>();
-        executorService.submit(() -> {
+        threadManager.executeAudio(() -> {
             try {
                 if (sttManager == null) sttManager = new SpeechRecognizerManager();
                 if (visionService == null) visionService = new VisionService(this);
@@ -688,7 +629,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                         }
                         if (responseId != null) currentResponseId = responseId;
                         if (Objects.equals(responseId, cancelledResponseId)) {
-                            return; // drop chunks from a cancelled response
+                            return; // drop cancelled response chunks
                         }
                 hasActiveResponse = true;
                         audioPlayer.addChunk(pcm16);
@@ -761,8 +702,8 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                         runOnUiThread(() -> statusTextView.setText(getString(R.string.error_generic, ex.getMessage())));
                     }
                 });
-                String langCode = settings.getString(KEY_LANGUAGE, "de-CH");
-                int silenceTimeout = settings.getInt(KEY_SILENCE_TIMEOUT, 500);
+                String langCode = settingsManager.getLanguage();
+                int silenceTimeout = settingsManager.getSilenceTimeout();
                 sttManager.initialize(keyManager.getAzureSpeechKey(), keyManager.getAzureSpeechRegion(), langCode, silenceTimeout);
                 Log.i(TAG, "Speech Recognizer initialized (manager).");
                 promise.setValue(null);
@@ -777,11 +718,11 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
 
     private Future<Void> initializeSpeechRecognizer() {
         Promise<Void> promise = new Promise<>();
-        executorService.submit(() -> {
+        threadManager.executeAudio(() -> {
             try {
                 // Get selected language from settings
-                String langCode = settings.getString(KEY_LANGUAGE, "de-CH");
-                int silenceTimeout = settings.getInt(KEY_SILENCE_TIMEOUT, 500);
+                String langCode = settingsManager.getLanguage();
+                int silenceTimeout = settingsManager.getSilenceTimeout();
                 
                 SpeechConfig speechConfig = SpeechConfig.fromSubscription(keyManager.getAzureSpeechKey(), keyManager.getAzureSpeechRegion());
                 speechConfig.setSpeechRecognitionLanguage(langCode);
@@ -833,7 +774,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             runOnUiThread(()-> statusTextView.setText(getString(R.string.status_recognizer_not_ready)));
             return;
         }
-        executorService.submit(() -> {
+        threadManager.executeAudio(() -> {
             try {
                 sttManager.startContinuous();
                 runOnUiThread(() -> statusTextView.setText(getString(R.string.status_listening)));
@@ -847,7 +788,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
 
     private void stopContinuousRecognition() {
         if (sttManager != null) {
-            executorService.submit(() -> {
+            threadManager.executeAudio(() -> {
                 try {
                     sttManager.stopContinuous();
                     Log.i(TAG, "Continuous recognition stopped.");
@@ -914,92 +855,24 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     // tools definition moved to ToolRegistry
 
     private void handleWebSocketTextMessage(String text) {
-        try {
-            JSONObject message = new JSONObject(text);
-            String type = message.getString("type");
+        webSocketHandler.handleMessage(text);
+    }
 
-
-            switch (type) {
-                case "session.updated":
-                    Log.i(TAG, "Session configured successfully.");
-                    runOnUiThread(() -> statusTextView.setText(getString(R.string.status_ready)));
-                    if (connectionPromise != null && !connectionPromise.getFuture().isDone()) {
-                        connectionPromise.setValue(null);
-                        connectionPromise = null;
-                    }
-                    break;
-                
-                case "response.audio_transcript.delta":
-                    String delta = message.getString("delta");
-                    
-                runOnUiThread(() -> {
-                        String respId = message.optString("response_id");
-                        if (Objects.equals(respId, cancelledResponseId)) {
-                            return; // drop transcript of cancelled response
-                        }
-                        // Set prefix exactly once if needed
-                        CharSequence current = statusTextView.getText();
-                        if (current == null || current.length() == 0 || !current.toString().startsWith("Speaking — tap to interrupt: ")) {
-                            statusTextView.setText(getString(R.string.status_speaking_tap_to_interrupt));
-                        }
-                        statusTextView.append(delta);
-
-                        boolean createNewMessage = false;
-                        if (expectingFinalAnswerAfterToolCall) {
-                            createNewMessage = true;
-                            expectingFinalAnswerAfterToolCall = false; // Reset flag
-                        } else if (messageList.isEmpty() || messageList.get(messageList.size() - 1).getSender() != ChatMessage.Sender.ROBOT) {
-                            createNewMessage = true;
-                        }
-
-                        if (createNewMessage) {
-                            messageList.add(new ChatMessage(delta, ChatMessage.Sender.ROBOT));
-                            chatAdapter.notifyItemInserted(messageList.size() - 1);
-                            chatRecyclerView.scrollToPosition(messageList.size() - 1);
-                        } else {
-                            ChatMessage lastMessage = messageList.get(messageList.size() - 1);
-                            lastMessage.setMessage(lastMessage.getMessage() + delta);
-                            chatAdapter.notifyItemChanged(messageList.size() - 1);
-                        }
-                    });
-                    break;
-                    
-                case "response.audio.delta":
-                    String base64Audio = message.getString("delta");
-                    String respId = message.optString("response_id");
-                    currentResponseId = respId;
-                    if (Objects.equals(respId, cancelledResponseId)) {
-                        break; // drop cancelled response chunks
-                    }
-                    byte[] audioData = android.util.Base64.decode(base64Audio, android.util.Base64.DEFAULT);
-                    audioPlayer.addChunk(audioData);
-                    audioPlayer.startIfNeeded();
-                    break;
-
-                case "response.audio.done":
-                    Log.i(TAG, "Audio stream complete signaled by server.");
-
-                    audioPlayer.markResponseDone();
-                    break;
-
-                case "response.done":
+    private void handleResponseDone(JSONObject message) {
                     Log.i(TAG, "Full response received. Processing final output.");
-                    
                     try {
                         JSONObject responseObject = message.getJSONObject("response");
                         JSONArray outputArray = responseObject.optJSONArray("output");
 
                         if (outputArray == null || outputArray.length() == 0) {
                             Log.i(TAG, "Response.done with no output. Finishing turn.");
-                            // No audio output -> immediately listening (only if player is not playing)
                             if (!audioPlayer.isPlaying()) {
                                 gestureController.stopNow();
                                 if (turnManager != null) turnManager.setState(TurnManager.State.LISTENING);
                             }
-                            break; 
+                return;
                         }
 
-                        // Collect function_calls (may be multiple) and messages
                         List<JSONObject> functionCalls = new ArrayList<>();
                         List<JSONObject> messageItems = new ArrayList<>();
 
@@ -1013,7 +886,6 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                             }
                         }
 
-                        // Handle any function calls first (regardless of position)
                         if (!functionCalls.isEmpty()) {
                             for (JSONObject fc : functionCalls) {
                                 String toolName = fc.getString("name");
@@ -1037,57 +909,24 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                             }
                         }
 
-                        // Save any assistant message outputs to local history
                         if (!messageItems.isEmpty()) {
                             try {
-                                // Concatenate content parts from the first message item for history (keep simple)
                                 JSONObject firstMsg = messageItems.get(0);
                                 JSONObject assistantMessage = new JSONObject();
                                 assistantMessage.put("role", "assistant");
                                 assistantMessage.put("content", firstMsg.optJSONArray("content"));
-                                // Assistant message handled by server-side conversation history
                                 Log.d(TAG, "Final assistant message added to local history.");
                                 } catch (Exception e) {
                                 Log.e(TAG, "Could not save final assistant message to history", e);
                             }
                         }
-                        // IMPORTANT: No forced restart here. The restart happens
-                        // in AudioPlayer.Listener.onPlaybackFinished(), or immediately
-                        // above, if no audio was playing.
                                 } catch (Exception e) {
                         Log.e(TAG, "Error processing response.done message. Attempting to recover.", e);
-                        // Fallback: immediately restore listening if no audio is running
                         if (!audioPlayer.isPlaying()) {
                             gestureController.stopNow();
                             if (turnManager != null) turnManager.setState(TurnManager.State.LISTENING);
                         }
                     }
-                    break;
-
-                case "error":
-                    JSONObject errorObject = message.getJSONObject("error");
-                    String errorCode = errorObject.optString("code", "Unknown");
-                    String errorMessage = errorObject.optString("message", "An unknown error occurred.");
-                    Log.e(TAG, "WebSocket Error Received - Code: " + errorCode + ", Message: " + errorMessage);
-                    runOnUiThread(() -> {
-                        addMessage(getString(R.string.server_error_prefix, errorMessage), ChatMessage.Sender.ROBOT);
-                        statusTextView.setText(getString(R.string.error_code_prefix, errorCode));
-                    });
-                    if (connectionPromise != null && !connectionPromise.getFuture().isDone()) {
-                        connectionPromise.setError("Server returned an error during setup: " + errorMessage);
-                        connectionPromise = null;
-                    }
-                    break;
-
-                default:
-                    Log.d(TAG, "Received unhandled message type: " + type);
-
-                    break;
-            }
-
-                } catch (Exception e) {
-            Log.e(TAG, "Error parsing WebSocket message: " + text, e);
-        }
     }
 
     private void sendToolResult(String callId, String result) {
@@ -1243,7 +1082,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             return connectionPromise.getFuture();
         }
         String apiVersion = "2024-10-01-preview";
-        String model = settings.getString(KEY_MODEL, "gpt-4o-realtime-preview");
+        String model = settingsManager.getModel();
         String url = String.format(Locale.US, "wss://%s/openai/realtime?api-version=%s&deployment=%s",
                 keyManager.getAzureOpenAiEndpoint(), apiVersion, model);
         java.util.HashMap<String, String> headers = new java.util.HashMap<>();
@@ -1313,33 +1152,6 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         });
     }
 
-    private float convertProgressToTemperature(int progress) {
-        // Maps SeekBar progress (0-100) to temperature range (0.6-1.2)
-        return 0.6f + (progress / 100.0f) * 0.6f;
-    }
-
-    private List<LanguageOption> getAvailableLanguages() {
-        List<LanguageOption> languages = new ArrayList<>();
-        // German variants
-        languages.add(new LanguageOption("German (Switzerland)", "de-CH"));
-        languages.add(new LanguageOption("German (Germany)", "de-DE"));
-        languages.add(new LanguageOption("German (Austria)", "de-AT"));
-        // English variants
-        languages.add(new LanguageOption("English (United States)", "en-US"));
-        languages.add(new LanguageOption("English (United Kingdom)", "en-GB"));
-        languages.add(new LanguageOption("English (Australia)", "en-AU"));
-        languages.add(new LanguageOption("English (Canada)", "en-CA"));
-        // French variants
-        languages.add(new LanguageOption("French (Switzerland)", "fr-CH"));
-        languages.add(new LanguageOption("French (France)", "fr-FR"));
-        languages.add(new LanguageOption("French (Canada)", "fr-CA"));
-        // Italian variants
-        languages.add(new LanguageOption("Italian (Switzerland)", "it-CH"));
-        languages.add(new LanguageOption("Italian (Italy)", "it-IT"));
-        // Add more languages as needed...
-        return languages;
-    }
-
     private void startAnalyzeVisionFlow(String callId, String prompt) {
         String apiKey = keyManager.getGroqApiKey();
         runOnUiThread(() -> statusTextView.setText(getString(R.string.status_analyzing_vision)));
@@ -1388,9 +1200,9 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     private void sendInitialSessionConfig() {
         if (sessionManager == null || !sessionManager.isConnected()) return;
         try {
-            String voice = settings.getString(KEY_VOICE, "ash");
-            float temperature = convertProgressToTemperature(settings.getInt(KEY_TEMPERATURE, 33));
-            String systemPrompt = settings.getString(KEY_SYSTEM_PROMPT, "You are a helpful assistant.");
+            String voice = settingsManager.getVoice();
+            float temperature = settingsManager.getTemperature();
+            String systemPrompt = settingsManager.getSystemPrompt();
 
             JSONObject payload = new JSONObject();
             payload.put("type", "session.update");
@@ -1409,27 +1221,6 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             Log.d(TAG, "Sent initial session.update: " + payload);
         } catch (Exception e) {
             Log.e(TAG, "Failed to send initial session.update", e);
-        }
-    }
-
-    // Sends a delta session.update with only changed fields (prompt and/or temperature)
-    private void sendSessionUpdate(String newPrompt, Float newTemperature) {
-        if (sessionManager == null || !sessionManager.isConnected()) return;
-        try {
-            JSONObject payload = new JSONObject();
-            payload.put("type", "session.update");
-
-            JSONObject sessionConfig = new JSONObject();
-            if (newPrompt != null) sessionConfig.put("instructions", newPrompt);
-            if (newTemperature != null) sessionConfig.put("temperature", newTemperature);
-
-            if (sessionConfig.length() == 0) return; // nothing to send
-
-            payload.put("session", sessionConfig);
-            sessionManager.send(payload.toString());
-            Log.d(TAG, "Sent session.update delta: " + payload);
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to send session.update delta", e);
         }
     }
 
@@ -1452,4 +1243,5 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         }
     }
 }
+
 

@@ -178,11 +178,8 @@ public class ToolExecutor {
 
 		String apiKey = keyManager.getTavilyApiKey();
 
-		OkHttpClient client = new OkHttpClient.Builder()
-				.connectTimeout(20, java.util.concurrent.TimeUnit.SECONDS)
-				.readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-				.writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-				.build();
+		// Use optimized shared client for better performance and connection reuse
+		OkHttpClient client = OptimizedHttpClientManager.getInstance().getQuickApiClient();
 
 		JSONObject payload = new JSONObject();
 		payload.put("api_key", apiKey);
@@ -237,11 +234,8 @@ public class ToolExecutor {
 
 		String apiKey = keyManager.getOpenWeatherApiKey();
 
-		OkHttpClient client = new OkHttpClient.Builder()
-				.connectTimeout(20, java.util.concurrent.TimeUnit.SECONDS)
-				.readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-				.writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-				.build();
+		// Use optimized shared client for better performance and connection reuse
+		OkHttpClient client = OptimizedHttpClientManager.getInstance().getQuickApiClient();
 
 		String locationQueryParam = "q=" + java.net.URLEncoder.encode(location, "UTF-8");
 		String locationInputForName = location;

@@ -30,7 +30,8 @@ public class RealtimeSessionManager {
     private Listener listener;
 
     public RealtimeSessionManager() {
-        this.client = new OkHttpClient.Builder().retryOnConnectionFailure(true).build();
+        // Use optimized shared WebSocket client for better performance
+        this.client = OptimizedHttpClientManager.getInstance().getWebSocketClient();
     }
 
     public void setListener(Listener listener) {
