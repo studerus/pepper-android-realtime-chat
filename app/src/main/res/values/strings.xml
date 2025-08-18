@@ -12,6 +12,7 @@
     <string name="status_recognizer_not_ready">Recognizer not ready.</string>
     <string name="status_warming_up">Warming up recognizer...</string>
     <string name="status_please_wait">Please wait...</string>
+    <string name="status_muted_tap_to_unmute">Muted — tap to unmute</string>
     
     <!-- Error Messages -->
     <string name="error_microphone_permission_denied">Microphone permission denied.</string>

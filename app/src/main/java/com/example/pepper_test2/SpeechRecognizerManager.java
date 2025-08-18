@@ -77,9 +77,25 @@ public class SpeechRecognizerManager {
     }
 
     public void warmup() throws Exception {
-        if (recognizer == null) {
-            return;
+        Log.i(TAG, "Starting warmup - waiting for recognizer initialization...");
+        
+        // Wait until recognizer is actually created by the initialize() async task
+        int waitCount = 0;
+        while (recognizer == null && waitCount < 100) { // Max 5 seconds wait
+            try {
+                Thread.sleep(50); // Check every 50ms
+                waitCount++;
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException("Warmup interrupted while waiting for recognizer.", e);
+            }
         }
+        
+        if (recognizer == null) {
+            throw new RuntimeException("Recognizer initialization timed out - recognizer is still null after 5 seconds");
+        }
+        
+        Log.i(TAG, "Recognizer is ready, starting connection warmup...");
 
         final Object lock = new Object();
         final Exception[] error = { null };
@@ -103,15 +119,15 @@ public class SpeechRecognizerManager {
             }
         });
 
-        Log.i(TAG, "Warming up recognizer by opening connection...");
+        Log.i(TAG, "Opening recognizer connection...");
         connection.openConnection(true);
 
         synchronized (lock) {
             try {
-                lock.wait(10000); // 10 second timeout
+                lock.wait(10000); // 10 second timeout for connection
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                throw new RuntimeException("Warmup interrupted.", e);
+                throw new RuntimeException("Warmup interrupted during connection.", e);
             }
         }
 
@@ -119,7 +135,15 @@ public class SpeechRecognizerManager {
             throw error[0];
         }
         
-        Log.i(TAG, "Recognizer warmup complete.");
+        // Additional verification: try a quick test to ensure recognizer is truly ready
+        try {
+            // This will succeed only if the recognizer is fully initialized
+            if (recognizer.getProperties() != null) {
+                Log.i(TAG, "Recognizer warmup and verification complete - ready for continuous recognition.");
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Recognizer properties check failed, but proceeding anyway", e);
+        }
     }
 
     public void shutdown() {

@@ -87,6 +87,9 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     private volatile boolean expectingFinalAnswerAfterToolCall = false;
     private final GestureController gestureController = new GestureController();
     private volatile boolean isWarmingUp = false;
+    
+    // Mute state management for pause/resume functionality
+    private volatile boolean isMuted = false;
 
     private VisionService visionService;
 
@@ -157,16 +160,35 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             }
         });
 
-        // Tap-to-interrupt on status bar
+        // Tap-to-interrupt/mute/unmute on status bar
         statusTextView.setOnClickListener(v -> {
             try {
-                if (turnManager != null && turnManager.getState() == TurnManager.State.SPEAKING) {
-                    if (hasActiveResponse || (audioPlayer != null && audioPlayer.isPlaying())) {
-                        // reuse the same flow as FAB
-                        fabInterrupt.performClick();
-                    }
+                if (turnManager == null) {
+                    Log.w(TAG, "Status bar clicked but turnManager is null");
+                    return;
                 }
-            } catch (Exception ignored) {}
+                
+                TurnManager.State currentState = turnManager.getState();
+                Log.i(TAG, "Status bar clicked - Current state: " + currentState + ", isMuted: " + isMuted);
+                
+                if (currentState == TurnManager.State.SPEAKING) {
+                    // Robot is speaking -> interrupt and mute
+                    if (hasActiveResponse || (audioPlayer != null && audioPlayer.isPlaying())) {
+                        Log.i(TAG, "Interrupting and muting...");
+                        interruptAndMute();
+                    }
+                } else if (isMuted) {
+                    // Currently muted -> unmute and start listening
+                    Log.i(TAG, "Unmuting...");
+                    unmute();
+                } else if (currentState == TurnManager.State.LISTENING) {
+                    // Currently listening -> mute
+                    Log.i(TAG, "Muting...");
+                    mute();
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Status bar click handler failed", e);
+            }
         });
 
         // Ensure realtime session manager is ready
@@ -201,14 +223,31 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         setupWebSocketHandler();
         audioPlayer = new OptimizedAudioPlayer();
         turnManager = new TurnManager(new TurnManager.Callbacks() {
-            @Override public void onEnterListening() { runOnUiThread(() -> { statusTextView.setText(getString(R.string.status_listening)); startContinuousRecognition(); findViewById(R.id.fab_interrupt).setVisibility(View.GONE); }); }
+            @Override public void onEnterListening() { 
+                runOnUiThread(() -> { 
+                    if (!isMuted) {
+                        statusTextView.setText(getString(R.string.status_listening)); 
+                        startContinuousRecognition(); 
+                    }
+                    findViewById(R.id.fab_interrupt).setVisibility(View.GONE); 
+                }); 
+            }
             @Override public void onEnterThinking() {
                 // Physically stop the mic so nothing is recognized during THINKING
                 stopContinuousRecognition();
                 runOnUiThread(() -> { statusTextView.setText(getString(R.string.status_thinking)); findViewById(R.id.fab_interrupt).setVisibility(View.GONE); });
             }
             @Override public void onEnterSpeaking() { stopContinuousRecognition(); startExplainGesturesLoop(); runOnUiThread(() -> findViewById(R.id.fab_interrupt).setVisibility(View.GONE)); }
-            @Override public void onExitSpeaking() { gestureController.stopNow(); runOnUiThread(() -> { statusTextView.setText(getString(R.string.status_listening)); startContinuousRecognition(); findViewById(R.id.fab_interrupt).setVisibility(View.GONE); }); }
+            @Override public void onExitSpeaking() { 
+                gestureController.stopNow(); 
+                runOnUiThread(() -> { 
+                    if (!isMuted) {
+                        statusTextView.setText(getString(R.string.status_listening)); 
+                        startContinuousRecognition(); 
+                    }
+                    findViewById(R.id.fab_interrupt).setVisibility(View.GONE); 
+                }); 
+            }
         });
         toolExecutor = new ToolExecutor(this, (question, options, correct) -> 
             runOnUiThread(() -> showQuizDialog(question, options, correct)));
@@ -329,6 +368,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         if (!hasFocusInitialized) {
             hasFocusInitialized = true;
             isWarmingUp = true;
+            isMuted = false; // Reset mute state on initial startup
 
             // Set initial volume from settings
             applyVolume(settingsManager.getVolume());
@@ -534,6 +574,9 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     }
 
     private void startNewSession() {
+        // Reset mute state for new session
+        isMuted = false;
+        
         // Update UI immediately
         runOnUiThread(() -> {
             statusTextView.setText(getString(R.string.status_starting_new_session));
@@ -1273,6 +1316,74 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             warmupIndicatorLayout.setVisibility(View.GONE);
             // The status will be set to Listening by the TurnManager, so no need to set it here.
         });
+    }
+    
+    /**
+     * Interrupts any active response and mutes the microphone
+     */
+    private void interruptAndMute() {
+        try {
+            // Perform the same interrupt logic as the FAB button
+            if (sessionManager != null && sessionManager.isConnected()) {
+                // 1) Cancel further generation first (send only if there is an active response)
+                if (hasActiveResponse) {
+                    JSONObject cancel = new JSONObject();
+                    cancel.put("type", "response.cancel");
+                    sessionManager.send(cancel.toString());
+                    // mark the current response as cancelled to ignore trailing chunks
+                    cancelledResponseId = currentResponseId;
+                }
+
+                // 2) Truncate current assistant item if we have its id
+                if (lastAssistantItemId != null) {
+                    int playedMs = audioPlayer != null ? Math.max(0, audioPlayer.getEstimatedPlaybackPositionMs()) : 0;
+                    JSONObject truncate = new JSONObject();
+                    truncate.put("type", "conversation.item.truncate");
+                    truncate.put("item_id", lastAssistantItemId);
+                    truncate.put("content_index", 0);
+                    truncate.put("audio_end_ms", playedMs);
+                    sessionManager.send(truncate.toString());
+                }
+
+                // 3) Stop local audio and gestures
+                if (audioPlayer != null) audioPlayer.interruptNow();
+                gestureController.stopNow();
+            }
+            
+            // 4) Set muted state instead of going directly to listening
+            mute();
+        } catch (Exception e) {
+            Log.e(TAG, "Interrupt and mute failed", e);
+        }
+    }
+    
+    /**
+     * Mutes the microphone and updates UI
+     */
+    private void mute() {
+        isMuted = true;
+        stopContinuousRecognition();
+        runOnUiThread(() -> {
+            statusTextView.setText(getString(R.string.status_muted_tap_to_unmute));
+            findViewById(R.id.fab_interrupt).setVisibility(View.GONE);
+        });
+        Log.i(TAG, "Microphone muted - tap status to unmute");
+    }
+    
+    /**
+     * Unmutes the microphone and resumes listening
+     */
+    private void unmute() {
+        isMuted = false;
+        runOnUiThread(() -> {
+            statusTextView.setText(getString(R.string.status_listening));
+            findViewById(R.id.fab_interrupt).setVisibility(View.GONE);
+        });
+        startContinuousRecognition();
+        if (turnManager != null) {
+            turnManager.setState(TurnManager.State.LISTENING);
+        }
+        Log.i(TAG, "Microphone unmuted - resuming listening");
     }
 }
 
