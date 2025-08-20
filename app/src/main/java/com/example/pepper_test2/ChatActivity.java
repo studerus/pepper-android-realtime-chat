@@ -260,6 +260,11 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             public void showMemoryGame(String difficulty) {
                 runOnUiThread(() -> showMemoryGameDialog(difficulty));
             }
+            
+            @Override
+            public void showYouTubeVideo(YouTubeSearchService.YouTubeVideo video) {
+                runOnUiThread(() -> showYouTubePlayerDialog(video));
+            }
         });
         audioPlayer.setListener(new OptimizedAudioPlayer.Listener() {
             @Override public void onPlaybackStarted() {
@@ -489,6 +494,10 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         webSocketHandler.registerHandler("response.audio.delta", message -> {
             String base64Audio = message.getString("delta");
             String respId = message.optString("response_id");
+            // Reset carry at response boundary to avoid syllable overlap
+            if (currentResponseId != null && respId != null && !Objects.equals(currentResponseId, respId)) {
+                try { audioPlayer.onResponseBoundary(); } catch (Exception ignored) {}
+            }
             currentResponseId = respId;
             if (Objects.equals(respId, cancelledResponseId)) {
                 return; // drop cancelled response chunks
@@ -722,7 +731,12 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                         if (!audioPlayer.isPlaying()) {
                             turnManager.setState(TurnManager.State.SPEAKING);
                         }
-                        if (responseId != null) currentResponseId = responseId;
+                        if (responseId != null) {
+                            if (currentResponseId != null && !Objects.equals(currentResponseId, responseId)) {
+                                try { audioPlayer.onResponseBoundary(); } catch (Exception ignored) {}
+                            }
+                            currentResponseId = responseId;
+                        }
                         if (Objects.equals(responseId, cancelledResponseId)) {
                             return; // drop cancelled response chunks
                         }
@@ -1207,6 +1221,38 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         memoryGame.show(difficulty);
     }
 
+    private void showYouTubePlayerDialog(YouTubeSearchService.YouTubeVideo video) {
+        if (isFinishing()) { 
+            Log.w(TAG, "Not showing YouTube player because activity is finishing."); 
+            return; 
+        }
+        
+        if (video == null) {
+            Log.e(TAG, "Cannot show YouTube player - video is null");
+            return;
+        }
+        
+        Log.i(TAG, "Opening YouTube player for: " + video.getTitle());
+        
+        YouTubePlayerDialog youtubePlayer = new YouTubePlayerDialog(this, new YouTubePlayerDialog.PlayerEventListener() {
+            @Override
+            public void onPlayerOpened() {
+                Log.i(TAG, "YouTube player opened - muting microphone");
+                // Mute microphone when video starts
+                mute();
+            }
+            
+            @Override
+            public void onPlayerClosed() {
+                Log.i(TAG, "YouTube player closed - unmuting microphone");
+                // Unmute microphone when video closes
+                unmute();
+            }
+        });
+        
+        youtubePlayer.playVideo(video);
+    }
+
     private void sendContextToModel(String message, boolean requestResponse) {
         if (sessionManager == null || !sessionManager.isConnected()) {
             Log.e(TAG, "WebSocket is not connected. Cannot send context update.");
@@ -1438,6 +1484,10 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             float temperature = settingsManager.getTemperature();
             String systemPrompt = settingsManager.getSystemPrompt();
 
+            // Debug initial setup
+            java.util.Set<String> enabledTools = settingsManager.getEnabledTools();
+            Log.i(TAG, "Initial session - Enabled tools: " + enabledTools);
+
             JSONObject payload = new JSONObject();
             payload.put("type", "session.update");
 
@@ -1447,12 +1497,21 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             sessionConfig.put("output_audio_format", "pcm16");
             sessionConfig.put("turn_detection", JSONObject.NULL);
             sessionConfig.put("instructions", systemPrompt);
-            sessionConfig.put("tools", ToolRegistry.buildToolsDefinitionForAzure(this));
+            
+            JSONArray toolsArray = ToolRegistry.buildToolsDefinitionForAzure(this, enabledTools);
+            sessionConfig.put("tools", toolsArray);
+            
+            // Debug tools array
+            Log.i(TAG, "Initial session tools: " + toolsArray.length() + " tools");
+            for (int i = 0; i < toolsArray.length(); i++) {
+                JSONObject tool = toolsArray.getJSONObject(i);
+                Log.d(TAG, "  Initial tool " + i + ": " + tool.optString("name"));
+            }
 
             payload.put("session", sessionConfig);
 
             sessionManager.send(payload.toString());
-            Log.d(TAG, "Sent initial session.update: " + payload);
+            Log.d(TAG, "Sent initial session.update with " + toolsArray.length() + " tools");
         } catch (Exception e) {
             Log.e(TAG, "Failed to send initial session.update", e);
         }
@@ -1467,6 +1526,19 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             String systemPrompt = settingsManager.getSystemPrompt();
             java.util.Set<String> enabledTools = settingsManager.getEnabledTools();
 
+            // Debug logging for tools
+            Log.i(TAG, "Session update - Enabled tools: " + enabledTools);
+            
+            // Debug YouTube API key
+            ApiKeyManager keyManager = new ApiKeyManager(this);
+            if (enabledTools.contains("play_youtube_video")) {
+                boolean hasYouTubeKey = keyManager.isYouTubeAvailable();
+                Log.i(TAG, "YouTube tool enabled - API key available: " + hasYouTubeKey);
+                if (!hasYouTubeKey) {
+                    Log.w(TAG, "YouTube tool enabled but no API key found!");
+                }
+            }
+
             JSONObject payload = new JSONObject();
             payload.put("type", "session.update");
 
@@ -1474,12 +1546,21 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             sessionConfig.put("voice", voice);
             sessionConfig.put("temperature", temperature);
             sessionConfig.put("instructions", systemPrompt);
-            sessionConfig.put("tools", ToolRegistry.buildToolsDefinitionForAzure(this, enabledTools));
+            
+            JSONArray toolsArray = ToolRegistry.buildToolsDefinitionForAzure(this, enabledTools);
+            sessionConfig.put("tools", toolsArray);
+            
+            // Debug tools array
+            Log.i(TAG, "Tools in session.update: " + toolsArray.length() + " tools");
+            for (int i = 0; i < toolsArray.length(); i++) {
+                JSONObject tool = toolsArray.getJSONObject(i);
+                Log.d(TAG, "  Tool " + i + ": " + tool.optString("name"));
+            }
 
             payload.put("session", sessionConfig);
 
             sessionManager.send(payload.toString());
-            Log.d(TAG, "Sent session.update: " + payload);
+            Log.d(TAG, "Sent session.update with " + toolsArray.length() + " tools");
         } catch (Exception e) {
             Log.e(TAG, "Failed to send session.update", e);
         }

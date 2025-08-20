@@ -49,6 +49,10 @@ public class ApiKeyManager {
         return getBuildConfigKey("OPENWEATHER_API_KEY", settings.getString("OPENWEATHER_API_KEY", ""));
     }
     
+    public String getYouTubeApiKey() {
+        return getBuildConfigKey("YOUTUBE_API_KEY", settings.getString("YOUTUBE_API_KEY", ""));
+    }
+    
     // Validation methods
     public boolean hasValidGroqKey() {
         return isValidKey(getGroqApiKey());
@@ -60,6 +64,10 @@ public class ApiKeyManager {
     
     public boolean hasValidOpenWeatherKey() {
         return isValidKey(getOpenWeatherApiKey());
+    }
+    
+    public boolean hasValidYouTubeKey() {
+        return isValidKey(getYouTubeApiKey());
     }
     
     // Feature availability checks
@@ -75,6 +83,10 @@ public class ApiKeyManager {
         return hasValidOpenWeatherKey();
     }
     
+    public boolean isYouTubeAvailable() {
+        return hasValidYouTubeKey();
+    }
+    
     // Error messages for missing keys
     
     public String getSearchSetupMessage() {
@@ -87,6 +99,13 @@ public class ApiKeyManager {
         return "🔑 Weather requires OPENWEATHER_API_KEY.\n" +
                "Get free key at: https://openweathermap.org/api\n" +
                "Add to local.properties: OPENWEATHER_API_KEY=your_key";
+    }
+    
+    public String getYouTubeSetupMessage() {
+        return "🔑 YouTube video requires YOUTUBE_API_KEY.\n" +
+               "Get free key at: https://console.developers.google.com/\n" +
+               "Enable YouTube Data API v3\n" +
+               "Add to local.properties: YOUTUBE_API_KEY=your_key";
     }
     
     // Helper methods

@@ -9,6 +9,7 @@ public class RealtimeEventHandler {
         void onSessionUpdated(JSONObject session);
         void onAudioTranscriptDelta(String delta, @SuppressWarnings("unused") String responseId);
         void onAudioDelta(byte[] pcm16, String responseId);
+        default void onResponseBoundary(@SuppressWarnings("unused") String newResponseId) {}
         void onAudioDone();
         void onResponseDone(JSONObject response);
         void onAssistantItemAdded(String itemId);
@@ -51,7 +52,11 @@ public class RealtimeEventHandler {
                         JSONObject resp = obj.optJSONObject("response");
                         if (resp != null) {
                             String rid = resp.optString("id", "");
-                            if (!rid.isEmpty()) listener.onResponseCreated(rid);
+                            if (!rid.isEmpty()) {
+                                listener.onResponseCreated(rid);
+                                // Signal boundary early so clients can reset state
+                                listener.onResponseBoundary(rid);
+                            }
                         }
                     } catch (Exception ignored) {}
                     break;

@@ -72,6 +72,10 @@ public class ToolRegistry {
             "Move Pepper robot in a specific direction for a given distance. Use this when the user asks Pepper to move around the room.", 
             false, null));
             
+        tools.add(new ToolInfo("play_youtube_video", 
+            "Search and play a YouTube video based on user's request. Use this when the user asks to play music, songs, or videos from YouTube.", 
+            true, "YouTube"));
+            
         return tools;
     }
 
@@ -253,6 +257,25 @@ public class ToolRegistry {
                 p9.put("required", new JSONArray().put("direction").put("distance"));
                 t9.put("parameters", p9);
                 tools.put(t9);
+            }
+
+            // play_youtube_video (only if YouTube API key is available)
+            if ((enabledTools == null || enabledTools.contains("play_youtube_video")) && keyManager.isYouTubeAvailable()) {
+                JSONObject t10 = new JSONObject();
+                t10.put("type", "function");
+                t10.put("name", "play_youtube_video");
+                t10.put("description", "Search and play a YouTube video based on user's request. Use this when the user asks to play music, songs, or videos from YouTube.");
+                JSONObject p10 = new JSONObject();
+                p10.put("type", "object");
+                JSONObject props10 = new JSONObject();
+                props10.put("query", new JSONObject().put("type", "string").put("description", "Search query for the video (e.g. 'like a virgin madonna', 'funny cat videos')"));
+                p10.put("properties", props10);
+                p10.put("required", new JSONArray().put("query"));
+                t10.put("parameters", p10);
+                tools.put(t10);
+                Log.d(TAG, "YouTube video tool registered (YouTube API key available)");
+            } else {
+                Log.d(TAG, "YouTube video tool NOT registered (YouTube API key missing or disabled)");
             }
 
         } catch (Exception e) {

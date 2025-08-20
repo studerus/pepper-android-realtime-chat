@@ -120,8 +120,18 @@ public class OptimizedAudioPlayer {
 
     public void markResponseDone() { 
         isResponseDone.set(true);
-        // Clean memory pool to prevent contamination between responses
-        memoryPool.cleanupBetweenResponses();
+        // Memory pool cleanup moved to final cleanup() to prevent 
+        // contamination during overlapping responses
+        // Reset carry buffer to avoid cross-response merge (e.g., repeated syllables)
+        resetCarryBuffer();
+    }
+
+    /**
+     * Called when a new response_id begins streaming. Prevents cross-response merging
+     * by clearing any partial-frame carry from the previous response.
+     */
+    public void onResponseBoundary() {
+        resetCarryBuffer();
     }
 
     public int getEstimatedPlaybackPositionMs() {
@@ -227,10 +237,9 @@ public class OptimizedAudioPlayer {
     }
 
     private boolean hasSufficientBuffer() {
-        int startBufferMs = 150; // Reduced start buffer for lower latency
-        int needed = (int)((sampleRateHz * bytesPerSample * channels) * (startBufferMs / 1000.0));
-        int available = audioBuffer.size() * 480; // Rough estimation
-        return available >= needed / 480; // Chunk-based estimation
+        // Start only when we have a small headroom of chunks to avoid initial underflow
+        int minChunks = 6; // ~60ms at 10ms frames
+        return audioBuffer.size() >= minChunks;
     }
 
     /**
@@ -248,6 +257,7 @@ public class OptimizedAudioPlayer {
         try {
             audioTrack.play();
             int frameBytes = frameBytes10ms();
+            if (frameBytes <= 0) frameBytes = 480; // safety for 24kHz mono pcm16
             
             while (!shouldStop.get()) {
                 byte[] data = audioBuffer.poll(); // O(1) operation
@@ -285,7 +295,7 @@ public class OptimizedAudioPlayer {
         
         // Write in aligned frames for optimal performance
         while (len - offset >= frameBytes && !shouldStop.get()) {
-            int written = audioTrack.write(toWrite, offset, frameBytes);
+            int written = audioTrack.write(toWrite, offset, frameBytes, AudioTrack.WRITE_BLOCKING);
             if (written < 0) {
                 // Brief park for audio underflow recovery
                 LockSupport.parkNanos(2_000_000); // 2ms
@@ -339,8 +349,8 @@ public class OptimizedAudioPlayer {
 
     private void flushCarryBuffer() {
         int carryLen = carryLength.get();
-        if (carryLen > 0 && carryBuffer != null) {
-            int written = audioTrack.write(carryBuffer, 0, carryLen);
+        if (carryLen > 0 && carryBuffer != null && !shouldStop.get()) {
+            int written = audioTrack.write(carryBuffer, 0, carryLen, AudioTrack.WRITE_BLOCKING);
             if (written > 0) {
                 totalFramesWritten.addAndGet(written / (long)(bytesPerSample * channels));
             }
@@ -403,13 +413,12 @@ public class OptimizedAudioPlayer {
          * Acquire a buffer and ensure it's clean (all zeros)
          */
         byte[] acquireClean(int size) {
+            // Always return an array with EXACT length 'size' to avoid writing stale tail bytes
             byte[] array = pool.poll();
-            if (array == null || array.length < size) {
-                return new byte[Math.max(size, 1024)]; // Min 1KB allocation - already zeroed
+            if (array == null || array.length != size) {
+                return new byte[size];
             }
-            
-            // Zero out the entire buffer to prevent contamination
-            java.util.Arrays.fill(array, 0, Math.min(array.length, size + 100), (byte) 0);
+            java.util.Arrays.fill(array, (byte) 0);
             return array;
         }
         
@@ -421,7 +430,9 @@ public class OptimizedAudioPlayer {
         }
         
         void release(byte[] array) {
-            if (array != null && array.length >= 512) { // Only pool reasonably sized arrays
+            if (array == null) return;
+            // Only pool arrays of common sizes to improve reuse while avoiding size mismatches
+            if (array.length >= 256) {
                 pool.offer(array);
             }
         }

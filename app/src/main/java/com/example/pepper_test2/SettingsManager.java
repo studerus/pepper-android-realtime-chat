@@ -1,6 +1,7 @@
 package com.example.pepper_test2;
 
 import android.content.SharedPreferences;
+import android.util.Log;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
@@ -238,7 +239,31 @@ public class SettingsManager {
 
     public Set<String> getEnabledTools() {
         Set<String> defaultTools = getDefaultEnabledTools();
-        return settings.getStringSet(KEY_ENABLED_TOOLS, defaultTools);
+        Set<String> savedTools = settings.getStringSet(KEY_ENABLED_TOOLS, null);
+        
+        if (savedTools == null) {
+            // First time - return all default tools
+            return defaultTools;
+        } else {
+            // Merge saved tools with new tools (for app updates)
+            Set<String> mergedTools = new HashSet<>(savedTools);
+            
+            // Add any new tools that weren't in the saved list
+            for (String defaultTool : defaultTools) {
+                if (!mergedTools.contains(defaultTool)) {
+                    mergedTools.add(defaultTool);
+                    Log.i("SettingsManager", "Auto-enabling new tool: " + defaultTool);
+                }
+            }
+            
+            // Save merged list for next time
+            if (!mergedTools.equals(savedTools)) {
+                setEnabledTools(mergedTools);
+                // Note: session.update will be triggered on next settings access
+            }
+            
+            return mergedTools;
+        }
     }
 
     public void setEnabledTools(Set<String> enabledTools) {

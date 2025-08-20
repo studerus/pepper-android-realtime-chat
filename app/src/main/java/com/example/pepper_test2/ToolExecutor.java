@@ -33,6 +33,7 @@ public class ToolExecutor {
 	public interface ToolUi {
 		void showQuiz(String question, String[] options, String correctAnswer);
 		void showMemoryGame(String difficulty);
+		void showYouTubeVideo(YouTubeSearchService.YouTubeVideo video);
 	}
 
 	private static final String TAG = "ToolExecutor";
@@ -73,6 +74,8 @@ public class ToolExecutor {
 					return handleStartMemoryGame(args);
 				case "move_pepper":
 					return handleMovePepper(args);
+				case "play_youtube_video":
+					return handlePlayYouTubeVideo(args);
 				default:
 					return new JSONObject().put("error", "Unknown tool: " + toolName).toString();
 			}
@@ -496,6 +499,53 @@ public class ToolExecutor {
 		result.put("distance", distance);
 		result.put("speed", speed);
 		return result.toString();
+	}
+
+	private String handlePlayYouTubeVideo(JSONObject args) throws Exception {
+		String query = args.optString("query", "");
+		
+		// Validate required parameters
+		if (query.isEmpty()) {
+			return new JSONObject().put("error", "Missing required parameter: query").toString();
+		}
+		
+		// Check if YouTube API is available
+		if (!keyManager.isYouTubeAvailable()) {
+			String setupMessage = keyManager.getYouTubeSetupMessage();
+			return new JSONObject().put("error", "YouTube API key not configured").put("setup", setupMessage).toString();
+		}
+		
+		Log.i(TAG, "Searching YouTube for: " + query);
+		
+		try {
+			// Create YouTube search service
+			YouTubeSearchService youtubeService = new YouTubeSearchService(keyManager.getYouTubeApiKey());
+			
+			// Search for video
+			YouTubeSearchService.YouTubeVideo video = youtubeService.searchFirstVideo(query);
+			
+			if (video == null) {
+				return new JSONObject().put("error", "No videos found for query: " + query).toString();
+			}
+			
+			// Show video player via UI interface
+			if (ui != null) {
+				ui.showYouTubeVideo(video);
+			}
+			
+			// Return success response
+			JSONObject result = new JSONObject();
+			result.put("status", "Video player opened");
+			result.put("query", query);
+			result.put("video_title", video.getTitle());
+			result.put("channel", video.getChannelTitle());
+			result.put("video_id", video.getVideoId());
+			return result.toString();
+			
+		} catch (Exception e) {
+			Log.e(TAG, "Error playing YouTube video", e);
+			return new JSONObject().put("error", "Failed to search or play video: " + e.getMessage()).toString();
+		}
 	}
 
 	@SuppressWarnings("SpellCheckingInspection") // Animation names like bowshort, showfloor, showsky, showtablet

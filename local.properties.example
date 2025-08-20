@@ -34,6 +34,11 @@ TAVILY_API_KEY=your_tavily_key_here
 # Free tier: 1,000 calls/day
 OPENWEATHER_API_KEY=your_openweather_key_here
 
+# YouTube Data API - Enables video search and playback
+# Get free key from: https://console.cloud.google.com/
+# Free tier: 10,000 requests/day
+YOUTUBE_API_KEY=your_youtube_api_key_here
+
 # =============================================================================
 # SETUP INSTRUCTIONS
 # =============================================================================

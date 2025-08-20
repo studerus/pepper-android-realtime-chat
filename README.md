@@ -51,6 +51,7 @@ AZURE_SPEECH_REGION=switzerlandnorth
 GROQ_API_KEY=your_groq_key_here          # For vision analysis
 TAVILY_API_KEY=your_tavily_key_here      # For internet search
 OPENWEATHER_API_KEY=your_weather_key     # For weather information
+YOUTUBE_API_KEY=your_youtube_api_key     # For video playback
 ```
 
 ### 3. Build and Install
@@ -95,6 +96,11 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 - **Get Key**: [openweathermap.org/api](https://openweathermap.org/api)
 - **Enables**: Weather information and forecasts
 
+#### YouTube Data API (Video Playback)
+- **Free Tier**: 10,000 requests/day
+- **Get Key**: [console.cloud.google.com](https://console.cloud.google.com/)
+- **Enables**: Video search and playback in popup window
+
 ## 🎯 Usage
 
 ### Basic Operation
@@ -107,6 +113,8 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 - **"What do you see?"** - Triggers vision analysis (requires Groq API)
 - **"What's the weather like?"** - Gets weather information (requires OpenWeather API)
 - **"Search for [topic]"** - Performs internet search (requires Tavily API)
+- **"Play [song/video]"** - Searches and plays YouTube videos (requires YouTube API)
+- **"Move [direction] [distance]"** - Commands Pepper to move (forward/backward/left/right)
 - **"Tell me a joke"** - Random joke from local database
 - **"Show me [animation]"** - Plays Pepper animations
 

@@ -34,6 +34,15 @@ android {
         buildConfigField "String", "GROQ_API_KEY", "\"${localProps.getProperty('GROQ_API_KEY', '')}\""
         buildConfigField "String", "TAVILY_API_KEY", "\"${localProps.getProperty('TAVILY_API_KEY', '')}\""
         buildConfigField "String", "OPENWEATHER_API_KEY", "\"${localProps.getProperty('OPENWEATHER_API_KEY', '')}\""
+        
+        // Automatically include all API keys from local.properties that end with _API_KEY
+        localProps.each { key, value ->
+            if (key.toString().endsWith("_API_KEY") && 
+                !["GROQ_API_KEY", "TAVILY_API_KEY", "OPENWEATHER_API_KEY"].contains(key.toString())) {
+                buildConfigField "String", key.toString(), "\"${value}\""
+                logger.info("Auto-registered API key: ${key}")
+            }
+        }
     }
 
     buildTypes {
