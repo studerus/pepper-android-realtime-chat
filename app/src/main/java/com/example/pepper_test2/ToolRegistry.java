@@ -79,10 +79,6 @@ public class ToolRegistry {
         return tools;
     }
 
-    public static JSONArray buildToolsDefinitionForAzure(Context context) {
-        return buildToolsDefinitionForAzure(context, null);
-    }
-
     public static JSONArray buildToolsDefinitionForAzure(Context context, java.util.Set<String> enabledTools) {
         ApiKeyManager keyManager = new ApiKeyManager(context);
         JSONArray tools = new JSONArray();

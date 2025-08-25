@@ -7,9 +7,12 @@ import org.json.JSONObject;
 
 import java.io.IOException;
 
+import androidx.annotation.NonNull;
+
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
+import okhttp3.ResponseBody;
 
 public class YouTubeSearchService {
     private static final String TAG = "YouTubeSearchService";
@@ -34,8 +37,10 @@ public class YouTubeSearchService {
         public String getVideoId() { return videoId; }
         public String getTitle() { return title; }
         public String getChannelTitle() { return channelTitle; }
+        @SuppressWarnings("unused")
         public String getThumbnailUrl() { return thumbnailUrl; }
         
+        @NonNull
         @Override
         public String toString() {
             return "YouTubeVideo{" +
@@ -84,15 +89,19 @@ public class YouTubeSearchService {
         
         try (Response response = httpClient.newCall(request).execute()) {
             if (!response.isSuccessful()) {
-                String errorBody = response.body() != null ? response.body().string() : "Unknown error";
+                String errorBody = (response.body() != null) ? safeBodyString(response) : "Unknown error";
                 Log.e(TAG, "YouTube API error: " + response.code() + " - " + errorBody);
                 throw new IOException("YouTube API request failed: " + response.code());
             }
             
-            String responseBody = response.body().string();
+            String responseBody = (response.body() != null) ? safeBodyString(response) : null;
             Log.d(TAG, "YouTube API response received");
             
             // Parse JSON response
+            if (responseBody == null) {
+                Log.e(TAG, "Empty response body from YouTube API");
+                return null;
+            }
             JSONObject jsonResponse = new JSONObject(responseBody);
             JSONArray items = jsonResponse.getJSONArray("items");
             
@@ -102,18 +111,22 @@ public class YouTubeSearchService {
             }
             
             // Extract first video
-            JSONObject firstItem = items.getJSONObject(0);
-            String videoId = firstItem.getJSONObject("id").getString("videoId");
+            JSONObject firstItem = items.optJSONObject(0);
+            if (firstItem == null) {
+                Log.w(TAG, "Empty first item in YouTube response");
+                return null;
+            }
+            JSONObject idObj = firstItem.optJSONObject("id");
+            String videoId = idObj != null ? idObj.optString("videoId", "") : "";
             
             JSONObject snippet = firstItem.getJSONObject("snippet");
-            String title = snippet.getString("title");
-            String channelTitle = snippet.getString("channelTitle");
+            String title = snippet.optString("title", "");
+            String channelTitle = snippet.optString("channelTitle", "");
             
-            // Get thumbnail URL
-            String thumbnailUrl = "";
-            if (snippet.has("thumbnails") && snippet.getJSONObject("thumbnails").has("default")) {
-                thumbnailUrl = snippet.getJSONObject("thumbnails").getJSONObject("default").getString("url");
-            }
+            // Get thumbnail URL (null-safe locals to satisfy inspections)
+            JSONObject thumbnails = snippet.optJSONObject("thumbnails");
+            JSONObject defaultThumb = thumbnails != null ? thumbnails.optJSONObject("default") : null;
+            String thumbnailUrl = defaultThumb != null ? defaultThumb.optString("url", "") : "";
             
             YouTubeVideo video = new YouTubeVideo(videoId, title, channelTitle, thumbnailUrl);
             Log.i(TAG, "Found video: " + video);
@@ -125,6 +138,11 @@ public class YouTubeSearchService {
             throw e;
         }
     }
+
+    private static String safeBodyString(Response response) throws IOException {
+        ResponseBody body = response.body();
+        return body != null ? body.string() : null;
+    }
     
     /**
      * Search for first video result
@@ -135,23 +153,6 @@ public class YouTubeSearchService {
         return searchVideo(query, 1);
     }
     
-    /**
-     * Generate YouTube embed URL for a video
-     * @param videoId YouTube video ID
-     * @param autoplay Whether to autoplay the video (default: true)
-     * @return Embed URL for WebView
-     */
-    public static String getEmbedUrl(String videoId, boolean autoplay) {
-        String autoplayParam = autoplay ? "1" : "0";
-        return "https://www.youtube.com/embed/" + videoId + "?autoplay=" + autoplayParam + "&rel=0&showinfo=0";
-    }
     
-    /**
-     * Generate YouTube embed URL with autoplay enabled
-     * @param videoId YouTube video ID
-     * @return Embed URL for WebView
-     */
-    public static String getEmbedUrl(String videoId) {
-        return getEmbedUrl(videoId, true);
-    }
+    // Convenience overload removed as unused
 }

@@ -7,6 +7,11 @@
         android:icon="@android:drawable/ic_menu_rotate"
         app:showAsAction="ifRoom" />
     <item
+        android:id="@+id/action_dashboard"
+        android:title="Perception Dashboard"
+        android:icon="@android:drawable/ic_menu_view"
+        app:showAsAction="ifRoom" />
+    <item
         android:id="@+id/action_settings"
         android:title="Settings"
         android:icon="@android:drawable/ic_menu_manage"

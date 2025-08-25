@@ -46,7 +46,7 @@
     <string name="silence_timeout_format">%dms</string>
     
     <!-- Vision Analysis -->
-    <string name="vision_context_suffix"> Kontext: Das Bild stammt von der Frontkamera des Roboters. Die abgebildete Person ist sehr wahrscheinlich du (der Benutzer). Sprich die Person direkt in der Du-Form an.</string>
+    <string name="vision_context_suffix">Context: The image comes from the robot front camera. The person shown is most likely you (the user). Speak directly to the person using the word you.</string>
     
     <!-- Quiz -->
     <string name="quiz_feedback_format">Bei der Frage \'%1$s\' habe ich die Antwort \'%2$s\' gewählt.</string>
@@ -74,4 +74,8 @@
     <string name="memory_pairs_format" formatted="false">Pairs: %d/%d</string>
     <string name="memory_time_format" formatted="false">Time: %02d:%02d</string>
     <string name="memory_card_face_down">?</string>
+    <string name="warmup_failed_msg">Connected to AI, but speech recognition warmup failed. You can still use the app, speech recognition will initialize when first used.</string>
+    <string name="ready_sr_lazy_init">Ready (Speech Recognition will initialize on first use)</string>
+    <string name="last_update_format">Last update: %1$s</string>
+    <string name="api_key_required_format">API key required: %1$s</string>
 </resources>

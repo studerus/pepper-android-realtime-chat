@@ -170,7 +170,6 @@ public class ChatMessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
         private final TextView functionResult;
         private final TextView functionResultLabel;
         private final ImageView expandIcon;
-        private final LinearLayout functionHeader;
         private final LinearLayout detailsContainer;
         private final ChatMessageAdapter adapter;
         
@@ -185,11 +184,11 @@ public class ChatMessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
             functionResult = itemView.findViewById(R.id.function_result);
             functionResultLabel = itemView.findViewById(R.id.function_result_label);
             expandIcon = itemView.findViewById(R.id.expand_icon);
-            functionHeader = itemView.findViewById(R.id.function_header);
             detailsContainer = itemView.findViewById(R.id.function_details_container);
             
-            // Set up click listener for expand/collapse
-            functionHeader.setOnClickListener(v -> toggleExpanded());
+            // Set up click listener for expand/collapse (no need to keep header as a field)
+            LinearLayout header = itemView.findViewById(R.id.function_header);
+            header.setOnClickListener(v -> toggleExpanded());
         }
         
         public void bind(ChatMessage message) {
@@ -230,12 +229,13 @@ public class ChatMessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
         }
         
         private void toggleExpanded() {
-            int position = getAdapterPosition();
-            if (position != RecyclerView.NO_POSITION && position < adapter.messages.size()) {
-                ChatMessage message = adapter.messages.get(position);
-                message.setExpanded(!message.isExpanded());
-                updateExpandState(message.isExpanded());
-            }
+            int position = getBindingAdapterPosition();
+            if (position == RecyclerView.NO_POSITION) return;
+            if (position >= adapter.messages.size()) return;
+            ChatMessage message = adapter.messages.get(position);
+            boolean newState = !message.isExpanded();
+            message.setExpanded(newState);
+            updateExpandState(newState);
         }
         
         private void updateExpandState(boolean expanded) {

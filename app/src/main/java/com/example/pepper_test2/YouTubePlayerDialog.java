@@ -6,7 +6,6 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.webkit.WebChromeClient;
 import android.webkit.PermissionRequest;
 import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
@@ -16,7 +15,11 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Button;
 import android.widget.TextView;
+import android.annotation.SuppressLint;
+import android.webkit.WebResourceError;
+import android.webkit.WebResourceRequest;
 
+@SuppressWarnings("SpellCheckingInspection")
 public class YouTubePlayerDialog {
     
     public interface PlayerEventListener {
@@ -34,14 +37,15 @@ public class YouTubePlayerDialog {
     private final AudioManager.OnAudioFocusChangeListener audioFocusChangeListener = focusChange -> {};
     
     // UI elements
-    private TextView videoTitle;
-    private TextView channelTitle;
-    private Button closeButton;
+    // Only keep WebView as a field (used in closePlayer)
 
     // Bridge to receive events from WebView JS
-    private class JsBridge {
+    private static class JsBridge {
+        @SuppressWarnings("unused")
         @JavascriptInterface public void onReady() { Log.d(TAG, "JS onReady"); }
+        @SuppressWarnings("unused")
         @JavascriptInterface public void onState(String state) { Log.d(TAG, "JS onState: " + state); }
+        @SuppressWarnings("unused")
         @JavascriptInterface public void onError(String error) { Log.e(TAG, "JS onError: " + error); }
     }
 
@@ -72,9 +76,9 @@ public class YouTubePlayerDialog {
         View dialogView = LayoutInflater.from(context).inflate(R.layout.dialog_youtube_player, null);
         
         // Initialize UI elements
-        videoTitle = dialogView.findViewById(R.id.youtube_video_title);
-        channelTitle = dialogView.findViewById(R.id.youtube_channel_title);
-        closeButton = dialogView.findViewById(R.id.youtube_close_button);
+        TextView videoTitle = dialogView.findViewById(R.id.youtube_video_title);
+        TextView channelTitle = dialogView.findViewById(R.id.youtube_channel_title);
+        Button closeButton = dialogView.findViewById(R.id.youtube_close_button);
         webView = dialogView.findViewById(R.id.youtube_webview);
         
         // Set video information
@@ -113,6 +117,7 @@ public class YouTubePlayerDialog {
         } catch (Exception ignored) {}
     }
 
+    @SuppressLint("SetJavaScriptEnabled")
     private void setupWebView(String videoId) {
         // Prefer hardware acceleration for HTML5 video playback
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
@@ -133,7 +138,7 @@ public class YouTubePlayerDialog {
         
         // Pepper-specific optimizations to prevent OpenGL errors
         webSettings.setCacheMode(WebSettings.LOAD_DEFAULT);
-        webSettings.setRenderPriority(WebSettings.RenderPriority.HIGH);
+        // setRenderPriority is deprecated on modern WebView; omit for compatibility
         webSettings.setAllowFileAccess(true);
         webSettings.setAllowContentAccess(true);
         webSettings.setLoadsImagesAutomatically(true);
@@ -158,12 +163,15 @@ public class YouTubePlayerDialog {
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
                 Log.d(TAG, "WebView attempting to load: " + url);
                 // Keep navigation within WebView for YouTube embed
-                if (url.contains("youtube.com") || url.contains("youtu.be")) {
-                    return false; // Let WebView handle it
-                }
-                return true; // Prevent external navigation
+                return !(url.contains("youtube.com") || url.contains("youtu.be"));
             }
             
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                String url = request.getUrl() != null ? request.getUrl().toString() : "";
+                return !(url.contains("youtube.com") || url.contains("youtu.be"));
+            }
+
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
@@ -171,9 +179,20 @@ public class YouTubePlayerDialog {
             }
             
             @Override
+            @SuppressWarnings("deprecation")
             public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
                 super.onReceivedError(view, errorCode, description, failingUrl);
                 Log.e(TAG, "WebView error: " + errorCode + " - " + description + " for URL: " + failingUrl);
+            }
+
+            @Override
+            public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+                super.onReceivedError(view, request, error);
+                try {
+                    String url = request != null && request.getUrl() != null ? request.getUrl().toString() : "";
+                    CharSequence desc = error != null ? error.getDescription() : "";
+                    Log.e(TAG, "WebView error: " + desc + " for URL: " + url);
+                } catch (Exception ignored) {}
             }
         });
         
@@ -279,7 +298,5 @@ public class YouTubePlayerDialog {
         }
     }
 
-    public boolean isShowing() {
-        return dialog != null && dialog.isShowing();
-    }
+    // isShowing() removed as it was unused
 }

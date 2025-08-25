@@ -9,8 +9,8 @@ import com.microsoft.cognitiveservices.speech.SpeechRecognizer;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeoutException;
 
+@SuppressWarnings("SpellCheckingInspection")
 public class SpeechRecognizerManager {
     public interface Listener {
         void onRecognizing(String partialText);
@@ -23,6 +23,7 @@ public class SpeechRecognizerManager {
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private SpeechRecognizer recognizer;
     private Listener listener;
+    private final Object recognizerLock = new Object();
 
     public void setListener(Listener listener) {
         this.listener = listener;
@@ -40,6 +41,9 @@ public class SpeechRecognizerManager {
                     try { recognizer.close(); } catch (Exception ignored) {}
                 }
                 recognizer = new SpeechRecognizer(cfg);
+                synchronized (recognizerLock) {
+                    recognizerLock.notifyAll();
+                }
                 
                 // Give Azure Speech SDK time to fully initialize internally
                 Thread.sleep(500);
@@ -82,15 +86,18 @@ public class SpeechRecognizerManager {
     public void warmup() throws Exception {
         Log.i(TAG, "Starting warmup - waiting for recognizer initialization...");
         
-        // Wait until recognizer is actually created by the initialize() async task
-        int waitCount = 0;
-        while (recognizer == null && waitCount < 100) { // Max 5 seconds wait
-            try {
-                Thread.sleep(50); // Check every 50ms
-                waitCount++;
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new RuntimeException("Warmup interrupted while waiting for recognizer.", e);
+        // Wait until recognizer is created by the initialize() async task without busy-waiting
+        long deadline = System.currentTimeMillis() + 5000; // 5s
+        synchronized (recognizerLock) {
+            while (recognizer == null) {
+                long remaining = deadline - System.currentTimeMillis();
+                if (remaining <= 0) break;
+                try {
+                    recognizerLock.wait(remaining);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("Warmup interrupted while waiting for recognizer.", e);
+                }
             }
         }
         
@@ -102,14 +109,14 @@ public class SpeechRecognizerManager {
         Log.i(TAG, "Recognizer is ready, starting connection warmup...");
         
         // Attempt warmup with retry for first-launch scenarios
-        Exception lastError = null;
-        for (int attempt = 1; attempt <= 2; attempt++) {
+        int retriesRemaining = 2;
+        int attempt = 1;
+        while (retriesRemaining > 0) {
             try {
                 attemptWarmupConnection(attempt);
                 Log.i(TAG, "Recognizer warmup completed successfully" + (attempt > 1 ? " on retry #" + attempt : ""));
                 return; // Success!
             } catch (Exception e) {
-                lastError = e;
                 Log.w(TAG, "Warmup attempt #" + attempt + " failed: " + e.getMessage());
                 
                 if (attempt == 1 && isFirstLaunchError(e)) {
@@ -124,10 +131,12 @@ public class SpeechRecognizerManager {
                     throw e; // Re-throw on final attempt or non-recoverable errors
                 }
             }
+            retriesRemaining--;
+            attempt++;
         }
         
         // This should never be reached, but for safety
-        throw lastError != null ? lastError : new RuntimeException("Warmup failed for unknown reason");
+        throw new RuntimeException("Warmup failed after retries");
     }
     
     private void attemptWarmupConnection(int attemptNumber) throws Exception {

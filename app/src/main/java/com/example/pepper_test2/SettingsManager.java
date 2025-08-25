@@ -17,6 +17,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+@SuppressWarnings("SpellCheckingInspection")
 public class SettingsManager {
 
     private static final String PREFS_NAME = "PepperDialogPrefs";
@@ -270,10 +271,6 @@ public class SettingsManager {
         settings.edit().putStringSet(KEY_ENABLED_TOOLS, enabledTools).apply();
     }
 
-    public boolean isToolEnabled(String toolName) {
-        return getEnabledTools().contains(toolName);
-    }
-
     private Set<String> getDefaultEnabledTools() {
         // By default, all tools should be enabled
         Set<String> defaultTools = new HashSet<>();
@@ -323,7 +320,7 @@ public class SettingsManager {
                 
                 if (!isApiKeyAvailable) {
                     toolApiKeyStatus.setVisibility(View.VISIBLE);
-                    toolApiKeyStatus.setText("API key required: " + tool.getApiKeyType());
+                    toolApiKeyStatus.setText(activity.getString(R.string.api_key_required_format, tool.getApiKeyType()));
                     toolCheckbox.setEnabled(false);
                     toolCheckbox.setChecked(false);
                 }

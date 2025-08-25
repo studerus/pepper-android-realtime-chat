@@ -28,19 +28,7 @@ public class ChatMessage {
         this.type = type;
     }
 
-    // Static factory methods for different message types
-    public static ChatMessage createRegularMessage(String message, Sender sender) {
-        ChatMessage chatMessage = new ChatMessage(sender, Type.REGULAR_MESSAGE);
-        chatMessage.message = message;
-        return chatMessage;
-    }
-
-    public static ChatMessage createImageMessage(String message, String imagePath, Sender sender) {
-        ChatMessage chatMessage = new ChatMessage(sender, Type.IMAGE_MESSAGE);
-        chatMessage.message = message;
-        chatMessage.imagePath = imagePath;
-        return chatMessage;
-    }
+    // Static factory for function call messages
     
     public static ChatMessage createFunctionCall(String functionName, String functionArgs, Sender sender) {
         ChatMessage chatMessage = new ChatMessage(sender, Type.FUNCTION_CALL);

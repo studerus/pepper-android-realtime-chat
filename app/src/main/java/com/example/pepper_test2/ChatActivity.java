@@ -29,6 +29,7 @@ import com.aldebaran.qi.Promise;
 import com.aldebaran.qi.sdk.QiContext;
 import com.aldebaran.qi.sdk.QiSDK;
 import com.aldebaran.qi.sdk.RobotLifecycleCallbacks;
+import com.aldebaran.qi.sdk.object.touch.TouchState;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.navigation.NavigationView;
@@ -101,6 +102,13 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     private SettingsManager settingsManager;
 
     private WebSocketMessageHandler webSocketHandler;
+
+    // Perception Dashboard
+    private PerceptionService perceptionService;
+    private DashboardManager dashboardManager;
+    
+    // Touch Sensor Management
+    private TouchSensorManager touchSensorManager;
 
 
     // A simple helper class to hold language display name and code
@@ -238,16 +246,14 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                 stopContinuousRecognition();
                 runOnUiThread(() -> { statusTextView.setText(getString(R.string.status_thinking)); findViewById(R.id.fab_interrupt).setVisibility(View.GONE); });
             }
-            @Override public void onEnterSpeaking() { stopContinuousRecognition(); startExplainGesturesLoop(); runOnUiThread(() -> findViewById(R.id.fab_interrupt).setVisibility(View.GONE)); }
+            @Override public void onEnterSpeaking() { 
+                stopContinuousRecognition(); 
+                startExplainGesturesLoop(); 
+                runOnUiThread(() -> findViewById(R.id.fab_interrupt).setVisibility(View.GONE));
+            }
             @Override public void onExitSpeaking() { 
                 gestureController.stopNow(); 
-                runOnUiThread(() -> { 
-                    if (!isMuted) {
-                        statusTextView.setText(getString(R.string.status_listening)); 
-                        startContinuousRecognition(); 
-                    }
-                    findViewById(R.id.fab_interrupt).setVisibility(View.GONE); 
-                }); 
+                runOnUiThread(() -> { if (!isMuted) { statusTextView.setText(getString(R.string.status_listening)); startContinuousRecognition(); } findViewById(R.id.fab_interrupt).setVisibility(View.GONE); }); 
             }
         });
         toolExecutor = new ToolExecutor(this, new ToolExecutor.ToolUi() {
@@ -275,6 +281,9 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             }
         });
 
+        // Initialize Perception Dashboard
+        initializeDashboard();
+
         QiSDK.register(this, this);
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
@@ -287,6 +296,48 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         // Request camera permission for vision analysis
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_REQUEST_CODE);
+        }
+    }
+
+    /**
+     * Initialize the perception dashboard
+     */
+    private void initializeDashboard() {
+        try {
+            // Find dashboard overlay view
+            View dashboardOverlay = findViewById(R.id.dashboard_overlay);
+            if (dashboardOverlay == null) {
+                Log.e(TAG, "Dashboard overlay not found in layout");
+                return;
+            }
+
+                    // Initialize perception service
+        perceptionService = new PerceptionService();
+
+        // Initialize dashboard manager
+        dashboardManager = new DashboardManager(this, dashboardOverlay);
+        dashboardManager.initialize(perceptionService);
+
+        // Initialize touch sensor manager
+        touchSensorManager = new TouchSensorManager();
+        touchSensorManager.setListener(new TouchSensorManager.TouchEventListener() {
+            @Override
+            public void onSensorTouched(String sensorName, TouchState touchState) {
+                handleTouchSensorEvent(sensorName);
+            }
+            
+            @Override
+            public void onSensorReleased(String sensorName, TouchState touchState) {
+                // We only trigger behavior on touch; releases are ignored, but timestamp logged for diagnostics
+                try { if (touchState != null) Log.d(TAG, "Touch released ts=" + touchState.getTime()); } catch (Exception ignored) {}
+            }
+        });
+
+        // Dashboard will be updated once perception service is initialized
+
+        Log.i(TAG, "Dashboard and TouchSensorManager initialized successfully");
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to initialize dashboard", e);
         }
     }
 
@@ -328,6 +379,20 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         deleteSessionImages();
         disconnectWebSocket(); // Disconnect WebSocket connection
         releaseAudioTrack(); // Release AudioTrack
+        
+        // Clean up dashboard
+        if (dashboardManager != null) {
+            dashboardManager.shutdown();
+        }
+        if (perceptionService != null) {
+            perceptionService.shutdown();
+        }
+        
+        // Clean up touch sensor manager
+        if (touchSensorManager != null) {
+            touchSensorManager.shutdown();
+        }
+        
         QiSDK.unregister(this, this);
         super.onDestroy();
     }
@@ -368,6 +433,11 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             // Clear event handler
             eventHandler = null;
             
+            // Clear touch sensor manager listener
+            if (touchSensorManager != null) {
+                touchSensorManager.setListener(null);
+            }
+            
             Log.i(TAG, "Services cleaned up successfully");
         } catch (Exception e) {
             Log.e(TAG, "Error during service cleanup", e);
@@ -379,6 +449,16 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     public void onRobotFocusGained(QiContext qiContext) {
         this.qiContext = qiContext;
         if (toolExecutor != null) toolExecutor.setQiContext(qiContext);
+        
+        // Initialize perception service with QiContext
+        if (perceptionService != null) {
+            perceptionService.initialize(qiContext);
+        }
+        
+        // Initialize touch sensor manager with QiContext
+        if (touchSensorManager != null) {
+            touchSensorManager.initialize(qiContext);
+        }
         // Only perform initialization on first focus gain
         if (!hasFocusInitialized) {
             hasFocusInitialized = true;
@@ -408,8 +488,8 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                     if (!connectFuture.hasError() && warmupFuture.hasError()) {
                         Log.i(TAG, "WebSocket connected but speech warmup failed - app can still function");
                         runOnUiThread(() -> {
-                            addMessage("Connected to AI, but speech recognition warmup failed. You can still use the app, speech recognition will initialize when first used.", ChatMessage.Sender.ROBOT);
-                            statusTextView.setText("Ready (Speech Recognition will initialize on first use)");
+                            addMessage(getString(R.string.warmup_failed_msg), ChatMessage.Sender.ROBOT);
+                            statusTextView.setText(getString(R.string.ready_sr_lazy_init));
                         });
                         if (turnManager != null) turnManager.setState(TurnManager.State.LISTENING);
                     } else {
@@ -431,6 +511,19 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     @Override
     public void onRobotFocusLost() {
         if (toolExecutor != null) toolExecutor.setQiContext(null);
+        
+        // Clean up perception service
+        if (perceptionService != null) {
+            perceptionService.shutdown();
+        }
+        
+        // Clean up touch sensor manager
+        if (touchSensorManager != null) {
+            touchSensorManager.shutdown();
+        }
+        
+
+        
         // STT cleanup handled by sttManager
         this.qiContext = null;
     }
@@ -495,7 +588,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             String base64Audio = message.getString("delta");
             String respId = message.optString("response_id");
             // Reset carry at response boundary to avoid syllable overlap
-            if (currentResponseId != null && respId != null && !Objects.equals(currentResponseId, respId)) {
+            if (currentResponseId != null && !Objects.equals(currentResponseId, respId)) {
                 try { audioPlayer.onResponseBoundary(); } catch (Exception ignored) {}
             }
             currentResponseId = respId;
@@ -592,6 +685,11 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         int itemId = item.getItemId();
         if (itemId == R.id.action_new_chat) {
             startNewSession();
+            return true;
+        } else if (itemId == R.id.action_dashboard) {
+            if (dashboardManager != null) {
+                dashboardManager.toggleDashboard();
+            }
             return true;
         } else if (itemId == R.id.action_settings) {
             drawerLayout.openDrawer(GravityCompat.END);
@@ -786,11 +884,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                 });
                 sttManager.setListener(new SpeechRecognizerManager.Listener() {
                     @Override public void onRecognizing(String partialText) {
-                        runOnUiThread(() -> {
-                    if (statusTextView.getText().toString().startsWith("Listening")) {
-                                statusTextView.setText(getString(R.string.status_listening_partial, partialText));
-                            }
-                        });
+                        runOnUiThread(() -> { if (statusTextView.getText().toString().startsWith("Listening")) { statusTextView.setText(getString(R.string.status_listening_partial, partialText)); } });
                     }
                     @Override public void onRecognized(String text) {
                         if (text != null && !text.isEmpty()) {
@@ -848,11 +942,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                 sttManager = new SpeechRecognizerManager();
                 sttManager.setListener(new SpeechRecognizerManager.Listener() {
                     @Override public void onRecognizing(String partialText) {
-                        runOnUiThread(() -> {
-                    if (statusTextView.getText().toString().startsWith("Listening")) {
-                                statusTextView.setText(getString(R.string.status_listening_partial, partialText));
-                            }
-                        });
+                        runOnUiThread(() -> { if (statusTextView.getText().toString().startsWith("Listening")) { statusTextView.setText(getString(R.string.status_listening_partial, partialText)); } });
                     }
                     @Override public void onRecognized(String text) {
                         if (text != null && !text.isEmpty()) {
@@ -950,7 +1040,10 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         }
 
         Log.d(TAG, "Step 1: Send user message to conversation...");
-        if (turnManager != null && turnManager.getState() != TurnManager.State.SPEAKING) {
+        // Always allow state change to THINKING, even if currently SPEAKING (for touch interrupts)
+        if (turnManager != null) {
+            TurnManager.State currentState = turnManager.getState();
+            Log.d(TAG, "Current state: " + currentState + ", changing to THINKING");
             turnManager.setState(TurnManager.State.THINKING);
         }
         // Reset response state for new response
@@ -1665,6 +1758,99 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             turnManager.setState(TurnManager.State.LISTENING);
         }
         Log.i(TAG, "Microphone unmuted - resuming listening");
+    }
+    
+    /**
+     * Handle touch sensor events - interrupt speech if needed and send event to API
+     */
+    private void handleTouchSensorEvent(String sensorName) {
+        Log.i(TAG, "Touch sensor event: " + sensorName + " touched");
+        // We no longer need touchState; keep signature for future use
+        
+        // Always react here; releases werden an anderer Stelle gefiltert
+        
+        // Check if robot is currently speaking and needs interruption
+        boolean wasInterrupted = false;
+        if (turnManager != null && turnManager.getState() == TurnManager.State.SPEAKING) {
+            if (hasActiveResponse || (audioPlayer != null && audioPlayer.isPlaying())) {
+                Log.i(TAG, "Interrupting speech due to touch on: " + sensorName);
+                // Ensure UI interaction runs on main thread
+                runOnUiThread(() -> {
+                    try {
+                        // Interrupt via existing UI flow; this will stop audio and clean up
+                        fabInterrupt.performClick();
+                        // Do not override state here; sendTextToAzure will move to THINKING
+                    } catch (Exception ignored) {}
+                });
+                wasInterrupted = true;
+            }
+        }
+        
+        // Send touch event to Realtime API (always touched at this point)
+        // If we interrupted, add a small delay to ensure the interrupt completes
+        if (wasInterrupted) {
+            threadManager.executeNetwork(() -> {
+                try {
+                    Thread.sleep(150); // small delay to let cancel/truncate propagate
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                sendTouchEventToAPI(sensorName);
+            });
+        } else {
+            sendTouchEventToAPI(sensorName);
+        }
+    }
+    
+    /**
+     * Send touch event to the Realtime API as a user message
+     */
+    private void sendTouchEventToAPI(String sensorName) {
+        if (sessionManager == null || !sessionManager.isConnected()) {
+            Log.w(TAG, "Cannot send touch event - WebSocket not connected");
+            return;
+        }
+        
+        try {
+            // Create a human-readable message about the touch event
+            String touchMessage = String.format("The user touched the %s.", getSensorDisplayName(sensorName));
+                
+            Log.d(TAG, "Sending touch event to API: " + touchMessage);
+            
+            // Send as regular text message using existing infrastructure
+            runOnUiThread(() -> {
+                // Add touch event to chat (optional - could be made configurable)
+                addMessage("👋 " + getSensorDisplayName(sensorName) + " touched", ChatMessage.Sender.USER);
+                
+                // Send to API
+                sendTextToAzure(touchMessage);
+            });
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to send touch event to API", e);
+        }
+    }
+    
+    /**
+     * Get user-friendly display name for touch sensors
+     */
+    private String getSensorDisplayName(String sensorName) {
+        switch (sensorName) {
+            case "Head/Touch":
+                return "head";
+            case "LHand/Touch":
+                return "left hand";
+            case "RHand/Touch":
+                return "right hand";
+            case "Bumper/FrontLeft":
+                return "front left bumper";
+            case "Bumper/FrontRight":
+                return "front right bumper";
+            case "Bumper/Back":
+                return "back bumper";
+            default:
+                return sensorName;
+        }
     }
 }
 
