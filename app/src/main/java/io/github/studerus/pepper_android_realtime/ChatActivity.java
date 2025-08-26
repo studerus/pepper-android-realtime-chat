@@ -277,7 +277,13 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                 turnManager.setState(TurnManager.State.SPEAKING);
             }
             @Override public void onPlaybackFinished() {
-                turnManager.setState(TurnManager.State.LISTENING);
+                // Avoid reopening the mic if a follow-up response is pending or already streaming
+                if (!expectingFinalAnswerAfterToolCall && !hasActiveResponse) {
+                    turnManager.setState(TurnManager.State.LISTENING);
+                } else {
+                    // Keep THINKING until the next response's audio starts
+                    turnManager.setState(TurnManager.State.THINKING);
+                }
             }
         });
 
@@ -1189,6 +1195,12 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             createResponsePayload.put("type", "response.create");
             sessionManager.send(createResponsePayload.toString());
             Log.d(TAG, "Requested new response after tool call.");
+
+            // Hold state in THINKING until the next response audio begins,
+            // but do NOT override SPEAKING to preserve ability to interrupt current speech
+            if (turnManager != null && turnManager.getState() != TurnManager.State.SPEAKING) {
+                turnManager.setState(TurnManager.State.THINKING);
+            }
  
         } catch (Exception e) {
             Log.e(TAG, "Error sending tool result", e);
