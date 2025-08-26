@@ -92,8 +92,7 @@ public class ToolExecutor {
 		if (json == null || json.isEmpty()) {
 			return new JSONObject().put("error", "jokes.json not found").toString();
 		}
-		String sanitized = sanitizeJokesJson(json);
-		JSONObject root = new JSONObject(sanitized);
+		JSONObject root = new JSONObject(json);
 		JSONArray arr = root.optJSONArray("jokes");
 		if (arr == null || arr.length() == 0) return new JSONObject().put("error", "No jokes available").toString();
 		Random rnd = new Random();
@@ -102,25 +101,6 @@ public class ToolExecutor {
 		result.put("id", joke.optInt("id"));
 		result.put("text", joke.optString("text"));
 		return result.toString();
-	}
-
-	/**
-	 * Sanitizes the jokes.json content by converting unescaped ASCII double quotes
-	 * inside joke text values to typographic quotes so that JSON parsing succeeds.
-	 * The JSON structure (keys, commas, braces) remains untouched.
-	 */
-	private String sanitizeJokesJson(String raw) {
-		if (raw == null || raw.isEmpty()) return raw;
-		// Replace common problematic pattern: German opening quote „ followed by ASCII closing " inside text
-		// Convert to proper typographic closing quote ” repeatedly until no more replacements occur.
-		String prev;
-		String cur = raw;
-		int guard = 0;
-		do {
-			prev = cur;
-			cur = prev.replaceAll("\u201E([^\"]*?)\"", "\u201E$1\u201D");
-		} while (!cur.equals(prev) && ++guard < 1000);
-		return cur;
 	}
 
 	private String readJokesFromAssets() {
