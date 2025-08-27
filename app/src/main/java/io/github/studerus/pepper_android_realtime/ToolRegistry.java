@@ -6,9 +6,37 @@ import android.util.Log;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.File;
+import java.util.List;
+import java.util.ArrayList;
+
 @SuppressWarnings("SpellCheckingInspection") // Animation names, API provider names
 public class ToolRegistry {
     private static final String TAG = "ToolRegistry";
+
+    /**
+     * Load all available saved locations from storage
+     */
+    private static List<String> getAvailableLocations(Context context) {
+        List<String> locations = new ArrayList<>();
+        try {
+            File locationsDir = new File(context.getFilesDir(), "locations");
+            if (locationsDir.exists() && locationsDir.isDirectory()) {
+                File[] files = locationsDir.listFiles();
+                if (files != null) {
+                    for (File file : files) {
+                        if (file.getName().endsWith(".loc")) {
+                            String locationName = file.getName().replace(".loc", "");
+                            locations.add(locationName);
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Error loading available locations: " + e.getMessage());
+        }
+        return locations;
+    }
 
     // Tool information class
     public static class ToolInfo {
@@ -72,6 +100,26 @@ public class ToolRegistry {
             "Move Pepper robot in a specific direction for a given distance. Use this when the user asks Pepper to move around the room.", 
             false, null));
             
+        tools.add(new ToolInfo("turn_pepper", 
+            "Turn Pepper robot left or right by a specific number of degrees. Use this when the user asks Pepper to turn or rotate.", 
+            false, null));
+            
+        		tools.add(new ToolInfo("create_environment_map", 
+			"Create a detailed map of the current environment that Pepper can use for navigation. After starting, guide Pepper manually through the room using 'move' and 'turn' commands to map different areas. Use this when the user wants to set up navigation or map the room.", 
+			false, null));
+			
+		tools.add(new ToolInfo("finish_environment_map", 
+			"Complete and save the current mapping process. Use this after Pepper has been guided through the room to finalize the map.", 
+			false, null));
+			
+		tools.add(new ToolInfo("save_current_location", 
+			"Save Pepper's current position with a name for future navigation. Locations saved during active mapping are more accurate. Use this when Pepper is at an important location like 'kitchen', 'printer', 'entrance', etc.", 
+			false, null));
+			
+		tools.add(new ToolInfo("navigate_to_location", 
+			"Navigate Pepper to a previously saved location. Available locations are loaded dynamically. Use this when the user wants to go to a specific named place.", 
+			false, null));
+            
         tools.add(new ToolInfo("play_youtube_video", 
             "Search and play a YouTube video based on user's request. Use this when the user asks to play music, songs, or videos from YouTube.", 
             true, "YouTube"));
@@ -82,6 +130,11 @@ public class ToolRegistry {
     public static JSONArray buildToolsDefinitionForAzure(Context context, java.util.Set<String> enabledTools) {
         ApiKeyManager keyManager = new ApiKeyManager(context);
         JSONArray tools = new JSONArray();
+        
+        // Load available locations for dynamic tool descriptions
+        List<String> availableLocations = getAvailableLocations(context);
+        Log.d(TAG, "Loaded " + availableLocations.size() + " available locations: " + availableLocations);
+        
         try {
             // get_current_datetime
             if (enabledTools == null || enabledTools.contains("get_current_datetime")) {
@@ -247,7 +300,7 @@ public class ToolRegistry {
                 p9.put("type", "object");
                 JSONObject props9 = new JSONObject();
                 props9.put("direction", new JSONObject().put("type", "string").put("description", "Direction to move").put("enum", new JSONArray().put("forward").put("backward").put("left").put("right")));
-                props9.put("distance", new JSONObject().put("type", "number").put("description", "Distance to move in meters (0.5-3.0)").put("minimum", 0.5).put("maximum", 3.0));
+                props9.put("distance", new JSONObject().put("type", "number").put("description", "Distance to move in meters (0.1-4.0)").put("minimum", 0.1).put("maximum", 4.0));
                 props9.put("speed", new JSONObject().put("type", "number").put("description", "Optional maximum speed in m/s (0.1-0.55)").put("minimum", 0.1).put("maximum", 0.55).put("default", 0.4));
                 p9.put("properties", props9);
                 p9.put("required", new JSONArray().put("direction").put("distance"));
@@ -255,20 +308,110 @@ public class ToolRegistry {
                 tools.put(t9);
             }
 
-            // play_youtube_video (only if YouTube API key is available)
-            if ((enabledTools == null || enabledTools.contains("play_youtube_video")) && keyManager.isYouTubeAvailable()) {
+            // turn_pepper
+            if (enabledTools == null || enabledTools.contains("turn_pepper")) {
                 JSONObject t10 = new JSONObject();
                 t10.put("type", "function");
-                t10.put("name", "play_youtube_video");
-                t10.put("description", "Search and play a YouTube video based on user's request. Use this when the user asks to play music, songs, or videos from YouTube.");
+                t10.put("name", "turn_pepper");
+                t10.put("description", "Turn Pepper robot left or right by a specific number of degrees. Use this when the user asks Pepper to turn or rotate.");
                 JSONObject p10 = new JSONObject();
                 p10.put("type", "object");
                 JSONObject props10 = new JSONObject();
-                props10.put("query", new JSONObject().put("type", "string").put("description", "Search query for the video (e.g. 'like a virgin madonna', 'funny cat videos')"));
+                props10.put("direction", new JSONObject().put("type", "string").put("description", "Direction to turn").put("enum", new JSONArray().put("left").put("right")));
+                props10.put("degrees", new JSONObject().put("type", "number").put("description", "Degrees to turn (15-180)").put("minimum", 15).put("maximum", 180));
+                props10.put("speed", new JSONObject().put("type", "number").put("description", "Optional turning speed in rad/s (0.1-1.0)").put("minimum", 0.1).put("maximum", 1.0).put("default", 0.5));
                 p10.put("properties", props10);
-                p10.put("required", new JSONArray().put("query"));
+                p10.put("required", new JSONArray().put("direction").put("degrees"));
                 t10.put("parameters", p10);
                 tools.put(t10);
+            }
+
+            // create_environment_map
+            if (enabledTools == null || enabledTools.contains("create_environment_map")) {
+                JSONObject t11 = new JSONObject();
+                t11.put("type", "function");
+                t11.put("name", "create_environment_map");
+                t11.put("description", "Create a detailed map of the current environment that Pepper can use for navigation. After starting, guide Pepper manually through the room using 'move' and 'turn' commands to map different areas. Use this when the user wants to set up navigation or map the room.");
+                JSONObject p11 = new JSONObject();
+                p11.put("type", "object");
+                JSONObject props11 = new JSONObject();
+                props11.put("map_name", new JSONObject().put("type", "string").put("description", "Optional name for the map (e.g. 'office', 'living_room')").put("default", "default_map"));
+                p11.put("properties", props11);
+                t11.put("parameters", p11);
+                tools.put(t11);
+            }
+
+            // finish_environment_map
+            if (enabledTools == null || enabledTools.contains("finish_environment_map")) {
+                JSONObject t12 = new JSONObject();
+                t12.put("type", "function");
+                t12.put("name", "finish_environment_map");
+                t12.put("description", "Complete and save the current mapping process. Use this after Pepper has been guided through the room to finalize the map.");
+                JSONObject p12 = new JSONObject();
+                p12.put("type", "object");
+                JSONObject props12 = new JSONObject();
+                props12.put("map_name", new JSONObject().put("type", "string").put("description", "Optional name for the finalized map (e.g. 'office', 'living_room')").put("default", "default_map"));
+                p12.put("properties", props12);
+                t12.put("parameters", p12);
+                tools.put(t12);
+            }
+
+            // save_current_location
+            if (enabledTools == null || enabledTools.contains("save_current_location")) {
+                JSONObject t13 = new JSONObject();
+                t13.put("type", "function");
+                t13.put("name", "save_current_location");
+                t13.put("description", "Save Pepper's current position with a name for future navigation. Locations saved during active mapping are more accurate. Use this when Pepper is at an important location like 'kitchen', 'printer', 'entrance', etc.");
+                JSONObject p13 = new JSONObject();
+                p13.put("type", "object");
+                JSONObject props13 = new JSONObject();
+                props13.put("location_name", new JSONObject().put("type", "string").put("description", "Name for this location (e.g. 'kitchen', 'printer', 'entrance')"));
+                props13.put("description", new JSONObject().put("type", "string").put("description", "Optional description of this location").put("default", ""));
+                p13.put("properties", props13);
+                p13.put("required", new JSONArray().put("location_name"));
+                t13.put("parameters", p13);
+                tools.put(t13);
+            }
+
+            // navigate_to_location
+            if (enabledTools == null || enabledTools.contains("navigate_to_location")) {
+                JSONObject t14 = new JSONObject();
+                t14.put("type", "function");
+                t14.put("name", "navigate_to_location");
+                
+                // Create dynamic description with available locations
+                String locationsList = availableLocations.isEmpty() ? "none" : String.join(", ", availableLocations);
+                String dynamicDescription = String.format(
+                    "Navigate Pepper to a previously saved location. Available locations: %s and any locations added during the current session. Use this when the user wants to go to a specific named place.", 
+                    locationsList
+                );
+                t14.put("description", dynamicDescription);
+                Log.d(TAG, "Dynamic navigate_to_location description: " + dynamicDescription);
+                JSONObject p14 = new JSONObject();
+                p14.put("type", "object");
+                JSONObject props14 = new JSONObject();
+                props14.put("location_name", new JSONObject().put("type", "string").put("description", "Name of the saved location to navigate to"));
+                props14.put("speed", new JSONObject().put("type", "number").put("description", "Optional movement speed in m/s (0.1-0.55)").put("minimum", 0.1).put("maximum", 0.55).put("default", 0.3));
+                p14.put("properties", props14);
+                p14.put("required", new JSONArray().put("location_name"));
+                t14.put("parameters", p14);
+                tools.put(t14);
+            }
+
+            // play_youtube_video (only if YouTube API key is available)
+            if ((enabledTools == null || enabledTools.contains("play_youtube_video")) && keyManager.isYouTubeAvailable()) {
+                JSONObject t15 = new JSONObject();
+                t15.put("type", "function");
+                t15.put("name", "play_youtube_video");
+                t15.put("description", "Search and play a YouTube video based on user's request. Use this when the user asks to play music, songs, or videos from YouTube.");
+                JSONObject p15 = new JSONObject();
+                p15.put("type", "object");
+                JSONObject props15 = new JSONObject();
+                props15.put("query", new JSONObject().put("type", "string").put("description", "Search query for the video (e.g. 'like a virgin madonna', 'funny cat videos')"));
+                p15.put("properties", props15);
+                p15.put("required", new JSONArray().put("query"));
+                t15.put("parameters", p15);
+                tools.put(t15);
                 Log.d(TAG, "YouTube video tool registered (YouTube API key available)");
             } else {
                 Log.d(TAG, "YouTube video tool NOT registered (YouTube API key missing or disabled)");

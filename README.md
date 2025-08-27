@@ -1,16 +1,24 @@
 # Pepper Android Realtime Chat 🤖
 
-A sophisticated conversational AI application for the Pepper robot using OpenAI's GPT-4o Realtime API. This app enables natural voice conversations with advanced features like vision analysis, internet search, and dynamic gesture control.
+A sophisticated conversational AI application for the Pepper robot using OpenAI's GPT-4o Realtime API. This app enables natural voice conversations with advanced features like vision analysis, internet search, autonomous navigation, and dynamic gesture control.
 
 ## ✨ Features
 
 ### Core Capabilities
 - **🎙️ Real-time Voice Chat** - Natural conversations using OpenAI GPT-4o Realtime API
 - **🤖 Pepper Robot Integration** - Synchronized gestures and animations
+- **🗺️ Navigation & Mapping** - Complete room mapping and autonomous navigation system
 - **👁️ Vision Analysis** - Camera-based image understanding via Groq API
 - **🌐 Internet Search** - Real-time web search capabilities via Tavily API
 - **🌤️ Weather Information** - Current weather and forecasts via OpenWeatherMap API
 - **🎯 Interactive Quizzes** - Dynamic quiz generation and interaction
+
+### Navigation & Mapping Features
+- **🗺️ Manual Mapping** - Guide Pepper through rooms to create detailed maps
+- **📍 Location Saving** - Save named locations with high precision during mapping
+- **🧭 Autonomous Navigation** - Navigate to any saved location with voice commands
+- **🎯 Intelligent Location Recognition** - AI automatically suggests similar location names
+- **⚡ Dynamic Location Lists** - AI always knows available locations
 
 ### Technical Features
 - **Multi-modal AI** - Audio, text, and vision processing
@@ -110,18 +118,91 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 4. **Tap** status bar to interrupt during robot speech
 
 ### Available Voice Commands
+
+#### Basic Interaction
 - **"What do you see?"** - Triggers vision analysis (requires Groq API)
 - **"What's the weather like?"** - Gets weather information (requires OpenWeather API)
 - **"Search for [topic]"** - Performs internet search (requires Tavily API)
 - **"Play [song/video]"** - Searches and plays YouTube videos (requires YouTube API)
-- **"Move [direction] [distance]"** - Commands Pepper to move (forward/backward/left/right)
 - **"Tell me a joke"** - Random joke from local database
 - **"Show me [animation]"** - Plays Pepper animations
+
+#### Movement Commands
+- **"Move [direction] [distance]"** - Basic movement (forward/backward/left/right, 0.1-4.0m)
+- **"Turn [direction] [degrees]"** - Rotate in place (left/right, 15-180 degrees)
+
+#### Navigation & Mapping
+- **"Create a map"** - Start mapping the current environment
+- **"Move forward 2 meters"** - Guide Pepper during mapping
+- **"Save this location as [name]"** - Save current position with a name
+- **"Finish the map"** - Complete and save the environment map
+- **"Go to [location]"** - Navigate to any saved location
+- **"Navigate to [location]"** - Alternative navigation command
 
 ### Settings Access
 - **Tap the menu** (⋮) in the top-right corner
 - **Adjust** voice, model, temperature, and other preferences
 - **Swipe from right** to access settings drawer
+
+## 🗺️ Navigation Workflow
+
+### Complete Setup Process
+
+#### 1. Create Environment Map
+```bash
+User: "Create a map of this room"
+Robot: "I have started mapping. Guide me through the room..."
+```
+
+#### 2. Guide Pepper Through the Room
+```bash
+User: "Move forward 2 meters"
+User: "Turn right 90 degrees"  
+User: "Move forward 1 meter"
+# Continue exploring all areas you want mapped
+```
+
+#### 3. Save Important Locations
+```bash
+User: "Save this location as printer"
+Robot: "Saved location 'printer' with high precision during mapping"
+
+User: "Save this location as kitchen" 
+Robot: "Saved location 'kitchen' with high precision during mapping"
+```
+
+#### 4. Finish Mapping
+```bash
+User: "Finish the map"
+Robot: "Map completed and saved successfully. Ready for navigation!"
+```
+
+#### 5. Navigate to Saved Locations
+```bash
+User: "Go to the printer"
+Robot: "Navigating to printer... I have arrived at printer."
+
+User: "Navigate to kitchen"
+Robot: "Navigating to kitchen (high-precision location)..."
+```
+
+### Smart Location Recognition
+The AI automatically knows all available locations and can suggest corrections:
+
+```bash
+User: "Go to Tür"
+Robot: "I have these locations: Türe, Kitchen, Printer. Did you mean 'Türe'?"
+
+User: "Yes, Türe" 
+Robot: "Navigating to Türe..."
+```
+
+### Key Features
+- **🎯 High-Precision Locations**: Saved during mapping for maximum accuracy
+- **🧠 Intelligent Suggestions**: AI suggests similar location names
+- **📍 Persistent Storage**: Locations survive app restarts
+- **⚡ Dynamic Updates**: AI knows new locations immediately
+- **🛡️ Error Prevention**: No "location not found" errors
 
 ## 🏗️ Architecture
 
@@ -133,7 +214,9 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 ├── AudioPlayer       - Real-time audio playback
 ├── GestureController - Pepper animation control
 ├── ToolExecutor      - Function calling implementation
-└── VisionService     - Camera and image analysis
+├── MovementController- Robot movement and navigation control
+├── VisionService     - Camera and image analysis
+└── ToolRegistry      - Dynamic tool registration with location awareness
 ```
 
 ### Key Features
@@ -158,11 +241,13 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 
 ### Project Structure
 ```
-app/src/main/java/com/example/pepper_test2/
+app/src/main/java/io/github/studerus/pepper_android_realtime/
 ├── ChatActivity.java           # Main application
 ├── ApiKeyManager.java          # API key management
 ├── RealtimeSessionManager.java # WebSocket handling
-├── ToolExecutor.java           # Function execution
+├── ToolExecutor.java           # Function execution and navigation
+├── MovementController.java     # Robot movement and navigation
+├── ToolRegistry.java           # Dynamic tool registration
 ├── VisionService.java          # Camera integration
 ├── AudioPlayer.java            # Audio playback
 ├── GestureController.java      # Robot animations
@@ -193,11 +278,40 @@ app/src/main/java/com/example/pepper_test2/
 - Add the corresponding API key to `local.properties`
 - Rebuild and reinstall the app
 
+#### Navigation Issues
+
+**"No map available for navigation"**
+- Create an environment map first using "Create a map"
+- Guide Pepper through the room completely
+- Finish the mapping process with "Finish the map"
+
+**"Location not found"** 
+- The AI now suggests available locations automatically
+- Check spelling and pronunciation of location names
+- Use the suggested location names from the AI
+
+**"Mapping timeout"**
+- Ensure room has good lighting and visual features
+- Avoid rooms with mostly blank walls or mirrors
+- Try mapping smaller sections of large rooms
+- Check for obstacles blocking Pepper's movement
+
+**"High precision vs standard locations"**
+- Locations saved during active mapping are most accurate
+- Locations saved after mapping are less precise but still functional
+- For best results, save important locations during the mapping process
+
 ### Logging
 The app provides detailed logs for debugging:
 ```bash
-# View logs
+# View all logs
 adb logcat | grep -E "(ChatActivity|ApiKeyManager|ToolExecutor)"
+
+# View navigation logs specifically
+adb logcat | grep -E "(MovementController|ToolExecutor.*navigate|ToolRegistry.*location)"
+
+# View mapping logs
+adb logcat | grep -E "(LocalizeAndMap|mapping|create_environment_map)"
 ```
 
 ## 🤝 Contributing

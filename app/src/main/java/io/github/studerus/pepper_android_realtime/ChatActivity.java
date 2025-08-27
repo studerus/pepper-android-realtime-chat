@@ -271,6 +271,11 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             public void showYouTubeVideo(YouTubeSearchService.YouTubeVideo video) {
                 runOnUiThread(() -> showYouTubePlayerDialog(video));
             }
+            
+            @Override
+            public void sendAsyncUpdate(String message, boolean requestResponse) {
+                runOnUiThread(() -> sendContextToModel(message, requestResponse));
+            }
         });
         audioPlayer.setListener(new OptimizedAudioPlayer.Listener() {
             @Override public void onPlaybackStarted() {
