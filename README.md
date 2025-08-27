@@ -151,8 +151,10 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 #### 1. Create Environment Map
 ```bash
 User: "Create a map of this room"
-Robot: "I have started mapping. Guide me through the room..."
+Robot: "I have started mapping. I have cleared 3 existing locations (printer, kitchen, entrance) since they would be invalid with the new map coordinate system. Guide me through the room..."
 ```
+
+**Note**: Creating a new map automatically deletes all existing saved locations since they become invalid with the new coordinate system.
 
 #### 2. Guide Pepper Through the Room
 ```bash
@@ -200,9 +202,10 @@ Robot: "Navigating to Türe..."
 ### Key Features
 - **🎯 High-Precision Locations**: Saved during mapping for maximum accuracy
 - **🧠 Intelligent Suggestions**: AI suggests similar location names
-- **📍 Persistent Storage**: Locations survive app restarts
+- **📍 Persistent Storage**: Locations survive app restarts within the same map
 - **⚡ Dynamic Updates**: AI knows new locations immediately
 - **🛡️ Error Prevention**: No "location not found" errors
+- **🗑️ Auto-Cleanup**: New maps automatically clear old locations to prevent confusion
 
 ## 🏗️ Architecture
 
@@ -300,6 +303,12 @@ app/src/main/java/io/github/studerus/pepper_android_realtime/
 - Locations saved during active mapping are most accurate
 - Locations saved after mapping are less precise but still functional
 - For best results, save important locations during the mapping process
+
+**"My saved locations disappeared"**
+- Creating a new map automatically deletes all existing locations
+- This prevents navigation errors caused by incompatible coordinate systems
+- Each map creates its own coordinate system, making old locations invalid
+- Simply re-save your important locations after creating the new map
 
 ### Logging
 The app provides detailed logs for debugging:

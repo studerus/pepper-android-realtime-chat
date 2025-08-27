@@ -31,6 +31,8 @@ import java.io.ObjectInputStream;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
+import java.util.ArrayList;
 import java.util.Locale;
 import java.util.Random;
 import java.util.TimeZone;
@@ -798,6 +800,10 @@ public class ToolExecutor {
 	
 	private String startManualMapping(String mapName) throws Exception {
 		try {
+			// Clear all existing locations when starting a new map
+			// New map = new coordinate system = old locations become invalid
+			List<String> deletedLocations = clearAllLocations();
+			
 			// Build LocalizeAndMap action  
 			LocalizeAndMap localizeAndMap = LocalizeAndMapBuilder.with(qiContext).build();
 			currentLocalizeAndMap = localizeAndMap;
@@ -816,9 +822,16 @@ public class ToolExecutor {
 			JSONObject result = new JSONObject();
 			result.put("status", "Mapping started - awaiting manual guidance");
 			result.put("map_name", mapName);
+			
+			String deletionInfo = "";
+			if (!deletedLocations.isEmpty()) {
+				deletionInfo = String.format(" I have cleared %d existing locations (%s) since they would be invalid with the new map coordinate system.", 
+					deletedLocations.size(), String.join(", ", deletedLocations));
+			}
+			
 			result.put("message", String.format(Locale.US, 
-				"I have started mapping the environment for '%s'. Now please guide me through the room using commands like 'move forward 2 meters', 'turn left 90 degrees', etc. When you've guided me through all areas you want mapped, say 'finish the map' to complete the process.", 
-				mapName));
+				"I have started mapping the environment for '%s'.%s Now please guide me through the room using commands like 'move forward 2 meters', 'turn left 90 degrees', etc. When you've guided me through all areas you want mapped, say 'finish the map' to complete the process.", 
+				mapName, deletionInfo));
 			
 			return result.toString();
 			
@@ -1227,6 +1240,42 @@ public class ToolExecutor {
 		File mapsDir = new File(appContext.getFilesDir(), "maps");
 		File mapFile = new File(mapsDir, mapName + ".map");
 		return mapFile.exists();
+	}
+	
+	/**
+	 * Clear all existing locations since they become invalid with a new map
+	 * @return List of deleted location names for user feedback
+	 */
+	private List<String> clearAllLocations() {
+		List<String> deletedLocations = new ArrayList<>();
+		try {
+			File locationsDir = new File(appContext.getFilesDir(), "locations");
+			if (locationsDir.exists() && locationsDir.isDirectory()) {
+				File[] files = locationsDir.listFiles();
+				if (files != null) {
+					for (File file : files) {
+						if (file.getName().endsWith(".loc")) {
+							String locationName = file.getName().replace(".loc", "");
+							if (file.delete()) {
+								deletedLocations.add(locationName);
+								Log.i(TAG, "Deleted location: " + locationName);
+							} else {
+								Log.w(TAG, "Failed to delete location: " + locationName);
+							}
+						}
+					}
+				}
+			}
+			
+			if (!deletedLocations.isEmpty()) {
+				Log.i(TAG, "Cleared " + deletedLocations.size() + " locations for new map: " + deletedLocations);
+			}
+			
+		} catch (Exception e) {
+			Log.e(TAG, "Error clearing locations", e);
+		}
+		
+		return deletedLocations;
 	}
 
 	/**

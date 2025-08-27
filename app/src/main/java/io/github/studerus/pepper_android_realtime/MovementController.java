@@ -9,10 +9,8 @@ import com.aldebaran.qi.sdk.object.actuation.Frame;
 import com.aldebaran.qi.sdk.object.actuation.FreeFrame;
 import com.aldebaran.qi.sdk.object.actuation.GoTo;
 import com.aldebaran.qi.sdk.object.actuation.Mapping;
-import com.aldebaran.qi.sdk.object.actuation.OrientationPolicy;
 import com.aldebaran.qi.sdk.object.geometry.Transform;
 import com.aldebaran.qi.sdk.object.geometry.Quaternion;
-import com.aldebaran.qi.sdk.object.geometry.Vector3;
 import com.aldebaran.qi.sdk.builder.GoToBuilder;
 import com.aldebaran.qi.sdk.builder.TransformBuilder;
 import java.util.concurrent.ScheduledExecutorService;
@@ -81,7 +79,7 @@ public class MovementController {
             GoTo goTo = GoToBuilder.with(qiContext)
                     .withFrame(targetFrame.frame())
                     .withMaxSpeed((float) speed)
-                    .withFinalOrientationPolicy(OrientationPolicy.ALIGN_X)
+
                     .build();
             
             // Add listeners
@@ -167,7 +165,7 @@ public class MovementController {
             GoTo goTo = GoToBuilder.with(qiContext)
                     .withFrame(targetFrame.frame())
                     .withMaxSpeed((float) speed)
-                    .withFinalOrientationPolicy(OrientationPolicy.ALIGN_X)
+
                     .build();
             
             // Add listeners
@@ -279,12 +277,18 @@ public class MovementController {
             // Extract location data (assuming savedLocation has public fields)
             // This is a simplified approach - in a real implementation, you'd need proper casting
             java.lang.reflect.Field translationField = savedLocation.getClass().getDeclaredField("translation");
-            java.lang.reflect.Field rotationField = savedLocation.getClass().getDeclaredField("rotation");
             translationField.setAccessible(true);
-            rotationField.setAccessible(true);
             
             double[] translation = (double[]) translationField.get(savedLocation);
-            double[] rotation = (double[]) rotationField.get(savedLocation);
+            
+            // Validate translation data
+            if (translation == null || translation.length < 2) {
+                Log.e(TAG, "Invalid translation data in saved location");
+                if (listener != null) {
+                    listener.onMovementFinished(false, "Invalid location data - translation missing");
+                }
+                return;
+            }
             
             // Create target transform from saved location data
             // The saved location is relative to the map frame
