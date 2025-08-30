@@ -34,7 +34,8 @@ public class OptimizedAudioPlayer {
     private static final String TAG = "OptimizedAudioPlayer";
     
     // Performance-optimized buffer using bounded queue for O(1) operations
-    private final ArrayBlockingQueue<byte[]> audioBuffer = new ArrayBlockingQueue<>(200);
+    // Reduced from 200 to 50 to save memory (still ~2-3 seconds of audio at 24kHz)
+    private final ArrayBlockingQueue<byte[]> audioBuffer = new ArrayBlockingQueue<>(50);
     
     // Atomic flags for lock-free operations
     private final AtomicBoolean isPlaying = new AtomicBoolean(false);
@@ -56,6 +57,8 @@ public class OptimizedAudioPlayer {
     
     // Track frames written for precise drain - using AtomicLong for thread safety
     private final AtomicLong totalFramesWritten = new AtomicLong(0);
+    // Track playback head position at response start to calculate relative position
+    private volatile int responseStartFrames = 0;
     private Thread playThread = null;
 
     public OptimizedAudioPlayer() { 
@@ -132,14 +135,25 @@ public class OptimizedAudioPlayer {
      */
     public void onResponseBoundary() {
         resetCarryBuffer();
+        // Reset timing tracking for new response to prevent cumulative timing errors
+        totalFramesWritten.set(0);
+        // Capture current playback position as baseline for this response
+        try {
+            responseStartFrames = audioTrack != null ? audioTrack.getPlaybackHeadPosition() : 0;
+        } catch (Exception e) {
+            responseStartFrames = 0; // Fallback if AudioTrack not ready
+        }
     }
 
     public int getEstimatedPlaybackPositionMs() {
         try {
             if (audioTrack == null) return 0;
-            int frames = audioTrack.getPlaybackHeadPosition();
-            return (int) Math.round(frames * 1000.0 / sampleRateHz);
-        } catch (Exception ignored) {
+            int currentFrames = audioTrack.getPlaybackHeadPosition();
+            // Calculate relative position since this response started
+            int relativeFrames = Math.max(0, currentFrames - responseStartFrames);
+            return (int) Math.round(relativeFrames * 1000.0 / sampleRateHz);
+        } catch (Exception e) {
+            // Return 0 if AudioTrack not ready or any error occurs
             return 0;
         }
     }
@@ -202,7 +216,7 @@ public class OptimizedAudioPlayer {
 
     private void initializeAudioTrack() {
         try {
-            int internalBufferMs = 300; // Reduced for lower latency
+            int internalBufferMs = 200; // Further reduced for memory savings (was 300ms)
             int channelConfig = AudioFormat.CHANNEL_OUT_MONO;
             int audioFormat = AudioFormat.ENCODING_PCM_16BIT;
             int minBuf = AudioTrack.getMinBufferSize(sampleRateHz, channelConfig, audioFormat);
@@ -231,6 +245,7 @@ public class OptimizedAudioPlayer {
             Log.i(TAG, "Optimized AudioTrack initialized. rate=" + sampleRateHz + "Hz, buf=" + bufferSize);
             resetCarryBuffer();
             totalFramesWritten.set(0);
+            responseStartFrames = 0;
         } catch (Exception e) {
             Log.e(TAG, "Failed to initialize AudioTrack", e);
         }

@@ -9,6 +9,7 @@ import com.aldebaran.qi.sdk.object.actuation.Frame;
 import com.aldebaran.qi.sdk.object.actuation.FreeFrame;
 import com.aldebaran.qi.sdk.object.actuation.GoTo;
 import com.aldebaran.qi.sdk.object.actuation.Mapping;
+import com.aldebaran.qi.sdk.object.actuation.OrientationPolicy;
 import com.aldebaran.qi.sdk.object.geometry.Transform;
 import com.aldebaran.qi.sdk.object.geometry.Quaternion;
 import com.aldebaran.qi.sdk.builder.GoToBuilder;
@@ -79,7 +80,7 @@ public class MovementController {
             GoTo goTo = GoToBuilder.with(qiContext)
                     .withFrame(targetFrame.frame())
                     .withMaxSpeed((float) speed)
-
+                    .withFinalOrientationPolicy(OrientationPolicy.ALIGN_X)
                     .build();
             
             // Add listeners
@@ -165,7 +166,7 @@ public class MovementController {
             GoTo goTo = GoToBuilder.with(qiContext)
                     .withFrame(targetFrame.frame())
                     .withMaxSpeed((float) speed)
-
+                    .withFinalOrientationPolicy(OrientationPolicy.ALIGN_X)
                     .build();
             
             // Add listeners
@@ -314,6 +315,7 @@ public class MovementController {
             GoTo goTo = GoToBuilder.with(qiContext)
                 .withFrame(targetFrame.frame())
                 .withMaxSpeed(speed)
+                .withFinalOrientationPolicy(OrientationPolicy.FREE_ORIENTATION)
                 .build();
             
             // Set up timeout

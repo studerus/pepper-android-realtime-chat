@@ -49,6 +49,17 @@
             android:layout_marginStart="10dp"
             android:gravity="start|center_vertical" />
 
+        <!-- Smile State - matches header width -->
+        <TextView
+            android:id="@+id/human_smile"
+            android:layout_width="85dp"
+            android:layout_height="wrap_content"
+            android:text="😊 Genuine"
+            android:textSize="14sp"
+            android:textColor="#333333"
+            android:layout_marginStart="10dp"
+            android:gravity="start|center_vertical" />
+
         <!-- Attention - flexible width -->
         <TextView
             android:id="@+id/human_attention"

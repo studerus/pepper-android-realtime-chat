@@ -70,6 +70,7 @@ public class HumanDetectionAdapter extends RecyclerView.Adapter<HumanDetectionAd
         private final TextView demographics;
         private final TextView distance;
         private final TextView emotion;
+        private final TextView smile;
         private final TextView attention;
         private final TextView engagement;
         
@@ -78,6 +79,7 @@ public class HumanDetectionAdapter extends RecyclerView.Adapter<HumanDetectionAd
             demographics = itemView.findViewById(R.id.human_demographics);
             distance = itemView.findViewById(R.id.human_distance);
             emotion = itemView.findViewById(R.id.human_emotion);
+            smile = itemView.findViewById(R.id.human_smile);
             attention = itemView.findViewById(R.id.human_attention);
             engagement = itemView.findViewById(R.id.human_engagement);
         }
@@ -91,6 +93,9 @@ public class HumanDetectionAdapter extends RecyclerView.Adapter<HumanDetectionAd
             
             // Set basic emotion
             emotion.setText(human.getBasicEmotionDisplay());
+            
+            // Set smile state
+            smile.setText(human.getSmileStateDisplay());
             
             // Set attention state
             attention.setText(human.getAttentionLevel());

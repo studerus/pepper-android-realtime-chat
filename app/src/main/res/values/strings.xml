@@ -11,8 +11,26 @@
     <string name="status_starting_new_session">Starting new session…</string>
     <string name="status_recognizer_not_ready">Recognizer not ready.</string>
     <string name="status_warming_up">Warming up recognizer...</string>
+    <string name="status_starting_navigation_init">Preparing navigation…</string>
+    <string name="status_loading_map">Loading map…</string>
+    <string name="status_localizing">Localizing…</string>
+    <string name="status_navigation_ready">Navigation ready.</string>
     <string name="status_please_wait">Please wait...</string>
     <string name="status_muted_tap_to_unmute">Muted — tap to unmute</string>
+    
+    <!-- Navigation Status Messages -->
+    <string name="nav_map_none">🗺️ Map: None</string>
+    <string name="nav_map_loading">🗺️ Map: Loading…</string>
+    <string name="nav_map_loading_size">🗺️ Map: Loading… (%dMB)</string>
+    <string name="nav_map_ready">🗺️ Map: Ready</string>
+    <string name="nav_map_creating">🗺️ Map: Creating…</string>
+    <string name="nav_map_error">🗺️ Map: Error</string>
+    
+    <string name="nav_localization_waiting">🧭 Localization: Waiting</string>
+    <string name="nav_localization_starting">🧭 Localization: Starting…</string>
+    <string name="nav_localization_running">🧭 Localization: Running</string>
+    <string name="nav_localization_stopped">🧭 Localization: Stopped</string>
+    <string name="nav_localization_error">🧭 Localization: Error</string>
     
     <!-- Error Messages -->
     <string name="error_microphone_permission_denied">Microphone permission denied.</string>

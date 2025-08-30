@@ -12,23 +12,33 @@ import com.aldebaran.qi.sdk.builder.LocalizeAndMapBuilder;
 import com.aldebaran.qi.sdk.object.actuation.Animation;
 import com.aldebaran.qi.sdk.object.actuation.LocalizeAndMap;
 import com.aldebaran.qi.sdk.object.actuation.ExplorationMap;
+import com.aldebaran.qi.sdk.object.actuation.Localize;
+import com.aldebaran.qi.sdk.object.actuation.LocalizationStatus;
 import com.aldebaran.qi.sdk.object.actuation.Frame;
-import com.aldebaran.qi.sdk.object.actuation.FreeFrame;
+// import com.aldebaran.qi.sdk.object.actuation.FreeFrame; // removed, no longer used
 import com.aldebaran.qi.sdk.object.geometry.Transform;
 import com.aldebaran.qi.sdk.builder.TransformBuilder;
+import com.aldebaran.qi.sdk.builder.ExplorationMapBuilder;
+import com.aldebaran.qi.sdk.object.streamablebuffer.StreamableBuffer;
+import com.aldebaran.qi.sdk.builder.LocalizeBuilder;
+import com.aldebaran.qi.sdk.object.power.Power;
+import com.aldebaran.qi.sdk.object.power.FlapSensor;
+import com.aldebaran.qi.sdk.object.power.FlapState;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
-import java.io.InputStream;
+// import java.io.InputStream; // unused
 import java.io.InputStreamReader;
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.ObjectOutputStream;
+// import java.io.ObjectOutputStream; // unused
 import java.io.FileInputStream;
-import java.io.ObjectInputStream;
+// import java.io.ObjectInputStream; // unused
 import java.nio.charset.StandardCharsets;
+// import java.io.FileWriter; // unused
+import java.io.BufferedWriter;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
@@ -53,16 +63,34 @@ public class ToolExecutor {
 		void showYouTubeVideo(YouTubeSearchService.YouTubeVideo video);
 		void sendAsyncUpdate(String message, boolean requestResponse);
 	}
+	
+	// Interface for status updates
+	public interface StatusUpdateListener {
+		void onMapStatusChanged(String status);
+		void onLocalizationStatusChanged(String status);
+	}
 
 	private static final String TAG = "ToolExecutor";
 
 	private final Context appContext;
 	private final ToolUi ui;
+	private StatusUpdateListener statusUpdateListener;
 	private final ApiKeyManager keyManager;
 	private QiContext qiContext;
 	private final MovementController movementController;
 	private Future<Void> currentMappingFuture;
 	private LocalizeAndMap currentLocalizeAndMap;
+	private Future<Void> currentLocalizeFuture;
+	// Startup readiness flags and cache
+	private volatile boolean mapLoaded = false;
+	private volatile boolean localizationReady = false;
+	private volatile boolean localizationInProgress = false;
+	private volatile String localizationStatus = "WAITING"; // WAITING, STARTING, RUNNING, ERROR, STOPPED
+	private volatile ExplorationMap cachedMap = null; // Cache loaded map to avoid reloading
+	@SuppressWarnings({"FieldCanBeLocal", "unused"})
+//	private volatile boolean navInitStarted = false; // removed for clean startup orchestration (now in ChatActivity)
+	// Single authoritative map name used across the app
+	private static final String ACTIVE_MAP_NAME = "default_map";
 
 	public ToolExecutor(Context context, ToolUi ui) {
 		this.appContext = context.getApplicationContext();
@@ -76,17 +104,333 @@ public class ToolExecutor {
 	}
 	
 	/**
-	 * Cancel any currently running mapping operation
+	 * Initialize navigation on app start: preload map and run a localization once.
+	 * Returns immediately; completion can be observed via readiness getters.
 	 */
-	public boolean cancelCurrentMapping() {
-		if (currentMappingFuture != null && !currentMappingFuture.isDone()) {
-			Log.i(TAG, "Cancelling current mapping operation");
-			currentMappingFuture.requestCancellation();
-			currentMappingFuture = null;
-			currentLocalizeAndMap = null;
-			return true;
+// Intentionally no startNavigationInitializerAsync here; orchestrated by ChatActivity
+
+	// Readiness flags for orchestrator (setters only; getters removed to keep API minimal)
+	public void setMapLoadedFlag(boolean loaded) { 
+		this.mapLoaded = loaded; 
+		if (!loaded) {
+			this.cachedMap = null; // Clear cache when map is unloaded
 		}
-		return false;
+	}
+	
+	public void setCachedMap(ExplorationMap map) {
+		this.cachedMap = map;
+	}
+	public void setLocalizationReadyFlag(boolean ready) { this.localizationReady = ready; }
+	
+	public void setLocalizationStatus(String status) { 
+		this.localizationStatus = status; 
+		if (statusUpdateListener != null) {
+			statusUpdateListener.onLocalizationStatusChanged(status);
+		}
+	}
+	
+	public void setStatusUpdateListener(StatusUpdateListener listener) {
+		this.statusUpdateListener = listener;
+	}
+	
+	public boolean isLocalizationReady() { return this.localizationReady; }
+	
+	public boolean isLocalizationInProgress() { return this.localizationInProgress; }
+	
+	/**
+	 * Start localization on-demand for navigation requests
+	 * Returns a Promise that resolves when localization is ready
+	 */
+	public com.aldebaran.qi.Promise<Boolean> startLocalizationOnDemand() {
+		final com.aldebaran.qi.Promise<Boolean> promise = new com.aldebaran.qi.Promise<>();
+		
+		// Check if already ready
+		if (localizationReady) {
+			promise.setValue(true);
+			return promise;
+		}
+		
+		// Check if already in progress
+		if (localizationInProgress) {
+			// Wait for current localization to complete
+			new Thread(() -> {
+				try {
+					// Poll until localization is done (max 30 seconds)
+					int attempts = 0;
+					while (localizationInProgress && attempts < 300) { // 30 seconds / 100ms intervals
+						Thread.sleep(100);
+						attempts++;
+						if (localizationReady) {
+							promise.setValue(true);
+							return;
+						}
+					}
+					// Timeout or failed
+					promise.setValue(false);
+				} catch (InterruptedException e) {
+					Thread.currentThread().interrupt();
+					promise.setValue(false);
+				}
+			}).start();
+			return promise;
+		}
+		
+		// Check prerequisites
+		if (qiContext == null) {
+			promise.setValue(false);
+			return promise;
+		}
+		
+		if (!mapLoaded) {
+			promise.setValue(false);
+			return promise;
+		}
+		
+		// Start localization
+		localizationInProgress = true;
+		setLocalizationStatus("STARTING");
+		
+		new Thread(() -> {
+			try {
+				// Use cached map if available, otherwise load from storage
+				ExplorationMap map = cachedMap;
+				if (map == null) {
+					Log.i(TAG, "Loading map from storage for localization...");
+					map = loadMap(ACTIVE_MAP_NAME);
+					if (map == null) {
+						localizationInProgress = false;
+						setLocalizationStatus("ERROR");
+						promise.setValue(false);
+			return;
+					}
+					// Cache the loaded map for future use
+					cachedMap = map;
+				} else {
+					Log.i(TAG, "Using cached map for localization (avoiding reload)");
+				}
+				
+				// Start localization
+				Localize localize = LocalizeBuilder.with(qiContext).withMap(map).build();
+				Future<Void> localizeFuture = localize.async().run();
+				
+				// Set up status listener
+				localize.addOnStatusChangedListener(status -> {
+					Log.i(TAG, "On-demand localization status: " + status);
+					
+					if (status == LocalizationStatus.LOCALIZED) {
+						Log.i(TAG, "On-demand localization successful");
+						localizationReady = true;
+						localizationInProgress = false;
+						setLocalizationStatus("RUNNING");
+						promise.setValue(true);
+						
+					} else if (status == LocalizationStatus.SCANNING) {
+						Log.i(TAG, "Robot scanning for on-demand localization...");
+						// Keep waiting
+						
+					} else {
+						Log.w(TAG, "On-demand localization failed with status: " + status);
+						localizationReady = false;
+						localizationInProgress = false;
+						setLocalizationStatus("ERROR");
+						promise.setValue(false);
+					}
+				});
+				
+				// Timeout safety net
+		new Thread(() -> {
+			try {
+						Thread.sleep(30000); // 30 second timeout
+						if (localizationInProgress) {
+							Log.w(TAG, "On-demand localization timeout");
+							localizationReady = false;
+							localizationInProgress = false;
+							setLocalizationStatus("ERROR");
+							promise.setValue(false);
+						}
+					} catch (InterruptedException e) {
+						Thread.currentThread().interrupt();
+					}
+				}).start();
+				
+				// Monitor future
+				localizeFuture.thenConsume(future -> {
+					if (!future.isSuccess()) {
+						String error = future.getError() != null ? future.getError().getMessage() : "Unknown error";
+						Log.w(TAG, "On-demand localization future failed: " + error);
+						if (localizationInProgress) { // Only update if still in progress
+							localizationReady = false;
+							localizationInProgress = false;
+							setLocalizationStatus("ERROR");
+							promise.setValue(false);
+						}
+					}
+				});
+				
+			} catch (Exception e) {
+				Log.e(TAG, "Failed to start on-demand localization", e);
+				localizationInProgress = false;
+				setLocalizationStatus("ERROR");
+				promise.setValue(false);
+			}
+		}).start();
+		
+		return promise;
+	}
+	
+	/**
+	 * Start localization and navigation asynchronously in the background
+	 * This method returns immediately while localization and navigation run in background
+	 */
+	private void startAsyncLocalizationAndNavigation(String locationName, double speed) {
+		new Thread(() -> {
+			try {
+				Log.i(TAG, "Background: Starting localization for navigation to: " + locationName);
+				
+				// Start localization asynchronously
+				com.aldebaran.qi.Promise<Boolean> localizationPromise = startLocalizationOnDemand();
+				
+				// Use callback instead of blocking
+				localizationPromise.getFuture().thenConsume(future -> {
+					if (future.isSuccess() && future.getValue()) {
+						// Localization successful, proceed with navigation
+						Log.i(TAG, "Background: Localization successful, starting navigation to: " + locationName);
+						
+						// Inform user that localization succeeded and navigation is starting
+						if (ui != null) {
+							ui.sendAsyncUpdate("[SYSTEM UPDATE] The robot has successfully localized and is now navigating to " + locationName + ". Please inform the user about this progress.", true);
+						}
+						
+						try {
+							// Load the saved location
+							SavedLocation savedLocation = loadLocationFromStorage(locationName);
+														if (savedLocation == null) {
+								if (ui != null) {
+									ui.sendAsyncUpdate("[SYSTEM ERROR] The robot could not find the saved location '" + locationName + "'. Please inform the user that the location needs to be saved first using 'save current location'.", true);
+								}
+								return;
+							}
+				
+							// Start navigation using MovementController
+							movementController.setListener(new MovementController.MovementListener() {
+								@Override
+								public void onMovementStarted() {
+									Log.d(TAG, "Background navigation to " + locationName + " started");
+									// Movement started message removed - already sent above after localization success
+								}
+
+								@Override
+								public void onMovementFinished(boolean success, String error) {
+									if (success) {
+										Log.i(TAG, "Background navigation to " + locationName + " completed successfully");
+										if (ui != null) {
+											ui.sendAsyncUpdate("[NAVIGATION COMPLETED] The robot has successfully arrived at " + locationName + ". Please inform the user that you have reached the destination.", true);
+										}
+									} else {
+										String friendlyError = translateNavigationError(error);
+										Log.w(TAG, "Background navigation to " + locationName + " failed: " + friendlyError);
+										if (ui != null) {
+											ui.sendAsyncUpdate("[NAVIGATION FAILED] The robot could not reach " + locationName + ". Problem: " + friendlyError + ". Please inform the user about this issue and suggest alternative solutions.", true);
+										}
+									}
+								}
+							});
+
+							movementController.navigateToLocation(qiContext, savedLocation, (float) speed);
+							
+						} catch (Exception e) {
+							Log.e(TAG, "Error during background navigation", e);
+							if (ui != null) {
+								ui.sendAsyncUpdate("[SYSTEM ERROR] The robot encountered an error while trying to navigate: " + e.getMessage() + ". Please inform the user to try again or suggest creating a new map.", true);
+							}
+						}
+						
+					} else {
+						// Localization failed
+						Log.w(TAG, "Background: Localization failed for navigation to: " + locationName);
+						if (ui != null) {
+							ui.sendAsyncUpdate("[LOCALIZATION FAILED] The robot is having trouble recognizing its surroundings and cannot navigate to " + locationName + ". Please inform the user that a new map may be needed or the robot should be moved to a more recognizable position. Suggest using 'create environment map' to create a new map.", true);
+						}
+					}
+				});
+				
+			} catch (Exception e) {
+				Log.e(TAG, "Error during background localization", e);
+				if (ui != null) {
+					ui.sendAsyncUpdate("[SYSTEM ERROR] The robot encountered an error during localization: " + e.getMessage() + ". Please inform the user to try again or suggest restarting the app.", true);
+				}
+			}
+		}).start();
+	}
+
+	// Expose map loading for ChatActivity orchestration
+	public ExplorationMap loadMap(String mapName) { return loadMapFromStorage(mapName); }
+
+	// Start a single localization with the provided map and report success via Future<Boolean>
+	public com.aldebaran.qi.Future<Boolean> localizeOnceAsync(ExplorationMap map) {
+		com.aldebaran.qi.Promise<Boolean> p = new com.aldebaran.qi.Promise<>();
+		try {
+			Localize localize = LocalizeBuilder.with(qiContext).withMap(map).build();
+			currentLocalizeFuture = localize.async().run();
+			currentLocalizeFuture.thenConsume(f -> {
+				currentLocalizeFuture = null;
+				p.setValue(f.isSuccess());
+			});
+			} catch (Exception e) {
+			p.setError(e.getMessage() != null ? e.getMessage() : "localize failed");
+		}
+		return p.getFuture();
+	}
+
+
+	
+	/**
+	 * Start a Localize action to maintain position tracking after mapping is complete
+	 * This prevents odometry drift during navigation
+	 */
+	private void startLocalizationSession(ExplorationMap map) {
+		try {
+			Log.i(TAG, "Starting localization session to maintain position tracking...");
+			
+			// Build Localize action with the current map
+			Localize localize = LocalizeBuilder.with(qiContext)
+					.withMap(map)
+					.build();
+			
+			// Start localization asynchronously
+			currentLocalizeFuture = localize.async().run();
+			currentLocalizeFuture.thenConsume(future -> {
+				if (future.isSuccess()) {
+					Log.i(TAG, "✅ Localization session started - robot will maintain accurate position tracking");
+				} else {
+					String error = future.getError() != null ? future.getError().getMessage() : "Unknown error";
+					Log.w(TAG, "❌ Failed to start localization session: " + error);
+					Log.w(TAG, "Navigation may be less accurate due to odometry drift");
+				}
+				currentLocalizeFuture = null;
+			});
+			
+		} catch (Exception e) {
+			Log.e(TAG, "Error starting localization session", e);
+		}
+	}
+	
+	// Removed obsolete cancelCurrentMapping(): manual mapping now ends in finish_environment_map
+
+	/**
+	 * Stop any running Localize action to avoid conflicts with LocalizeAndMap
+	 */
+	private void stopLocalizationIfRunning() {
+		try {
+			if (currentLocalizeFuture != null && !currentLocalizeFuture.isDone()) {
+				Log.i(TAG, "Stopping active Localize action to avoid conflicts with mapping");
+				currentLocalizeFuture.requestCancellation();
+			}
+		} catch (Exception e) {
+			Log.w(TAG, "Error while stopping Localize action", e);
+		} finally {
+			currentLocalizeFuture = null;
+		}
 	}
 
 	public String execute(String toolName, JSONObject args) {
@@ -111,9 +455,9 @@ public class ToolExecutor {
 				case "turn_pepper":
 					return handleTurnPepper(args);
 				case "create_environment_map":
-					return handleCreateEnvironmentMap(args);
+					return handleCreateEnvironmentMap();
 				case "finish_environment_map":
-					return handleFinishEnvironmentMap(args);
+					return handleFinishEnvironmentMap();
 				case "save_current_location":
 					return handleSaveCurrentLocation(args);
 				case "navigate_to_location":
@@ -149,14 +493,13 @@ public class ToolExecutor {
 
 	private String readJokesFromAssets() {
 		try {
-			InputStream is = appContext.getAssets().open("jokes.json");
-			BufferedReader br = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));
+			try (java.io.InputStream is = appContext.getAssets().open("jokes.json");
+			     BufferedReader br = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
 			StringBuilder sb = new StringBuilder();
 			String line;
 			while ((line = br.readLine()) != null) sb.append(line).append('\n');
-			br.close();
-			is.close();
 			return sb.toString();
+			}
 		} catch (Exception e) {
 			Log.e(TAG, "readJokesFromAssets failed: jokes.json", e);
 			return null;
@@ -531,6 +874,11 @@ public class ToolExecutor {
 			return new JSONObject().put("error", "Robot not ready").toString();
 		}
 		
+		// Check if charging flap is open (prevents movement for safety)
+		if (isChargingFlapOpen(qiContext)) {
+			return new JSONObject().put("error", "Cannot move while charging flap is open. Please close the charging flap first for safety.").toString();
+		}
+		
 		Log.i(TAG, "Starting movement: " + direction + " " + distance + "m at " + speed + "m/s");
 		
 		// Set up async callback for movement completion
@@ -608,6 +956,11 @@ public class ToolExecutor {
 			return new JSONObject().put("error", "Robot not ready").toString();
 		}
 		
+		// Check if charging flap is open (prevents movement for safety)
+		if (isChargingFlapOpen(qiContext)) {
+			return new JSONObject().put("error", "Cannot turn while charging flap is open. Please close the charging flap first for safety.").toString();
+		}
+		
 		Log.i(TAG, "Starting synchronous turn: " + direction + " " + degrees + " degrees at " + speed + " rad/s");
 		
 		// Create latch to wait for turn completion
@@ -659,12 +1012,18 @@ public class ToolExecutor {
 		}
 	}
 
-	private String handleCreateEnvironmentMap(JSONObject args) throws Exception {
-		String mapName = args.optString("map_name", "default_map");
+	private String handleCreateEnvironmentMap() throws Exception {
+		// Enforce single active map name
+		String mapName = ACTIVE_MAP_NAME;
 		
 		// Check if robot is ready
 		if (qiContext == null) {
 			return new JSONObject().put("error", "Robot not ready").toString();
+		}
+		
+		// Check if charging flap is open (mapping requires movement)
+		if (isChargingFlapOpen(qiContext)) {
+			return new JSONObject().put("error", "Cannot create map while charging flap is open. Mapping requires robot movement. Please close the charging flap first.").toString();
 		}
 		
 		// Check if another mapping is already running
@@ -679,123 +1038,16 @@ public class ToolExecutor {
 		}
 		
 		Log.i(TAG, "Starting environment mapping: " + mapName);
+		// Ensure no Localize is running (QiSDK forbids running Localize and LocalizeAndMap together)
+		stopLocalizationIfRunning();
+		// Mapping replaces the active map; mark navigation readiness as not ready until finalized
+		this.mapLoaded = false;
+		this.localizationReady = false;
 		
-		// Check if we should use manual or automatic mapping
-		// For now, start manual mapping process (no long wait)
-		boolean useManualMapping = true;
-		
-		if (useManualMapping) {
-			// Start mapping but return immediately for manual control
+		// Start manual mapping process and return immediately for manual guidance
 			return startManualMapping(mapName);
-		}
 		
-		// Legacy automatic mapping (kept for reference)
-		// Create latch to wait for mapping completion
-		CountDownLatch latch = new CountDownLatch(1);
-		AtomicReference<String> finalResult = new AtomicReference<>();
-		
-		try {
-			// Build LocalizeAndMap action
-			LocalizeAndMap localizeAndMap = LocalizeAndMapBuilder.with(qiContext).build();
-			currentLocalizeAndMap = localizeAndMap;
-			
-			// Add detailed listeners for mapping progress
-			localizeAndMap.addOnStatusChangedListener(status -> {
-				Log.i(TAG, "🗺️ Mapping status changed: " + status);
-			});
-			
-			// Add progress listener if available
-			try {
-				// This helps understand what the robot is actually doing
-				Log.i(TAG, "🤖 Starting mapping process - Robot should rotate and then move around");
-			} catch (Exception e) {
-				Log.w(TAG, "Could not add detailed progress monitoring: " + e.getMessage());
-			}
-			
-			// Execute mapping asynchronously but wait for completion
-			currentMappingFuture = localizeAndMap.async().run();
-			Future<Void> mappingFuture = currentMappingFuture;
-			
-			// Set up timeout for mapping (5 minutes - if no progress by then, something is wrong)
-			java.util.concurrent.ScheduledExecutorService timeoutExecutor = 
-				java.util.concurrent.Executors.newSingleThreadScheduledExecutor();
-			
-			timeoutExecutor.schedule(() -> {
-				if (!mappingFuture.isDone()) {
-					Log.w(TAG, "🚨 Mapping timeout after 5 minutes - cancelling (robot likely stuck)");
-					mappingFuture.requestCancellation();
-					JSONObject timeoutResult = new JSONObject();
-					try {
-						timeoutResult.put("error", "Mapping took longer than 5 minutes without progress. This usually indicates: 1) Poor lighting conditions, 2) Too few visual features in the environment, 3) Obstacles preventing movement. Try mapping in a well-lit room with furniture and visual features.");
-						finalResult.set(timeoutResult.toString());
-					} catch (Exception e) {
-						finalResult.set("{\"error\":\"Mapping timeout - environment may not be suitable\"}");
-					}
-					latch.countDown();
-				}
-			}, 300, TimeUnit.SECONDS); // 5 minutes
-			
-			// Wait for mapping completion
-			mappingFuture.thenConsume(future -> {
-				timeoutExecutor.shutdown();
-				currentMappingFuture = null; // Clear reference when done
-				currentLocalizeAndMap = null; // Clear mapping reference
-				
-				try {
-					JSONObject result = new JSONObject();
-					if (future.isSuccess()) {
-						// Get the map from the LocalizeAndMap action
-						ExplorationMap map = localizeAndMap.dumpMap();
-						if (map != null) {
-							// Save the map to internal storage
-							boolean saved = saveMapToStorage(map, mapName);
-							
-							if (saved) {
-								result.put("status", "Map created successfully");
-								result.put("map_name", mapName);
-								if (willOverwrite) {
-									result.put("message", String.format(Locale.US, 
-										"I have successfully created a new map called '%s' of this environment, replacing the previous version. The updated map is now saved and can be used for navigation.", 
-										mapName));
-								} else {
-									result.put("message", String.format(Locale.US, 
-										"I have successfully created a map called '%s' of this environment. The map is now saved and can be used for navigation.", 
-										mapName));
-								}
-								Log.i(TAG, "Map '" + mapName + "' created and saved successfully");
-							} else {
-								result.put("error", "Map was created but could not be saved");
-							}
-						} else {
-							result.put("error", "Mapping completed but no map was generated");
-						}
-					} else if (future.isCancelled()) {
-						result.put("error", "Mapping was cancelled");
-					} else if (future.hasError()) {
-						String errorMsg = future.getError() != null ? future.getError().getMessage() : "Unknown mapping error";
-						result.put("error", String.format(Locale.US, 
-							"Mapping failed: %s. Try ensuring the room has good lighting and visual features like furniture or posters.", 
-							errorMsg));
-						Log.e(TAG, "Mapping failed: " + errorMsg, future.getError());
-					}
-					finalResult.set(result.toString());
-				} catch (Exception e) {
-					finalResult.set("{\"error\":\"Failed to process mapping result\"}");
-				}
-				latch.countDown();
-			});
-			
-			// Wait for mapping to complete (with timeout)
-			if (latch.await(320, TimeUnit.SECONDS)) { // 5 minutes + 20 seconds buffer
-				return finalResult.get();
-			} else {
-				return new JSONObject().put("error", "Mapping operation timed out after 5 minutes - environment may not be suitable for mapping").toString();
-			}
-			
-		} catch (Exception e) {
-			Log.e(TAG, "Error during mapping", e);
-			return new JSONObject().put("error", "Failed to start mapping: " + e.getMessage()).toString();
-		}
+		// unreachable legacy automatic branch removed for clean code
 	}
 	
 	private String startManualMapping(String mapName) throws Exception {
@@ -809,9 +1061,7 @@ public class ToolExecutor {
 			currentLocalizeAndMap = localizeAndMap;
 			
 			// Add status listener
-			localizeAndMap.addOnStatusChangedListener(status -> {
-				Log.i(TAG, "🗺️ Manual mapping status: " + status);
-			});
+			localizeAndMap.addOnStatusChangedListener(status -> Log.i(TAG, "🗺️ Manual mapping status: " + status));
 			
 			// Start mapping asynchronously (no waiting)
 			currentMappingFuture = localizeAndMap.async().run();
@@ -821,12 +1071,12 @@ public class ToolExecutor {
 			// Return immediately with instructions
 			JSONObject result = new JSONObject();
 			result.put("status", "Mapping started - awaiting manual guidance");
-			result.put("map_name", mapName);
+			// map_name omitted because a single fixed map name is used globally
 			
 			String deletionInfo = "";
 			if (!deletedLocations.isEmpty()) {
-				deletionInfo = String.format(" I have cleared %d existing locations (%s) since they would be invalid with the new map coordinate system.", 
-					deletedLocations.size(), String.join(", ", deletedLocations));
+				deletionInfo = String.format(Locale.US, " I have cleared %d existing locations (%s) since they would be invalid with the new map coordinate system.", 
+					deletedLocations.size(), buildCommaList(deletedLocations));
 			}
 			
 			result.put("message", String.format(Locale.US, 
@@ -841,8 +1091,18 @@ public class ToolExecutor {
 		}
 	}
 	
-	private String handleFinishEnvironmentMap(JSONObject args) throws Exception {
-		String mapName = args.optString("map_name", "default_map");
+	private static String buildCommaList(java.util.List<String> items) {
+		StringBuilder sb = new StringBuilder();
+		for (int i = 0; i < items.size(); i++) {
+			if (i > 0) sb.append(", ");
+			sb.append(items.get(i));
+		}
+		return sb.toString();
+	}
+	
+	private String handleFinishEnvironmentMap() throws Exception {
+		// Enforce single active map name
+		String mapName = ACTIVE_MAP_NAME;
 		
 		// Check if robot is ready
 		if (qiContext == null) {
@@ -856,6 +1116,8 @@ public class ToolExecutor {
 		
 		Log.i(TAG, "Finishing environment mapping and saving map: " + mapName);
 		
+		// Perform heavy finalization asynchronously to avoid blocking WebSocket threads
+		new Thread(() -> {
 		try {
 			// Stop the current mapping and get the map
 			if (currentMappingFuture != null && !currentMappingFuture.isDone()) {
@@ -874,25 +1136,45 @@ public class ToolExecutor {
 					currentMappingFuture = null;
 					currentLocalizeAndMap = null;
 					
-					JSONObject result = new JSONObject();
-					result.put("status", "Map completed and saved successfully");
-					result.put("map_name", mapName);
-					result.put("message", String.format(Locale.US, 
-						"I have successfully completed and saved the map called '%s'. The map is now ready for navigation. You can now use navigation commands to move to specific locations.", 
-						mapName));
+					// Start Localize action to maintain position tracking after mapping
+					startLocalizationSession(map);
+					// Update readiness flags for navigation after successful map save and localization start
+					mapLoaded = true;
+					localizationReady = true;
+					
+						if (ui != null) {
+							ui.sendAsyncUpdate(String.format(Locale.US,
+								"[MAPPING COMPLETED] I have successfully completed and saved the map called '%s'. The map is now ready for navigation.",
+								mapName), false);
+						}
 					Log.i(TAG, "Map '" + mapName + "' completed and saved successfully");
-					return result.toString();
 				} else {
-					return new JSONObject().put("error", "Map was completed but could not be saved to storage").toString();
+						if (ui != null) {
+							ui.sendAsyncUpdate("[MAPPING ERROR] Map was completed but could not be saved to storage.", false);
+						}
+						Log.w(TAG, "Map was completed but could not be saved to storage");
 				}
 			} else {
-				return new JSONObject().put("error", "No map data available. The mapping process may not have captured enough information.").toString();
+					if (ui != null) {
+						ui.sendAsyncUpdate("[MAPPING ERROR] No map data available. The mapping process may not have captured enough information.", false);
 			}
-			
+					Log.w(TAG, "No map data available after mapping");
+				}
 		} catch (Exception e) {
-			Log.e(TAG, "Error finishing mapping", e);
-			return new JSONObject().put("error", "Failed to finish mapping: " + e.getMessage()).toString();
-		}
+				Log.e(TAG, "Error finishing mapping (async)", e);
+				if (ui != null) {
+					ui.sendAsyncUpdate("[MAPPING ERROR] Failed to finish mapping: " + e.getMessage(), false);
+				}
+			}
+		}, "map-finalizer").start();
+		
+		// Return immediately to keep WebSocket responsive
+		JSONObject result = new JSONObject();
+		result.put("status", "Map finalization started");
+		// map_name omitted because a single fixed map name is used globally
+		result.put("message", String.format(Locale.US,
+			"I'm finalizing and saving the map '%s' now. I'll let you know when it's ready.", mapName));
+		return result.toString();
 	}
 	
 	private String handleSaveCurrentLocation(JSONObject args) throws Exception {
@@ -921,7 +1203,7 @@ public class ToolExecutor {
 				// Use the active mapping session for maximum accuracy
 				Frame robotFrame = qiContext.getActuation().robotFrame();
 				Frame mapFrame = qiContext.getMapping().mapFrame();
-				currentTransform = mapFrame.computeTransform(robotFrame).getTransform();
+				currentTransform = robotFrame.computeTransform(mapFrame).getTransform();
 				isHighPrecision = true;
 			} else {
 				Log.i(TAG, "📍 Standard location save: Using current robot frame");
@@ -929,7 +1211,7 @@ public class ToolExecutor {
 				Frame robotFrame = qiContext.getActuation().robotFrame();
 				try {
 					Frame mapFrame = qiContext.getMapping().mapFrame();
-					currentTransform = mapFrame.computeTransform(robotFrame).getTransform();
+					currentTransform = robotFrame.computeTransform(mapFrame).getTransform();
 				} catch (Exception e) {
 					Log.w(TAG, "No map frame available, using identity transform: " + e.getMessage());
 					// Create identity transform if no map is available
@@ -938,7 +1220,7 @@ public class ToolExecutor {
 			}
 			
 			// Save location data
-			boolean saved = saveLocationToStorage(locationName, description, null, currentTransform, isHighPrecision);
+			boolean saved = saveLocationToStorage(locationName, description, currentTransform, isHighPrecision);
 			
 			if (saved) {
 				JSONObject result = new JSONObject();
@@ -982,6 +1264,43 @@ public class ToolExecutor {
 		// Check if robot is ready
 		if (qiContext == null) {
 			return new JSONObject().put("error", "Robot not ready").toString();
+		}
+		
+		// Check if charging flap is open (prevents movement for safety)
+		if (isChargingFlapOpen(qiContext)) {
+			return new JSONObject().put("error", "Cannot navigate while charging flap is open. Please close the charging flap first for safety.").toString();
+		}
+		
+		// Check if map is loaded
+		if (!mapLoaded) {
+			return new JSONObject().put("error", "I'm sorry, I'm still loading my map and need a moment before I can navigate. Please try again in a minute.").toString();
+		}
+		
+		// Check if localization is ready or needs to be started
+		if (!localizationReady) {
+			// If localization is already in progress, return appropriate message
+			if (localizationInProgress) {
+				return new JSONObject().put("error", "I'm sorry, I'm currently getting my bearings and need a moment before I can navigate. Please wait a moment and try again.").toString();
+			}
+			
+			// Start asynchronous localization and navigation
+			Log.i(TAG, "Starting asynchronous localization and navigation to: " + locationName);
+			
+			// Inform user immediately that localization is starting
+			if (ui != null) {
+				ui.sendAsyncUpdate("[SYSTEM STATUS] The robot is getting its bearings before navigating to " + locationName + ". Please inform the user to wait a moment.", false);
+			}
+			
+			// Start localization and navigation in background
+			startAsyncLocalizationAndNavigation(locationName, speed);
+			
+			// Return immediate success response
+			return new JSONObject().put("success", "I'll get my bearings and then navigate to " + locationName + ". Please wait a moment.").toString();
+		}
+
+		// Check if map frame is available; if not, fail fast (safety)
+		if (!isMapAvailable(qiContext)) {
+			return new JSONObject().put("error", "Navigation not available. Robot mapping system needs to be initialized. Please create a new map first or wait for map restoration to complete.").toString();
 		}
 		
 		Log.i(TAG, "Navigating to location: " + locationName);
@@ -1079,11 +1398,12 @@ public class ToolExecutor {
 	/**
 	 * Save a location to internal storage
 	 */
-	private boolean saveLocationToStorage(String locationName, String description, FreeFrame freeFrame, Transform transform, boolean isHighPrecision) {
+	private boolean saveLocationToStorage(String locationName, String description, Transform transform, boolean isHighPrecision) {
 		try {
 			File locationsDir = new File(appContext.getFilesDir(), "locations");
 			if (!locationsDir.exists()) {
-				locationsDir.mkdirs();
+				boolean created = locationsDir.mkdirs();
+				if (!created) Log.w(TAG, "Failed to create locations directory: " + locationsDir.getAbsolutePath());
 			}
 			
 			File locationFile = new File(locationsDir, locationName + ".loc");
@@ -1197,13 +1517,14 @@ public class ToolExecutor {
 	}
 	
 	/**
-	 * Save the exploration map to internal storage
+	 * Save the exploration map to internal storage using proper QiSDK serialization
 	 */
 	private boolean saveMapToStorage(ExplorationMap map, String mapName) {
 		try {
 			File mapsDir = new File(appContext.getFilesDir(), "maps");
 			if (!mapsDir.exists()) {
-				mapsDir.mkdirs();
+				boolean created = mapsDir.mkdirs();
+				if (!created) Log.w(TAG, "Failed to create maps directory: " + mapsDir.getAbsolutePath());
 			}
 			
 			File mapFile = new File(mapsDir, mapName + ".map");
@@ -1213,23 +1534,134 @@ public class ToolExecutor {
 				Log.w(TAG, "Map '" + mapName + "' already exists and will be overwritten");
 			}
 			
-			// Serialize the map using QiSDK serialization
-			// Note: The actual serialization method depends on QiSDK version
-			// This is a placeholder for the serialization logic
-			try (FileOutputStream fos = new FileOutputStream(mapFile);
-			     ObjectOutputStream oos = new ObjectOutputStream(fos)) {
-				
-				// Note: ExplorationMap serialization might require specific QiSDK methods
-				// For now, we create a marker file indicating the map exists
-				oos.writeObject(System.currentTimeMillis()); // timestamp
-				oos.writeUTF(mapName);
-				
-				Log.d(TAG, "Map saved to: " + mapFile.getAbsolutePath());
-				return true;
-			}
-		} catch (Exception e) {
-			Log.e(TAG, "Failed to save map", e);
+					// Serialize the ExplorationMap data using StreamableBuffer to prevent OOM
+		Log.i(TAG, "Serializing map data using StreamableBuffer...");
+		
+		StreamableBuffer streamableBuffer;
+		try {
+			streamableBuffer = map.serializeAsStreamableBuffer();
+			Log.i(TAG, "Map serialized successfully as StreamableBuffer (size: " + streamableBuffer.getSize() + " bytes)");
+		} catch (OutOfMemoryError e) {
+			Log.e(TAG, "Out of memory during map serialization. Map is too large for device memory.", e);
 			return false;
+		}
+		
+		// Write StreamableBuffer directly to file using chunked access (prevents large memory allocations)
+		try (java.io.FileOutputStream fos = new java.io.FileOutputStream(mapFile)) {
+			// StreamableBuffer provides chunked access, preventing large memory allocations
+			long totalSize = streamableBuffer.getSize();
+			long offset = 0;
+			long chunkSize = 8192; // 8KB chunks
+			
+			Log.i(TAG, "Writing map data in chunks (" + chunkSize + " bytes each)...");
+			while (offset < totalSize) {
+				long bytesToRead = Math.min(chunkSize, totalSize - offset);
+				java.nio.ByteBuffer buffer = streamableBuffer.read(offset, bytesToRead);
+				
+				// Write buffer to file
+				byte[] byteArray = new byte[buffer.remaining()];
+				buffer.get(byteArray);
+				fos.write(byteArray);
+				
+				offset += bytesToRead;
+			}
+			fos.flush();
+			}
+			
+			Log.i(TAG, "Map properly serialized and saved: " + mapFile.getAbsolutePath());
+			return true;
+		} catch (OutOfMemoryError e) {
+			Log.e(TAG, "Out of memory while saving map. Map is too large for device memory.", e);
+			return false;
+		} catch (Exception e) {
+			Log.e(TAG, "Failed to serialize and save map", e);
+			return false;
+		}
+	}
+	
+	/**
+	 * Load an exploration map from internal storage using QiSDK deserialization
+	 */
+	private ExplorationMap loadMapFromStorage(String mapName) {
+		try {
+			File mapsDir = new File(appContext.getFilesDir(), "maps");
+			File mapFile = new File(mapsDir, mapName + ".map");
+			
+			if (!mapFile.exists()) {
+				Log.i(TAG, "Map file not found: " + mapName);
+				return null;
+			}
+			
+					Log.i(TAG, "Loading map file: " + mapName + " (size: " + mapFile.length() + " bytes)");
+		
+		// Fallback to String-based loading with aggressive memory optimization
+		// StreamableBuffer implementation failed due to QiSDK compatibility issues
+		Log.i(TAG, "Using optimized String-based map loading...");
+		
+		long fileSize = mapFile.length();
+		Log.i(TAG, "Map file size: " + (fileSize/1024/1024) + "MB (" + fileSize + " bytes)");
+		
+		// Aggressive memory management for large maps
+		if (fileSize > 25_000_000) { // 25MB threshold
+			Log.w(TAG, "Large map detected. Applying aggressive memory optimization...");
+			
+			// Force multiple garbage collections
+			for (int i = 0; i < 3; i++) {
+				System.gc();
+				try {
+					Thread.sleep(50);
+				} catch (InterruptedException e) {
+					Thread.currentThread().interrupt();
+					break;
+				}
+			}
+		}
+		
+		// Read map data with memory optimization
+		String mapData;
+		try {
+			Log.i(TAG, "Reading map file with memory-optimized approach...");
+			
+			// Read file as bytes first (more memory efficient)
+			byte[] mapBytes;
+			try (FileInputStream fis = new FileInputStream(mapFile)) {
+				mapBytes = new byte[(int) fileSize];
+				int totalRead = 0;
+				int bytesRead;
+				while (totalRead < mapBytes.length && (bytesRead = fis.read(mapBytes, totalRead, mapBytes.length - totalRead)) != -1) {
+					totalRead += bytesRead;
+				}
+			}
+			
+			// Convert to String in one operation (unavoidable for QiSDK)
+			mapData = new String(mapBytes, StandardCharsets.UTF_8);
+			
+			// Release byte array immediately to help GC
+			mapBytes = null;
+			
+			// Force GC after large allocation
+			System.gc();
+			
+			Log.i(TAG, "Map data loaded successfully (size: " + mapData.length() + " characters)");
+			
+		} catch (OutOfMemoryError e) {
+			Log.e(TAG, "Out of memory loading map file. Map is too large for available memory.", e);
+			throw e; // Re-throw to be caught by outer catch block
+		}
+		
+		// Build a new ExplorationMap from the map string
+			ExplorationMap explorationMap = ExplorationMapBuilder.with(qiContext)
+					.withMapString(mapData)
+					.build();
+					
+			Log.i(TAG, "Map successfully loaded from storage: " + mapName);
+			return explorationMap;
+		} catch (OutOfMemoryError e) {
+			Log.e(TAG, "Out of memory loading map: " + mapName + ". Map file is too large for device memory.", e);
+			return null;
+		} catch (Exception e) {
+			Log.e(TAG, "Failed to load map from storage: " + mapName, e);
+			return null;
 		}
 	}
 	
@@ -1315,6 +1747,48 @@ public class ToolExecutor {
 		// For unknown errors, provide a helpful fallback that suggests obstacles
 		return "I encountered an obstacle and cannot continue moving in that direction.";
 	}
+
+	/**
+	 * Check if the charging flap is open, which prevents movement for safety reasons
+	 * @param qiContext QiContext for accessing robot services
+	 * @return true if charging flap is open (movement blocked), false if closed (movement allowed)
+	 */
+	private boolean isChargingFlapOpen(QiContext qiContext) {
+		try {
+			Power power = qiContext.getPower();
+			FlapSensor chargingFlap = power.getChargingFlap();
+			
+			if (chargingFlap != null) {
+				FlapState flapState = chargingFlap.getState();
+				boolean isOpen = flapState.getOpen();
+				Log.d(TAG, "Charging flap status: " + (isOpen ? "OPEN (movement blocked)" : "CLOSED (movement allowed)"));
+				return isOpen;
+			} else {
+				Log.d(TAG, "No charging flap sensor available - assuming movement is allowed");
+				return false; // Assume closed if sensor not available
+			}
+		} catch (Exception e) {
+			Log.w(TAG, "Could not check charging flap status: " + e.getMessage(), e);
+			return false; // Allow movement if check fails to avoid false blocking
+		}
+	}
+	
+	/**
+	 * Check if map frame is available for navigation
+	 * @param qiContext QiContext for accessing robot services
+	 * @return true if map frame is available, false if not
+	 */
+	private boolean isMapAvailable(QiContext qiContext) {
+		try {
+			Frame mapFrame = qiContext.getMapping().mapFrame();
+			return mapFrame != null;
+		} catch (Exception e) {
+			Log.d(TAG, "Map frame not available: " + e.getMessage());
+			return false;
+		}
+	}
+
+	// Localization check helper removed for clean code
 
 	/**
 	 * Translates technical QiSDK turn errors into user-friendly messages

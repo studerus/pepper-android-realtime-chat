@@ -51,12 +51,13 @@ public class OptimizedThreadManager {
             Thread.NORM_PRIORITY + 1  // Higher priority for audio responsiveness
         );
         
-        // Computation Thread Pool - for CPU-intensive tasks
+        // Computation Thread Pool - for CPU-intensive tasks  
+        // Reduced for memory-constrained Pepper tablet (1GB RAM)
         int cpuCores = Runtime.getRuntime().availableProcessors();
         this.computationExecutor = createThreadPool(
             "computation",
-            Math.max(1, cpuCores - 2),     // Leave cores for system/UI
-            cpuCores,                      // Use all cores when needed
+            1,                            // Reduced core pool size to save memory
+            Math.min(2, cpuCores),        // Limit max threads for 1GB RAM system
             60,                           // Longer keep-alive for batch processing
             Thread.NORM_PRIORITY
         );

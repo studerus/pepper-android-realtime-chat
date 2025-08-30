@@ -295,7 +295,7 @@ public class ToolRegistry {
                 JSONObject t9 = new JSONObject();
                 t9.put("type", "function");
                 t9.put("name", "move_pepper");
-                t9.put("description", "Move Pepper robot in a specific direction for a given distance. Use this when the user asks Pepper to move around the room.");
+                t9.put("description", "Move Pepper robot in a specific direction for a given distance. Use this when the user asks Pepper to move around the room. Call the function directly without announcing it.");
                 JSONObject p9 = new JSONObject();
                 p9.put("type", "object");
                 JSONObject props9 = new JSONObject();
@@ -331,12 +331,10 @@ public class ToolRegistry {
                 JSONObject t11 = new JSONObject();
                 t11.put("type", "function");
                 t11.put("name", "create_environment_map");
-                t11.put("description", "Create a detailed map of the current environment that Pepper can use for navigation. After starting, guide Pepper manually through the room using 'move' and 'turn' commands to map different areas. Use this when the user wants to set up navigation or map the room.");
+                t11.put("description", "Create a detailed map of the current environment that Pepper can use for navigation. Uses a single global map name internally.");
                 JSONObject p11 = new JSONObject();
                 p11.put("type", "object");
-                JSONObject props11 = new JSONObject();
-                props11.put("map_name", new JSONObject().put("type", "string").put("description", "Optional name for the map (e.g. 'office', 'living_room')").put("default", "default_map"));
-                p11.put("properties", props11);
+                p11.put("properties", new JSONObject());
                 t11.put("parameters", p11);
                 tools.put(t11);
             }
@@ -346,12 +344,10 @@ public class ToolRegistry {
                 JSONObject t12 = new JSONObject();
                 t12.put("type", "function");
                 t12.put("name", "finish_environment_map");
-                t12.put("description", "Complete and save the current mapping process. Use this after Pepper has been guided through the room to finalize the map.");
+                t12.put("description", "Complete and save the current mapping process. Uses a single global map name internally.");
                 JSONObject p12 = new JSONObject();
                 p12.put("type", "object");
-                JSONObject props12 = new JSONObject();
-                props12.put("map_name", new JSONObject().put("type", "string").put("description", "Optional name for the finalized map (e.g. 'office', 'living_room')").put("default", "default_map"));
-                p12.put("properties", props12);
+                p12.put("properties", new JSONObject());
                 t12.put("parameters", p12);
                 tools.put(t12);
             }
@@ -380,7 +376,17 @@ public class ToolRegistry {
                 t14.put("name", "navigate_to_location");
                 
                 // Create dynamic description with available locations
-                String locationsList = availableLocations.isEmpty() ? "none" : String.join(", ", availableLocations);
+                String locationsList;
+                if (availableLocations.isEmpty()) {
+                    locationsList = "none";
+                } else {
+                    StringBuilder sb = new StringBuilder();
+                    for (int i = 0; i < availableLocations.size(); i++) {
+                        if (i > 0) sb.append(", ");
+                        sb.append(availableLocations.get(i));
+                    }
+                    locationsList = sb.toString();
+                }
                 String dynamicDescription = String.format(
                     "Navigate Pepper to a previously saved location. Available locations: %s and any locations added during the current session. Use this when the user wants to go to a specific named place.", 
                     locationsList

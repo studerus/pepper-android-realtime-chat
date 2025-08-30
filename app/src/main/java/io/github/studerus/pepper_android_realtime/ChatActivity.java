@@ -27,6 +27,11 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.aldebaran.qi.Future;
 import com.aldebaran.qi.Promise;
 import com.aldebaran.qi.sdk.QiContext;
+import com.aldebaran.qi.sdk.object.actuation.ExplorationMap;
+import com.aldebaran.qi.sdk.object.actuation.Localize;
+import com.aldebaran.qi.sdk.object.actuation.Frame;
+import com.aldebaran.qi.sdk.object.actuation.LocalizationStatus;
+import com.aldebaran.qi.sdk.builder.LocalizeBuilder;
 import com.aldebaran.qi.sdk.QiSDK;
 import com.aldebaran.qi.sdk.RobotLifecycleCallbacks;
 import com.aldebaran.qi.sdk.object.touch.TouchState;
@@ -53,7 +58,7 @@ import android.app.AlertDialog;
 import android.graphics.Color;
 import android.widget.LinearLayout;
 
-public class ChatActivity extends AppCompatActivity implements RobotLifecycleCallbacks {
+public class ChatActivity extends AppCompatActivity implements RobotLifecycleCallbacks, ToolExecutor.StatusUpdateListener {
 
     private static final String TAG = "ChatActivity";
 
@@ -63,6 +68,8 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     private QiContext qiContext;
     private DrawerLayout drawerLayout;
     private TextView statusTextView;
+    private TextView mapStatusTextView;
+    private TextView localizationStatusTextView;
     private RecyclerView chatRecyclerView;
     private ChatMessageAdapter chatAdapter;
     private final List<ChatMessage> messageList = new ArrayList<>();
@@ -92,6 +99,8 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     
     // Mute state management for pause/resume functionality
     private volatile boolean isMuted = false;
+    private volatile boolean sttIsRunning = false;
+    private volatile boolean robotFocusAvailable = false;
 
     private VisionService visionService;
 
@@ -124,6 +133,8 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
 
         drawerLayout = findViewById(R.id.drawer_layout);
         statusTextView = findViewById(R.id.statusTextView);
+        mapStatusTextView = findViewById(R.id.mapStatusTextView);
+        localizationStatusTextView = findViewById(R.id.localizationStatusTextView);
         chatRecyclerView = findViewById(R.id.chatRecyclerView);
         warmupIndicatorLayout = findViewById(R.id.warmup_indicator_layout);
 
@@ -169,7 +180,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             }
         });
 
-        // Tap-to-interrupt/mute/unmute on status bar
+        // Tap-to-interrupt/mute/un-mute on status bar
         statusTextView.setOnClickListener(v -> {
             try {
                 if (turnManager == null) {
@@ -187,8 +198,8 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                         interruptAndMute();
                     }
                 } else if (isMuted) {
-                    // Currently muted -> unmute and start listening
-                    Log.i(TAG, "Unmuting...");
+                    // Currently muted -> un-mute and start listening
+                    Log.i(TAG, "Un-muting...");
                     unmute();
                 } else if (currentState == TurnManager.State.LISTENING) {
                     // Currently listening -> mute
@@ -202,9 +213,11 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
 
         // Ensure realtime session manager is ready
         if (sessionManager == null) {
+            Log.i(TAG, "Creating NEW RealtimeSessionManager in onCreate");
             sessionManager = new RealtimeSessionManager();
             sessionManager.setListener(new RealtimeSessionManager.Listener() {
                 @Override public void onOpen(Response response) {
+                    Log.i(TAG, "WebSocket onOpen() - sending initial session config");
                     ChatActivity.this.sendInitialSessionConfig();
                 }
                 @Override public void onTextMessage(String text) { if (eventHandler != null) eventHandler.handle(text); else webSocketHandler.handleMessage(text); }
@@ -234,11 +247,27 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         turnManager = new TurnManager(new TurnManager.Callbacks() {
             @Override public void onEnterListening() { 
                 runOnUiThread(() -> { 
+                    try {
+                        // Abort if robot focus lost during callback
+                        if (qiContext == null) {
+                            Log.w(TAG, "Robot focus lost, aborting onEnterListening to prevent crashes");
+                            return;
+                        }
                     if (!isMuted) {
                         statusTextView.setText(getString(R.string.status_listening)); 
+                            if (!sttIsRunning) {
+                                try {
                         startContinuousRecognition(); 
+                                } catch (Exception e) {
+                                    Log.e(TAG, "Failed to start recognition in onEnterListening", e);
+                                    statusTextView.setText(getString(R.string.status_recognizer_not_ready));
+                                }
+                            }
                     }
                     findViewById(R.id.fab_interrupt).setVisibility(View.GONE); 
+                    } catch (Exception e) {
+                        Log.e(TAG, "Exception in onEnterListening UI thread", e);
+                    }
                 }); 
             }
             @Override public void onEnterThinking() {
@@ -253,7 +282,18 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             }
             @Override public void onExitSpeaking() { 
                 gestureController.stopNow(); 
-                runOnUiThread(() -> { if (!isMuted) { statusTextView.setText(getString(R.string.status_listening)); startContinuousRecognition(); } findViewById(R.id.fab_interrupt).setVisibility(View.GONE); }); 
+                runOnUiThread(() -> { 
+                    if (!isMuted) { 
+                        statusTextView.setText(getString(R.string.status_listening)); 
+                        try {
+                            startContinuousRecognition(); 
+                        } catch (Exception e) {
+                            Log.e(TAG, "Failed to start recognition in onExitSpeaking", e);
+                            statusTextView.setText(getString(R.string.status_recognizer_not_ready));
+                        }
+                    } 
+                    findViewById(R.id.fab_interrupt).setVisibility(View.GONE); 
+                }); 
             }
         });
         toolExecutor = new ToolExecutor(this, new ToolExecutor.ToolUi() {
@@ -300,8 +340,8 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.RECORD_AUDIO}, MICROPHONE_PERMISSION_REQUEST_CODE);
         } else {
-            // Pre-initialize the recognizer if permission is already granted
-            initializeSpeechRecognizer();
+            // Speech recognizer will be initialized during warmup to avoid double initialization
+            Log.i(TAG, "Microphone permission available - STT will be initialized during warmup");
         }
 
         // Request camera permission for vision analysis
@@ -358,7 +398,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == MICROPHONE_PERMISSION_REQUEST_CODE) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                initializeSpeechRecognizer();
+                Log.i(TAG, "Microphone permission granted - STT will be initialized during warmup");
             } else {
                 runOnUiThread(() -> statusTextView.setText(getString(R.string.error_microphone_permission_denied)));
             }
@@ -369,6 +409,20 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                 Log.w(TAG, "Camera permission denied - vision analysis will not work");
             }
         }
+    }
+
+    /**
+     * Update the map status display in the navigation bar
+     */
+    private void updateMapStatus(String status) {
+        runOnUiThread(() -> mapStatusTextView.setText(status));
+    }
+
+    /**
+     * Update the localization status display in the navigation bar
+     */
+    private void updateLocalizationStatus(String status) {
+        runOnUiThread(() -> localizationStatusTextView.setText(status));
     }
 
     @Override
@@ -459,7 +513,77 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     @Override
     public void onRobotFocusGained(QiContext qiContext) {
         this.qiContext = qiContext;
-        if (toolExecutor != null) toolExecutor.setQiContext(qiContext);
+        
+        // Set flag to indicate robot focus is available
+        robotFocusAvailable = true;
+        
+        // Robust STT cleanup before reinitialization to prevent conflicts from previous crashes
+        if (sttManager != null) {
+            try {
+                Log.i(TAG, "Cleaning up existing STT manager before reinitialization");
+                sttManager.shutdown();
+                Thread.sleep(150); // Brief pause for resource cleanup
+            } catch (Exception e) {
+                Log.w(TAG, "Error during STT cleanup", e);
+            }
+            sttManager = null;
+        }
+        
+        // Defer Listening until navigation init (map load + one-time localization) completes
+        final com.aldebaran.qi.Promise<Void> navInitPromise = new com.aldebaran.qi.Promise<>();
+        if (toolExecutor != null) {
+            toolExecutor.setQiContext(qiContext);
+            toolExecutor.setStatusUpdateListener(this);
+            // Orchestrate navigation init here: preload map + one-time localization
+            threadManager.executeIO(() -> {
+                try {
+                    // Check robot focus before expensive operations
+                    if (!robotFocusAvailable) {
+                        Log.i(TAG, "Robot focus lost, aborting navigation init");
+                        return;
+                    }
+                    io.github.studerus.pepper_android_realtime.ToolExecutor te = toolExecutor;
+                    updateMapStatus(getString(R.string.nav_map_loading));
+                    Log.i(TAG, "Loading map 'default_map'...");
+                    
+                    // Check again before map loading
+                    if (!robotFocusAvailable) {
+                        Log.i(TAG, "Robot focus lost during nav init, aborting");
+                        return;
+                    }
+                    // Re-enable map loading but with memory protection
+                    ExplorationMap map = null;
+                    try {
+                        map = te.loadMap("default_map");
+                        Log.i(TAG, "Map loading completed successfully");
+                    } catch (OutOfMemoryError e) {
+                        Log.w(TAG, "Map loading failed due to OOM - continuing without map", e);
+                        map = null;
+                    } catch (Exception e) {
+                        Log.w(TAG, "Map loading failed - continuing without map", e);
+                        map = null;
+                    }
+                    te.setMapLoadedFlag(map != null);
+                    if (map != null) {
+                        Log.i(TAG, "Startup: Map loaded successfully. Localization will start when navigation is requested.");
+                        te.setCachedMap(map); // Cache the loaded map to avoid reloading
+                        updateMapStatus(getString(R.string.nav_map_ready));
+                        updateLocalizationStatus(getString(R.string.nav_localization_waiting));
+                    } else {
+                        te.setLocalizationReadyFlag(false);
+                        Log.i(TAG, "No map available. Navigation will require map creation first.");
+                        updateMapStatus(getString(R.string.nav_map_none));
+                        updateLocalizationStatus(getString(R.string.nav_localization_waiting));
+                    }
+                } catch (Exception e) {
+                    Log.w(TAG, "Navigation init failed", e);
+                    toolExecutor.setMapLoadedFlag(false);
+                    toolExecutor.setLocalizationReadyFlag(false);
+                    updateMapStatus(getString(R.string.nav_map_error));
+                    updateLocalizationStatus(getString(R.string.nav_localization_waiting));
+                }
+            });
+        }
         
         // Initialize perception service with QiContext
         if (perceptionService != null) {
@@ -485,42 +609,83 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
 
             // Asynchronous initialization
             Future<Void> connectFuture = connectWebSocket();
+            
+            // Wait for WebSocket connection first, then start STT warmup sequentially
+            connectFuture.thenConsume(wsFuture -> {
+                if (wsFuture.hasError()) {
+                    Log.e(TAG, "WebSocket connection failed", wsFuture.getError());
+                    hideWarmupIndicator();
+                    isWarmingUp = false;
+                    runOnUiThread(() -> {
+                        addMessage(getString(R.string.setup_error_during, wsFuture.getError().getMessage()), ChatMessage.Sender.ROBOT);
+                        statusTextView.setText(getString(R.string.error_connection_failed));
+                    });
+                    return;
+                }
+                
+                Log.i(TAG, "WebSocket connected successfully, starting STT warmup...");
             Future<Void> warmupFuture = warmupSpeechRecognizer();
 
-            Future.waitAll(connectFuture, warmupFuture).thenConsume(future -> {
+                warmupFuture.thenConsume(future -> {
                 // Hide warmup indicator after all setup is complete, regardless of outcome
                 hideWarmupIndicator();
                 isWarmingUp = false;
 
                 if (future.hasError()) {
-                    Log.e(TAG, "Error during initial setup (ws or warmup)", future.getError());
-                    
-                    // Check if only warmup failed but WebSocket is OK
-                    if (!connectFuture.hasError() && warmupFuture.hasError()) {
-                        Log.i(TAG, "WebSocket connected but speech warmup failed - app can still function");
+                    Log.e(TAG, "STT warmup failed", future.getError());
                         runOnUiThread(() -> {
                             addMessage(getString(R.string.warmup_failed_msg), ChatMessage.Sender.ROBOT);
                             statusTextView.setText(getString(R.string.ready_sr_lazy_init));
                         });
+                    // Enter LISTENING state anyway - lazy init will handle STT when needed
+                    Log.i(TAG, "STT warmup failed, but entering LISTENING state with lazy fallback");
+                    runOnUiThread(() -> {
                         if (turnManager != null) turnManager.setState(TurnManager.State.LISTENING);
+                    });
                     } else {
-                        // WebSocket failed - this is more critical
+                    Log.i(TAG, "Initial Setup complete. STT is already running, just set state to LISTENING.");
+                    // STT is already started by warmup - just switch state (don't call startContinuousRecognition again)
                         runOnUiThread(() -> {
-                            addMessage(getString(R.string.setup_error_during, future.getError().getMessage()), ChatMessage.Sender.ROBOT);
-                            statusTextView.setText(getString(R.string.error_connection_failed));
-                        });
-                    }
-                } else {
-                    Log.i(TAG, "Initial Setup complete. Starting recognition now.");
-                    // This will correctly set the status to "Listening" after warmup.
-                    if (turnManager != null) turnManager.setState(TurnManager.State.LISTENING);
+                        try {
+                            // Check if robot focus is still available before setting state
+                            if (qiContext == null) {
+                                Log.w(TAG, "qiContext is null, robot focus lost - skipping state setup");
+                                return;
+                            }
+                            if (turnManager != null) {
+                                statusTextView.setText(getString(R.string.status_listening));
+                                turnManager.setState(TurnManager.State.LISTENING);
+                            }
+                        } catch (Exception e) {
+                            Log.e(TAG, "Exception in UI thread during state setup", e);
+                        }
+                    });
                 }
+                });
             });
         }
     }
 
     @Override
     public void onRobotFocusLost() {
+        Log.w(TAG, "Robot focus lost during startup!");
+        
+        // CRITICAL: Set focus lost flag to stop all robot operations
+        robotFocusAvailable = false;
+        
+        // CRITICAL: Reset STT flag to prevent double start when focus is regained
+        sttIsRunning = false;
+        
+        // Stop any ongoing STT to prevent crashes
+        if (sttManager != null) {
+            try {
+                sttManager.stopContinuous();
+                Log.i(TAG, "Stopped STT due to focus loss");
+            } catch (Exception e) {
+                Log.w(TAG, "Error stopping STT during focus loss", e);
+            }
+        }
+        
         if (toolExecutor != null) toolExecutor.setQiContext(null);
         
         // Clean up perception service
@@ -537,6 +702,12 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         
         // STT cleanup handled by sttManager
         this.qiContext = null;
+        
+        // CRITICAL: App should not crash due to focus loss - try to gracefully recover
+        runOnUiThread(() -> {
+            statusTextView.setText("Robot focus lost - app will continue without robot features");
+            updateLocalizationStatus(getString(R.string.nav_localization_stopped));
+        });
     }
 
     @Override
@@ -775,13 +946,18 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         });
     }
 
+
     private Future<Void> warmupSpeechRecognizer() {
         Promise<Void> promise = new Promise<>();
         threadManager.executeAudio(() -> {
             try {
-                if (sttManager == null) sttManager = new SpeechRecognizerManager();
+                // Create STT manager only if not already initialized
+                if (sttManager == null) {
+                    sttManager = new SpeechRecognizerManager();
+                    Log.i(TAG, "Created new SpeechRecognizerManager for warmup");
+                }
                 if (visionService == null) visionService = new VisionService(this);
-                if (sessionManager == null) sessionManager = new RealtimeSessionManager();
+                // sessionManager already created in onCreate() - no need to recreate
                 if (eventHandler == null) eventHandler = new RealtimeEventHandler(new RealtimeEventHandler.Listener() {
                     @Override public void onSessionUpdated(JSONObject session) {
                         Log.i(TAG, "Session configured successfully.");
@@ -875,6 +1051,23 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                             lastAssistantItemId = itemId;
                         } catch (Exception ignored) {}
                     }
+                    
+                    @Override public void onResponseBoundary(String newResponseId) {
+                        try {
+                            Log.d(TAG, "Response boundary detected - new ID: " + newResponseId + ", previous ID: " + currentResponseId);
+                            if (audioPlayer != null) {
+                                audioPlayer.onResponseBoundary();
+                            }
+                        } catch (Exception e) {
+                            Log.w(TAG, "Error during response boundary reset", e);
+                        }
+                    }
+                    
+                    @Override public void onResponseCreated(String responseId) {
+                        try {
+                            Log.d(TAG, "New response created with ID: " + responseId);
+                        } catch (Exception ignored) {}
+                    }
                     @Override public void onError(JSONObject error) {
                         String code = error != null ? error.optString("code", "Unknown") : "Unknown";
                         String msg = error != null ? error.optString("message", "An unknown error occurred.") : "";
@@ -946,11 +1139,13 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                 speechConfig.setSpeechRecognitionLanguage(langCode);
                 speechConfig.setProperty("Speech_SegmentationSilenceTimeoutMs", String.valueOf(silenceTimeout));
 
-                // Close existing recognizer before creating a new one
-                if (sttManager != null) {
-                    sttManager.shutdown();
-                }
+                // Reuse existing recognizer if possible to reduce memory usage
+                if (sttManager == null) {
                 sttManager = new SpeechRecognizerManager();
+                    Log.i(TAG, "Created new SpeechRecognizerManager for settings change");
+                } else {
+                    Log.i(TAG, "Reusing existing SpeechRecognizerManager for settings change");
+                }
                 sttManager.setListener(new SpeechRecognizerManager.Listener() {
                     @Override public void onRecognizing(String partialText) {
                         runOnUiThread(() -> { if (statusTextView.getText().toString().startsWith("Listening")) { statusTextView.setText(getString(R.string.status_listening_partial, partialText)); } });
@@ -988,9 +1183,14 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             runOnUiThread(()-> statusTextView.setText(getString(R.string.status_recognizer_not_ready)));
             return;
         }
+        if (sttIsRunning) {
+            Log.i(TAG, "STT already running, skipping duplicate startContinuous call");
+            return;
+        }
         threadManager.executeAudio(() -> {
             try {
                 sttManager.startContinuous();
+                sttIsRunning = true;
                 runOnUiThread(() -> statusTextView.setText(getString(R.string.status_listening)));
                 Log.i(TAG, "Continuous recognition started.");
             } catch (Exception ex) {
@@ -1007,6 +1207,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                         // Try again after brief delay
                         Thread.sleep(1000);
                         sttManager.startContinuous();
+                        sttIsRunning = true;
                         runOnUiThread(() -> statusTextView.setText(getString(R.string.status_listening)));
                         Log.i(TAG, "Lazy speech initialization successful");
                         return;
@@ -1035,9 +1236,11 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             threadManager.executeAudio(() -> {
                 try {
                     sttManager.stopContinuous();
+                    sttIsRunning = false;
                     Log.i(TAG, "Continuous recognition stopped.");
                 } catch (Exception e) {
                     Log.e(TAG, "Error stopping speech recognizer for speech", e);
+                    sttIsRunning = false; // Reset flag even on error
                 }
             });
         }
@@ -1354,8 +1557,8 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             
             @Override
             public void onPlayerClosed() {
-                Log.i(TAG, "YouTube player closed - unmuting microphone");
-                // Unmute microphone when video closes
+                Log.i(TAG, "YouTube player closed - un-muting microphone");
+                // Un-mute microphone when video closes
                 unmute();
             }
         });
@@ -1426,9 +1629,13 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     private Future<Void> connectWebSocket() {
         connectionPromise = new Promise<>();
         if (sessionManager == null) {
+            Log.w(TAG, "sessionManager was null in connectWebSocket - this should not happen");
             sessionManager = new RealtimeSessionManager();
             sessionManager.setListener(new RealtimeSessionManager.Listener() {
-                @Override public void onOpen(Response response) { ChatActivity.this.sendInitialSessionConfig(); }
+                @Override public void onOpen(Response response) { 
+                    Log.i(TAG, "WebSocket onOpen() in connectWebSocket - sending initial session config");
+                    ChatActivity.this.sendInitialSessionConfig(); 
+                }
                 @Override public void onTextMessage(String text) { if (eventHandler != null) eventHandler.handle(text); else handleWebSocketTextMessage(text); }
                 @Override public void onBinaryMessage(okio.ByteString bytes) { }
                 @Override public void onClosing(int code, String reason) { }
@@ -1588,7 +1795,10 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
 
     // Sends full initial session.update (voice, temperature, audio format, turn_detection, instructions, tools)
     private void sendInitialSessionConfig() {
-        if (sessionManager == null || !sessionManager.isConnected()) return;
+        if (sessionManager == null || !sessionManager.isConnected()) {
+            Log.w(TAG, "Session config SKIPPED - sessionManager null/disconnected");
+            return;
+        }
         try {
             String voice = settingsManager.getVoice();
             float temperature = settingsManager.getTemperature();
@@ -1758,11 +1968,11 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             statusTextView.setText(getString(R.string.status_muted_tap_to_unmute));
             findViewById(R.id.fab_interrupt).setVisibility(View.GONE);
         });
-        Log.i(TAG, "Microphone muted - tap status to unmute");
+        Log.i(TAG, "Microphone muted - tap status to un-mute");
     }
     
     /**
-     * Unmutes the microphone and resumes listening
+     * Un-mutes the microphone and resumes listening
      */
     private void unmute() {
         isMuted = false;
@@ -1774,7 +1984,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         if (turnManager != null) {
             turnManager.setState(TurnManager.State.LISTENING);
         }
-        Log.i(TAG, "Microphone unmuted - resuming listening");
+        Log.i(TAG, "Microphone un-muted - resuming listening");
     }
     
     /**
@@ -1783,8 +1993,6 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     private void handleTouchSensorEvent(String sensorName) {
         Log.i(TAG, "Touch sensor event: " + sensorName + " touched");
         // We no longer need touchState; keep signature for future use
-        
-        // Always react here; releases werden an anderer Stelle gefiltert
         
         // Check if robot is currently speaking and needs interruption
         boolean wasInterrupted = false;
@@ -1868,6 +2076,34 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             default:
                 return sensorName;
         }
+    }
+
+    // StatusUpdateListener implementation for ToolExecutor
+    @Override
+    public void onMapStatusChanged(String status) {
+        runOnUiThread(() -> {
+            // Map status is managed in ChatActivity startup, not needed here
+        });
+    }
+
+    @Override
+    public void onLocalizationStatusChanged(String status) {
+        runOnUiThread(() -> {
+            switch (status) {
+                case "STARTING":
+                    updateLocalizationStatus(getString(R.string.nav_localization_starting));
+                    break;
+                case "RUNNING":
+                    updateLocalizationStatus(getString(R.string.nav_localization_running));
+                    break;
+                case "ERROR":
+                    updateLocalizationStatus(getString(R.string.nav_localization_error));
+                    break;
+                default:
+                    updateLocalizationStatus(getString(R.string.nav_localization_waiting));
+                    break;
+            }
+        });
     }
 }
 

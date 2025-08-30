@@ -129,6 +129,22 @@ public class PerceptionData {
         }
         
         /**
+         * Get smile state for UI display
+         */
+        public String getSmileStateDisplay() {
+            if ("GENUINE".equalsIgnoreCase(smileState)) {
+                return "😊 Genuine";
+            } else if ("FAKE".equalsIgnoreCase(smileState)) {
+                return "😏 Fake";
+            } else if ("NOT_SMILING".equalsIgnoreCase(smileState)) {
+                return "😐 None";
+            } else if ("UNKNOWN".equalsIgnoreCase(smileState)) {
+                return "❓ Unknown";
+            }
+            return "❓ " + capitalize(smileState.replace("_", " "));
+        }
+        
+        /**
          * Capitalize first letter of each word
          */
         private String capitalize(String input) {

@@ -87,7 +87,7 @@ public class SpeechRecognizerManager {
         Log.i(TAG, "Starting warmup - waiting for recognizer initialization...");
         
         // Wait until recognizer is created by the initialize() async task without busy-waiting
-        long deadline = System.currentTimeMillis() + 5000; // 5s
+        long deadline = System.currentTimeMillis() + 3000; // 3s (reduced from 5s)
         synchronized (recognizerLock) {
             while (recognizer == null) {
                 long remaining = deadline - System.currentTimeMillis();
@@ -109,7 +109,7 @@ public class SpeechRecognizerManager {
         Log.i(TAG, "Recognizer is ready, starting connection warmup...");
         
         // Attempt warmup with retry for first-launch scenarios
-        int retriesRemaining = 2;
+        int retriesRemaining = 3; // Increased from 2 to 3 retries
         int attempt = 1;
         while (retriesRemaining > 0) {
             try {
@@ -119,16 +119,16 @@ public class SpeechRecognizerManager {
             } catch (Exception e) {
                 Log.w(TAG, "Warmup attempt #" + attempt + " failed: " + e.getMessage());
                 
-                if (attempt == 1 && isFirstLaunchError(e)) {
-                    Log.i(TAG, "First-launch error detected, retrying after delay...");
+                if (retriesRemaining > 1) { // Retry if not final attempt
+                    Log.i(TAG, "Retrying after delay... (" + retriesRemaining + " attempts remaining)");
                     try {
-                        Thread.sleep(1000); // Extra delay for Azure SDK to settle
+                        Thread.sleep(500); // Reduced delay from 1000ms to 500ms
                     } catch (InterruptedException ie) {
                         Thread.currentThread().interrupt();
                         throw new RuntimeException("Warmup interrupted during retry delay.", ie);
                     }
                 } else {
-                    throw e; // Re-throw on final attempt or non-recoverable errors
+                    throw e; // Re-throw on final attempt
                 }
             }
             retriesRemaining--;
@@ -165,7 +165,7 @@ public class SpeechRecognizerManager {
 
         synchronized (lock) {
             try {
-                lock.wait(8000); // 8 second timeout per attempt
+                lock.wait(4000); // 4 second timeout per attempt (reduced from 8s)
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 throw new RuntimeException("Warmup interrupted during connection", e);

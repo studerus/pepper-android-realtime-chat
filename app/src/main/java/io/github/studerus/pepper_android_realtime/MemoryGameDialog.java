@@ -54,10 +54,28 @@ public class MemoryGameDialog {
     private final Handler timerHandler;
     private Runnable timerRunnable;
 
-    // Symbols for different difficulty levels
-    private static final String[] EASY_SYMBOLS = {"🌟", "🎈", "🍎", "🏆"};
-    private static final String[] MEDIUM_SYMBOLS = {"🌟", "🎈", "🍎", "🏆", "🎵", "🌺", "⚽", "🎯"};
-    private static final String[] HARD_SYMBOLS = {"🌟", "🎈", "🍎", "🏆", "🎵", "🌺", "⚽", "🎯", "🚗", "🏠", "📚", "🎨"};
+    // Large symbol pools for random selection
+    private static final String[] ALL_SYMBOLS = {
+        // Objects & Items
+        "🌟", "🎈", "🍎", "🏆", "🎵", "🌺", "⚽", "🎯", "🚗", "🏠", "📚", "🎨",
+        // Animals
+        "🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐮",
+        // Food & Drinks  
+        "🍕", "🍔", "🍟", "🌭", "🍿", "🎂", "🍪", "🍩", "🍎", "🍌", "🍇", "🍓",
+        // Nature
+        "🌲", "🌳", "🌴", "🌵", "🌸", "🌼", "🌻", "🌹", "🌿", "🍀", "🌾", "🌙",
+        // Transportation
+        "🚗", "🚕", "🚙", "🚌", "🚎", "🏎️", "🚓", "🚑", "🚒", "🚐", "🛻", "🚚",
+        // Sports & Activities
+        "⚽", "🏀", "🏈", "⚾", "🥎", "🎾", "🏐", "🏓", "🥇", "🏆", "🎯", "🎳",
+        // Technology & Tools
+        "💻", "📱", "⌨️", "🖥️", "🖱️", "🔧", "🔨", "⚙️", "🔩", "🛠️", "⚡", "🔋"
+    };
+    
+    // Numbers of pairs needed for each difficulty
+    private static final int EASY_PAIRS = 4;
+    private static final int MEDIUM_PAIRS = 8; 
+    private static final int HARD_PAIRS = 12;
 
     public MemoryGameDialog(Context context, GameEventListener eventListener) {
         this.context = context;
@@ -93,21 +111,21 @@ public class MemoryGameDialog {
         processingMove = false;
         startTime = System.currentTimeMillis();
         
-        // Choose symbols based on difficulty
-        String[] symbols;
+        // Determine number of pairs based on difficulty
         switch (difficulty.toLowerCase()) {
             case "easy":
-                symbols = EASY_SYMBOLS;
+                totalPairs = EASY_PAIRS;
                 break;
             case "hard":
-                symbols = HARD_SYMBOLS;
+                totalPairs = HARD_PAIRS;
                 break;
             default: // medium
-                symbols = MEDIUM_SYMBOLS;
+                totalPairs = MEDIUM_PAIRS;
                 break;
         }
         
-        totalPairs = symbols.length;
+        // Randomly select symbols from the large pool
+        String[] symbols = selectRandomSymbols(totalPairs);
         
         // Create cards (2 of each symbol)
         cards = new ArrayList<>();
@@ -121,6 +139,32 @@ public class MemoryGameDialog {
         Collections.shuffle(cards);
         
         Log.i(TAG, "Game setup complete: " + cards.size() + " cards, " + totalPairs + " pairs");
+    }
+    
+    /**
+     * Randomly selects the specified number of unique symbols from the symbol pool
+     */
+    private String[] selectRandomSymbols(int count) {
+        if (count > ALL_SYMBOLS.length) {
+            Log.w(TAG, "Requested more symbols (" + count + ") than available (" + ALL_SYMBOLS.length + ")");
+            count = ALL_SYMBOLS.length;
+        }
+        
+        // Create a list of all symbols and shuffle it
+        List<String> availableSymbols = new ArrayList<>();
+        for (String symbol : ALL_SYMBOLS) {
+            availableSymbols.add(symbol);
+        }
+        Collections.shuffle(availableSymbols);
+        
+        // Take the first 'count' symbols from the shuffled list
+        String[] selectedSymbols = new String[count];
+        for (int i = 0; i < count; i++) {
+            selectedSymbols[i] = availableSymbols.get(i);
+        }
+        
+        Log.i(TAG, "Selected " + count + " random symbols for game");
+        return selectedSymbols;
     }
 
     private void createDialog() {
