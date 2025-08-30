@@ -39,7 +39,12 @@ public class RealtimeSessionManager {
     }
 
     public boolean isConnected() {
-        return webSocket != null;
+        // Check both WebSocket existence and actual connection state
+        if (webSocket == null) {
+            return false;
+        }
+        // Additional diagnostic info - but still rely on null check since we can't access internal state
+        return true;
     }
 
     public void connect(String url, Map<String, String> headers) {
@@ -76,8 +81,22 @@ public class RealtimeSessionManager {
         client.newWebSocket(request, wsListener);
     }
 
-    public void send(String text) {
-        if (webSocket != null) webSocket.send(text);
+    public boolean send(String text) {
+        if (webSocket == null) {
+            android.util.Log.w("RealtimeSessionManager", "🚨 DIAGNOSTIC: Cannot send - webSocket is null");
+            return false;
+        }
+        
+        try {
+            boolean result = webSocket.send(text);
+            if (!result) {
+                android.util.Log.w("RealtimeSessionManager", "🚨 DIAGNOSTIC: WebSocket.send() returned false - connection may be broken");
+            }
+            return result;
+        } catch (Exception e) {
+            android.util.Log.e("RealtimeSessionManager", "🚨 DIAGNOSTIC: WebSocket.send() threw exception", e);
+            return false;
+        }
     }
 
     public void close(int code, String reason) {

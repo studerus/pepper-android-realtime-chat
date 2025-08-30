@@ -108,31 +108,50 @@ public class SpeechRecognizerManager {
         
         Log.i(TAG, "Recognizer is ready, starting connection warmup...");
         
-        // Attempt warmup with retry for first-launch scenarios
-        int retriesRemaining = 3; // Increased from 2 to 3 retries
-        int attempt = 1;
-        while (retriesRemaining > 0) {
-            try {
-                attemptWarmupConnection(attempt);
-                Log.i(TAG, "Recognizer warmup completed successfully" + (attempt > 1 ? " on retry #" + attempt : ""));
-                return; // Success!
-            } catch (Exception e) {
-                Log.w(TAG, "Warmup attempt #" + attempt + " failed: " + e.getMessage());
+        // Real warmup: Start continuous recognition and wait for session to be ready
+        Log.i(TAG, "Starting REAL warmup - establishing actual connection...");
+        try {
+            // Start continuous recognition to establish connection
+            recognizer.startContinuousRecognitionAsync().get();
+            
+            // Wait briefly for session to stabilize
+            Thread.sleep(2000); // Give Azure time to establish session
+            
+            // Stop it immediately (this was just for connection establishment)
+            recognizer.stopContinuousRecognitionAsync().get();
+            
+            Log.i(TAG, "🎤 STT warmup completed - connection truly established and ready");
+            return;
+            
+        } catch (Exception e) {
+            Log.w(TAG, "Real warmup failed, falling back to old method: " + e.getMessage());
+            
+            // Fallback: Attempt old warmup with retry for first-launch scenarios
+            int retriesRemaining = 3;
+            int attempt = 1;
+            while (retriesRemaining > 0) {
+                try {
+                    attemptWarmupConnection(attempt);
+                    Log.i(TAG, "Recognizer warmup completed successfully" + (attempt > 1 ? " on retry #" + attempt : ""));
+                    return; // Success!
+                } catch (Exception fallbackE) {
+                    Log.w(TAG, "Warmup attempt #" + attempt + " failed: " + fallbackE.getMessage());
                 
-                if (retriesRemaining > 1) { // Retry if not final attempt
-                    Log.i(TAG, "Retrying after delay... (" + retriesRemaining + " attempts remaining)");
-                    try {
-                        Thread.sleep(500); // Reduced delay from 1000ms to 500ms
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                        throw new RuntimeException("Warmup interrupted during retry delay.", ie);
+                    if (retriesRemaining > 1) { // Retry if not final attempt
+                        Log.i(TAG, "Retrying after delay... (" + retriesRemaining + " attempts remaining)");
+                        try {
+                            Thread.sleep(500); // Reduced delay from 1000ms to 500ms
+                        } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                            throw new RuntimeException("Warmup interrupted during retry delay.", ie);
+                        }
+                    } else {
+                        throw fallbackE; // Re-throw on final attempt
                     }
-                } else {
-                    throw e; // Re-throw on final attempt
                 }
+                retriesRemaining--;
+                attempt++;
             }
-            retriesRemaining--;
-            attempt++;
         }
         
         // This should never be reached, but for safety

@@ -62,6 +62,8 @@ public class ToolExecutor {
 		void showMemoryGame(String difficulty);
 		void showYouTubeVideo(YouTubeSearchService.YouTubeVideo video);
 		void sendAsyncUpdate(String message, boolean requestResponse);
+		void sendServiceStateChange(String mode);
+		void updateNavigationStatus(String mapStatus, String localizationStatus);
 	}
 	
 	// Interface for status updates
@@ -87,8 +89,6 @@ public class ToolExecutor {
 	private volatile boolean localizationInProgress = false;
 	private volatile String localizationStatus = "WAITING"; // WAITING, STARTING, RUNNING, ERROR, STOPPED
 	private volatile ExplorationMap cachedMap = null; // Cache loaded map to avoid reloading
-	@SuppressWarnings({"FieldCanBeLocal", "unused"})
-//	private volatile boolean navInitStarted = false; // removed for clean startup orchestration (now in ChatActivity)
 	// Single authoritative map name used across the app
 	private static final String ACTIVE_MAP_NAME = "default_map";
 
@@ -107,7 +107,6 @@ public class ToolExecutor {
 	 * Initialize navigation on app start: preload map and run a localization once.
 	 * Returns immediately; completion can be observed via readiness getters.
 	 */
-// Intentionally no startNavigationInitializerAsync here; orchestrated by ChatActivity
 
 	// Readiness flags for orchestrator (setters only; getters removed to keep API minimal)
 	public void setMapLoadedFlag(boolean loaded) { 
@@ -279,6 +278,184 @@ public class ToolExecutor {
 	}
 	
 	/**
+	 * Start lazy navigation preparation: load map, then localize, then navigate
+	 * This implements the 4-phase navigation with proper service management
+	 */
+	private void startLazyNavigationPreparation(String locationName, double speed) {
+		new Thread(() -> {
+			try {
+				Log.i(TAG, "Lazy Navigation Phase 1: Starting map loading for: " + locationName);
+				
+				// Phase 1: Pause non-essential services for map loading (similar to localization mode)
+				// Note: Initial loading message already sent in function call result to avoid race condition
+				notifyServiceStateChange("enterLocalizationMode");
+				
+				// Load map with error handling
+				ExplorationMap map = null;
+				try {
+					map = loadMap("default_map");
+					if (map != null) {
+						setCachedMap(map);
+						setMapLoadedFlag(true);
+						Log.i(TAG, "Lazy Navigation: Map loaded successfully");
+						
+						if (ui != null) {
+							ui.updateNavigationStatus("🗺️ Map: Ready", "🧭 Localization: Starting…");
+							ui.sendAsyncUpdate("[SYSTEM STATUS] Map loaded successfully. Now I need to orient myself. Please don't move me during this process.", true);
+						}
+						
+						// Phase 2: Start Localization (pause ALL services including gestures)
+						startLazyLocalizationPhase(locationName, speed);
+						
+					} else {
+						throw new Exception("Map loading returned null");
+					}
+				} catch (Exception e) {
+					Log.e(TAG, "Lazy Navigation: Map loading failed", e);
+					setMapLoadedFlag(false);
+					notifyServiceStateChange("resumeNormalOperation");
+					if (ui != null) {
+						ui.sendAsyncUpdate("[SYSTEM ERROR] Failed to load navigation map. Navigation is unavailable. Please inform the user about this issue.", true);
+					}
+				}
+				
+			} catch (Exception e) {
+				Log.e(TAG, "Lazy Navigation: Unexpected error during map loading", e);
+				notifyServiceStateChange("resumeNormalOperation");
+				if (ui != null) {
+					ui.sendAsyncUpdate("[SYSTEM ERROR] Navigation preparation failed unexpectedly. Please inform the user.", true);
+				}
+			}
+		}).start();
+	}
+	
+	/**
+	 * Phase 2: Localization with ALL services paused for stability
+	 */
+	private void startLazyLocalizationPhase(String locationName, double speed) {
+		try {
+			Log.i(TAG, "Lazy Navigation Phase 2: Starting localization for: " + locationName);
+			
+			// Phase 2: Enter Localization Mode (pause ALL services including gestures)
+			notifyServiceStateChange("enterLocalizationMode");
+			
+			// Start localization with gesture interference prevention
+			com.aldebaran.qi.Promise<Boolean> localizationPromise = startLocalizationOnDemand();
+			localizationPromise.getFuture().thenConsume(future -> {
+				if (future.hasError()) {
+					Log.w(TAG, "Lazy Navigation: Localization failed", future.getError());
+					notifyServiceStateChange("resumeNormalOperation");
+											if (ui != null) {
+							ui.updateNavigationStatus(null, "🧭 Localization: Error");
+							ui.sendAsyncUpdate("[LOCALIZATION FAILED] I couldn't orient myself in the room. Navigation cancelled. Please inform the user about this issue and suggest moving me to a different position.", true);
+						}
+				} else {
+					Boolean success = future.getValue();
+					if (success != null && success) {
+						Log.i(TAG, "Lazy Navigation Phase 3: Starting navigation to: " + locationName);
+						
+						// Phase 3: Enter Navigation Mode (services remain paused during movement)
+						notifyServiceStateChange("enterNavigationMode");
+						if (ui != null) {
+							ui.updateNavigationStatus(null, "🧭 Localization: Running");
+							ui.sendAsyncUpdate("[SYSTEM UPDATE] I'm oriented! Now navigating to " + locationName + ".", true);
+						}
+						
+						// Start actual navigation
+						startLazyNavigationPhase(locationName, speed);
+						
+					} else {
+						Log.w(TAG, "Lazy Navigation: Localization returned false");
+						notifyServiceStateChange("resumeNormalOperation");
+						if (ui != null) {
+							ui.updateNavigationStatus(null, "🧭 Localization: Error");
+							ui.sendAsyncUpdate("[LOCALIZATION FAILED] I couldn't orient myself properly. Navigation cancelled. Please inform the user about this issue.", true);
+						}
+					}
+				}
+			});
+			
+		} catch (Exception e) {
+			Log.e(TAG, "Lazy Navigation: Error during localization phase", e);
+			notifyServiceStateChange("resumeNormalOperation");
+			if (ui != null) {
+				ui.updateNavigationStatus(null, "🧭 Localization: Error");
+				ui.sendAsyncUpdate("[SYSTEM ERROR] Localization failed unexpectedly. Please inform the user.", true);
+			}
+		}
+	}
+	
+	/**
+	 * Phase 3: Execute navigation with services paused, then Phase 4: Resume all services
+	 */
+	private void startLazyNavigationPhase(String locationName, double speed) {
+		new Thread(() -> {
+			try {
+				// Load saved location
+				SavedLocation savedLocation = loadLocationFromStorage(locationName);
+				if (savedLocation == null) {
+					Log.w(TAG, "Lazy Navigation: Location not found: " + locationName);
+					notifyServiceStateChange("resumeNormalOperation");
+					if (ui != null) {
+						ui.sendAsyncUpdate("[NAVIGATION FAILED] Location '" + locationName + "' not found. Please inform the user that the location needs to be saved first.", true);
+					}
+					return;
+				}
+				
+				// Execute navigation with callback
+				Log.i(TAG, "Lazy Navigation: Executing navigation to: " + locationName);
+				
+				// Set up movement listener for navigation result
+				movementController.setListener(new MovementController.MovementListener() {
+					@Override
+					public void onMovementStarted() {
+						Log.i(TAG, "Lazy Navigation: Movement started to: " + locationName);
+					}
+					
+					@Override
+					public void onMovementFinished(boolean success, String message) {
+						// Phase 4: Resume Normal Operation regardless of navigation result
+						notifyServiceStateChange("resumeNormalOperation");
+						
+						if (success) {
+							Log.i(TAG, "Lazy Navigation: Successfully arrived at: " + locationName);
+							if (ui != null) {
+								ui.sendAsyncUpdate("[NAVIGATION COMPLETED] I've successfully arrived at " + locationName + "! Please inform the user.", true);
+							}
+						} else {
+							Log.w(TAG, "Lazy Navigation: Navigation failed to: " + locationName + " - " + message);
+							if (ui != null) {
+								ui.sendAsyncUpdate("[NAVIGATION FAILED] I couldn't reach " + locationName + ". Problem: " + message + ". Please inform the user about this issue.", true);
+							}
+						}
+					}
+				});
+				
+				// Start navigation (async)
+				movementController.navigateToLocation(qiContext, savedLocation, (float) speed);
+				
+			} catch (Exception e) {
+				Log.e(TAG, "Lazy Navigation: Navigation error", e);
+				notifyServiceStateChange("resumeNormalOperation");
+				if (ui != null) {
+					ui.sendAsyncUpdate("[NAVIGATION FAILED] Navigation to " + locationName + " failed: " + e.getMessage() + ". Please inform the user.", true);
+				}
+			}
+		}).start();
+	}
+	
+	/**
+	 * Notify ChatActivity about service state changes for proper service management
+	 */
+	private void notifyServiceStateChange(String mode) {
+		Log.i(TAG, "Service state change requested: " + mode);
+		// Use the existing UI callback mechanism
+		if (ui != null) {
+			ui.sendServiceStateChange(mode);
+		}
+	}
+	
+	/**
 	 * Start localization and navigation asynchronously in the background
 	 * This method returns immediately while localization and navigation run in background
 	 */
@@ -308,8 +485,8 @@ public class ToolExecutor {
 								if (ui != null) {
 									ui.sendAsyncUpdate("[SYSTEM ERROR] The robot could not find the saved location '" + locationName + "'. Please inform the user that the location needs to be saved first using 'save current location'.", true);
 								}
-								return;
-							}
+					return;
+				}
 				
 							// Start navigation using MovementController
 							movementController.setListener(new MovementController.MovementListener() {
@@ -1038,6 +1215,10 @@ public class ToolExecutor {
 		}
 		
 		Log.i(TAG, "Starting environment mapping: " + mapName);
+		
+		// CRITICAL: Enter localization mode to suppress gestures and autonomous abilities during mapping
+		notifyServiceStateChange("enterLocalizationMode");
+		
 		// Ensure no Localize is running (QiSDK forbids running Localize and LocalizeAndMap together)
 		stopLocalizationIfRunning();
 		// Mapping replaces the active map; mark navigation readiness as not ready until finalized
@@ -1132,39 +1313,56 @@ public class ToolExecutor {
 				boolean saved = saveMapToStorage(map, mapName);
 				
 				if (saved) {
-					// Clear current mapping references
+					// OPTIMAL: Keep LocalizeAndMap running to maintain continuous position tracking
+					// Based on QiSDK documentation: "As long as the LocalizeAndMap is running, Pepper keeps track of his position"
+					// No need to transition to Localize - LocalizeAndMap provides the same position tracking capabilities
+					Log.i(TAG, "Map saved successfully. Keeping LocalizeAndMap running for continuous position tracking (no odometry drift).");
+					
+					// Don't clear LocalizeAndMap references - let it continue running for position tracking
+					// Only clear the mapping future since the map dumping is complete
 					currentMappingFuture = null;
-					currentLocalizeAndMap = null;
+					// currentLocalizeAndMap stays active for position tracking!
 					
-					// Start Localize action to maintain position tracking after mapping
-					startLocalizationSession(map);
-					// Update readiness flags for navigation after successful map save and localization start
+					// CRITICAL: Resume normal operation after successful mapping
+					notifyServiceStateChange("resumeNormalOperation");
+					// Update readiness flags for navigation
 					mapLoaded = true;
-					localizationReady = true;
+					localizationReady = true; // LocalizeAndMap provides localization
 					
-						if (ui != null) {
-							ui.sendAsyncUpdate(String.format(Locale.US,
-								"[MAPPING COMPLETED] I have successfully completed and saved the map called '%s'. The map is now ready for navigation.",
-								mapName), false);
-						}
+					// CRITICAL: Update UI status to reflect successful mapping and active localization
+					if (ui != null) {
+						ui.updateNavigationStatus("🗺️ Map: Ready", "🧭 Localization: Running");
+						ui.sendAsyncUpdate(String.format(Locale.US,
+							"[MAPPING COMPLETED] I have successfully completed and saved the map called '%s'. The map is now ready for navigation.",
+							mapName), true);
+					}
 					Log.i(TAG, "Map '" + mapName + "' completed and saved successfully");
 				} else {
 						if (ui != null) {
-							ui.sendAsyncUpdate("[MAPPING ERROR] Map was completed but could not be saved to storage.", false);
+							ui.sendAsyncUpdate("[MAPPING ERROR] Map was completed but could not be saved to storage.", true);
 						}
 						Log.w(TAG, "Map was completed but could not be saved to storage");
+						
+						// CRITICAL: Resume normal operation even if save failed
+						notifyServiceStateChange("resumeNormalOperation");
 				}
 			} else {
 					if (ui != null) {
-						ui.sendAsyncUpdate("[MAPPING ERROR] No map data available. The mapping process may not have captured enough information.", false);
+						ui.sendAsyncUpdate("[MAPPING ERROR] No map data available. The mapping process may not have captured enough information.", true);
 			}
 					Log.w(TAG, "No map data available after mapping");
+			
+					// CRITICAL: Resume normal operation even if no map data
+					notifyServiceStateChange("resumeNormalOperation");
 				}
 		} catch (Exception e) {
 				Log.e(TAG, "Error finishing mapping (async)", e);
 				if (ui != null) {
-					ui.sendAsyncUpdate("[MAPPING ERROR] Failed to finish mapping: " + e.getMessage(), false);
+					ui.sendAsyncUpdate("[MAPPING ERROR] Failed to finish mapping: " + e.getMessage(), true);
 				}
+				
+				// CRITICAL: Resume normal operation even if exception occurred
+				notifyServiceStateChange("resumeNormalOperation");
 			}
 		}, "map-finalizer").start();
 		
@@ -1271,9 +1469,11 @@ public class ToolExecutor {
 			return new JSONObject().put("error", "Cannot navigate while charging flap is open. Please close the charging flap first for safety.").toString();
 		}
 		
-		// Check if map is loaded
+		// Check if map is loaded - if not, start lazy loading
 		if (!mapLoaded) {
-			return new JSONObject().put("error", "I'm sorry, I'm still loading my map and need a moment before I can navigate. Please try again in a minute.").toString();
+			Log.i(TAG, "Map not loaded - starting lazy navigation preparation for: " + locationName);
+			startLazyNavigationPreparation(locationName, speed);
+			return new JSONObject().put("success", "[SYSTEM STATUS] The robot needs to load its navigation map and get its bearings first. This will take about 30 seconds. The robot is now loading the navigation map. Please inform the user to wait and that navigation will start automatically once ready.").toString();
 		}
 		
 		// Check if localization is ready or needs to be started

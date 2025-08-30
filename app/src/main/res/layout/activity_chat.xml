@@ -23,50 +23,27 @@
             app:title="PepperDialog"
             app:titleCentered="true"
             app:menu="@menu/chat_toolbar_menu" />
-
-        <!-- Navigation Status Bar -->
-        <LinearLayout
-            android:id="@+id/navigation_status_bar"
-            android:layout_width="match_parent"
-            android:layout_height="36dp"
-            android:layout_below="@id/topAppBar"
-            android:orientation="horizontal"
-            android:background="#E8E8E8"
-            android:elevation="2dp">
             
-            <TextView
-                android:id="@+id/mapStatusTextView"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:text="🗺️ Map: None"
-                android:textSize="13sp"
-                android:gravity="center"
-                android:paddingHorizontal="8dp"
-                android:textColor="@android:color/black" />
-                
-            <View
-                android:layout_width="1dp"
-                android:layout_height="match_parent"
-                android:background="#CCCCCC" />
-                
-            <TextView
-                android:id="@+id/localizationStatusTextView"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:text="🧭 Localization: Waiting"
-                android:textSize="13sp"
-                android:gravity="center"
-                android:paddingHorizontal="8dp"
-                android:textColor="@android:color/black" />
-        </LinearLayout>
+        <!-- Hidden status TextViews for internal state tracking -->
+        <TextView
+            android:id="@+id/mapStatusTextView"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:text="🗺️ Map: None"
+            android:visibility="gone" />
+            
+        <TextView
+            android:id="@+id/localizationStatusTextView"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:text="🧭 Localization: Waiting"
+            android:visibility="gone" />
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/chatRecyclerView"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:layout_below="@id/navigation_status_bar"
+            android:layout_below="@id/topAppBar"
             android:layout_above="@+id/statusTextView"
             android:padding="8dp" />
 

@@ -96,6 +96,11 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     private volatile boolean expectingFinalAnswerAfterToolCall = false;
     private final GestureController gestureController = new GestureController();
     private volatile boolean isWarmingUp = false;
+    private volatile boolean gesturesSuppressed = false; // Flag to prevent gestures during critical navigation phases
+    
+    // Autonomous Abilities Management for critical phases (localization, mapping)
+    private com.aldebaran.qi.sdk.object.holder.Holder autonomousAbilitiesHolder;
+    private volatile boolean autonomousAbilitiesHeld = false;
     
     // Mute state management for pause/resume functionality
     private volatile boolean isMuted = false;
@@ -271,16 +276,22 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                 }); 
             }
             @Override public void onEnterThinking() {
-                // Physically stop the mic so nothing is recognized during THINKING
-                stopContinuousRecognition();
+                // Physically stop the mic so nothing is recognized during THINKING (only if running)
+                if (sttIsRunning) {
+                    stopContinuousRecognition();
+                } else {
+                    Log.d(TAG, "STT already stopped, skipping redundant stop in THINKING state");
+                }
                 runOnUiThread(() -> { statusTextView.setText(getString(R.string.status_thinking)); findViewById(R.id.fab_interrupt).setVisibility(View.GONE); });
             }
             @Override public void onEnterSpeaking() { 
+                Log.i(TAG, "State: Entering SPEAKING - starting gestures and stopping STT");
                 stopContinuousRecognition(); 
                 startExplainGesturesLoop(); 
                 runOnUiThread(() -> findViewById(R.id.fab_interrupt).setVisibility(View.GONE));
             }
             @Override public void onExitSpeaking() { 
+                Log.i(TAG, "State: Exiting SPEAKING - stopping gestures and starting STT");
                 gestureController.stopNow(); 
                 runOnUiThread(() -> { 
                     if (!isMuted) { 
@@ -315,6 +326,42 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             @Override
             public void sendAsyncUpdate(String message, boolean requestResponse) {
                 runOnUiThread(() -> sendContextToModel(message, requestResponse));
+            }
+            
+            @Override
+            public void sendServiceStateChange(String mode) {
+                Log.i(TAG, "Service state change received: " + mode);
+                try {
+                    switch (mode) {
+
+                        case "enterLocalizationMode":
+                            enterLocalizationMode();
+                            break;
+                        case "enterNavigationMode":
+                            enterNavigationMode();
+                            break;
+                        case "resumeNormalOperation":
+                            resumeNormalOperation();
+                            break;
+                        default:
+                            Log.w(TAG, "Unknown service state change mode: " + mode);
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error handling service state change: " + mode, e);
+                }
+            }
+            
+            @Override
+            public void updateNavigationStatus(String mapStatus, String localizationStatus) {
+                Log.i(TAG, "Updating navigation status - Map: " + mapStatus + ", Localization: " + localizationStatus);
+                runOnUiThread(() -> {
+                    if (mapStatus != null) {
+                        updateMapStatus(mapStatus);
+                    }
+                    if (localizationStatus != null) {
+                        updateLocalizationStatus(localizationStatus);
+                    }
+                });
             }
         });
         audioPlayer.setListener(new OptimizedAudioPlayer.Listener() {
@@ -517,6 +564,8 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         // Set flag to indicate robot focus is available
         robotFocusAvailable = true;
         
+        Log.i(TAG, "Robot focus gained - initializing services (qiContext available: " + (qiContext != null) + ")");
+        
         // Robust STT cleanup before reinitialization to prevent conflicts from previous crashes
         if (sttManager != null) {
             try {
@@ -529,65 +578,22 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             sttManager = null;
         }
         
-        // Defer Listening until navigation init (map load + one-time localization) completes
-        final com.aldebaran.qi.Promise<Void> navInitPromise = new com.aldebaran.qi.Promise<>();
+        // Setup ToolExecutor (no heavy operations)
         if (toolExecutor != null) {
             toolExecutor.setQiContext(qiContext);
             toolExecutor.setStatusUpdateListener(this);
-            // Orchestrate navigation init here: preload map + one-time localization
-            threadManager.executeIO(() -> {
-                try {
-                    // Check robot focus before expensive operations
-                    if (!robotFocusAvailable) {
-                        Log.i(TAG, "Robot focus lost, aborting navigation init");
-                        return;
-                    }
-                    io.github.studerus.pepper_android_realtime.ToolExecutor te = toolExecutor;
-                    updateMapStatus(getString(R.string.nav_map_loading));
-                    Log.i(TAG, "Loading map 'default_map'...");
-                    
-                    // Check again before map loading
-                    if (!robotFocusAvailable) {
-                        Log.i(TAG, "Robot focus lost during nav init, aborting");
-                        return;
-                    }
-                    // Re-enable map loading but with memory protection
-                    ExplorationMap map = null;
-                    try {
-                        map = te.loadMap("default_map");
-                        Log.i(TAG, "Map loading completed successfully");
-                    } catch (OutOfMemoryError e) {
-                        Log.w(TAG, "Map loading failed due to OOM - continuing without map", e);
-                        map = null;
-                    } catch (Exception e) {
-                        Log.w(TAG, "Map loading failed - continuing without map", e);
-                        map = null;
-                    }
-                    te.setMapLoadedFlag(map != null);
-                    if (map != null) {
-                        Log.i(TAG, "Startup: Map loaded successfully. Localization will start when navigation is requested.");
-                        te.setCachedMap(map); // Cache the loaded map to avoid reloading
-                        updateMapStatus(getString(R.string.nav_map_ready));
-                        updateLocalizationStatus(getString(R.string.nav_localization_waiting));
-                    } else {
-                        te.setLocalizationReadyFlag(false);
-                        Log.i(TAG, "No map available. Navigation will require map creation first.");
-                        updateMapStatus(getString(R.string.nav_map_none));
-                        updateLocalizationStatus(getString(R.string.nav_localization_waiting));
-                    }
-                } catch (Exception e) {
-                    Log.w(TAG, "Navigation init failed", e);
-                    toolExecutor.setMapLoadedFlag(false);
-                    toolExecutor.setLocalizationReadyFlag(false);
-                    updateMapStatus(getString(R.string.nav_map_error));
-                    updateLocalizationStatus(getString(R.string.nav_localization_waiting));
-                }
-            });
+            // Initialize navigation status as not ready
+            updateMapStatus(getString(R.string.nav_map_none));
+            updateLocalizationStatus(getString(R.string.nav_localization_waiting));
+            Log.i(TAG, "ToolExecutor initialized. Map loading will start in background.");
         }
         
         // Initialize perception service with QiContext
         if (perceptionService != null) {
             perceptionService.initialize(qiContext);
+            // Start perception monitoring for testing (normally only when dashboard is opened)
+            perceptionService.startMonitoring();
+            Log.i(TAG, "PerceptionService monitoring started for testing");
         }
         
         // Initialize touch sensor manager with QiContext
@@ -642,6 +648,8 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                     runOnUiThread(() -> {
                         if (turnManager != null) turnManager.setState(TurnManager.State.LISTENING);
                     });
+                    
+                    Log.i(TAG, "Navigation will use lazy loading when needed");
                     } else {
                     Log.i(TAG, "Initial Setup complete. STT is already running, just set state to LISTENING.");
                     // STT is already started by warmup - just switch state (don't call startContinuousRecognition again)
@@ -660,6 +668,8 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                             Log.e(TAG, "Exception in UI thread during state setup", e);
                         }
                     });
+                    
+                    Log.i(TAG, "Navigation will use lazy loading when needed");
                 }
                 });
             });
@@ -865,7 +875,10 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     @SuppressLint("NullableProblems")
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         int itemId = item.getItemId();
-        if (itemId == R.id.action_new_chat) {
+        if (itemId == R.id.action_navigation_status) {
+            showNavigationStatusPopup();
+            return true;
+        } else if (itemId == R.id.action_new_chat) {
             startNewSession();
             return true;
         } else if (itemId == R.id.action_dashboard) {
@@ -878,6 +891,59 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+    
+    private android.widget.PopupWindow navigationStatusPopup;
+    
+    private void showNavigationStatusPopup() {
+        if (navigationStatusPopup != null && navigationStatusPopup.isShowing()) {
+            navigationStatusPopup.dismiss();
+            return;
+        }
+        
+        // Inflate popup layout
+        View popupView = getLayoutInflater().inflate(R.layout.navigation_status_popup, null);
+        
+        // Update status in popup
+        TextView popupMapStatus = popupView.findViewById(R.id.popup_map_status);
+        TextView popupLocalizationStatus = popupView.findViewById(R.id.popup_localization_status);
+        
+        // Get current status from existing TextViews
+        TextView mapStatus = findViewById(R.id.mapStatusTextView);
+        TextView localizationStatus = findViewById(R.id.localizationStatusTextView);
+        
+        if (mapStatus != null && popupMapStatus != null) {
+            String mapText = mapStatus.getText().toString();
+            // Extract just the status part after the emoji and "Map: "
+            popupMapStatus.setText(mapText.replaceFirst("🗺️ Map: ", ""));
+        }
+        
+        if (localizationStatus != null && popupLocalizationStatus != null) {
+            String localizationText = localizationStatus.getText().toString();
+            // Extract just the status part after the emoji and "Localization: "
+            popupLocalizationStatus.setText(localizationText.replaceFirst("🧭 Localization: ", ""));
+        }
+        
+        // Create popup window
+        navigationStatusPopup = new android.widget.PopupWindow(
+            popupView,
+            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+            true
+        );
+        
+        // Show popup below the toolbar
+        View anchor = findViewById(R.id.topAppBar);
+        if (anchor != null) {
+            navigationStatusPopup.showAsDropDown(anchor, 16, 8);
+        }
+        
+        // Auto dismiss after 5 seconds
+        popupView.postDelayed(() -> {
+            if (navigationStatusPopup != null && navigationStatusPopup.isShowing()) {
+                navigationStatusPopup.dismiss();
+            }
+        }, 5000);
     }
     
     private void applyVolume(int percentage) {
@@ -1280,8 +1346,17 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             item.put("content", contentArray);
             createItemPayload.put("item", item);
     
-            sessionManager.send(createItemPayload.toString());
-            Log.d(TAG, "Sent conversation.item.create: " + createItemPayload);
+            boolean sentItem = sessionManager.send(createItemPayload.toString());
+            if (sentItem) {
+                Log.d(TAG, "Sent conversation.item.create: " + createItemPayload);
+            } else {
+                Log.e(TAG, "🚨 DIAGNOSTIC: Failed to send conversation.item.create - WebSocket connection broken");
+                runOnUiThread(() -> {
+                    addMessage("Connection lost. Please restart the app to reconnect.", ChatMessage.Sender.ROBOT);
+                    turnManager.setState(TurnManager.State.IDLE);
+                });
+                return;
+            }
     
             // User message added to server-side conversation history
     
@@ -1294,11 +1369,26 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             // NO 'input' or 'prompt' here! The model uses the server-side history.
             createResponsePayload.put("response", responseDetails);
     
-            sessionManager.send(createResponsePayload.toString());
-            Log.d(TAG, "Sent response.create: " + createResponsePayload);
+            boolean sentResponse = sessionManager.send(createResponsePayload.toString());
+            if (sentResponse) {
+                Log.d(TAG, "Sent response.create: " + createResponsePayload);
+            } else {
+                Log.e(TAG, "🚨 DIAGNOSTIC: Failed to send response.create - WebSocket connection broken");
+                runOnUiThread(() -> {
+                    addMessage("Connection lost during response request. Please restart the app.", ChatMessage.Sender.ROBOT);
+                    turnManager.setState(TurnManager.State.IDLE);
+                });
+                return;
+            }
 
         } catch (Exception e) {
-            Log.e(TAG, "Failed to create or send WebSocket message", e);
+            Log.e(TAG, "🚨 DIAGNOSTIC: Exception in sendTextToAzure - this indicates JSON creation or send failure", e);
+            runOnUiThread(() -> {
+                addMessage("Error processing your message. Please try again or restart the app if the problem persists.", ChatMessage.Sender.ROBOT);
+                if (turnManager != null) {
+                    turnManager.setState(TurnManager.State.IDLE);
+                }
+            });
         }
     }
 
@@ -1395,13 +1485,23 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             
             toolResultPayload.put("item", item);
             
-            sessionManager.send(toolResultPayload.toString());
+            boolean sentTool = sessionManager.send(toolResultPayload.toString());
+            if (!sentTool) {
+                Log.e(TAG, "🚨 DIAGNOSTIC: Failed to send tool result - WebSocket connection broken");
+                runOnUiThread(() -> addMessage("Connection lost during tool execution. Please restart the app.", ChatMessage.Sender.ROBOT));
+                return;
+            }
             Log.d(TAG, "Sent tool result: " + toolResultPayload);
  
             // After sending the tool result, we must ask for a new response
             JSONObject createResponsePayload = new JSONObject();
             createResponsePayload.put("type", "response.create");
-            sessionManager.send(createResponsePayload.toString());
+            boolean sentToolResponse = sessionManager.send(createResponsePayload.toString());
+            if (!sentToolResponse) {
+                Log.e(TAG, "🚨 DIAGNOSTIC: Failed to send tool response request - WebSocket connection broken");
+                runOnUiThread(() -> addMessage("Connection lost after tool execution. Please restart the app.", ChatMessage.Sender.ROBOT));
+                return;
+            }
             Log.d(TAG, "Requested new response after tool call.");
 
             // Hold state in THINKING until the next response audio begins,
@@ -1597,7 +1697,12 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             item.put("content", contentArray);
             createItemPayload.put("item", item);
 
-            sessionManager.send(createItemPayload.toString());
+            boolean sentContext = sessionManager.send(createItemPayload.toString());
+            if (!sentContext) {
+                Log.e(TAG, "🚨 DIAGNOSTIC: Failed to send context update - WebSocket connection broken");
+                runOnUiThread(() -> addMessage("Connection lost during status update. Please restart the app.", ChatMessage.Sender.ROBOT));
+                return;
+            }
             Log.d(TAG, "Sent context update: " + message);
 
             // Step 2: If response is requested, ask the model to respond
@@ -1609,8 +1714,14 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                 responseDetails.put("modalities", new JSONArray().put("audio").put("text"));
                 createResponsePayload.put("response", responseDetails);
 
-                sessionManager.send(createResponsePayload.toString());
+                            boolean sentContextResponse = sessionManager.send(createResponsePayload.toString());
+            if (sentContextResponse) {
                 Log.d(TAG, "Requested response after context update");
+            } else {
+                Log.e(TAG, "🚨 DIAGNOSTIC: Failed to send context response request - WebSocket connection broken");
+                runOnUiThread(() -> addMessage("Connection lost during context update. Please restart the app.", ChatMessage.Sender.ROBOT));
+                return;
+            }
                 
                 // Update turn manager state for expected response
                 if (turnManager != null) {
@@ -1677,9 +1788,17 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     }
 
     private void startExplainGesturesLoop() {
-        if (qiContext == null) return;
+        if (qiContext == null) {
+            Log.w(TAG, "Cannot start gestures - qiContext is null");
+            return;
+        }
+        if (gesturesSuppressed) {
+            Log.w(TAG, "Gestures suppressed - not starting gesture loop (critical navigation phase)");
+            return;
+        }
+        Log.i(TAG, "Starting gesture loop for speaking state");
         gestureController.start(qiContext,
-                () -> turnManager != null && turnManager.getState() == TurnManager.State.SPEAKING && qiContext != null,
+                () -> turnManager != null && turnManager.getState() == TurnManager.State.SPEAKING && qiContext != null && !gesturesSuppressed,
                 this::getRandomExplainAnimationResId);
     }
 
@@ -2105,6 +2224,137 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             }
         });
     }
+    
+    /**
+     * Service Management for Navigation Phases
+     */
+    
+
+    
+    /**
+     * Phase 2: Localization Mode - Pause ALL services for stable localization
+     */
+    private void enterLocalizationMode() {
+        Log.i(TAG, "Navigation Phase 2: Entering Localization Mode - ALL services paused");
+        
+        // CRITICAL: Suppress gestures completely during localization
+        gesturesSuppressed = true;
+        gestureController.stopNow();
+        Log.i(TAG, "Gestures suppressed and stopped for localization (prevents interference)");
+        
+        // CRITICAL: Hold autonomous abilities (BasicAwareness, BackgroundMovement) to prevent head movement
+        holdAutonomousAbilities();
+        
+        if (perceptionService != null && perceptionService.isInitialized()) {
+            perceptionService.stopMonitoring();
+            Log.i(TAG, "Perception monitoring stopped for localization");
+        }
+        if (touchSensorManager != null) {
+            touchSensorManager.pause();
+            Log.i(TAG, "Touch sensors paused for localization");
+        }
+    }
+    
+    /**
+     * Phase 3: Navigation Mode - Keep all services paused during movement
+     */
+    private void enterNavigationMode() {
+        Log.i(TAG, "Navigation Phase 3: Entering Navigation Mode - services remain paused");
+        // Keep gestures suppressed during movement
+        gesturesSuppressed = true;
+        // Keep all paused during movement (already paused from localization)
+        // No additional actions needed - robot should move without interference
+    }
+    
+    /**
+     * Phase 4: Resume Normal Operation - Restore all services
+     */
+    private void resumeNormalOperation() {
+        Log.i(TAG, "Navigation Phase 4: Resuming Normal Operation - restoring all services");
+        
+        // CRITICAL: Re-enable gestures
+        gesturesSuppressed = false;
+        Log.i(TAG, "Gesture suppression lifted - gestures allowed again");
+        
+        // CRITICAL: Release autonomous abilities (restore BasicAwareness, BackgroundMovement)
+        releaseAutonomousAbilities();
+        
+        // Resume gestures if currently speaking
+        if (turnManager != null && turnManager.getState() == TurnManager.State.SPEAKING) {
+            startExplainGesturesLoop();
+            Log.i(TAG, "Gestures resumed (robot is speaking)");
+        }
+        
+        // Resume perception monitoring
+        if (perceptionService != null && perceptionService.isInitialized()) {
+            perceptionService.startMonitoring();
+            Log.i(TAG, "Perception monitoring resumed");
+        }
+        
+        // Resume touch sensors
+        if (touchSensorManager != null) {
+            touchSensorManager.resume();
+            Log.i(TAG, "Touch sensors resumed");
+        }
+        
+        Log.i(TAG, "All services restored to normal operation");
+    }
+    
+    /**
+     * Hold autonomous abilities (BasicAwareness, BackgroundMovement) during critical operations
+     * This prevents head tracking and background movements that interfere with localization/mapping
+     */
+    private void holdAutonomousAbilities() {
+        if (qiContext == null) {
+            Log.w(TAG, "Cannot hold autonomous abilities - qiContext is null");
+            return;
+        }
+        
+        if (autonomousAbilitiesHeld) {
+            Log.d(TAG, "Autonomous abilities already held");
+            return;
+        }
+        
+        try {
+            // Hold head and body movements to prevent interference during critical operations
+            // Based on QiSDK documentation: https://qisdk.softbankrobotics.com/sdk/doc/pepper-sdk/ch4_api/abilities/reference/autonomous_abilities.html
+            // Using degrees of freedom constraint to prevent head tracking and body movements
+            autonomousAbilitiesHolder = com.aldebaran.qi.sdk.builder.HolderBuilder.with(qiContext)
+                    .withDegreesOfFreedom(
+                            com.aldebaran.qi.sdk.object.autonomousabilities.DegreeOfFreedom.ROBOT_FRAME_ROTATION
+                    )
+                    .build();
+            
+            autonomousAbilitiesHolder.async().hold();
+            autonomousAbilitiesHeld = true;
+            Log.i(TAG, "Autonomous abilities held (head and body movements constrained) - robot will remain still during critical operations");
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to hold autonomous abilities", e);
+        }
+    }
+    
+    /**
+     * Release autonomous abilities to restore normal robot behavior
+     */
+    private void releaseAutonomousAbilities() {
+        if (!autonomousAbilitiesHeld || autonomousAbilitiesHolder == null) {
+            Log.d(TAG, "No autonomous abilities to release");
+            return;
+        }
+        
+        try {
+            autonomousAbilitiesHolder.async().release();
+            autonomousAbilitiesHolder = null;
+            autonomousAbilitiesHeld = false;
+            Log.i(TAG, "Autonomous abilities released - robot behavior restored to normal");
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to release autonomous abilities", e);
+        }
+    }
+    
+
 }
 
 

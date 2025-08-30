@@ -2,6 +2,11 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <item
+        android:id="@+id/action_navigation_status"
+        android:title="Navigation Status"
+        android:icon="@android:drawable/ic_menu_mylocation"
+        app:showAsAction="ifRoom" />
+    <item
         android:id="@+id/action_new_chat"
         android:title="New Chat"
         android:icon="@android:drawable/ic_menu_rotate"

@@ -51,6 +51,7 @@ public class TouchSensorManager {
     private TouchEventListener listener;
     private final Map<String, TouchSensor> touchSensors = new HashMap<>();
     private final Map<String, Long> lastTouchTimes = new HashMap<>();
+    private volatile boolean isPaused = false;
     
     public TouchSensorManager() {
         // Initialize last touch times
@@ -118,10 +119,39 @@ public class TouchSensorManager {
     }
     
     /**
+     * Pause touch sensor monitoring (for navigation/localization)
+     */
+    public void pause() {
+        isPaused = true;
+        Log.i(TAG, "TouchSensorManager paused - events will be ignored");
+    }
+    
+    /**
+     * Resume touch sensor monitoring
+     */
+    public void resume() {
+        isPaused = false;
+        Log.i(TAG, "TouchSensorManager resumed - events will be processed");
+    }
+    
+    /**
+     * Check if touch sensor is currently paused
+     */
+    public boolean isPaused() {
+        return isPaused;
+    }
+    
+    /**
      * Handle touch events with debouncing and callback
      */
     private void handleTouchEvent(String sensorName, TouchState touchState) {
         try {
+            // Ignore events if paused
+            if (isPaused) {
+                Log.d(TAG, "Touch event ignored - TouchSensorManager is paused: " + sensorName);
+                return;
+            }
+            
             long currentTime = System.currentTimeMillis();
             Long lastTouchBoxed = lastTouchTimes.get(sensorName);
             long lastTouchTime = lastTouchBoxed != null ? lastTouchBoxed : 0L;
