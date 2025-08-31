@@ -64,6 +64,8 @@ public class ToolExecutor {
 		void sendAsyncUpdate(String message, boolean requestResponse);
 		void sendServiceStateChange(String mode);
 		void updateNavigationStatus(String mapStatus, String localizationStatus);
+		void showTicTacToeGame();
+		TicTacToeDialog getTicTacToeDialog();
 	}
 	
 	// Interface for status updates
@@ -641,6 +643,10 @@ public class ToolExecutor {
 					return handleNavigateToLocation(args);
 				case "play_youtube_video":
 					return handlePlayYouTubeVideo(args);
+				case "start_tic_tac_toe_game":
+					return handleStartTicTacToeGame();
+				case "make_tic_tac_toe_move":
+					return handleTicTacToeMove(args);
 				default:
 					return new JSONObject().put("error", "Unknown tool: " + toolName).toString();
 			}
@@ -2091,5 +2097,75 @@ public class ToolExecutor {
 			case "wings_01": return R.raw.wings_01;
 			default: return null;
 		}
+	}
+
+	/**
+	 * Handle start_tic_tac_toe_game function call
+	 * Opens the game dialog and initializes a new game
+	 */
+	private String handleStartTicTacToeGame() throws Exception {
+		Log.i(TAG, "Starting Tic Tac Toe game");
+		
+		// Show game dialog
+		ui.showTicTacToeGame();
+		
+		return new JSONObject()
+			.put("success", "Tic Tac Toe game started! You are X, I am O. Make your first move!")
+			.toString();
+	}
+
+	/**
+	 * Handle make_tic_tac_toe_move function call
+	 * AI makes a move on the board
+	 */
+	private String handleTicTacToeMove(JSONObject args) throws Exception {
+		int position = args.getInt("position");
+		Log.i(TAG, "AI making Tic Tac Toe move at position: " + position);
+		
+		// Get current game instance from dialog
+		TicTacToeDialog gameDialog = ui.getTicTacToeDialog();
+		if (gameDialog == null || !gameDialog.isShowing()) {
+			return new JSONObject()
+				.put("error", "No active Tic Tac Toe game found")
+				.toString();
+		}
+		
+		TicTacToeGame game = gameDialog.getGame();
+		
+		// Validate move
+		if (!game.isValidMove(position)) {
+			return new JSONObject()
+				.put("error", "Invalid move. Position " + position + " is already occupied or out of bounds.")
+				.toString();
+		}
+		
+		// Make AI move - TicTacToeDialog handles UI thread internally
+		gameDialog.onAIMove(position);
+		
+		// Get game state after AI move (move was already made in onAIMove)
+		int winner = game.checkWinner();
+		String boardState = game.getBoardString();
+		
+		if (winner == TicTacToeGame.GAME_CONTINUE) {
+			// Game continues - simple confirmation without board state
+			return new JSONObject()
+				.put("success", "Move confirmed. Your turn!")
+				.toString();
+		} else {
+			// AI wins or draw - only announce game result, user can see the board
+			String gameResult = TicTacToeGame.getGameResultMessage(winner);
+			return new JSONObject()
+				.put("success", String.format("GAME OVER: %s", gameResult))
+				.toString();
+		}
+	}
+
+	/**
+	 * Send game update to AI context (used by TicTacToeDialog)
+	 * @param gameUpdate The game state message
+	 * @param requestResponse Whether to request an AI response
+	 */
+	public void sendGameUpdate(String gameUpdate, boolean requestResponse) {
+		ui.sendAsyncUpdate(gameUpdate, requestResponse);
 	}
 }

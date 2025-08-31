@@ -88,6 +88,10 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     private String lastAssistantItemId = null;
     private final List<String> sessionImagePaths = new ArrayList<>();
     private OptimizedAudioPlayer audioPlayer;
+    private volatile long lastAudioDoneTs = 0L; // monotonic timestamp of last audio completion
+    
+    // Game dialogs
+    private TicTacToeDialog ticTacToeDialog;
     private volatile boolean hasActiveResponse = false;
     private volatile String currentResponseId = null;
     private volatile String cancelledResponseId = null;
@@ -157,6 +161,8 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             try {
                 if (sessionManager == null || !sessionManager.isConnected()) return;
                 // 1) Cancel further generation first (send only if there is an active response)
+                Log.d(TAG, "🚨 DIAGNOSTIC: FAB interrupt pressed: hasActiveResponse=" + hasActiveResponse);
+                Log.d(TAG, "🚨 DIAGNOSTIC: interruptAndMute invoked: hasActiveResponse=" + hasActiveResponse);
                 if (hasActiveResponse) {
                     JSONObject cancel = new JSONObject();
                     cancel.put("type", "response.cancel");
@@ -168,6 +174,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                 // 2) Truncate current assistant item if we have its id
                 if (lastAssistantItemId != null) {
                     int playedMs = audioPlayer != null ? Math.max(0, audioPlayer.getEstimatedPlaybackPositionMs()) : 0;
+                    Log.d(TAG, "🚨 DIAGNOSTIC: sending truncate for item=" + lastAssistantItemId + ", audio_end_ms=" + playedMs);
                     JSONObject truncate = new JSONObject();
                     truncate.put("type", "conversation.item.truncate");
                     truncate.put("item_id", lastAssistantItemId);
@@ -363,6 +370,16 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                     }
                 });
             }
+            
+            @Override
+            public void showTicTacToeGame() {
+                runOnUiThread(() -> ChatActivity.this.showTicTacToeGame());
+            }
+            
+            @Override
+            public TicTacToeDialog getTicTacToeDialog() {
+                return ChatActivity.this.getTicTacToeDialog();
+            }
         });
         audioPlayer.setListener(new OptimizedAudioPlayer.Listener() {
             @Override public void onPlaybackStarted() {
@@ -370,6 +387,13 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             }
             @Override public void onPlaybackFinished() {
                 // Avoid reopening the mic if a follow-up response is pending or already streaming
+                lastAudioDoneTs = android.os.SystemClock.uptimeMillis();
+                try {
+                    boolean playing = (audioPlayer != null && audioPlayer.isPlaying());
+                    Log.d(TAG, "🚨 DIAGNOSTIC: onPlaybackFinished: playing=" + playing + 
+                            ", hasActiveResponse=" + hasActiveResponse + 
+                            ", lastAudioDoneTs=" + lastAudioDoneTs);
+                } catch (Exception ignored) {}
                 if (!expectingFinalAnswerAfterToolCall && !hasActiveResponse) {
                     turnManager.setState(TurnManager.State.LISTENING);
                 } else {
@@ -780,10 +804,11 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             String base64Audio = message.getString("delta");
             String respId = message.optString("response_id");
             // Reset carry at response boundary to avoid syllable overlap
-            if (currentResponseId != null && !Objects.equals(currentResponseId, respId)) {
+            // Call onResponseBoundary for every new response, not just when ID changes
+            if (respId != null && !Objects.equals(currentResponseId, respId)) {
                 try { audioPlayer.onResponseBoundary(); } catch (Exception ignored) {}
+                currentResponseId = respId;
             }
-            currentResponseId = respId;
             if (Objects.equals(respId, cancelledResponseId)) {
                 return; // drop cancelled response chunks
             }
@@ -1083,10 +1108,11 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                             turnManager.setState(TurnManager.State.SPEAKING);
                         }
                         if (responseId != null) {
-                            if (currentResponseId != null && !Objects.equals(currentResponseId, responseId)) {
+                            // Call onResponseBoundary for every new response to reset timing
+                            if (!Objects.equals(currentResponseId, responseId)) {
                                 try { audioPlayer.onResponseBoundary(); } catch (Exception ignored) {}
+                                currentResponseId = responseId;
                             }
-                            currentResponseId = responseId;
                         }
                         if (Objects.equals(responseId, cancelledResponseId)) {
                             return; // drop cancelled response chunks
@@ -1673,10 +1699,17 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         }
 
         try {
-            // Interrupt any active response if we're requesting a new response
+            // Interrupt only if audio is truly still playing, with a small guard window after playback finished
             if (requestResponse && turnManager != null && turnManager.getState() == TurnManager.State.SPEAKING) {
-                if (hasActiveResponse || (audioPlayer != null && audioPlayer.isPlaying())) {
-                    fabInterrupt.performClick();
+                long now = android.os.SystemClock.uptimeMillis();
+                boolean isPlaying = (audioPlayer != null && audioPlayer.isPlaying());
+                long sinceDone = now - lastAudioDoneTs;
+                Log.d(TAG, "🚨 DIAGNOSTIC: contextUpdate guard: state=SPEAKING, isPlaying=" + isPlaying + ", sinceDoneMs=" + sinceDone);
+                if (isPlaying && sinceDone > 200) {
+                    Log.d(TAG, "🚨 DIAGNOSTIC: triggering interrupt via FAB (cancel+truncate)");
+                    fabInterrupt.performClick(); // triggers response.cancel + truncate
+                } else {
+                    Log.d(TAG, "🚨 DIAGNOSTIC: skip interrupt (isPlaying=" + isPlaying + ", sinceDoneMs=" + sinceDone + ")");
                 }
             }
 
@@ -2057,6 +2090,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                 // 2) Truncate current assistant item if we have its id
                 if (lastAssistantItemId != null) {
                     int playedMs = audioPlayer != null ? Math.max(0, audioPlayer.getEstimatedPlaybackPositionMs()) : 0;
+                    Log.d(TAG, "🚨 DIAGNOSTIC: interruptAndMute truncate: item=" + lastAssistantItemId + ", audio_end_ms=" + playedMs);
                     JSONObject truncate = new JSONObject();
                     truncate.put("type", "conversation.item.truncate");
                     truncate.put("item_id", lastAssistantItemId);
@@ -2354,6 +2388,34 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         }
     }
     
+    // ==================== GAME MANAGEMENT ====================
+    
+    /**
+     * Show Tic Tac Toe game dialog
+     * Called from ToolExecutor when AI starts a game
+     * If a game is already open, close it and start a new one
+     */
+    public void showTicTacToeGame() {
+        // Close existing dialog if open (to start fresh game)
+        if (ticTacToeDialog != null && ticTacToeDialog.isShowing()) {
+            ticTacToeDialog.dismiss();
+            Log.i(TAG, "Closed existing Tic Tac Toe game dialog for new game");
+        }
+        
+        // Create and show new game dialog
+        ticTacToeDialog = new TicTacToeDialog(this, toolExecutor);
+        ticTacToeDialog.show();
+        Log.i(TAG, "Tic Tac Toe game dialog opened (new game)");
+    }
+    
+    /**
+     * Get current Tic Tac Toe dialog instance
+     * Used by ToolExecutor to access game state
+     * @return Current TicTacToeDialog or null if not active
+     */
+    public TicTacToeDialog getTicTacToeDialog() {
+        return ticTacToeDialog;
+    }
 
 }
 

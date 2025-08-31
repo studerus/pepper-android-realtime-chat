@@ -124,6 +124,14 @@ public class ToolRegistry {
             "Search and play a YouTube video based on user's request. Use this when the user asks to play music, songs, or videos from YouTube.", 
             true, "YouTube"));
             
+        tools.add(new ToolInfo("start_tic_tac_toe_game", 
+            "Start a new Tic Tac Toe game with the user. The user will be X and you will be O. Use this when the user wants to play Tic Tac Toe.", 
+            false, null));
+            
+        tools.add(new ToolInfo("make_tic_tac_toe_move", 
+            "Make a move in the current Tic Tac Toe game. Choose a position from 0-8 on the 3x3 grid. The user can see the board visually, so don't describe board state.", 
+            false, null));
+            
         return tools;
     }
 
@@ -158,7 +166,7 @@ public class ToolRegistry {
                 JSONObject t2 = new JSONObject();
                 t2.put("type", "function");
                 t2.put("name", "play_animation");
-                t2.put("description", "Play a preinstalled Pepper animation.");
+                t2.put("description", "Play a preinstalled Pepper animation. Use the hello_01 animation when the user wants you to wave or say hello.");
                 JSONObject p2 = new JSONObject();
                 p2.put("type", "object");
                 JSONArray animEnums = new JSONArray()
@@ -357,7 +365,7 @@ public class ToolRegistry {
                 JSONObject t13 = new JSONObject();
                 t13.put("type", "function");
                 t13.put("name", "save_current_location");
-                t13.put("description", "Save Pepper's current position with a name for future navigation. Locations saved during active mapping are more accurate. Use this when Pepper is at an important location like 'kitchen', 'printer', 'entrance', etc.");
+                t13.put("description", "Save Pepper's current position with a name for future navigation. Use this when the user wants to save a location like 'kitchen', 'printer', 'entrance', etc. Call the function directly without announcing it.");
                 JSONObject p13 = new JSONObject();
                 p13.put("type", "object");
                 JSONObject props13 = new JSONObject();
@@ -402,6 +410,35 @@ public class ToolRegistry {
                 p14.put("required", new JSONArray().put("location_name"));
                 t14.put("parameters", p14);
                 tools.put(t14);
+            }
+
+            // start_tic_tac_toe_game
+            if (enabledTools == null || enabledTools.contains("start_tic_tac_toe_game")) {
+                JSONObject t16 = new JSONObject();
+                t16.put("type", "function");
+                t16.put("name", "start_tic_tac_toe_game");
+                t16.put("description", "Start a new Tic Tac Toe game with the user. The user will be X and you will be O. Call this function when the user wants to play Tic Tac Toe. Call the function directly without announcing it.");
+                JSONObject p16 = new JSONObject();
+                p16.put("type", "object");
+                p16.put("properties", new JSONObject());
+                t16.put("parameters", p16);
+                tools.put(t16);
+            }
+
+            // make_tic_tac_toe_move
+            if (enabledTools == null || enabledTools.contains("make_tic_tac_toe_move")) {
+                JSONObject t17 = new JSONObject();
+                t17.put("type", "function");
+                t17.put("name", "make_tic_tac_toe_move");
+                t17.put("description", "Make a move in the current Tic Tac Toe game. Choose a position from 0-8 where 0=top-left, 1=top-center, 2=top-right, 3=middle-left, 4=center, 5=middle-right, 6=bottom-left, 7=bottom-center, 8=bottom-right. The user can see the game board visually, so don't describe the board state after your move.");
+                JSONObject p17 = new JSONObject();
+                p17.put("type", "object");
+                JSONObject props17 = new JSONObject();
+                props17.put("position", new JSONObject().put("type", "integer").put("description", "Position on the 3x3 board (0-8)").put("minimum", 0).put("maximum", 8));
+                p17.put("properties", props17);
+                p17.put("required", new JSONArray().put("position"));
+                t17.put("parameters", p17);
+                tools.put(t17);
             }
 
             // play_youtube_video (only if YouTube API key is available)

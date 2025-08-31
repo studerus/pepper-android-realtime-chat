@@ -12,6 +12,7 @@ A sophisticated conversational AI application for the Pepper robot using OpenAI'
 - **🌐 Internet Search** - Real-time web search capabilities via Tavily API
 - **🌤️ Weather Information** - Current weather and forecasts via OpenWeatherMap API
 - **🎯 Interactive Quizzes** - Dynamic quiz generation and interaction
+- **🎮 Tic Tac Toe Game** - Play against the AI with voice commands and visual board
 
 ### Navigation & Mapping Features
 - **🗺️ Manual Mapping** - Guide Pepper through rooms to create detailed maps
@@ -126,6 +127,7 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 - **"Play [song/video]"** - Searches and plays YouTube videos (requires YouTube API)
 - **"Tell me a joke"** - Random joke from local database
 - **"Show me [animation]"** - Plays Pepper animations
+- **"Start a Tic Tac Toe game"** - Opens the game dialog for voice-controlled gameplay
 
 #### Movement Commands
 - **"Move [direction] [distance]"** - Basic movement (forward/backward/left/right, 0.1-4.0m)
@@ -207,6 +209,45 @@ Robot: "Navigating to Türe..."
 - **🛡️ Error Prevention**: No "location not found" errors
 - **🗑️ Auto-Cleanup**: New maps automatically clear old locations to prevent confusion
 
+## 🎮 Tic Tac Toe Game
+
+### How to Play
+The AI opponent provides an interactive Tic Tac Toe experience with voice commands and visual feedback.
+
+#### Starting a Game
+```bash
+User: "Let's play Tic Tac Toe"
+Robot: "Great! Let's start a game of Tic Tac Toe. You are X, I am O."
+# Game dialog opens automatically
+```
+
+#### Gameplay
+- **Visual Board**: 3x3 grid with clear X and O markers
+- **Touch & Voice**: Make moves by tapping board positions
+- **AI Opponent**: Intelligent moves via GPT-4o
+- **Real-time Updates**: Instant visual and voice feedback
+
+#### Game Flow
+1. **User starts** as X (always goes first)
+2. **Tap any position** on the board to make your move
+3. **AI responds** with voice feedback and makes its move as O
+4. **Continue alternating** until someone wins or draws
+5. **Game auto-closes** after 5 seconds when finished
+
+#### Voice Integration
+- All moves trigger context updates to the AI
+- AI provides natural commentary and reactions
+- Game state communicated through existing WebSocket connection
+- Seamless integration with ongoing conversation
+
+### Game Features
+- **🎯 Smart AI**: Competitive gameplay with strategic moves
+- **🎨 Clean UI**: Large, clear buttons with distinct X/O markers
+- **🔊 Voice Feedback**: Natural AI commentary during gameplay
+- **⚡ Fast Response**: Immediate visual updates and AI reactions
+- **🎪 Auto-Close**: Game closes automatically when finished
+- **🔄 Repeatable**: Start new games anytime with voice commands
+
 ## 🏗️ Architecture
 
 ### Core Components
@@ -219,7 +260,9 @@ Robot: "Navigating to Türe..."
 ├── ToolExecutor      - Function calling implementation
 ├── MovementController- Robot movement and navigation control
 ├── VisionService     - Camera and image analysis
-└── ToolRegistry      - Dynamic tool registration with location awareness
+├── TicTacToeGame     - Game logic and state management
+├── TicTacToeDialog   - UI dialog for game board
+└── ToolRegistry      - Dynamic tool registration with game awareness
 ```
 
 ### Key Features
@@ -254,6 +297,8 @@ app/src/main/java/io/github/studerus/pepper_android_realtime/
 ├── VisionService.java          # Camera integration
 ├── AudioPlayer.java            # Audio playback
 ├── GestureController.java      # Robot animations
+├── TicTacToeGame.java          # Tic Tac Toe game logic
+├── TicTacToeDialog.java        # Game UI dialog
 └── ...
 ```
 

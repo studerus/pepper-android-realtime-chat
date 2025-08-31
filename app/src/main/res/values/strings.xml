@@ -96,4 +96,14 @@
     <string name="ready_sr_lazy_init">Ready (Speech Recognition will initialize on first use)</string>
     <string name="last_update_format">Last update: %1$s</string>
     <string name="api_key_required_format">API key required: %1$s</string>
+    
+    <!-- Tic Tac Toe Game -->
+    <string name="ttt_game_title">🎮 Tic Tac Toe</string>
+    <string name="ttt_your_turn">Your turn! (You are X)</string>
+    <string name="ttt_ai_thinking">AI is thinking...</string>
+    <string name="ttt_you_won">🎉 You won! Great job!</string>
+    <string name="ttt_ai_won">🤖 AI wins! Good game!</string>
+    <string name="ttt_draw">🤝 It\'s a draw! Well played!</string>
+    <string name="ttt_new_game">🔄 New Game</string>
+    <string name="ttt_close_button">✕</string>
 </resources>
