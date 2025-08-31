@@ -1006,27 +1006,39 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         threadManager.executeNetwork(() -> {
             // Clean up session-scoped images on I/O thread
             threadManager.executeIO(this::deleteSessionImages);
-            // 1. Disconnect the old session
-            disconnectWebSocket();
+            
+            // 1. Gracefully disconnect the old session
+            Log.i(TAG, "Starting session cleanup for provider switch...");
+            disconnectWebSocketGracefully();
 
-            // Brief pause to ensure resources are released
+            // Brief pause to ensure resources are released and avoid race conditions
             try {
-                Thread.sleep(250);
+                Thread.sleep(500); // Increased from 250ms for better cleanup
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
             
             // 2. Connect to start a new session
+            Log.i(TAG, "Starting new session with updated provider...");
             Future<Void> connectFuture = connectWebSocket();
 
             // 3. Update UI based on reconnection result
             connectFuture.thenConsume(future -> {
                 if (future.hasError()) {
-                    Log.e(TAG, "Failed to start new session", future.getError());
-                    runOnUiThread(() -> {
-                        addMessage(getString(R.string.new_session_error), ChatMessage.Sender.ROBOT);
-                        statusTextView.setText(getString(R.string.error_connection_failed_short));
-                    });
+                    Throwable error = future.getError();
+                    // Filter out harmless race condition errors from provider switching
+                    if (error instanceof com.aldebaran.qi.QiException && 
+                        error.getMessage() != null && 
+                        error.getMessage().contains("WebSocket closed before session was updated")) {
+                        Log.w(TAG, "Harmless race condition during provider switch - session will recover");
+                        // Don't show error to user, new session should be establishing
+                    } else {
+                        Log.e(TAG, "Failed to start new session", error);
+                        runOnUiThread(() -> {
+                            addMessage(getString(R.string.new_session_error), ChatMessage.Sender.ROBOT);
+                            statusTextView.setText(getString(R.string.error_connection_failed_short));
+                        });
+                    }
                 } else {
                     Log.i(TAG, "New session started successfully. Ready to listen.");
                     // The "Ready" message is handled by the "session.updated" event.
@@ -1551,6 +1563,31 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         Log.i(TAG, "WebSocket connection closed.");
     }
     
+    /**
+     * Gracefully disconnect WebSocket with proper cleanup for provider switching
+     * Prevents race conditions during session transitions
+     */
+    private void disconnectWebSocketGracefully() {
+        if (sessionManager != null) {
+            // Clear any pending connection promises to prevent race conditions
+            connectionPromise = null;
+            
+            // Cancel any ongoing responses to prevent them from interfering
+            if (hasActiveResponse && currentResponseId != null) {
+                Log.d(TAG, "Cancelling active response before provider switch: " + currentResponseId);
+                cancelledResponseId = currentResponseId;
+                hasActiveResponse = false;
+                currentResponseId = null;
+            }
+            
+            // Close connection with provider switch reason
+            sessionManager.close(1000, "Provider switch - starting new session");
+            Log.i(TAG, "WebSocket gracefully closed for provider switch");
+        } else {
+            Log.d(TAG, "No active session to disconnect");
+        }
+    }
+    
     private void showQuizDialog(final String question, final String[] options, final String correctAnswer) {
         if (isFinishing()) { Log.w(TAG, "Not showing quiz dialog because activity is finishing."); return; }
         View dialogView = getLayoutInflater().inflate(R.layout.dialog_quiz, null);
@@ -1802,14 +1839,24 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             connectionPromise.setValue(null);
             return connectionPromise.getFuture();
         }
-        String apiVersion = "2024-10-01-preview";
-        String model = settingsManager.getModel();
-        String url = String.format(Locale.US, "wss://%s/openai/realtime?api-version=%s&deployment=%s",
-                keyManager.getAzureOpenAiEndpoint(), apiVersion, model);
+        // Get current API provider and build connection parameters
+        RealtimeApiProvider provider = settingsManager.getApiProvider();
+        String url = provider.getWebSocketUrl(keyManager.getAzureOpenAiEndpoint());
+        
         java.util.HashMap<String, String> headers = new java.util.HashMap<>();
-        headers.put("api-key", keyManager.getAzureOpenAiKey());
+        
+        if (provider.isAzureProvider()) {
+            // Azure OpenAI authentication
+            headers.put("api-key", keyManager.getAzureOpenAiKey());
+        } else {
+            // OpenAI Direct authentication
+            headers.put("Authorization", provider.getAuthorizationHeader(
+                keyManager.getAzureOpenAiKey(), 
+                keyManager.getOpenAiApiKey()));
+        }
+        
         headers.put("OpenAI-Beta", "realtime=v1");
-        Log.d(TAG, "Connecting to WebSocket URL: " + url);
+        Log.d(TAG, "Connecting to " + provider.getDisplayName() + " - URL: " + url);
         sessionManager.connect(url, headers);
         return connectionPromise.getFuture();
     }

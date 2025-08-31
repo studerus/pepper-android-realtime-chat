@@ -164,6 +164,12 @@ public class TicTacToeDialog extends Dialog {
         // Check if AI won
         int winner = game.checkWinner();
         if (winner != TicTacToeGame.GAME_CONTINUE) {
+            // Game ended with AI move - send context update to inform AI
+            String gameResult = TicTacToeGame.getGameResultMessage(winner);
+            String update = String.format(java.util.Locale.US, "[GAME] AI O on pos %d. Board: %s. GAME OVER: %s", 
+                                        position, game.getBoardString(), gameResult);
+            toolExecutor.sendGameUpdate(update, true);
+            
             updateGameEndUI(winner);
             scheduleAutoClose();
         } else {

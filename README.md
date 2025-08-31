@@ -50,9 +50,15 @@ cp local.properties.example local.properties
 Edit `local.properties` and add your API keys:
 
 ```properties
-# REQUIRED: Core functionality
+# REALTIME API PROVIDERS (Choose one or configure both)
+# Option 1: Azure OpenAI - GPT-4o Realtime API
 AZURE_OPENAI_KEY=your_azure_openai_key_here
 AZURE_OPENAI_ENDPOINT=your-resource.openai.azure.com
+
+# Option 2: OpenAI Direct - Latest gpt-realtime model
+OPENAI_API_KEY=your_openai_api_key_here
+
+# REQUIRED: Speech Recognition
 AZURE_SPEECH_KEY=your_azure_speech_key_here
 AZURE_SPEECH_REGION=switzerlandnorth
 
@@ -144,7 +150,16 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 ### Settings Access
 - **Tap the menu** (⋮) in the top-right corner
 - **Adjust** voice, model, temperature, and other preferences
+- **Select API Provider** - Choose between Azure OpenAI and OpenAI Direct
 - **Swipe from right** to access settings drawer
+
+#### API Provider Selection
+You can switch between different Realtime API providers in the settings:
+
+- **Azure OpenAI**: Uses `gpt-4o-realtime-preview` with your Azure deployment
+- **OpenAI Direct**: Uses latest `gpt-realtime` model directly from OpenAI
+
+**Note**: Changing the API provider will restart the session automatically.
 
 ## 🗺️ Navigation Workflow
 

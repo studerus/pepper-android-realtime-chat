@@ -2139,25 +2139,13 @@ public class ToolExecutor {
 				.toString();
 		}
 		
-		// Make AI move - TicTacToeDialog handles UI thread internally
+		// Make AI move - TicTacToeDialog handles UI thread internally and game end detection
 		gameDialog.onAIMove(position);
 		
-		// Get game state after AI move (move was already made in onAIMove)
-		int winner = game.checkWinner();
-		String boardState = game.getBoardString();
-		
-		if (winner == TicTacToeGame.GAME_CONTINUE) {
-			// Game continues - simple confirmation without board state
-			return new JSONObject()
-				.put("success", "Move confirmed. Your turn!")
-				.toString();
-		} else {
-			// AI wins or draw - only announce game result, user can see the board
-			String gameResult = TicTacToeGame.getGameResultMessage(winner);
-			return new JSONObject()
-				.put("success", String.format("GAME OVER: %s", gameResult))
-				.toString();
-		}
+		// Always return simple confirmation - game end will be handled by context update from TicTacToeDialog
+		return new JSONObject()
+			.put("success", "Move confirmed.")
+			.toString();
 	}
 
 	/**

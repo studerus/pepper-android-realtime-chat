@@ -29,6 +29,7 @@ public class SettingsManager {
     private static final String KEY_VOLUME = "volume";
     private static final String KEY_SILENCE_TIMEOUT = "silenceTimeout";
     private static final String KEY_ENABLED_TOOLS = "enabledTools";
+    private static final String KEY_API_PROVIDER = "apiProvider";
 
     private final ChatActivity activity;
     private final SharedPreferences settings;
@@ -36,6 +37,7 @@ public class SettingsManager {
     // Settings UI
     private EditText systemPromptInput;
     private Spinner modelSpinner;
+    private Spinner apiProviderSpinner;
     private Spinner voiceSpinner;
     private Spinner languageSpinner;
     private SeekBar temperatureSeekBar;
@@ -70,6 +72,7 @@ public class SettingsManager {
     private void initializeViews(View navigationView) {
         systemPromptInput = navigationView.findViewById(R.id.system_prompt_input);
         modelSpinner = navigationView.findViewById(R.id.model_spinner);
+        apiProviderSpinner = navigationView.findViewById(R.id.api_provider_spinner);
         voiceSpinner = navigationView.findViewById(R.id.voice_spinner);
         languageSpinner = navigationView.findViewById(R.id.language_spinner);
         temperatureSeekBar = navigationView.findViewById(R.id.temperature_seekbar);
@@ -82,11 +85,45 @@ public class SettingsManager {
     }
 
     private void loadSettings() {
-        // Populate Model Spinner
-        String[] models = { "gpt-4o-realtime-preview", "gpt-4o-mini-realtime-preview" };
-        ArrayAdapter<String> modelAdapter = new ArrayAdapter<>(activity, android.R.layout.simple_spinner_item, models);
-        modelAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        modelSpinner.setAdapter(modelAdapter);
+        // Populate API Provider Spinner
+        ApiKeyManager keyManager = new ApiKeyManager(activity);
+        RealtimeApiProvider[] configuredProviders = keyManager.getConfiguredProviders();
+        
+        if (configuredProviders.length > 0) {
+            ArrayAdapter<RealtimeApiProvider> providerAdapter = new ArrayAdapter<RealtimeApiProvider>(activity, android.R.layout.simple_spinner_item, configuredProviders) {
+                @Override
+                public View getView(int position, View convertView, android.view.ViewGroup parent) {
+                    if (convertView == null) {
+                        convertView = activity.getLayoutInflater().inflate(android.R.layout.simple_spinner_item, parent, false);
+                    }
+                    TextView textView = (TextView) convertView;
+                    textView.setText(getItem(position).getDisplayName());
+                    return convertView;
+                }
+                
+                @Override
+                public View getDropDownView(int position, View convertView, android.view.ViewGroup parent) {
+                    if (convertView == null) {
+                        convertView = activity.getLayoutInflater().inflate(android.R.layout.simple_spinner_dropdown_item, parent, false);
+                    }
+                    TextView textView = (TextView) convertView;
+                    RealtimeApiProvider provider = getItem(position);
+                    textView.setText(provider.getDisplayName() + " (" + provider.getModelName() + ")");
+                    return convertView;
+                }
+            };
+            apiProviderSpinner.setAdapter(providerAdapter);
+        } else {
+            // No providers configured - show message
+            String[] noProviders = { "No API providers configured" };
+            ArrayAdapter<String> emptyAdapter = new ArrayAdapter<>(activity, android.R.layout.simple_spinner_item, noProviders);
+            emptyAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+            apiProviderSpinner.setAdapter(emptyAdapter);
+            apiProviderSpinner.setEnabled(false);
+        }
+
+        // Populate Model Spinner (now based on selected provider)
+        updateModelSpinnerForProvider(keyManager.getRealtimeApiProvider());
 
         // Populate Voice Spinner
         String[] voices = { "alloy", "ash", "ballad", "coral", "echo", "sage", "shimmer", "verse" };
@@ -102,7 +139,28 @@ public class SettingsManager {
 
         // Load saved settings
         systemPromptInput.setText(settings.getString(KEY_SYSTEM_PROMPT, activity.getString(R.string.default_system_prompt)));
-        modelSpinner.setSelection(modelAdapter.getPosition(settings.getString(KEY_MODEL, "gpt-4o-realtime-preview")));
+        
+        // Set API Provider selection
+        if (configuredProviders.length > 0) {
+            RealtimeApiProvider savedProvider = RealtimeApiProvider.fromString(settings.getString(KEY_API_PROVIDER, RealtimeApiProvider.AZURE_OPENAI.name()));
+            for (int i = 0; i < configuredProviders.length; i++) {
+                if (configuredProviders[i] == savedProvider) {
+                    apiProviderSpinner.setSelection(i);
+                    break;
+                }
+            }
+        }
+        
+        // Set model selection (based on current provider)
+        ArrayAdapter<String> currentModelAdapter = (ArrayAdapter<String>) modelSpinner.getAdapter();
+        if (currentModelAdapter != null) {
+            String savedModel = settings.getString(KEY_MODEL, getDefaultModelForProvider(keyManager.getRealtimeApiProvider()));
+            int modelPosition = currentModelAdapter.getPosition(savedModel);
+            if (modelPosition >= 0) {
+                modelSpinner.setSelection(modelPosition);
+            }
+        }
+        
         voiceSpinner.setSelection(voiceAdapter.getPosition(settings.getString(KEY_VOICE, "ash")));
 
         String savedLangCode = settings.getString(KEY_LANGUAGE, "de-CH");
@@ -174,6 +232,7 @@ public class SettingsManager {
         String oldVoice = settings.getString(KEY_VOICE, "ash");
         String oldLang = settings.getString(KEY_LANGUAGE, "de-CH");
         String oldPrompt = settings.getString(KEY_SYSTEM_PROMPT, "");
+        String oldProvider = settings.getString(KEY_API_PROVIDER, RealtimeApiProvider.AZURE_OPENAI.name());
         int oldTemp = settings.getInt(KEY_TEMPERATURE, 33);
         if (oldTemp < 0 || oldTemp > 100) oldTemp = 33;
         Set<String> oldTools = getEnabledTools();
@@ -183,6 +242,7 @@ public class SettingsManager {
         LanguageOption selectedLang = (LanguageOption) languageSpinner.getSelectedItem();
         String newLang = selectedLang.getCode();
         String newPrompt = systemPromptInput.getText().toString();
+        String newProvider = getSelectedApiProvider();
         int newTemp = temperatureSeekBar.getProgress();
         Set<String> newTools = getCurrentlySelectedTools();
 
@@ -191,13 +251,14 @@ public class SettingsManager {
         editor.putString(KEY_MODEL, newModel);
         editor.putString(KEY_VOICE, newVoice);
         editor.putString(KEY_LANGUAGE, newLang);
+        editor.putString(KEY_API_PROVIDER, newProvider);
         editor.putInt(KEY_TEMPERATURE, newTemp);
         editor.putStringSet(KEY_ENABLED_TOOLS, newTools);
         editor.apply();
 
         // Determine what type of change occurred and notify accordingly
-        if (!oldModel.equals(newModel) || !oldVoice.equals(newVoice)) {
-            // Model or voice change requires new session
+        if (!oldProvider.equals(newProvider) || !oldModel.equals(newModel) || !oldVoice.equals(newVoice)) {
+            // Provider, model or voice change requires new session
             if (listener != null) listener.onSettingsChanged();
         } else if (!oldLang.equals(newLang)) {
             // Language change requires recognizer restart
@@ -376,6 +437,66 @@ public class SettingsManager {
         languages.add(new LanguageOption("Italian (Switzerland)", "it-CH"));
         languages.add(new LanguageOption("Italian (Italy)", "it-IT"));
         return languages;
+    }
+
+    /**
+     * Update model spinner options based on selected API provider
+     */
+    private void updateModelSpinnerForProvider(RealtimeApiProvider provider) {
+        String[] models;
+        switch (provider) {
+            case AZURE_OPENAI:
+                models = new String[]{ "gpt-4o-realtime-preview", "gpt-4o-mini-realtime-preview" };
+                break;
+            case OPENAI_DIRECT:
+                models = new String[]{ "gpt-realtime" };
+                break;
+            default:
+                models = new String[]{ "gpt-4o-realtime-preview" };
+                break;
+        }
+        
+        ArrayAdapter<String> modelAdapter = new ArrayAdapter<>(activity, android.R.layout.simple_spinner_item, models);
+        modelAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        modelSpinner.setAdapter(modelAdapter);
+    }
+    
+    /**
+     * Get default model for a given provider
+     */
+    private String getDefaultModelForProvider(RealtimeApiProvider provider) {
+        switch (provider) {
+            case AZURE_OPENAI:
+                return "gpt-4o-realtime-preview";
+            case OPENAI_DIRECT:
+                return "gpt-realtime";
+            default:
+                return "gpt-4o-realtime-preview";
+        }
+    }
+    
+    /**
+     * Get currently selected API provider
+     */
+    private String getSelectedApiProvider() {
+        if (apiProviderSpinner.getAdapter() == null || apiProviderSpinner.getSelectedItem() == null) {
+            return RealtimeApiProvider.AZURE_OPENAI.name();
+        }
+        
+        Object selectedItem = apiProviderSpinner.getSelectedItem();
+        if (selectedItem instanceof RealtimeApiProvider) {
+            return ((RealtimeApiProvider) selectedItem).name();
+        }
+        
+        // Fallback for error cases
+        return RealtimeApiProvider.AZURE_OPENAI.name();
+    }
+    
+    /**
+     * Get currently selected API provider as enum
+     */
+    public RealtimeApiProvider getApiProvider() {
+        return RealtimeApiProvider.fromString(settings.getString(KEY_API_PROVIDER, RealtimeApiProvider.AZURE_OPENAI.name()));
     }
 
     // A simple helper class to hold language display name and code

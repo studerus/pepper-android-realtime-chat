@@ -27,6 +27,7 @@ android {
         // Core API keys (required for basic functionality)
         buildConfigField "String", "AZURE_OPENAI_KEY", "\"${localProps.getProperty('AZURE_OPENAI_KEY', '')}\""
         buildConfigField "String", "AZURE_OPENAI_ENDPOINT", "\"${localProps.getProperty('AZURE_OPENAI_ENDPOINT', '')}\""
+        buildConfigField "String", "OPENAI_API_KEY", "\"${localProps.getProperty('OPENAI_API_KEY', '')}\""
         buildConfigField "String", "AZURE_SPEECH_KEY", "\"${localProps.getProperty('AZURE_SPEECH_KEY', '')}\""
         buildConfigField "String", "AZURE_SPEECH_REGION", "\"${localProps.getProperty('AZURE_SPEECH_REGION', 'switzerlandnorth')}\""
         
@@ -38,7 +39,7 @@ android {
         // Automatically include all API keys from local.properties that end with _API_KEY
         localProps.each { key, value ->
             if (key.toString().endsWith("_API_KEY") && 
-                !["GROQ_API_KEY", "TAVILY_API_KEY", "OPENWEATHER_API_KEY"].contains(key.toString())) {
+                !["OPENAI_API_KEY", "GROQ_API_KEY", "TAVILY_API_KEY", "OPENWEATHER_API_KEY"].contains(key.toString())) {
                 buildConfigField "String", key.toString(), "\"${value}\""
                 logger.info("Auto-registered API key: ${key}")
             }
