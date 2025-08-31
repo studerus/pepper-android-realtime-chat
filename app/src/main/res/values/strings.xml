@@ -62,6 +62,8 @@
     <string name="temperature_format">%.2f</string>
     <string name="volume_format">%d%%</string>
     <string name="silence_timeout_format">%dms</string>
+    <string name="confidence_threshold_format">%d%%</string>
+    <string name="confidence_threshold_label">ASR Confidence Threshold</string>
     
     <!-- Vision Analysis -->
     <string name="vision_context_suffix">Context: The image comes from the robot front camera. The person shown is most likely you (the user). Speak directly to the person using the word you.</string>

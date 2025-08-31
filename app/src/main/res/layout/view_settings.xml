@@ -111,6 +111,28 @@
         android:max="2000"
         android:progress="500"/>
 
+    <!-- Confidence Threshold -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="ASR Confidence Threshold"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/confidence_threshold_value"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:text="70%" />
+
+    <SeekBar
+        android:id="@+id/confidence_threshold_seekbar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:max="100"
+        android:progress="70"/>
+
     <!-- App Settings -->
     <TextView
         android:layout_width="wrap_content"

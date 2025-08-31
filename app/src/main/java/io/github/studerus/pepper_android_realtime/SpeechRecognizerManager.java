@@ -6,6 +6,10 @@ import com.microsoft.cognitiveservices.speech.Connection;
 import com.microsoft.cognitiveservices.speech.ResultReason;
 import com.microsoft.cognitiveservices.speech.SpeechConfig;
 import com.microsoft.cognitiveservices.speech.SpeechRecognizer;
+import com.microsoft.cognitiveservices.speech.PropertyId;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -14,7 +18,7 @@ import java.util.concurrent.Executors;
 public class SpeechRecognizerManager {
     public interface Listener {
         void onRecognizing(String partialText);
-        void onRecognized(String text);
+        void onRecognized(String text, double confidence);
         void onError(Exception ex);
     }
 
@@ -35,6 +39,10 @@ public class SpeechRecognizerManager {
                 SpeechConfig cfg = SpeechConfig.fromSubscription(key, region);
                 cfg.setSpeechRecognitionLanguage(language);
                 cfg.setProperty("Speech_SegmentationSilenceTimeoutMs", String.valueOf(silenceTimeoutMs));
+                
+                // Enable detailed results for confidence scores
+                cfg.requestWordLevelTimestamps();
+                cfg.setOutputFormat(com.microsoft.cognitiveservices.speech.OutputFormat.Detailed);
 
                 if (recognizer != null) {
                     try { recognizer.stopContinuousRecognitionAsync().get(); } catch (Exception ignored) {}
@@ -57,7 +65,10 @@ public class SpeechRecognizerManager {
                     try {
                         if (e.getResult().getReason() == ResultReason.RecognizedSpeech) {
                             String text = e.getResult().getText();
-                            if (listener != null && text != null && !text.isEmpty()) listener.onRecognized(text);
+                            if (listener != null && text != null && !text.isEmpty()) {
+                                double confidence = extractConfidenceScore(e.getResult());
+                                listener.onRecognized(text, confidence);
+                            }
                         }
                     } catch (Exception ex) {
                         if (listener != null) listener.onError(ex);
@@ -206,14 +217,7 @@ public class SpeechRecognizerManager {
         }
     }
     
-    private boolean isFirstLaunchError(Exception e) {
-        String msg = e.getMessage();
-        return msg != null && (
-            msg.contains("0x22") || 
-            msg.contains("SPXERR_INVALID_RECOGNIZER") ||
-            msg.contains("invalid recognizer")
-        );
-    }
+    
 
     public void shutdown() {
         try {
@@ -224,5 +228,41 @@ public class SpeechRecognizerManager {
             }
         } catch (Exception ignored) {}
         executor.shutdown();
+    }
+    
+    /**
+     * Extract confidence score from Azure Speech recognition result
+     * @param result The SpeechRecognitionResult
+     * @return Confidence score (0.0-1.0), or 1.0 if extraction fails
+     */
+    private double extractConfidenceScore(com.microsoft.cognitiveservices.speech.SpeechRecognitionResult result) {
+        try {
+            // Try to get detailed results JSON via official PropertyId
+            String detailedJson = result.getProperties().getProperty(PropertyId.SpeechServiceResponse_JsonResult);
+            if (detailedJson != null && !detailedJson.isEmpty()) {
+                JSONObject jsonResult = new JSONObject(detailedJson);
+                
+                // Get the NBest array (N-best recognition results)
+                JSONArray nBestArray = jsonResult.optJSONArray("NBest");
+                if (nBestArray != null && nBestArray.length() > 0) {
+                    // Get the first (best) result
+                    JSONObject bestResult = nBestArray.getJSONObject(0);
+                    double confidence = bestResult.optDouble("Confidence", 1.0);
+                    
+                    Log.d(TAG, "Extracted confidence score: " + confidence + " for text: " + result.getText());
+                    return confidence;
+                }
+                // If structure unexpected, log for diagnostics
+                Log.w(TAG, "JsonResult present but NBest missing or empty: " + detailedJson);
+            }
+            
+            // No usable JSON payload found; fall through to default
+            
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to extract confidence score: " + e.getMessage());
+        }
+        
+        // Default to high confidence if extraction fails
+        return 1.0;
     }
 }

@@ -30,6 +30,7 @@ public class SettingsManager {
     private static final String KEY_SILENCE_TIMEOUT = "silenceTimeout";
     private static final String KEY_ENABLED_TOOLS = "enabledTools";
     private static final String KEY_API_PROVIDER = "apiProvider";
+    private static final String KEY_CONFIDENCE_THRESHOLD = "confidenceThreshold";
 
     private final ChatActivity activity;
     private final SharedPreferences settings;
@@ -46,6 +47,8 @@ public class SettingsManager {
     private TextView volumeValue;
     private SeekBar silenceTimeoutSeekBar;
     private TextView silenceTimeoutValue;
+    private SeekBar confidenceThresholdSeekBar;
+    private TextView confidenceThresholdValue;
     private android.widget.LinearLayout functionCallsContainer;
 
     public interface SettingsListener {
@@ -81,6 +84,8 @@ public class SettingsManager {
         volumeValue = navigationView.findViewById(R.id.volume_value);
         silenceTimeoutSeekBar = navigationView.findViewById(R.id.silence_timeout_seekbar);
         silenceTimeoutValue = navigationView.findViewById(R.id.silence_timeout_value);
+        confidenceThresholdSeekBar = navigationView.findViewById(R.id.confidence_threshold_seekbar);
+        confidenceThresholdValue = navigationView.findViewById(R.id.confidence_threshold_value);
         functionCallsContainer = navigationView.findViewById(R.id.function_calls_container);
     }
 
@@ -184,6 +189,12 @@ public class SettingsManager {
         silenceTimeoutSeekBar.setProgress(silenceTimeout);
         silenceTimeoutValue.setText(activity.getString(R.string.silence_timeout_format, silenceTimeout));
 
+        // Confidence threshold (0-100 stored as float percent)
+        int confProgress = Math.round(settings.getFloat(KEY_CONFIDENCE_THRESHOLD, 0.7f) * 100f);
+        if (confProgress < 0 || confProgress > 100) confProgress = 70;
+        confidenceThresholdSeekBar.setProgress(confProgress);
+        confidenceThresholdValue.setText(activity.getString(R.string.confidence_threshold_format, confProgress));
+
         // Setup Function Calls UI
         setupFunctionCallsUI();
     }
@@ -223,6 +234,18 @@ public class SettingsManager {
                 int newTimeout = seekBar.getProgress();
                 settings.edit().putInt(KEY_SILENCE_TIMEOUT, newTimeout).apply();
                 if (listener != null) listener.onRecognizerSettingsChanged();
+            }
+        });
+
+        confidenceThresholdSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                confidenceThresholdValue.setText(activity.getString(R.string.confidence_threshold_format, progress));
+            }
+            @Override public void onStartTrackingTouch(SeekBar seekBar) {}
+            @Override public void onStopTrackingTouch(SeekBar seekBar) {
+                float newThreshold = seekBar.getProgress() / 100f;
+                settings.edit().putFloat(KEY_CONFIDENCE_THRESHOLD, newThreshold).apply();
             }
         });
     }
@@ -497,6 +520,10 @@ public class SettingsManager {
      */
     public RealtimeApiProvider getApiProvider() {
         return RealtimeApiProvider.fromString(settings.getString(KEY_API_PROVIDER, RealtimeApiProvider.AZURE_OPENAI.name()));
+    }
+    
+    public double getConfidenceThreshold() {
+        return settings.getFloat(KEY_CONFIDENCE_THRESHOLD, 0.7f); // Default 70%
     }
 
     // A simple helper class to hold language display name and code

@@ -285,7 +285,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             @Override public void onEnterThinking() {
                 // Physically stop the mic so nothing is recognized during THINKING (only if running)
                 if (sttIsRunning) {
-                    stopContinuousRecognition();
+                stopContinuousRecognition();
                 } else {
                     Log.d(TAG, "STT already stopped, skipping redundant stop in THINKING state");
                 }
@@ -807,7 +807,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             // Call onResponseBoundary for every new response, not just when ID changes
             if (respId != null && !Objects.equals(currentResponseId, respId)) {
                 try { audioPlayer.onResponseBoundary(); } catch (Exception ignored) {}
-                currentResponseId = respId;
+            currentResponseId = respId;
             }
             if (Objects.equals(respId, cancelledResponseId)) {
                 return; // drop cancelled response chunks
@@ -1034,10 +1034,10 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                         // Don't show error to user, new session should be establishing
                     } else {
                         Log.e(TAG, "Failed to start new session", error);
-                        runOnUiThread(() -> {
-                            addMessage(getString(R.string.new_session_error), ChatMessage.Sender.ROBOT);
-                            statusTextView.setText(getString(R.string.error_connection_failed_short));
-                        });
+                    runOnUiThread(() -> {
+                        addMessage(getString(R.string.new_session_error), ChatMessage.Sender.ROBOT);
+                        statusTextView.setText(getString(R.string.error_connection_failed_short));
+                    });
                     }
                 } else {
                     Log.i(TAG, "New session started successfully. Ready to listen.");
@@ -1123,7 +1123,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                             // Call onResponseBoundary for every new response to reset timing
                             if (!Objects.equals(currentResponseId, responseId)) {
                                 try { audioPlayer.onResponseBoundary(); } catch (Exception ignored) {}
-                                currentResponseId = responseId;
+                            currentResponseId = responseId;
                             }
                         }
                         if (Objects.equals(responseId, cancelledResponseId)) {
@@ -1194,7 +1194,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                     @Override public void onRecognizing(String partialText) {
                         runOnUiThread(() -> { if (statusTextView.getText().toString().startsWith("Listening")) { statusTextView.setText(getString(R.string.status_listening_partial, partialText)); } });
                     }
-                    @Override public void onRecognized(String text) {
+                    @Override public void onRecognized(String text, double confidence) {
                         if (text != null && !text.isEmpty()) {
                             // Gate STT: only accept in LISTENING state, prevents echo during tool follow-up responses
                             if (turnManager != null && turnManager.getState() != TurnManager.State.LISTENING) {
@@ -1202,9 +1202,13 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                     return;
                 }
                             stopContinuousRecognition();
+                            
+                            // Check confidence and add warning if needed
+                            String finalText = addConfidenceWarningIfNeeded(text, confidence);
+                            
                             runOnUiThread(() -> {
-                                addMessage(text, ChatMessage.Sender.USER);
-                                sendTextToAzure(text);
+                                addMessage(text, ChatMessage.Sender.USER); // Show original text in UI
+                                sendTextToAzure(finalText); // Send text with potential warning to AI
                             });
                         }
                     }
@@ -1254,7 +1258,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                     @Override public void onRecognizing(String partialText) {
                         runOnUiThread(() -> { if (statusTextView.getText().toString().startsWith("Listening")) { statusTextView.setText(getString(R.string.status_listening_partial, partialText)); } });
                     }
-                    @Override public void onRecognized(String text) {
+                    @Override public void onRecognized(String text, double confidence) {
                         if (text != null && !text.isEmpty()) {
                             stopContinuousRecognition();
                             runOnUiThread(() -> {
@@ -1386,7 +1390,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     
             boolean sentItem = sessionManager.send(createItemPayload.toString());
             if (sentItem) {
-                Log.d(TAG, "Sent conversation.item.create: " + createItemPayload);
+            Log.d(TAG, "Sent conversation.item.create: " + createItemPayload);
             } else {
                 Log.e(TAG, "🚨 DIAGNOSTIC: Failed to send conversation.item.create - WebSocket connection broken");
                 runOnUiThread(() -> {
@@ -1409,7 +1413,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     
             boolean sentResponse = sessionManager.send(createResponsePayload.toString());
             if (sentResponse) {
-                Log.d(TAG, "Sent response.create: " + createResponsePayload);
+            Log.d(TAG, "Sent response.create: " + createResponsePayload);
             } else {
                 Log.e(TAG, "🚨 DIAGNOSTIC: Failed to send response.create - WebSocket connection broken");
                 runOnUiThread(() -> {
@@ -1847,7 +1851,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         
         if (provider.isAzureProvider()) {
             // Azure OpenAI authentication
-            headers.put("api-key", keyManager.getAzureOpenAiKey());
+        headers.put("api-key", keyManager.getAzureOpenAiKey());
         } else {
             // OpenAI Direct authentication
             headers.put("Authorization", provider.getAuthorizationHeader(
@@ -2462,6 +2466,28 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
      */
     public TicTacToeDialog getTicTacToeDialog() {
         return ticTacToeDialog;
+    }
+    
+    /**
+     * Add confidence warning to text if confidence is below threshold
+     * @param text Original transcribed text
+     * @param confidence Confidence score (0.0-1.0)
+     * @return Text with potential warning appended
+     */
+    private String addConfidenceWarningIfNeeded(String text, double confidence) {
+        // Get confidence threshold from settings (default 0.7 = 70%)
+        double threshold = settingsManager.getConfidenceThreshold();
+        
+        Log.d(TAG, "Speech recognition confidence: " + confidence + " (threshold: " + threshold + ")");
+        
+        if (confidence < threshold) {
+            Log.w(TAG, "Low confidence speech recognition: " + confidence + " for text: '" + text + "'");
+            return text + " [WARNING: Low speech recognition confidence (" + 
+                   String.format(java.util.Locale.US, "%.1f%%", confidence * 100) + 
+                   "). Please ask for clarification if this doesn't make sense.]";
+        }
+        
+        return text;
     }
 
 }
