@@ -150,6 +150,12 @@ public class OptimizedHttpClientManager {
             Log.i(TAG, "HTTP client manager shutdown completed");
         } catch (Exception e) {
             Log.w(TAG, "Error during HTTP client shutdown", e);
+        } finally {
+            // CRITICAL: Reset singleton instance so it gets recreated on next app start
+            synchronized (OptimizedHttpClientManager.class) {
+                instance = null;
+                Log.i(TAG, "HTTP client manager instance reset for clean restart");
+            }
         }
     }
 }

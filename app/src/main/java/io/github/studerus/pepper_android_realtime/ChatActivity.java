@@ -1,4 +1,3 @@
-
 package io.github.studerus.pepper_android_realtime;
 
 import android.Manifest;
@@ -289,7 +288,10 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                 } else {
                     Log.d(TAG, "STT already stopped, skipping redundant stop in THINKING state");
                 }
-                runOnUiThread(() -> { statusTextView.setText(getString(R.string.status_thinking)); findViewById(R.id.fab_interrupt).setVisibility(View.GONE); });
+                runOnUiThread(() -> { 
+                    statusTextView.setText(getString(R.string.status_thinking)); 
+                    findViewById(R.id.fab_interrupt).setVisibility(View.GONE); 
+                });
             }
             @Override public void onEnterSpeaking() { 
                 Log.i(TAG, "State: Entering SPEAKING - starting gestures and stopping STT");
@@ -527,8 +529,20 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         // Clean up touch sensor manager
         if (touchSensorManager != null) {
             touchSensorManager.shutdown();
+            touchSensorManager = null;
         }
         
+        // Clean up STT manager
+        if (sttManager != null) {
+            sttManager.shutdown();
+            sttManager = null;
+        }
+
+        // Clean up WebSocket handler reference
+        if (webSocketHandler != null) {
+            webSocketHandler = null;
+        }
+
         QiSDK.unregister(this, this);
         super.onDestroy();
     }
@@ -618,6 +632,18 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             // Start perception monitoring for testing (normally only when dashboard is opened)
             perceptionService.startMonitoring();
             Log.i(TAG, "PerceptionService monitoring started for testing");
+        }
+        
+        // Re-create dashboard manager if it was cleaned up during focus loss
+        if (dashboardManager == null && perceptionService != null) {
+            View dashboardOverlay = findViewById(R.id.dashboard_overlay);
+            if (dashboardOverlay != null) {
+                dashboardManager = new DashboardManager(this, dashboardOverlay);
+                dashboardManager.initialize(perceptionService);
+                Log.i(TAG, "DashboardManager recreated after focus loss");
+            } else {
+                Log.e(TAG, "Dashboard overlay not found during recreation");
+            }
         }
         
         // Initialize touch sensor manager with QiContext
@@ -722,18 +748,50 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         
         if (toolExecutor != null) toolExecutor.setQiContext(null);
         
+        // Clean up thread manager to prevent broken promises on restart  
+        if (threadManager != null) {
+            threadManager.shutdown();
+            // threadManager is a final field pointing to singleton, 
+            // will get new instance automatically when needed
+        }
+        
         // Clean up perception service
         if (perceptionService != null) {
             perceptionService.shutdown();
+            perceptionService = null;
+        }
+        
+        // Clean up dashboard manager to prevent broken dashboard updates
+        if (dashboardManager != null) {
+            dashboardManager.shutdown();
+            dashboardManager = null;
         }
         
         // Clean up touch sensor manager
         if (touchSensorManager != null) {
             touchSensorManager.shutdown();
+            touchSensorManager = null;
         }
         
+        // Clean up STT manager
+        if (sttManager != null) {
+            sttManager.shutdown();
+            sttManager = null;
+        }
 
+        // Clean up WebSocket handler reference
+        if (webSocketHandler != null) {
+            webSocketHandler = null;
+        }
         
+        // Clean up gesture controller to prevent broken gestures on restart
+        try {
+            gestureController.shutdown();
+            Log.i(TAG, "GestureController shutdown completed");
+        } catch (Exception e) {
+            Log.w(TAG, "Error during GestureController shutdown", e);
+        }
+
         // STT cleanup handled by sttManager
         this.qiContext = null;
         

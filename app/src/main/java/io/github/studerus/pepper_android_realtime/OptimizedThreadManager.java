@@ -200,15 +200,23 @@ public class OptimizedThreadManager {
      * Shutdown all thread pools gracefully
      */
     public void shutdown() {
-        Log.i(TAG, "Shutting down thread manager");
-        
-        shutdownExecutor(networkExecutor, "Network");
-        shutdownExecutor(audioExecutor, "Audio");
-        shutdownExecutor(computationExecutor, "Computation");
-        shutdownExecutor(ioExecutor, "IO");
-        shutdownExecutor(realtimeExecutor, "Realtime");
-        
-        Log.i(TAG, "Thread manager shutdown completed");
+        try {
+            Log.i(TAG, "Shutting down thread manager");
+            
+            shutdownExecutor(networkExecutor, "Network");
+            shutdownExecutor(audioExecutor, "Audio");
+            shutdownExecutor(computationExecutor, "Computation");
+            shutdownExecutor(ioExecutor, "IO");
+            shutdownExecutor(realtimeExecutor, "Realtime");
+            
+            Log.i(TAG, "Thread manager shutdown completed");
+        } finally {
+            // CRITICAL: Reset singleton instance so it gets recreated on next app start
+            synchronized (OptimizedThreadManager.class) {
+                instance = null;
+                Log.i(TAG, "Thread manager instance reset for clean restart");
+            }
+        }
     }
     
     private void shutdownExecutor(ExecutorService executor, String name) {

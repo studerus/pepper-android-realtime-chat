@@ -188,6 +188,19 @@ public class TouchSensorManager {
      */
     public void shutdown() {
         try {
+            // CRITICAL: Remove all listeners before clearing sensors
+            for (Map.Entry<String, TouchSensor> entry : touchSensors.entrySet()) {
+                try {
+                    TouchSensor sensor = entry.getValue();
+                    if (sensor != null) {
+                        sensor.removeAllOnStateChangedListeners();
+                        Log.d(TAG, "Removed listeners from sensor: " + entry.getKey());
+                    }
+                } catch (Exception e) {
+                    Log.w(TAG, "Error removing listeners from sensor: " + entry.getKey(), e);
+                }
+            }
+            
             touchSensors.clear();
             
             Log.i(TAG, "TouchSensorManager shutdown completed");
