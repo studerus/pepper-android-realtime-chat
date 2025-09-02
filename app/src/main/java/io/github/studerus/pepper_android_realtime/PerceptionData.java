@@ -1,5 +1,7 @@
 package io.github.studerus.pepper_android_realtime;
 
+import android.graphics.Bitmap;
+
 /**
  * Data structures for perception information from Pepper's sensors
  */
@@ -19,6 +21,7 @@ public class PerceptionData {
         public String smileState = "Unknown";
         public double distanceMeters = -1.0;
         public BasicEmotion basicEmotion = BasicEmotion.UNKNOWN;
+        public Bitmap facePicture = null; // Face picture from QiSDK
         
 
         
@@ -27,9 +30,9 @@ public class PerceptionData {
          */
         public String getAttentionLevel() {
             if ("LOOKING_AT_ROBOT".equalsIgnoreCase(attentionState)) {
-                return "Focused";
+                return "Looking at Robot";
             } else if ("LOOKING_ELSEWHERE".equalsIgnoreCase(attentionState)) {
-                return "Distracted";
+                return "Looking Elsewhere";
             } else if ("LOOKING_UP".equalsIgnoreCase(attentionState)) {
                 return "Looking Up";
             } else if ("LOOKING_DOWN".equalsIgnoreCase(attentionState)) {
@@ -49,11 +52,11 @@ public class PerceptionData {
          */
         public String getEngagementLevel() {
             if ("INTERESTED".equalsIgnoreCase(engagementState)) {
-                return "Engaged";
+                return "Interested";
             } else if ("NOT_INTERESTED".equalsIgnoreCase(engagementState)) {
-                return "Disengaged";
+                return "Not Interested";
             } else if ("SEEKING_ENGAGEMENT".equalsIgnoreCase(engagementState)) {
-                return "Seeking";
+                return "Seeking Engagement";
             } else if ("UNKNOWN".equalsIgnoreCase(engagementState)) {
                 return "Unknown";
             }
@@ -137,11 +140,41 @@ public class PerceptionData {
             } else if ("FAKE".equalsIgnoreCase(smileState)) {
                 return "😏 Fake";
             } else if ("NOT_SMILING".equalsIgnoreCase(smileState)) {
-                return "😐 None";
+                return "😐 Not Smiling";
             } else if ("UNKNOWN".equalsIgnoreCase(smileState)) {
                 return "❓ Unknown";
             }
             return "❓ " + capitalize(smileState.replace("_", " "));
+        }
+        
+        /**
+         * Get pleasure state for UI display with emojis
+         */
+        public String getPleasureStateDisplay() {
+            if ("POSITIVE".equalsIgnoreCase(pleasureState)) {
+                return "😊 Positive";
+            } else if ("NEGATIVE".equalsIgnoreCase(pleasureState)) {
+                return "😔 Negative";
+            } else if ("NEUTRAL".equalsIgnoreCase(pleasureState)) {
+                return "😐 Neutral";
+            } else if ("UNKNOWN".equalsIgnoreCase(pleasureState)) {
+                return "❓ Unknown";
+            }
+            return "❓ " + capitalize(pleasureState.replace("_", " "));
+        }
+        
+        /**
+         * Get excitement state for UI display with emojis
+         */
+        public String getExcitementStateDisplay() {
+            if ("EXCITED".equalsIgnoreCase(excitementState)) {
+                return "⚡ Excited";
+            } else if ("CALM".equalsIgnoreCase(excitementState)) {
+                return "😌 Calm";
+            } else if ("UNKNOWN".equalsIgnoreCase(excitementState)) {
+                return "❓ Unknown";
+            }
+            return "❓ " + capitalize(excitementState.replace("_", " "));
         }
         
         /**

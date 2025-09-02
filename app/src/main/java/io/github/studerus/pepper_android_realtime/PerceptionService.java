@@ -1,6 +1,10 @@
 package io.github.studerus.pepper_android_realtime;
 
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.util.Log;
+
+import java.nio.ByteBuffer;
 
 import com.aldebaran.qi.Future;
 import com.aldebaran.qi.sdk.QiContext;
@@ -167,6 +171,9 @@ public class PerceptionService {
                 // keep default -1.0 on failure
             }
 
+            // Extract face picture with improved error handling and thread safety
+            info.facePicture = extractFacePictureSafely((Human) human, info.id);
+
             // Compute basic emotion for dashboard
             info.basicEmotion = PerceptionData.HumanInfo.computeBasicEmotion(info.excitementState, info.pleasureState);
         } catch (Exception e) {
@@ -175,6 +182,87 @@ public class PerceptionService {
         return info;
     }
 
+
+    /**
+     * Safely extract face picture from human with comprehensive error handling
+     * Based on QiSDK tutorial but with improved null checks and exception handling
+     */
+    private Bitmap extractFacePictureSafely(Human human, int humanId) {
+        if (human == null) {
+            Log.d(TAG, "Human object is null for ID " + humanId);
+            return null;
+        }
+
+        try {
+            // Step 1: Check if getFacePicture() is available and not null
+            if (human.getFacePicture() == null) {
+                Log.d(TAG, "Face picture object is null for human " + humanId);
+                return null;
+            }
+
+            // Step 2: Check if getImage() is available and not null
+            if (human.getFacePicture().getImage() == null) {
+                Log.d(TAG, "Image object is null for human " + humanId);
+                return null;
+            }
+
+            // Step 3: Get ByteBuffer data with null checks
+            ByteBuffer facePictureBuffer;
+            try {
+                facePictureBuffer = human.getFacePicture().getImage().getData();
+            } catch (Exception e) {
+                Log.d(TAG, "Failed to get image data for human " + humanId + ": " + e.getMessage());
+                return null;
+            }
+            
+            if (facePictureBuffer == null) {
+                Log.d(TAG, "Face picture buffer is null for human " + humanId);
+                return null;
+            }
+
+            // Step 4: Process ByteBuffer safely
+            try {
+                facePictureBuffer.rewind();
+                int pictureBufferSize = facePictureBuffer.remaining();
+                
+                if (pictureBufferSize <= 0) {
+                    Log.d(TAG, "Face picture buffer empty for human " + humanId + " (size: " + pictureBufferSize + ")");
+                    return null;
+                }
+                
+                if (pictureBufferSize > 5 * 1024 * 1024) { // 5MB safety limit
+                    Log.w(TAG, "Face picture buffer too large for human " + humanId + ": " + pictureBufferSize + " bytes");
+                    return null;
+                }
+
+                // Step 5: Convert to bitmap safely
+                byte[] facePictureArray = new byte[pictureBufferSize];
+                facePictureBuffer.get(facePictureArray);
+                
+                Bitmap bitmap = BitmapFactory.decodeByteArray(facePictureArray, 0, pictureBufferSize);
+                
+                if (bitmap != null) {
+                    Log.i(TAG, "✅ Face picture extracted for human " + humanId + 
+                          " (" + bitmap.getWidth() + "x" + bitmap.getHeight() + ", " + pictureBufferSize + " bytes)");
+                    return bitmap;
+                } else {
+                    Log.d(TAG, "Failed to decode face picture bitmap for human " + humanId + " (invalid image data)");
+                    return null;
+                }
+                
+            } catch (OutOfMemoryError oom) {
+                Log.w(TAG, "Out of memory processing face picture for human " + humanId);
+                return null;
+            } catch (Exception bufferEx) {
+                Log.w(TAG, "Buffer processing failed for human " + humanId + ": " + bufferEx.getMessage());
+                return null;
+            }
+            
+        } catch (Exception ex) {
+            Log.w(TAG, "Face picture extraction failed for human " + humanId + ": " + ex.getClass().getSimpleName() + " - " + ex.getMessage());
+            return null;
+        }
+    }
 
     /**
      * Compute planar distance using reflection to avoid compile-time dependency on geometry types.

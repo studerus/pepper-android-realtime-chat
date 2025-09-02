@@ -408,7 +408,27 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         // Initialize Perception Dashboard
         initializeDashboard();
 
-        QiSDK.register(this, this);
+        // Register for robot lifecycle callbacks with diagnostic logging
+        Log.i(TAG, "🤖 DIAGNOSTIC: Registering with QiSDK for robot lifecycle callbacks...");
+        try {
+            QiSDK.register(this, this);
+            Log.i(TAG, "🤖 DIAGNOSTIC: QiSDK.register() completed successfully - waiting for robot focus...");
+            
+            // Set a diagnostic timeout to detect if QiSDK never responds
+            new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                if (!robotFocusAvailable) {
+                    Log.e(TAG, "🤖 DIAGNOSTIC: TIMEOUT - No robot focus response after 30 seconds!");
+                    Log.e(TAG, "🤖 DIAGNOSTIC: This suggests QiSDK service issues or robot state problems");
+                    Log.e(TAG, "🤖 DIAGNOSTIC: Check: 1) Robot is awake, 2) Robot is enabled, 3) QiSDK service is running");
+                    runOnUiThread(() -> {
+                        statusTextView.setText("Robot initialization timeout - check robot status");
+                    });
+                }
+            }, 30000); // 30 second timeout
+            
+        } catch (Exception e) {
+            Log.e(TAG, "🤖 DIAGNOSTIC: QiSDK.register() failed", e);
+        }
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.RECORD_AUDIO}, MICROPHONE_PERMISSION_REQUEST_CODE);
@@ -597,6 +617,8 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
 
     @Override
     public void onRobotFocusGained(QiContext qiContext) {
+        Log.i(TAG, "🤖 DIAGNOSTIC: onRobotFocusGained() called - robot focus acquired!");
+        
         this.qiContext = qiContext;
         
         // Set flag to indicate robot focus is available
@@ -728,6 +750,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
 
     @Override
     public void onRobotFocusLost() {
+        Log.w(TAG, "🤖 DIAGNOSTIC: onRobotFocusLost() called - robot focus lost!");
         Log.w(TAG, "Robot focus lost during startup!");
         
         // CRITICAL: Set focus lost flag to stop all robot operations
@@ -748,12 +771,8 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         
         if (toolExecutor != null) toolExecutor.setQiContext(null);
         
-        // Clean up thread manager to prevent broken promises on restart  
-        if (threadManager != null) {
-            threadManager.shutdown();
-            // threadManager is a final field pointing to singleton, 
-            // will get new instance automatically when needed
-        }
+        // NOTE: Do NOT shutdown threadManager here - QiSDK needs it for next onRobotFocusGained callback
+        // ThreadManager is only shutdown in onDestroy when app completely terminates
         
         // Clean up perception service
         if (perceptionService != null) {
@@ -804,7 +823,23 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
 
     @Override
     public void onRobotFocusRefused(String reason) {
-        Log.e(TAG, "Robot focus refused: " + reason);
+        Log.e(TAG, "🤖 DIAGNOSTIC: onRobotFocusRefused() called - Focus denied!");
+        Log.e(TAG, "🤖 DIAGNOSTIC: Focus refusal reason: " + reason);
+        
+        // Common reasons and troubleshooting info
+        if (reason != null) {
+            if (reason.contains("sleep") || reason.contains("Sleep")) {
+                Log.w(TAG, "🤖 DIAGNOSTIC: Robot is in Sleep Mode - double-tap chest button to wake up");
+            } else if (reason.contains("disabled") || reason.contains("Disabled")) {
+                Log.w(TAG, "🤖 DIAGNOSTIC: Robot is in Disabled State - double-tap chest button to enable");
+            } else {
+                Log.w(TAG, "🤖 DIAGNOSTIC: Unknown focus refusal - check robot status and permissions");
+            }
+        }
+        
+        runOnUiThread(() -> {
+            statusTextView.setText("Robot focus refused: " + reason);
+        });
     }
 
     private void setupWebSocketHandler() {

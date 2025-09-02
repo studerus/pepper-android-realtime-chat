@@ -3,6 +3,7 @@ package io.github.studerus.pepper_android_realtime;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
@@ -67,24 +68,41 @@ public class HumanDetectionAdapter extends RecyclerView.Adapter<HumanDetectionAd
     }
     
     static class HumanViewHolder extends RecyclerView.ViewHolder {
+        private final ImageView facePicture;
         private final TextView demographics;
         private final TextView distance;
         private final TextView emotion;
+        private final TextView pleasure;
+        private final TextView excitement;
         private final TextView smile;
         private final TextView attention;
         private final TextView engagement;
         
         public HumanViewHolder(@NonNull View itemView) {
             super(itemView);
+            facePicture = itemView.findViewById(R.id.human_face_picture);
             demographics = itemView.findViewById(R.id.human_demographics);
             distance = itemView.findViewById(R.id.human_distance);
             emotion = itemView.findViewById(R.id.human_emotion);
+            pleasure = itemView.findViewById(R.id.human_pleasure);
+            excitement = itemView.findViewById(R.id.human_excitement);
             smile = itemView.findViewById(R.id.human_smile);
             attention = itemView.findViewById(R.id.human_attention);
             engagement = itemView.findViewById(R.id.human_engagement);
         }
         
         public void bind(PerceptionData.HumanInfo human) {
+            // Set face picture with debugging
+            if (human.facePicture != null) {
+                facePicture.setImageBitmap(human.facePicture);
+                android.util.Log.d("HumanAdapter", "🖼️ Displaying face picture for human " + human.id + 
+                    " (" + human.facePicture.getWidth() + "x" + human.facePicture.getHeight() + ")");
+            } else {
+                // Use default placeholder 
+                facePicture.setImageResource(android.R.drawable.ic_menu_gallery);
+                android.util.Log.d("HumanAdapter", "🖼️ Using placeholder for human " + human.id + " (no face picture available)");
+            }
+            
             // Set demographics
             demographics.setText(human.getDemographics());
             
@@ -93,6 +111,12 @@ public class HumanDetectionAdapter extends RecyclerView.Adapter<HumanDetectionAd
             
             // Set basic emotion
             emotion.setText(human.getBasicEmotionDisplay());
+            
+            // Set pleasure state
+            pleasure.setText(human.getPleasureStateDisplay());
+            
+            // Set excitement state
+            excitement.setText(human.getExcitementStateDisplay());
             
             // Set smile state
             smile.setText(human.getSmileStateDisplay());
