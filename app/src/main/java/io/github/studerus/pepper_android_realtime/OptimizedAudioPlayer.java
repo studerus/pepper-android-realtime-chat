@@ -34,8 +34,8 @@ public class OptimizedAudioPlayer {
     private static final String TAG = "OptimizedAudioPlayer";
     
     // Performance-optimized buffer using bounded queue for O(1) operations
-    // Reduced from 200 to 50 to save memory (still ~2-3 seconds of audio at 24kHz)
-    private final ArrayBlockingQueue<byte[]> audioBuffer = new ArrayBlockingQueue<>(50);
+    // Increased to 120 to prevent audio gaps with OpenAI gpt-realtime (~5-6 seconds of audio at 24kHz)
+    private final ArrayBlockingQueue<byte[]> audioBuffer = new ArrayBlockingQueue<>(120);
     
     // Atomic flags for lock-free operations
     private final AtomicBoolean isPlaying = new AtomicBoolean(false);
@@ -435,13 +435,6 @@ public class OptimizedAudioPlayer {
             }
             java.util.Arrays.fill(array, (byte) 0);
             return array;
-        }
-        
-        /**
-         * Legacy acquire method - redirects to acquireClean for safety
-         */
-        byte[] acquire(int size) {
-            return acquireClean(size);
         }
         
         void release(byte[] array) {

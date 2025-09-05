@@ -1,4 +1,4 @@
-package io.github.studerus.pepper_android_realtime;
+package io.github.studerus.pepper_android_realtime.tools.games;
 
 public class MemoryCard {
     private final String symbol;

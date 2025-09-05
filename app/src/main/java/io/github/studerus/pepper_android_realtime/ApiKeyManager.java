@@ -139,32 +139,7 @@ public class ApiKeyManager {
         return RealtimeApiProvider.fromString(providerName);
     }
     
-    /**
-     * Set Realtime API provider
-     * @param provider New provider to use
-     */
-    public void setRealtimeApiProvider(RealtimeApiProvider provider) {
-        settings.edit()
-                .putString("realtime_api_provider", provider.name())
-                .apply();
-        Log.i(TAG, "Realtime API provider changed to: " + provider.getDisplayName());
-    }
-    
-    /**
-     * Check if the current provider has valid API keys configured
-     * @return true if the current provider can be used
-     */
-    public boolean isCurrentRealtimeProviderConfigured() {
-        RealtimeApiProvider provider = getRealtimeApiProvider();
-        switch (provider) {
-            case AZURE_OPENAI:
-                return isValidKey(getAzureOpenAiKey()) && isValidKey(getAzureOpenAiEndpoint());
-            case OPENAI_DIRECT:
-                return isValidKey(getOpenAiApiKey());
-            default:
-                return false;
-        }
-    }
+
     
     /**
      * Get available providers that are properly configured

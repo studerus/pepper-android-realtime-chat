@@ -107,13 +107,13 @@ public class SettingsManager {
                 }
                 
                 @Override
-                public View getDropDownView(int position, View convertView, android.view.ViewGroup parent) {
+                public View getDropDownView(int position, View convertView, @NonNull android.view.ViewGroup parent) {
                     if (convertView == null) {
                         convertView = activity.getLayoutInflater().inflate(android.R.layout.simple_spinner_dropdown_item, parent, false);
                     }
                     TextView textView = (TextView) convertView;
                     RealtimeApiProvider provider = getItem(position);
-                    textView.setText(provider.getDisplayName() + " (" + provider.getModelName() + ")");
+                    textView.setText(activity.getString(R.string.provider_display_format, provider.getDisplayName(), provider.getModelName()));
                     return convertView;
                 }
             };
@@ -157,6 +157,7 @@ public class SettingsManager {
         }
         
         // Set model selection (based on current provider)
+        @SuppressWarnings("unchecked")
         ArrayAdapter<String> currentModelAdapter = (ArrayAdapter<String>) modelSpinner.getAdapter();
         if (currentModelAdapter != null) {
             String savedModel = settings.getString(KEY_MODEL, getDefaultModelForProvider(keyManager.getRealtimeApiProvider()));
@@ -296,9 +297,7 @@ public class SettingsManager {
         return settings.getString(KEY_SYSTEM_PROMPT, activity.getString(R.string.default_system_prompt));
     }
 
-    public String getModel() {
-        return settings.getString(KEY_MODEL, "gpt-4o-realtime-preview");
-    }
+
 
     public String getVoice() {
         return settings.getString(KEY_VOICE, "ash");
@@ -357,11 +356,9 @@ public class SettingsManager {
 
     private Set<String> getDefaultEnabledTools() {
         // By default, all tools should be enabled
-        Set<String> defaultTools = new HashSet<>();
-        for (ToolRegistry.ToolInfo tool : ToolRegistry.getAllAvailableTools()) {
-            defaultTools.add(tool.getName());
-        }
-        return defaultTools;
+        // Get all tools from new registry
+        io.github.studerus.pepper_android_realtime.tools.ToolRegistryNew registry = new io.github.studerus.pepper_android_realtime.tools.ToolRegistryNew();
+        return new HashSet<>(registry.getAllToolNames());
     }
 
     private void setupFunctionCallsUI() {
@@ -372,7 +369,9 @@ public class SettingsManager {
         ApiKeyManager keyManager = new ApiKeyManager(activity);
         Set<String> enabledTools = getEnabledTools();
         
-        for (ToolRegistry.ToolInfo tool : ToolRegistry.getAllAvailableTools()) {
+        // Get tool info from new registry
+        io.github.studerus.pepper_android_realtime.tools.ToolRegistryNew registry = new io.github.studerus.pepper_android_realtime.tools.ToolRegistryNew();
+        for (String toolId : registry.getAllToolNames()) {
             View toolItemView = activity.getLayoutInflater().inflate(R.layout.item_tool_setting, functionCallsContainer, false);
             
             CheckBox toolCheckbox = toolItemView.findViewById(R.id.tool_checkbox);
@@ -382,32 +381,40 @@ public class SettingsManager {
             ImageView expandIcon = toolItemView.findViewById(R.id.expand_icon);
             LinearLayout descriptionContainer = toolItemView.findViewById(R.id.description_container);
             
-            // Set tool information
-            toolName.setText(tool.getName());
-            toolDescription.setText(tool.getDescription());
-            toolCheckbox.setChecked(enabledTools.contains(tool.getName()));
+            // Set tool information - use toolId as display name for now
+            toolName.setText(toolId);
+            toolDescription.setText(activity.getString(R.string.tool_prefix, toolId)); // Simple description since we don't have detailed info
+            toolCheckbox.setChecked(enabledTools.contains(toolId));
             
             // Check API key availability if required
             boolean isApiKeyAvailable = true;
-            if (tool.requiresApiKey()) {
-                switch (tool.getApiKeyType()) {
-                    case "Groq":
-                        isApiKeyAvailable = keyManager.isVisionAnalysisAvailable();
-                        break;
-                    case "Tavily":
-                        isApiKeyAvailable = keyManager.isInternetSearchAvailable();
-                        break;
-                    case "OpenWeatherMap":
-                        isApiKeyAvailable = keyManager.isWeatherAvailable();
-                        break;
-                }
-                
-                if (!isApiKeyAvailable) {
-                    toolApiKeyStatus.setVisibility(View.VISIBLE);
-                    toolApiKeyStatus.setText(activity.getString(R.string.api_key_required_format, tool.getApiKeyType()));
-                    toolCheckbox.setEnabled(false);
-                    toolCheckbox.setChecked(false);
-                }
+            String apiKeyType = null;
+            
+            // Map tool names to their API key requirements
+            switch (toolId) {
+                case "analyze_vision":
+                    apiKeyType = "Groq";
+                    isApiKeyAvailable = keyManager.isVisionAnalysisAvailable();
+                    break;
+                case "search_internet":
+                    apiKeyType = "Tavily";
+                    isApiKeyAvailable = keyManager.isInternetSearchAvailable();
+                    break;
+                case "get_weather":
+                    apiKeyType = "OpenWeatherMap";
+                    isApiKeyAvailable = keyManager.isWeatherAvailable();
+                    break;
+                case "play_youtube_video":
+                    apiKeyType = "YouTube";
+                    isApiKeyAvailable = keyManager.isYouTubeAvailable();
+                    break;
+            }
+            
+            if (apiKeyType != null && !isApiKeyAvailable) {
+                toolApiKeyStatus.setVisibility(View.VISIBLE);
+                toolApiKeyStatus.setText(activity.getString(R.string.api_key_required_format, apiKeyType));
+                toolCheckbox.setEnabled(false);
+                toolCheckbox.setChecked(false);
             }
             
             // Setup expand/collapse functionality
@@ -421,7 +428,7 @@ public class SettingsManager {
             expandIcon.setOnClickListener(toggleDescription);
             
             // Store tool name as tag for later retrieval
-            toolCheckbox.setTag(tool.getName());
+            toolCheckbox.setTag(toolId);
             
             functionCallsContainer.addView(toolItemView);
         }
@@ -489,12 +496,11 @@ public class SettingsManager {
      */
     private String getDefaultModelForProvider(RealtimeApiProvider provider) {
         switch (provider) {
-            case AZURE_OPENAI:
-                return "gpt-4o-realtime-preview";
             case OPENAI_DIRECT:
-                return "gpt-realtime";
+                return activity.getString(R.string.openai_default_model);
+            case AZURE_OPENAI:
             default:
-                return "gpt-4o-realtime-preview";
+                return activity.getString(R.string.azure_default_model);
         }
     }
     

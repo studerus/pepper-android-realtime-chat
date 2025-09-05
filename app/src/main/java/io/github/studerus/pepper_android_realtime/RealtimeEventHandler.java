@@ -81,6 +81,46 @@ public class RealtimeEventHandler {
                         Log.w(TAG, "Failed to parse output_item.added", e);
                     }
                     break;
+                case "conversation.item.created":
+                    // Item was added to conversation - log at debug level
+                    Log.d(TAG, "Conversation item created");
+                    break;
+                case "conversation.item.truncated":
+                    // Item was truncated (e.g., after interrupt) - log at debug level
+                    Log.d(TAG, "Conversation item truncated");
+                    break;
+                case "response.content_part.added":
+                    // Content part added to response - log at debug level
+                    Log.d(TAG, "Response content part added");
+                    break;
+                case "response.content_part.done":
+                    // Content part completed - log at debug level
+                    Log.d(TAG, "Response content part done");
+                    break;
+                case "response.function_call_arguments.delta":
+                    // Function call arguments streaming - too verbose, skip logging
+                    break;
+                case "response.function_call_arguments.done":
+                    // Function call arguments complete - log at debug level
+                    Log.d(TAG, "Function call arguments done");
+                    break;
+                case "response.audio_transcript.done":
+                    // Audio transcript completed - log the transcript content
+                    String transcript = obj.optString("transcript", "");
+                    if (!transcript.isEmpty()) {
+                        Log.d(TAG, "Audio transcript: \"" + transcript + "\"");
+                    } else {
+                        Log.d(TAG, "Audio transcript done (empty)");
+                    }
+                    break;
+                case "response.output_item.done":
+                    // Output item completed - log at debug level
+                    Log.d(TAG, "Output item done");
+                    break;
+                case "rate_limits.updated":
+                    // Rate limit info updated - log at debug level only
+                    Log.d(TAG, "Rate limits updated");
+                    break;
                 case "error":
                     if (listener != null) listener.onError(obj.optJSONObject("error"));
                     break;

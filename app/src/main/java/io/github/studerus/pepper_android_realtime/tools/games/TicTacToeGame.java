@@ -1,4 +1,4 @@
-package io.github.studerus.pepper_android_realtime;
+package io.github.studerus.pepper_android_realtime.tools.games;
 
 /**
  * Core Tic Tac Toe game logic

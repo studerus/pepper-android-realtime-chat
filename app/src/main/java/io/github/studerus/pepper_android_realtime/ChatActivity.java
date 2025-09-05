@@ -10,10 +10,7 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.Button;
 import android.widget.TextView;
-import android.view.ViewGroup;
-import android.content.res.ColorStateList;
 import androidx.annotation.NonNull;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -26,19 +23,12 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.aldebaran.qi.Future;
 import com.aldebaran.qi.Promise;
 import com.aldebaran.qi.sdk.QiContext;
-import com.aldebaran.qi.sdk.object.actuation.ExplorationMap;
-import com.aldebaran.qi.sdk.object.actuation.Localize;
-import com.aldebaran.qi.sdk.object.actuation.Frame;
-import com.aldebaran.qi.sdk.object.actuation.LocalizationStatus;
-import com.aldebaran.qi.sdk.builder.LocalizeBuilder;
 import com.aldebaran.qi.sdk.QiSDK;
 import com.aldebaran.qi.sdk.RobotLifecycleCallbacks;
-import com.aldebaran.qi.sdk.object.touch.TouchState;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.navigation.NavigationView;
 import com.google.android.material.appbar.MaterialToolbar;
-import com.microsoft.cognitiveservices.speech.SpeechConfig;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -46,18 +36,23 @@ import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Locale;
 
 import okhttp3.Response;
 import android.media.AudioManager;
 import android.content.Context;
 import android.view.Window;
 import android.annotation.SuppressLint;
-import android.app.AlertDialog;
-import android.graphics.Color;
 import android.widget.LinearLayout;
 
-public class ChatActivity extends AppCompatActivity implements RobotLifecycleCallbacks, ToolExecutor.StatusUpdateListener {
+// New tool system imports
+import io.github.studerus.pepper_android_realtime.tools.ToolRegistryNew;
+import io.github.studerus.pepper_android_realtime.tools.ToolContext;
+import io.github.studerus.pepper_android_realtime.ui.MapPreviewView;
+import io.github.studerus.pepper_android_realtime.ui.MapState;
+import io.github.studerus.pepper_android_realtime.data.LocationProvider;
+import android.widget.FrameLayout;
+
+public class ChatActivity extends AppCompatActivity implements RobotLifecycleCallbacks {
 
     private static final String TAG = "ChatActivity";
 
@@ -74,6 +69,11 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     private final List<ChatMessage> messageList = new ArrayList<>();
     private LinearLayout warmupIndicatorLayout;
 
+    // Map Preview UI
+    private MapPreviewView mapPreviewView;
+    private FrameLayout mapPreviewContainer;
+    private LocationProvider locationProvider;
+
     private FloatingActionButton fabInterrupt;
     private ApiKeyManager keyManager;
     private SpeechRecognizerManager sttManager;
@@ -89,8 +89,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     private OptimizedAudioPlayer audioPlayer;
     private volatile long lastAudioDoneTs = 0L; // monotonic timestamp of last audio completion
     
-    // Game dialogs
-    private TicTacToeDialog ticTacToeDialog;
+    // Game dialogs - TicTacToe moved to TicTacToeGameManager
     private volatile boolean hasActiveResponse = false;
     private volatile String currentResponseId = null;
     private volatile String cancelledResponseId = null;
@@ -99,11 +98,6 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     private volatile boolean expectingFinalAnswerAfterToolCall = false;
     private final GestureController gestureController = new GestureController();
     private volatile boolean isWarmingUp = false;
-    private volatile boolean gesturesSuppressed = false; // Flag to prevent gestures during critical navigation phases
-    
-    // Autonomous Abilities Management for critical phases (localization, mapping)
-    private com.aldebaran.qi.sdk.object.holder.Holder autonomousAbilitiesHolder;
-    private volatile boolean autonomousAbilitiesHeld = false;
     
     // Mute state management for pause/resume functionality
     private volatile boolean isMuted = false;
@@ -112,13 +106,14 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
 
     private VisionService visionService;
 
-    private ToolExecutor toolExecutor;
+    private ToolRegistryNew toolRegistry;
+    private ToolContext toolContext;
     private boolean hasFocusInitialized = false;
 
     // Settings UI
     private SettingsManager settingsManager;
 
-    private WebSocketMessageHandler webSocketHandler;
+
 
     // Perception Dashboard
     private PerceptionService perceptionService;
@@ -127,9 +122,9 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     // Touch Sensor Management
     private TouchSensorManager touchSensorManager;
 
+    // Navigation Service Management
+    private NavigationServiceManager navigationServiceManager;
 
-    // A simple helper class to hold language display name and code
-    // This class is now private to SettingsManager, so it's removed from here.
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -146,6 +141,11 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         chatRecyclerView = findViewById(R.id.chatRecyclerView);
         warmupIndicatorLayout = findViewById(R.id.warmup_indicator_layout);
 
+        // Map Preview UI
+        mapPreviewContainer = findViewById(R.id.map_preview_container);
+        mapPreviewView = findViewById(R.id.map_preview_view);
+        locationProvider = new LocationProvider();
+
         MaterialToolbar topAppBar = findViewById(R.id.topAppBar);
         setSupportActionBar(topAppBar);
 
@@ -158,33 +158,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         fabInterrupt = findViewById(R.id.fab_interrupt);
         fabInterrupt.setOnClickListener(v -> {
             try {
-                if (sessionManager == null || !sessionManager.isConnected()) return;
-                // 1) Cancel further generation first (send only if there is an active response)
-                Log.d(TAG, "🚨 DIAGNOSTIC: FAB interrupt pressed: hasActiveResponse=" + hasActiveResponse);
-                Log.d(TAG, "🚨 DIAGNOSTIC: interruptAndMute invoked: hasActiveResponse=" + hasActiveResponse);
-                if (hasActiveResponse) {
-                    JSONObject cancel = new JSONObject();
-                    cancel.put("type", "response.cancel");
-                    sessionManager.send(cancel.toString());
-                    // mark the current response as cancelled to ignore trailing chunks
-                    cancelledResponseId = currentResponseId;
-                }
-
-                // 2) Truncate current assistant item if we have its id
-                if (lastAssistantItemId != null) {
-                    int playedMs = audioPlayer != null ? Math.max(0, audioPlayer.getEstimatedPlaybackPositionMs()) : 0;
-                    Log.d(TAG, "🚨 DIAGNOSTIC: sending truncate for item=" + lastAssistantItemId + ", audio_end_ms=" + playedMs);
-                    JSONObject truncate = new JSONObject();
-                    truncate.put("type", "conversation.item.truncate");
-                    truncate.put("item_id", lastAssistantItemId);
-                    truncate.put("content_index", 0);
-                    truncate.put("audio_end_ms", playedMs);
-                    sessionManager.send(truncate.toString());
-                }
-
-                // 3) Stop local audio and gestures; immediately switch to Listening
-                if (audioPlayer != null) audioPlayer.interruptNow();
-                gestureController.stopNow();
+                interruptSpeech();
                 if (turnManager != null) turnManager.setState(TurnManager.State.LISTENING);
             } catch (Exception e) {
                 Log.e(TAG, "Interrupt failed", e);
@@ -226,34 +200,26 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         if (sessionManager == null) {
             Log.i(TAG, "Creating NEW RealtimeSessionManager in onCreate");
             sessionManager = new RealtimeSessionManager();
-            sessionManager.setListener(new RealtimeSessionManager.Listener() {
-                @Override public void onOpen(Response response) {
-                    Log.i(TAG, "WebSocket onOpen() - sending initial session config");
-                    ChatActivity.this.sendInitialSessionConfig();
-                }
-                @Override public void onTextMessage(String text) { if (eventHandler != null) eventHandler.handle(text); else webSocketHandler.handleMessage(text); }
-                @Override public void onBinaryMessage(okio.ByteString bytes) { /* ignore */ }
-                @Override public void onClosing(int code, String reason) { }
-                @Override public void onClosed(int code, String reason) {
-                    if (connectionPromise != null && !connectionPromise.getFuture().isDone()) {
-                        connectionPromise.setError("WebSocket closed before session was updated.");
-                        connectionPromise = null;
-                    }
-                }
-                @Override public void onFailure(Throwable t, Response response) {
-                    Log.e(TAG, "WebSocket Failure: " + t.getMessage(), t);
-                    if (connectionPromise != null && !connectionPromise.getFuture().isDone()) {
-                        connectionPromise.setError("WebSocket Failure: " + t.getMessage());
-                        connectionPromise = null;
-                    }
+            
+            // Session dependencies will be set after tool system is initialized
+            
+            // Set session configuration callback
+            sessionManager.setSessionConfigCallback((success, error) -> {
+                if (success) {
+                    Log.i(TAG, "Session configured successfully - completing connection promise");
+                    completeConnectionPromise();
+                } else {
+                    Log.e(TAG, "Session configuration failed: " + error);
                 }
             });
+            
+            sessionManager.setListener(createSessionManagerListener());
         }
 
         // WebSocket client initialization handled by RealtimeSessionManager
 
         setupSettingsMenu();
-        setupWebSocketHandler();
+
         audioPlayer = new OptimizedAudioPlayer();
         turnManager = new TurnManager(new TurnManager.Callbacks() {
             @Override public void onEnterListening() { 
@@ -305,84 +271,47 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                 runOnUiThread(() -> { 
                     if (!isMuted) { 
                         statusTextView.setText(getString(R.string.status_listening)); 
-                        try {
-                            startContinuousRecognition(); 
-                        } catch (Exception e) {
-                            Log.e(TAG, "Failed to start recognition in onExitSpeaking", e);
-                            statusTextView.setText(getString(R.string.status_recognizer_not_ready));
-                        }
                     } 
                     findViewById(R.id.fab_interrupt).setVisibility(View.GONE); 
                 }); 
             }
         });
-        toolExecutor = new ToolExecutor(this, new ToolExecutor.ToolUi() {
+        // Initialize new tool system
+        ApiKeyManager keyManager = new ApiKeyManager(this);
+        MovementController movementController = new MovementController();
+        
+        // Initialize navigation service manager
+        navigationServiceManager = new NavigationServiceManager(movementController);
+        navigationServiceManager.setListener(new NavigationServiceManager.NavigationServiceListener() {
             @Override
-            public void showQuiz(String question, String[] options, String correctAnswer) {
-                runOnUiThread(() -> showQuizDialog(question, options, correctAnswer));
+            public void onNavigationPhaseChanged(NavigationServiceManager.NavigationPhase phase) {
+                Log.i(TAG, "Navigation phase changed to: " + phase);
+                // Handle phase changes if needed
+                updateMapPreview();
             }
             
             @Override
-            public void showMemoryGame(String difficulty) {
-                runOnUiThread(() -> showMemoryGameDialog(difficulty));
-            }
-            
-            @Override
-            public void showYouTubeVideo(YouTubeSearchService.YouTubeVideo video) {
-                runOnUiThread(() -> showYouTubePlayerDialog(video));
-            }
-            
-            @Override
-            public void sendAsyncUpdate(String message, boolean requestResponse) {
-                runOnUiThread(() -> sendContextToModel(message, requestResponse));
-            }
-            
-            @Override
-            public void sendServiceStateChange(String mode) {
-                Log.i(TAG, "Service state change received: " + mode);
-                try {
-                    switch (mode) {
-
-                        case "enterLocalizationMode":
-                            enterLocalizationMode();
-                            break;
-                        case "enterNavigationMode":
-                            enterNavigationMode();
-                            break;
-                        case "resumeNormalOperation":
-                            resumeNormalOperation();
-                            break;
-                        default:
-                            Log.w(TAG, "Unknown service state change mode: " + mode);
-                    }
-                } catch (Exception e) {
-                    Log.e(TAG, "Error handling service state change: " + mode, e);
-                }
-            }
-            
-            @Override
-            public void updateNavigationStatus(String mapStatus, String localizationStatus) {
-                Log.i(TAG, "Updating navigation status - Map: " + mapStatus + ", Localization: " + localizationStatus);
-                runOnUiThread(() -> {
-                    if (mapStatus != null) {
-                        updateMapStatus(mapStatus);
-                    }
-                    if (localizationStatus != null) {
-                        updateLocalizationStatus(localizationStatus);
-                    }
-                });
-            }
-            
-            @Override
-            public void showTicTacToeGame() {
-                runOnUiThread(() -> ChatActivity.this.showTicTacToeGame());
-            }
-            
-            @Override
-            public TicTacToeDialog getTicTacToeDialog() {
-                return ChatActivity.this.getTicTacToeDialog();
+            public void onNavigationStatusUpdate(String mapStatus, String localizationStatus) {
+                updateNavigationStatus(mapStatus, localizationStatus);
+                updateMapPreview();
             }
         });
+        
+        // Create tool context with all dependencies - direct ChatActivity reference for simplicity
+        toolContext = new ToolContext(this, qiContext, this, keyManager, movementController, locationProvider);
+        
+        // Initialize tool registry  
+        toolRegistry = new ToolRegistryNew();
+        
+        // Now set session dependencies after tool system is initialized
+        if (sessionManager != null) {
+            sessionManager.setSessionDependencies(toolRegistry, toolContext, settingsManager, keyManager);
+            Log.i(TAG, "Session dependencies set for RealtimeSessionManager");
+        }
+        
+        Log.i(TAG, "New tool system initialized with " + toolRegistry.getAllToolNames().size() + " tools");
+        
+
         audioPlayer.setListener(new OptimizedAudioPlayer.Listener() {
             @Override public void onPlaybackStarted() {
                 turnManager.setState(TurnManager.State.SPEAKING);
@@ -405,13 +334,12 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             }
         });
 
-        // Initialize Perception Dashboard
-        initializeDashboard();
+        // Dashboard will be initialized when robot focus is gained
 
         // Register for robot lifecycle callbacks with diagnostic logging
         Log.i(TAG, "🤖 DIAGNOSTIC: Registering with QiSDK for robot lifecycle callbacks...");
         try {
-            QiSDK.register(this, this);
+        QiSDK.register(this, this);
             Log.i(TAG, "🤖 DIAGNOSTIC: QiSDK.register() completed successfully - waiting for robot focus...");
             
             // Set a diagnostic timeout to detect if QiSDK never responds
@@ -420,9 +348,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                     Log.e(TAG, "🤖 DIAGNOSTIC: TIMEOUT - No robot focus response after 30 seconds!");
                     Log.e(TAG, "🤖 DIAGNOSTIC: This suggests QiSDK service issues or robot state problems");
                     Log.e(TAG, "🤖 DIAGNOSTIC: Check: 1) Robot is awake, 2) Robot is enabled, 3) QiSDK service is running");
-                    runOnUiThread(() -> {
-                        statusTextView.setText("Robot initialization timeout - check robot status");
-                    });
+                    runOnUiThread(() -> statusTextView.setText(getString(R.string.robot_initialization_timeout)));
                 }
             }, 30000); // 30 second timeout
             
@@ -440,48 +366,6 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         // Request camera permission for vision analysis
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_REQUEST_CODE);
-        }
-    }
-
-    /**
-     * Initialize the perception dashboard
-     */
-    private void initializeDashboard() {
-        try {
-            // Find dashboard overlay view
-            View dashboardOverlay = findViewById(R.id.dashboard_overlay);
-            if (dashboardOverlay == null) {
-                Log.e(TAG, "Dashboard overlay not found in layout");
-                return;
-            }
-
-                    // Initialize perception service
-        perceptionService = new PerceptionService();
-
-        // Initialize dashboard manager
-        dashboardManager = new DashboardManager(this, dashboardOverlay);
-        dashboardManager.initialize(perceptionService);
-
-        // Initialize touch sensor manager
-        touchSensorManager = new TouchSensorManager();
-        touchSensorManager.setListener(new TouchSensorManager.TouchEventListener() {
-            @Override
-            public void onSensorTouched(String sensorName, TouchState touchState) {
-                handleTouchSensorEvent(sensorName);
-            }
-            
-            @Override
-            public void onSensorReleased(String sensorName, TouchState touchState) {
-                // We only trigger behavior on touch; releases are ignored, but timestamp logged for diagnostics
-                try { if (touchState != null) Log.d(TAG, "Touch released ts=" + touchState.getTime()); } catch (Exception ignored) {}
-            }
-        });
-
-        // Dashboard will be updated once perception service is initialized
-
-        Log.i(TAG, "Dashboard and TouchSensorManager initialized successfully");
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to initialize dashboard", e);
         }
     }
 
@@ -538,33 +422,59 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         disconnectWebSocket(); // Disconnect WebSocket connection
         releaseAudioTrack(); // Release AudioTrack
         
-        // Clean up dashboard
-        if (dashboardManager != null) {
-            dashboardManager.shutdown();
-        }
+        shutdownManagers();
+        
+        QiSDK.unregister(this, this);
+        super.onDestroy();
+    }
+    
+    /**
+     * Shuts down all core managers and services to prevent resource leaks.
+     * This is used during focus loss and when the activity is destroyed.
+     */
+    private void shutdownManagers() {
         if (perceptionService != null) {
             perceptionService.shutdown();
+            perceptionService = null;
         }
-        
-        // Clean up touch sensor manager
+        if (dashboardManager != null) {
+            dashboardManager.shutdown();
+            dashboardManager = null;
+        }
         if (touchSensorManager != null) {
             touchSensorManager.shutdown();
             touchSensorManager = null;
         }
-        
-        // Clean up STT manager
         if (sttManager != null) {
             sttManager.shutdown();
             sttManager = null;
         }
-
-        // Clean up WebSocket handler reference
-        if (webSocketHandler != null) {
-            webSocketHandler = null;
+        if (navigationServiceManager != null) {
+            navigationServiceManager.shutdown();
+            navigationServiceManager = null;
         }
+    }
+    
+    private void failConnectionPromise(String message) {
+        if (connectionPromise != null && !connectionPromise.getFuture().isDone()) {
+            connectionPromise.setError(message);
+            connectionPromise = null;
+        }
+    }
 
-        QiSDK.unregister(this, this);
-        super.onDestroy();
+    private void completeConnectionPromise() {
+        if (connectionPromise != null && !connectionPromise.getFuture().isDone()) {
+            connectionPromise.setValue(null);
+            connectionPromise = null;
+        }
+    }
+    
+    private void handleWebSocketSendError(String context) {
+        Log.e(TAG, "Failed to send " + context + " - WebSocket connection broken");
+        runOnUiThread(() -> {
+            addMessage("Connection lost during " + context + ". Please restart the app.", ChatMessage.Sender.ROBOT);
+            if (turnManager != null) turnManager.setState(TurnManager.State.IDLE);
+        });
     }
     
     /**
@@ -584,7 +494,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             
             // Clear STT manager listener
             if (sttManager != null) {
-                sttManager.setListener(null);
+                sttManager.setCallbacks(null);
             }
             
             // Clear vision service references
@@ -596,17 +506,14 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             }
             
             // Clear tool executor reference
-            if (toolExecutor != null) {
-                toolExecutor.setQiContext(null);
+            if (toolContext != null) {
+                toolContext.updateQiContext(null);
             }
             
             // Clear event handler
             eventHandler = null;
             
-            // Clear touch sensor manager listener
-            if (touchSensorManager != null) {
-                touchSensorManager.setListener(null);
-            }
+
             
             Log.i(TAG, "Services cleaned up successfully");
         } catch (Exception e) {
@@ -625,6 +532,20 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         robotFocusAvailable = true;
         
         Log.i(TAG, "Robot focus gained - initializing services (qiContext available: " + (qiContext != null) + ")");
+
+        // Refresh locations for map preview
+        if (locationProvider != null) {
+            locationProvider.refreshLocations(this);
+        }
+
+        // Reflect actual state on focus gain without auto-loading map/localize
+        runOnUiThread(() -> {
+            boolean hasMap = new java.io.File(getFilesDir(), "maps/default_map.map").exists();
+            updateNavigationStatus(
+                getString(hasMap ? R.string.nav_map_saved : R.string.nav_map_none),
+                getString(R.string.nav_localization_not_running)
+            );
+        });
         
         // Robust STT cleanup before reinitialization to prevent conflicts from previous crashes
         if (sttManager != null) {
@@ -638,17 +559,24 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             sttManager = null;
         }
         
-        // Setup ToolExecutor (no heavy operations)
-        if (toolExecutor != null) {
-            toolExecutor.setQiContext(qiContext);
-            toolExecutor.setStatusUpdateListener(this);
-            // Initialize navigation status as not ready
-            updateMapStatus(getString(R.string.nav_map_none));
-            updateLocalizationStatus(getString(R.string.nav_localization_waiting));
-            Log.i(TAG, "ToolExecutor initialized. Map loading will start in background.");
+        // Setup new tool system (no heavy operations)
+        if (toolContext != null) toolContext.updateQiContext(qiContext);
+        
+        // Initialize dashboard and perception service with QiContext
+        if (perceptionService == null) {
+            perceptionService = new PerceptionService();
+        }
+        if (dashboardManager == null) {
+            View dashboardOverlay = findViewById(R.id.dashboard_overlay);
+            if (dashboardOverlay != null) {
+                dashboardManager = new DashboardManager(this, dashboardOverlay);
+                dashboardManager.initialize(perceptionService);
+                Log.i(TAG, "Dashboard initialized successfully");
+            } else {
+                Log.e(TAG, "Dashboard overlay not found in layout");
+            }
         }
         
-        // Initialize perception service with QiContext
         if (perceptionService != null) {
             perceptionService.initialize(qiContext);
             // Start perception monitoring for testing (normally only when dashboard is opened)
@@ -656,21 +584,37 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             Log.i(TAG, "PerceptionService monitoring started for testing");
         }
         
-        // Re-create dashboard manager if it was cleaned up during focus loss
-        if (dashboardManager == null && perceptionService != null) {
-            View dashboardOverlay = findViewById(R.id.dashboard_overlay);
-            if (dashboardOverlay != null) {
-                dashboardManager = new DashboardManager(this, dashboardOverlay);
-                dashboardManager.initialize(perceptionService);
-                Log.i(TAG, "DashboardManager recreated after focus loss");
-            } else {
-                Log.e(TAG, "Dashboard overlay not found during recreation");
-            }
-        }
-        
         // Initialize touch sensor manager with QiContext
-        if (touchSensorManager != null) {
+        if (touchSensorManager == null) {
+            touchSensorManager = new TouchSensorManager();
+        }
+        touchSensorManager.setListener(new TouchSensorManager.TouchEventListener() {
+            @Override
+            public void onSensorTouched(String sensorName, com.aldebaran.qi.sdk.object.touch.TouchState touchState) {
+                Log.i(TAG, "Touch sensor " + sensorName + " touched - sending to AI and requesting response");
+                
+                // Create human-readable touch message
+                String touchMessage = TouchSensorManager.createTouchMessage(sensorName);
+                
+                runOnUiThread(() -> {
+                    // Add touch message to chat
+                    addMessage(touchMessage, ChatMessage.Sender.USER);
+                    // Send to Realtime API with response request and allow interrupt
+                    sendMessageToRealtimeAPI(touchMessage, true, true);
+                });
+            }
+            
+            @Override
+            public void onSensorReleased(String sensorName, com.aldebaran.qi.sdk.object.touch.TouchState touchState) {
+                // Touch release - no action needed
+            }
+        });
             touchSensorManager.initialize(qiContext);
+        Log.i(TAG, "TouchSensorManager initialized with QiContext and listener");
+        
+        // Set dependencies for navigation service manager
+        if (navigationServiceManager != null) {
+            navigationServiceManager.setDependencies(perceptionService, touchSensorManager, gestureController);
         }
         // Only perform initialization on first focus gain
         if (!hasFocusInitialized) {
@@ -689,7 +633,9 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             Future<Void> connectFuture = connectWebSocket();
             
             // Wait for WebSocket connection first, then start STT warmup sequentially
+            Log.i(TAG, "Waiting for WebSocket connection to complete...");
             connectFuture.thenConsume(wsFuture -> {
+                Log.i(TAG, "WebSocket Future completed - checking result...");
                 if (wsFuture.hasError()) {
                     Log.e(TAG, "WebSocket connection failed", wsFuture.getError());
                     hideWarmupIndicator();
@@ -702,48 +648,41 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                 }
                 
                 Log.i(TAG, "WebSocket connected successfully, starting STT warmup...");
-            Future<Void> warmupFuture = warmupSpeechRecognizer();
-
-                warmupFuture.thenConsume(future -> {
-                // Hide warmup indicator after all setup is complete, regardless of outcome
+                
+                // Direct STT setup using SpeechRecognizerManager
+                Log.i(TAG, "Executing STT setup on audio thread...");
+                threadManager.executeAudio(() -> {
+                    try {
+                        setupSpeechRecognizer();
+                        
+                        runOnUiThread(() -> {
+                            // Hide warmup indicator after setup
                 hideWarmupIndicator();
                 isWarmingUp = false;
 
-                if (future.hasError()) {
-                    Log.e(TAG, "STT warmup failed", future.getError());
-                        runOnUiThread(() -> {
-                            addMessage(getString(R.string.warmup_failed_msg), ChatMessage.Sender.ROBOT);
-                            statusTextView.setText(getString(R.string.ready_sr_lazy_init));
-                        });
-                    // Enter LISTENING state anyway - lazy init will handle STT when needed
-                    Log.i(TAG, "STT warmup failed, but entering LISTENING state with lazy fallback");
-                    runOnUiThread(() -> {
-                        if (turnManager != null) turnManager.setState(TurnManager.State.LISTENING);
-                    });
-                    
-                    Log.i(TAG, "Navigation will use lazy loading when needed");
-                    } else {
-                    Log.i(TAG, "Initial Setup complete. STT is already running, just set state to LISTENING.");
-                    // STT is already started by warmup - just switch state (don't call startContinuousRecognition again)
-                        runOnUiThread(() -> {
-                        try {
-                            // Check if robot focus is still available before setting state
-                            if (qiContext == null) {
-                                Log.w(TAG, "qiContext is null, robot focus lost - skipping state setup");
-                                return;
-                            }
+                            Log.i(TAG, "STT setup complete. Entering LISTENING state.");
                             if (turnManager != null) {
                                 statusTextView.setText(getString(R.string.status_listening));
                                 turnManager.setState(TurnManager.State.LISTENING);
                             }
-                        } catch (Exception e) {
-                            Log.e(TAG, "Exception in UI thread during state setup", e);
-                        }
+                        });
+                        
+                    } catch (Exception e) {
+                        Log.e(TAG, "STT setup failed", e);
+                        runOnUiThread(() -> {
+                            hideWarmupIndicator();
+                            isWarmingUp = false;
+                            addMessage(getString(R.string.warmup_failed_msg), ChatMessage.Sender.ROBOT);
+                            statusTextView.setText(getString(R.string.ready_sr_lazy_init));
+                            
+                    // Enter LISTENING state anyway - lazy init will handle STT when needed
+                        if (turnManager != null) turnManager.setState(TurnManager.State.LISTENING);
                     });
-                    
-                    Log.i(TAG, "Navigation will use lazy loading when needed");
-                }
+                    }
                 });
+                
+                // Remove the old warmupFuture.thenConsume block
+                // This block is replaced by direct STT setup above
             });
         }
     }
@@ -762,46 +701,19 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         // Stop any ongoing STT to prevent crashes
         if (sttManager != null) {
             try {
-                sttManager.stopContinuous();
+                sttManager.stop();
                 Log.i(TAG, "Stopped STT due to focus loss");
             } catch (Exception e) {
                 Log.w(TAG, "Error stopping STT during focus loss", e);
             }
         }
         
-        if (toolExecutor != null) toolExecutor.setQiContext(null);
+        if (toolContext != null) toolContext.updateQiContext(null);
         
         // NOTE: Do NOT shutdown threadManager here - QiSDK needs it for next onRobotFocusGained callback
         // ThreadManager is only shutdown in onDestroy when app completely terminates
         
-        // Clean up perception service
-        if (perceptionService != null) {
-            perceptionService.shutdown();
-            perceptionService = null;
-        }
-        
-        // Clean up dashboard manager to prevent broken dashboard updates
-        if (dashboardManager != null) {
-            dashboardManager.shutdown();
-            dashboardManager = null;
-        }
-        
-        // Clean up touch sensor manager
-        if (touchSensorManager != null) {
-            touchSensorManager.shutdown();
-            touchSensorManager = null;
-        }
-        
-        // Clean up STT manager
-        if (sttManager != null) {
-            sttManager.shutdown();
-            sttManager = null;
-        }
-
-        // Clean up WebSocket handler reference
-        if (webSocketHandler != null) {
-            webSocketHandler = null;
-        }
+        shutdownManagers();
         
         // Clean up gesture controller to prevent broken gestures on restart
         try {
@@ -810,13 +722,15 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         } catch (Exception e) {
             Log.w(TAG, "Error during GestureController shutdown", e);
         }
-
+        
         // STT cleanup handled by sttManager
         this.qiContext = null;
         
         // CRITICAL: App should not crash due to focus loss - try to gracefully recover
         runOnUiThread(() -> {
-            statusTextView.setText("Robot focus lost - app will continue without robot features");
+            statusTextView.setText(getString(R.string.robot_focus_lost_message));
+            boolean hasMap = new java.io.File(getFilesDir(), "maps/default_map.map").exists();
+            updateMapStatus(getString(hasMap ? R.string.nav_map_saved : R.string.nav_map_none));
             updateLocalizationStatus(getString(R.string.nav_localization_stopped));
         });
     }
@@ -837,101 +751,10 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             }
         }
         
-        runOnUiThread(() -> {
-            statusTextView.setText("Robot focus refused: " + reason);
-        });
+            runOnUiThread(() -> statusTextView.setText(getString(R.string.robot_focus_refused_message, reason)));
     }
 
-    private void setupWebSocketHandler() {
-        webSocketHandler = new WebSocketMessageHandler();
 
-        webSocketHandler.registerHandler("session.updated", message -> {
-            Log.i(TAG, "Session configured successfully.");
-            // Do not change status to "Ready" if the app is still in the initial startup/warmup phase.
-            if (!isWarmingUp) {
-                runOnUiThread(() -> statusTextView.setText(getString(R.string.status_ready)));
-            }
-            if (connectionPromise != null && !connectionPromise.getFuture().isDone()) {
-                connectionPromise.setValue(null);
-                connectionPromise = null;
-            }
-        });
-
-        webSocketHandler.registerHandler("response.audio_transcript.delta", message -> {
-            String delta = message.getString("delta");
-            runOnUiThread(() -> {
-                String respId = message.optString("response_id");
-                if (Objects.equals(respId, cancelledResponseId)) {
-                    return; // drop transcript of cancelled response
-                }
-                CharSequence current = statusTextView.getText();
-                if (current == null || current.length() == 0 || !current.toString().startsWith("Speaking — tap to interrupt: ")) {
-                    statusTextView.setText(getString(R.string.status_speaking_tap_to_interrupt));
-                }
-                statusTextView.append(delta);
-
-                boolean createNewMessage = false;
-                if (expectingFinalAnswerAfterToolCall) {
-                    createNewMessage = true;
-                    expectingFinalAnswerAfterToolCall = false; // Reset flag
-                } else if (messageList.isEmpty() || messageList.get(messageList.size() - 1).getSender() != ChatMessage.Sender.ROBOT) {
-                    createNewMessage = true;
-                } else if (!Objects.equals(respId, lastChatBubbleResponseId)) {
-                    createNewMessage = true; // New response ID means new bubble
-                }
-
-                if (createNewMessage) {
-                    messageList.add(new ChatMessage(delta, ChatMessage.Sender.ROBOT));
-                    chatAdapter.notifyItemInserted(messageList.size() - 1);
-                    chatRecyclerView.scrollToPosition(messageList.size() - 1);
-                    lastChatBubbleResponseId = respId;
-                } else {
-                    ChatMessage lastMessage = messageList.get(messageList.size() - 1);
-                    lastMessage.setMessage(lastMessage.getMessage() + delta);
-                    chatAdapter.notifyItemChanged(messageList.size() - 1);
-                }
-            });
-        });
-
-        webSocketHandler.registerHandler("response.audio.delta", message -> {
-            String base64Audio = message.getString("delta");
-            String respId = message.optString("response_id");
-            // Reset carry at response boundary to avoid syllable overlap
-            // Call onResponseBoundary for every new response, not just when ID changes
-            if (respId != null && !Objects.equals(currentResponseId, respId)) {
-                try { audioPlayer.onResponseBoundary(); } catch (Exception ignored) {}
-            currentResponseId = respId;
-            }
-            if (Objects.equals(respId, cancelledResponseId)) {
-                return; // drop cancelled response chunks
-            }
-            byte[] audioData = android.util.Base64.decode(base64Audio, android.util.Base64.DEFAULT);
-            audioPlayer.addChunk(audioData);
-            audioPlayer.startIfNeeded();
-        });
-
-        webSocketHandler.registerHandler("response.audio.done", message -> {
-            Log.i(TAG, "Audio stream complete signaled by server.");
-            audioPlayer.markResponseDone();
-        });
-
-        webSocketHandler.registerHandler("response.done", this::handleResponseDone);
-
-        webSocketHandler.registerHandler("error", message -> {
-            JSONObject errorObject = message.getJSONObject("error");
-            String errorCode = errorObject.optString("code", "Unknown");
-            String errorMessage = errorObject.optString("message", "An unknown error occurred.");
-            Log.e(TAG, "WebSocket Error Received - Code: " + errorCode + ", Message: " + errorMessage);
-            runOnUiThread(() -> {
-                addMessage(getString(R.string.server_error_prefix, errorMessage), ChatMessage.Sender.ROBOT);
-                statusTextView.setText(getString(R.string.error_code_prefix, errorCode));
-            });
-            if (connectionPromise != null && !connectionPromise.getFuture().isDone()) {
-                connectionPromise.setError("Server returned an error during setup: " + errorMessage);
-                connectionPromise = null;
-            }
-        });
-    }
 
     private void setupSettingsMenu() {
         NavigationView navigationView = findViewById(R.id.navigation_view);
@@ -950,15 +773,8 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                 Log.i(TAG, "Recognizer settings changed. Re-initializing speech recognizer.");
                     runOnUiThread(() -> statusTextView.setText(getString(R.string.status_updating_recognizer)));
                     stopContinuousRecognition();
-                    initializeSpeechRecognizer().thenConsume(future -> {
-                        if (future.hasError()) {
-                        Log.e(TAG, "Failed to re-initialize recognizer", future.getError());
-                            runOnUiThread(() -> statusTextView.setText(getString(R.string.error_updating_settings)));
-                        } else {
-                            Log.i(TAG, "Recognizer re-initialized. Restarting recognition.");
+                reinitializeSpeechRecognizerForSettings();
                             startContinuousRecognition();
-                        }
-                    });
                 }
 
             @Override
@@ -970,7 +786,9 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             public void onToolsChanged() {
                 // This covers tools, prompt, and temperature changes - only session update needed
                 Log.i(TAG, "Tools/prompt/temperature changed. Updating session.");
-                sendSessionUpdate();
+                if (sessionManager != null) {
+                    sessionManager.updateSession();
+                }
             }
         });
 
@@ -994,6 +812,12 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         int itemId = item.getItemId();
         if (itemId == R.id.action_navigation_status) {
+            // Toggle map preview visibility
+            if (mapPreviewContainer != null) {
+                mapPreviewContainer.setVisibility(
+                    mapPreviewContainer.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE
+                );
+            }
             showNavigationStatusPopup();
             return true;
         } else if (itemId == R.id.action_new_chat) {
@@ -1020,7 +844,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         }
         
         // Inflate popup layout
-        View popupView = getLayoutInflater().inflate(R.layout.navigation_status_popup, null);
+        View popupView = getLayoutInflater().inflate(R.layout.navigation_status_popup, drawerLayout, false);
         
         // Update status in popup
         TextView popupMapStatus = popupView.findViewById(R.id.popup_map_status);
@@ -1033,13 +857,13 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         if (mapStatus != null && popupMapStatus != null) {
             String mapText = mapStatus.getText().toString();
             // Extract just the status part after the emoji and "Map: "
-            popupMapStatus.setText(mapText.replaceFirst("🗺️ Map: ", ""));
+            popupMapStatus.setText(mapText.replaceFirst(getString(R.string.popup_map_status_prefix), ""));
         }
         
         if (localizationStatus != null && popupLocalizationStatus != null) {
             String localizationText = localizationStatus.getText().toString();
             // Extract just the status part after the emoji and "Localization: "
-            popupLocalizationStatus.setText(localizationText.replaceFirst("🧭 Localization: ", ""));
+            popupLocalizationStatus.setText(localizationText.replaceFirst(getString(R.string.popup_localization_status_prefix), ""));
         }
         
         // Create popup window
@@ -1062,6 +886,41 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                 navigationStatusPopup.dismiss();
             }
         }, 5000);
+    }
+    
+    /**
+     * Updates the map preview UI with the latest locations and state.
+     */
+    public void updateMapPreview() {
+        if (mapPreviewView == null || locationProvider == null || navigationServiceManager == null) {
+            return;
+        }
+
+        runOnUiThread(() -> {
+            MapState state;
+            if (!navigationServiceManager.isMapSavedOnDisk(this)) {
+                state = MapState.NO_MAP;
+            } else if (!navigationServiceManager.isMapLoaded()) {
+                state = MapState.MAP_LOADED_NOT_LOCALIZED;
+            } else if (!navigationServiceManager.isLocalizationReady()) {
+                // Determine if it's localizing or failed
+                String locStatus = localizationStatusTextView.getText().toString();
+                if (locStatus.contains("Failed")) {
+                    state = MapState.LOCALIZATION_FAILED;
+                } else {
+                    state = MapState.LOCALIZING;
+                }
+            } else {
+                state = MapState.LOCALIZED;
+            }
+
+            mapPreviewView.updateData(
+                locationProvider.getSavedLocations(), 
+                state,
+                navigationServiceManager.getMapBitmap(),
+                navigationServiceManager.getMapTopGraphicalRepresentation()
+            );
+        });
     }
     
     private void applyVolume(int percentage) {
@@ -1099,6 +958,24 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         threadManager.executeNetwork(() -> {
             // Clean up session-scoped images on I/O thread
             threadManager.executeIO(this::deleteSessionImages);
+            
+            // Stop gesture controller and reset turn manager for clean state
+            Log.i(TAG, "Stopping gesture controller for session restart...");
+            gestureController.stopNow();
+            
+            // Reset turn manager to LISTENING state for new session
+            if (turnManager != null) {
+                turnManager.setState(TurnManager.State.LISTENING);
+                Log.i(TAG, "TurnManager reset to LISTENING for new session");
+            }
+            
+            // Clear response tracking variables for clean state
+            hasActiveResponse = false;
+            currentResponseId = null;
+            cancelledResponseId = null;
+            lastChatBubbleResponseId = null;
+            expectingFinalAnswerAfterToolCall = false;
+            Log.i(TAG, "Response tracking variables cleared for new session");
             
             // 1. Gracefully disconnect the old session
             Log.i(TAG, "Starting session cleanup for provider switch...");
@@ -1143,20 +1020,88 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     }
 
 
-    private Future<Void> warmupSpeechRecognizer() {
-        Promise<Void> promise = new Promise<>();
-        threadManager.executeAudio(() -> {
-            try {
-                // Create STT manager only if not already initialized
-                if (sttManager == null) {
-                    sttManager = new SpeechRecognizerManager();
-                    Log.i(TAG, "Created new SpeechRecognizerManager for warmup");
+    /**
+     * Configure STT with activity callbacks
+     */
+    private void configureSpeechRecognizer() {
+        sttManager.setCallbacks(new SpeechRecognizerManager.ActivityCallbacks() {
+            @Override
+            public void onRecognizedText(String text) {
+                // Gate STT: only accept in LISTENING state
+                if (turnManager != null && turnManager.getState() != TurnManager.State.LISTENING) {
+                    Log.i(TAG, "Ignoring STT result because state=" + turnManager.getState());
+                    return;
                 }
+                
+                runOnUiThread(() -> {
+                    addMessage(text.replaceAll("\\[Low confidence:.*?]", "").trim(), ChatMessage.Sender.USER);
+                    sendMessageToRealtimeAPI(text, true, false);
+                });
+            }
+
+            @Override
+            public void onPartialText(String partialText) {
+                runOnUiThread(() -> {
+                    if (statusTextView.getText().toString().startsWith("Listening")) {
+                        statusTextView.setText(getString(R.string.status_listening_partial, partialText));
+                    }
+                });
+            }
+
+            @Override
+            public void onError(String errorMessage) {
+                Log.e(TAG, "STT error: " + errorMessage);
+                runOnUiThread(() -> statusTextView.setText(getString(R.string.error_generic, errorMessage)));
+            }
+
+            @Override
+            public void onStarted() {
+                sttIsRunning = true;
+                runOnUiThread(() -> statusTextView.setText(getString(R.string.status_listening)));
+            }
+
+            @Override
+            public void onStopped() {
+                sttIsRunning = false;
+            }
+        });
+        
+        // Configure with current settings
+        String langCode = settingsManager.getLanguage();
+        int silenceTimeout = settingsManager.getSilenceTimeout();
+        double confidenceThreshold = settingsManager.getConfidenceThreshold();
+        
+        sttManager.configure(keyManager.getAzureSpeechKey(), keyManager.getAzureSpeechRegion(), langCode, silenceTimeout, confidenceThreshold);
+    }
+    
+    private void setupSpeechRecognizer() throws Exception {
+        Log.i(TAG, "Starting STT setup - ensuring manager...");
+        ensureSttManager();
+        
+        Log.i(TAG, "Setting up other services...");
+        // Setup other services
                 if (visionService == null) visionService = new VisionService(this);
-                // sessionManager already created in onCreate() - no need to recreate
-                if (eventHandler == null) eventHandler = new RealtimeEventHandler(new RealtimeEventHandler.Listener() {
+        setupRealtimeEventHandlerIfNeeded();
+        
+        Log.i(TAG, "Configuring speech recognizer...");
+        // Configure STT with callbacks and current settings
+        configureSpeechRecognizer();
+        
+        Log.i(TAG, "Starting STT warmup...");
+        // Perform warmup
+        sttManager.warmup();
+        
+        Log.i(TAG, "Speech Recognizer setup completed");
+    }
+
+    /**
+     * Setup RealtimeEventHandler if not already created
+     */
+    private void setupRealtimeEventHandlerIfNeeded() {
+        if (eventHandler == null) {
+            eventHandler = new RealtimeEventHandler(new RealtimeEventHandler.Listener() {
                     @Override public void onSessionUpdated(JSONObject session) {
-                        Log.i(TAG, "Session configured successfully.");
+                        Log.i(TAG, "Session configured successfully - completing connection promise.");
                         // Try to read output_audio_format.sample_rate_hz to align AudioTrack
                         try {
                             if (session != null && session.has("output_audio_format")) {
@@ -1172,21 +1117,16 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                         } catch (Exception e) {
                             Log.w(TAG, "Failed to apply session sample rate", e);
                         }
-                        // Do not change status to "Ready" if the app is still in the initial startup/warmup phase.
                         if (!isWarmingUp) {
                             runOnUiThread(() -> statusTextView.setText(getString(R.string.status_ready)));
                         }
-                        if (connectionPromise != null && !connectionPromise.getFuture().isDone()) {
-                            connectionPromise.setValue(null);
-                            connectionPromise = null;
-                        }
+                        completeConnectionPromise();
                     }
                     @Override public void onAudioTranscriptDelta(String delta, String responseId) {
                         runOnUiThread(() -> {
                             if (Objects.equals(responseId, cancelledResponseId)) {
                                 return; // drop transcript of cancelled response
                             }
-                            // Set prefix exactly once when the very first delta of a response arrives
                             CharSequence current = statusTextView.getText();
                             if (current == null || current.length() == 0 || !current.toString().startsWith("Speaking — tap to interrupt: ")) {
                                 statusTextView.setText(getString(R.string.status_speaking_tap_to_interrupt));
@@ -1208,39 +1148,89 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                         });
                     }
                     @Override public void onAudioDelta(byte[] pcm16, String responseId) {
-                        // As soon as the first audio chunk arrives, switch to SPEAKING to prevent mic feedback
+                        // Ignore audio from cancelled response
+                        if (Objects.equals(responseId, cancelledResponseId)) {
+                            return;
+                        }
+                        
                         if (!audioPlayer.isPlaying()) {
                             turnManager.setState(TurnManager.State.SPEAKING);
                         }
                         if (responseId != null) {
-                            // Call onResponseBoundary for every new response to reset timing
                             if (!Objects.equals(currentResponseId, responseId)) {
                                 try { audioPlayer.onResponseBoundary(); } catch (Exception ignored) {}
                             currentResponseId = responseId;
                             }
                         }
-                        if (Objects.equals(responseId, cancelledResponseId)) {
-                            return; // drop cancelled response chunks
-                        }
+                        
                 hasActiveResponse = true;
                         audioPlayer.addChunk(pcm16);
                         audioPlayer.startIfNeeded();
                     }
                     @Override public void onAudioDone() {
-
                         audioPlayer.markResponseDone();
                 hasActiveResponse = false;
                     }
                     @Override public void onResponseDone(JSONObject response) {
+                        Log.i(TAG, "Full response received. Processing final output.");
                         try {
-                            // Reuse existing logic by directly passing the raw event
-                            // By composing a synthetic JSON and using the fallback
-                            JSONObject wrapper = new JSONObject();
-                            wrapper.put("type", "response.done");
-                            wrapper.put("response", response);
-                            handleWebSocketTextMessage(wrapper.toString());
+                            JSONArray outputArray = response.optJSONArray("output");
+
+                            if (outputArray == null || outputArray.length() == 0) {
+                                Log.i(TAG, "Response.done with no output. Finishing turn.");
+                                // The turn will be finished by onPlaybackFinished callback. 
+                                // If there's no audio, we just wait. This prevents a race condition
+                                // where we try to enter LISTENING state before audio playback has even finished.
+                                return;
+                            }
+
+                            List<JSONObject> functionCalls = new ArrayList<>();
+                            List<JSONObject> messageItems = new ArrayList<>();
+
+                            for (int i = 0; i < outputArray.length(); i++) {
+                                JSONObject out = outputArray.getJSONObject(i);
+                                String outType = out.optString("type");
+                                if ("function_call".equals(outType)) {
+                                    functionCalls.add(out);
+                                } else if ("message".equals(outType)) {
+                                    messageItems.add(out);
+                                }
+                            }
+
+                            if (!functionCalls.isEmpty()) {
+                                for (JSONObject fc : functionCalls) {
+                                    String toolName = fc.getString("name");
+                                    String callId = fc.getString("call_id");
+                                    String argsString = fc.getString("arguments");
+                                    JSONObject args = new JSONObject(argsString);
+
+                                    final String fToolName = toolName;
+                                    final String fArgsString = args.toString();
+                                    runOnUiThread(() -> addFunctionCall(fToolName, fArgsString));
+
+                                    String result = toolRegistry.executeTool(toolName, args, toolContext);
+                                    final String fResult = result;
+                                    runOnUiThread(() -> updateFunctionCallResult(fResult));
+                                    sendToolResult(callId, result);
+                                    expectingFinalAnswerAfterToolCall = true;
+                                }
+                            }
+
+                            if (!messageItems.isEmpty()) {
+                                try {
+                                    JSONObject firstMsg = messageItems.get(0);
+                                    JSONObject assistantMessage = new JSONObject();
+                                    assistantMessage.put("role", "assistant");
+                                    assistantMessage.put("content", firstMsg.optJSONArray("content"));
+                                    Log.d(TAG, "Final assistant message added to local history.");
             } catch (Exception e) {
-                            Log.e(TAG, "onResponseDone handling failed", e);
+                                    Log.e(TAG, "Could not save final assistant message to history", e);
+                                }
+                            }
+                        } catch (Exception e) {
+                            Log.e(TAG, "Error processing response.done message. Attempting to recover.", e);
+                            // Recovery logic is handled by onPlaybackFinished. Removing manual state change
+                            // to prevent race conditions and double STT start.
                         }
                     }
                     @Override public void onAssistantItemAdded(String itemId) {
@@ -1248,7 +1238,6 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                             lastAssistantItemId = itemId;
                         } catch (Exception ignored) {}
                     }
-                    
                     @Override public void onResponseBoundary(String newResponseId) {
                         try {
                             Log.d(TAG, "Response boundary detected - new ID: " + newResponseId + ", previous ID: " + currentResponseId);
@@ -1259,7 +1248,6 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                             Log.w(TAG, "Error during response boundary reset", e);
                         }
                     }
-                    
                     @Override public void onResponseCreated(String responseId) {
                         try {
                             Log.d(TAG, "New response created with ID: " + responseId);
@@ -1273,371 +1261,153 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                             addMessage(getString(R.string.server_error_prefix, msg), ChatMessage.Sender.ROBOT);
                             statusTextView.setText(getString(R.string.error_generic, code));
                         });
-                        if (connectionPromise != null && !connectionPromise.getFuture().isDone()) {
-                            connectionPromise.setError("Server returned an error during setup: " + msg);
-                            connectionPromise = null;
-                        }
+                        failConnectionPromise("Server returned an error during setup: " + msg);
                     }
                     @Override public void onUnknown(String type, JSONObject raw) {
-                        // Fallback: use existing handlers
-                        if (raw != null) handleWebSocketTextMessage(raw.toString());
+                        // Unknown message types are logged but not processed
+                        Log.w(TAG, "Unknown WebSocket message type: " + type);
                     }
                 });
-                sttManager.setListener(new SpeechRecognizerManager.Listener() {
-                    @Override public void onRecognizing(String partialText) {
-                        runOnUiThread(() -> { if (statusTextView.getText().toString().startsWith("Listening")) { statusTextView.setText(getString(R.string.status_listening_partial, partialText)); } });
-                    }
-                    @Override public void onRecognized(String text, double confidence) {
-                        if (text != null && !text.isEmpty()) {
-                            // Gate STT: only accept in LISTENING state, prevents echo during tool follow-up responses
-                            if (turnManager != null && turnManager.getState() != TurnManager.State.LISTENING) {
-                                Log.i(TAG, "Ignoring STT result because state=" + turnManager.getState());
-                    return;
-                }
-                            stopContinuousRecognition();
-                            
-                            // Check confidence and add warning if needed
-                            String finalText = addConfidenceWarningIfNeeded(text, confidence);
-                            
-                            runOnUiThread(() -> {
-                                addMessage(text, ChatMessage.Sender.USER); // Show original text in UI
-                                sendTextToAzure(finalText); // Send text with potential warning to AI
-                            });
-                        }
-                    }
-                    @Override public void onError(Exception ex) {
-                        Log.e(TAG, "STT error", ex);
-                        runOnUiThread(() -> statusTextView.setText(getString(R.string.error_generic, ex.getMessage())));
-                    }
-                });
-                String langCode = settingsManager.getLanguage();
-                int silenceTimeout = settingsManager.getSilenceTimeout();
-                sttManager.initialize(keyManager.getAzureSpeechKey(), keyManager.getAzureSpeechRegion(), langCode, silenceTimeout);
-
-                // Perform the actual warmup and wait for it to complete.
-                sttManager.warmup();
-
-                Log.i(TAG, "Speech Recognizer initialized and warmed up.");
-                promise.setValue(null);
-            } catch (Exception ex) {
-                Log.e(TAG, "STT Init/Warmup failed", ex);
-                runOnUiThread(() -> statusTextView.setText(getString(R.string.error_generic, ex.getMessage())));
-                promise.setError(ex.getMessage());
-            }
-        });
-        return promise.getFuture();
+        }
     }
-
-    private Future<Void> initializeSpeechRecognizer() {
-        Promise<Void> promise = new Promise<>();
+    
+    /**
+     * Re-initialize STT for settings changes - direct approach
+     */
+    private void reinitializeSpeechRecognizerForSettings() {
         threadManager.executeAudio(() -> {
             try {
-                // Get selected language from settings
+                ensureSttManager();
+                
+                // Reconfigure with new settings
+                configureSpeechRecognizer();
+                
                 String langCode = settingsManager.getLanguage();
                 int silenceTimeout = settingsManager.getSilenceTimeout();
-                
-                SpeechConfig speechConfig = SpeechConfig.fromSubscription(keyManager.getAzureSpeechKey(), keyManager.getAzureSpeechRegion());
-                speechConfig.setSpeechRecognitionLanguage(langCode);
-                speechConfig.setProperty("Speech_SegmentationSilenceTimeoutMs", String.valueOf(silenceTimeout));
+                Log.i(TAG, "Speech Recognizer re-initialized for language: " + langCode + ", silence timeout: " + silenceTimeout + "ms");
 
-                // Reuse existing recognizer if possible to reduce memory usage
-                if (sttManager == null) {
-                sttManager = new SpeechRecognizerManager();
-                    Log.i(TAG, "Created new SpeechRecognizerManager for settings change");
-                } else {
-                    Log.i(TAG, "Reusing existing SpeechRecognizerManager for settings change");
-                }
-                sttManager.setListener(new SpeechRecognizerManager.Listener() {
-                    @Override public void onRecognizing(String partialText) {
-                        runOnUiThread(() -> { if (statusTextView.getText().toString().startsWith("Listening")) { statusTextView.setText(getString(R.string.status_listening_partial, partialText)); } });
-                    }
-                    @Override public void onRecognized(String text, double confidence) {
-                        if (text != null && !text.isEmpty()) {
-                            stopContinuousRecognition();
-                            runOnUiThread(() -> {
-                                addMessage(text, ChatMessage.Sender.USER);
-                                sendTextToAzure(text);
-                            });
-                        }
-                    }
-                    @Override public void onError(Exception ex) {
-                        Log.e(TAG, "STT error", ex);
-                        runOnUiThread(() -> statusTextView.setText(getString(R.string.error_generic, ex.getMessage())));
-                    }
-                });
-                sttManager.initialize(keyManager.getAzureSpeechKey(), keyManager.getAzureSpeechRegion(), langCode, silenceTimeout);
-                 Log.i(TAG, "Speech Recognizer initialized for language: " + langCode + ", silence timeout: " + silenceTimeout + "ms");
-                 promise.setValue(null);
+                runOnUiThread(() -> statusTextView.setText(getString(R.string.status_listening)));
 
             } catch (Exception ex) {
-                Log.e(TAG, "STT Init failed", ex);
-                runOnUiThread(() -> statusTextView.setText(getString(R.string.error_generic, ex.getMessage())));
-                promise.setError(ex.getMessage());
+                Log.e(TAG, "STT re-init failed", ex);
+                runOnUiThread(() -> statusTextView.setText(getString(R.string.error_updating_settings)));
             }
         });
-        return promise.getFuture();
+    }
+
+    private void ensureSttManager() {
+                if (sttManager == null) {
+                sttManager = new SpeechRecognizerManager();
+            Log.i(TAG, "Created new SpeechRecognizerManager");
+        }
     }
 
     private void startContinuousRecognition() {
         if (sttManager == null) {
             Log.w(TAG, "Speech recognizer not initialized yet, cannot start recognition.");
-            runOnUiThread(()-> statusTextView.setText(getString(R.string.status_recognizer_not_ready)));
+            runOnUiThread(() -> statusTextView.setText(getString(R.string.status_recognizer_not_ready)));
             return;
         }
-        if (sttIsRunning) {
-            Log.i(TAG, "STT already running, skipping duplicate startContinuous call");
-            return;
-        }
+        
         threadManager.executeAudio(() -> {
-            try {
-                sttManager.startContinuous();
-                sttIsRunning = true;
-                runOnUiThread(() -> statusTextView.setText(getString(R.string.status_listening)));
-                Log.i(TAG, "Continuous recognition started.");
-            } catch (Exception ex) {
-                Log.e(TAG, "startContinuousRecognition failed, attempting lazy initialization", ex);
-                
-                // If recognition fails, try to re-initialize (for first-launch scenarios)
-                if (isFirstLaunchSpeechError(ex)) {
-                    Log.i(TAG, "Detected first-launch speech error, attempting lazy re-initialization");
-                    try {
-                        String langCode = settingsManager.getLanguage();
-                        int silenceTimeout = settingsManager.getSilenceTimeout();
-                        sttManager.initialize(keyManager.getAzureSpeechKey(), keyManager.getAzureSpeechRegion(), langCode, silenceTimeout);
-                        
-                        // Try again after brief delay
-                        Thread.sleep(1000);
-                        sttManager.startContinuous();
-                        sttIsRunning = true;
-                        runOnUiThread(() -> statusTextView.setText(getString(R.string.status_listening)));
-                        Log.i(TAG, "Lazy speech initialization successful");
-                        return;
-                    } catch (Exception retryEx) {
-                        Log.e(TAG, "Lazy speech initialization also failed", retryEx);
-                    }
-                }
-                
-                runOnUiThread(() -> statusTextView.setText(getString(R.string.error_starting_listener, ex.getMessage())));
-            }
+            sttManager.start(); // Manager handles all complexity internally
         });
-    }
-    
-    private boolean isFirstLaunchSpeechError(Exception ex) {
-        String msg = ex.getMessage();
-        return msg != null && (
-            msg.contains("0x22") || 
-            msg.contains("SPXERR_INVALID_RECOGNIZER") ||
-            msg.contains("invalid recognizer") ||
-            msg.contains("not initialized")
-        );
     }
 
     private void stopContinuousRecognition() {
         if (sttManager != null) {
             threadManager.executeAudio(() -> {
-                try {
-                    sttManager.stopContinuous();
-                    sttIsRunning = false;
-                    Log.i(TAG, "Continuous recognition stopped.");
-                } catch (Exception e) {
-                    Log.e(TAG, "Error stopping speech recognizer for speech", e);
-                    sttIsRunning = false; // Reset flag even on error
-                }
+                sttManager.stop(); // Manager handles all complexity internally
             });
         }
     }
 
-    private void sendTextToAzure(String text) {
+    /**
+     * Unified function to send text messages to Realtime API
+     * @param text Message content
+     * @param requestResponse Whether to request a response from the model
+     * @param allowInterrupt Whether to interrupt current speech if needed
+     */
+    public void sendMessageToRealtimeAPI(String text, boolean requestResponse, boolean allowInterrupt) {
+        // Ensure this method always runs on UI thread for thread-safe UI operations
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            runOnUiThread(() -> sendMessageToRealtimeAPI(text, requestResponse, allowInterrupt));
+            return;
+        }
+        
         if (sessionManager == null || !sessionManager.isConnected()) {
             Log.e(TAG, "WebSocket is not connected. Cannot send message.");
+            if (requestResponse) {
             runOnUiThread(() -> addMessage(getString(R.string.error_not_connected), ChatMessage.Sender.ROBOT));
+            }
             return;
         }
 
-        Log.d(TAG, "Step 1: Send user message to conversation...");
-        // Always allow state change to THINKING, even if currently SPEAKING (for touch interrupts)
-        if (turnManager != null) {
-            TurnManager.State currentState = turnManager.getState();
-            Log.d(TAG, "Current state: " + currentState + ", changing to THINKING");
-            turnManager.setState(TurnManager.State.THINKING);
-        }
-        // Reset response state for new response
-    
         try {
-            // Step 1: Send the user message to add it to the server-side history.
-            JSONObject createItemPayload = new JSONObject();
-            createItemPayload.put("type", "conversation.item.create");
-    
-            JSONObject item = new JSONObject();
-            item.put("type", "message");
-            item.put("role", "user");
-    
-            JSONArray contentArray = new JSONArray();
-            JSONObject content = new JSONObject();
-            content.put("type", "input_text");
-            content.put("text", text);
-            contentArray.put(content);
-    
-            item.put("content", contentArray);
-            createItemPayload.put("item", item);
-    
-            boolean sentItem = sessionManager.send(createItemPayload.toString());
-            if (sentItem) {
-            Log.d(TAG, "Sent conversation.item.create: " + createItemPayload);
+            // Handle interruption if requested and necessary
+            if (allowInterrupt && requestResponse && turnManager != null && turnManager.getState() == TurnManager.State.SPEAKING) {
+                long now = android.os.SystemClock.uptimeMillis();
+                boolean isPlaying = (audioPlayer != null && audioPlayer.isPlaying());
+                long sinceDone = now - lastAudioDoneTs;
+                Log.d(TAG, "Interrupt guard: state=SPEAKING, isPlaying=" + isPlaying + ", sinceDoneMs=" + sinceDone);
+                if (isPlaying && sinceDone > 200) {
+                    Log.d(TAG, "Triggering interrupt via FAB (cancel+truncate)");
+                    fabInterrupt.performClick();
             } else {
-                Log.e(TAG, "🚨 DIAGNOSTIC: Failed to send conversation.item.create - WebSocket connection broken");
-                runOnUiThread(() -> {
-                    addMessage("Connection lost. Please restart the app to reconnect.", ChatMessage.Sender.ROBOT);
-                    turnManager.setState(TurnManager.State.IDLE);
-                });
-                return;
+                    Log.d(TAG, "Skip interrupt (isPlaying=" + isPlaying + ", sinceDoneMs=" + sinceDone + ")");
+                }
             }
-    
-            // User message added to server-side conversation history
-    
-            // Step 2: Request a response from the model.
-            JSONObject createResponsePayload = new JSONObject();
-            createResponsePayload.put("type", "response.create");
-            
-            JSONObject responseDetails = new JSONObject();
-            responseDetails.put("modalities", new JSONArray().put("audio").put("text"));
-            // NO 'input' or 'prompt' here! The model uses the server-side history.
-            createResponsePayload.put("response", responseDetails);
-    
-            boolean sentResponse = sessionManager.send(createResponsePayload.toString());
-            if (sentResponse) {
-            Log.d(TAG, "Sent response.create: " + createResponsePayload);
-            } else {
-                Log.e(TAG, "🚨 DIAGNOSTIC: Failed to send response.create - WebSocket connection broken");
-                runOnUiThread(() -> {
-                    addMessage("Connection lost during response request. Please restart the app.", ChatMessage.Sender.ROBOT);
-                    turnManager.setState(TurnManager.State.IDLE);
-                });
+
+            // Step 1: Send the message via the session manager
+            boolean sentItem = sessionManager.sendUserTextMessage(text);
+            if (!sentItem) {
+                handleWebSocketSendError("message");
                 return;
             }
 
-        } catch (Exception e) {
-            Log.e(TAG, "🚨 DIAGNOSTIC: Exception in sendTextToAzure - this indicates JSON creation or send failure", e);
-            runOnUiThread(() -> {
-                addMessage("Error processing your message. Please try again or restart the app if the problem persists.", ChatMessage.Sender.ROBOT);
+            // Step 2: Request response if needed
+            if (requestResponse) {
                 if (turnManager != null) {
-                    turnManager.setState(TurnManager.State.IDLE);
+                    turnManager.setState(TurnManager.State.THINKING);
                 }
+                boolean sentResponse = sessionManager.requestResponse();
+                if (!sentResponse) {
+                    handleWebSocketSendError("response request");
+                }
+            }
+                                } catch (Exception e) {
+            Log.e(TAG, "Exception in sendMessageToRealtimeAPI", e);
+            if (requestResponse) {
+            runOnUiThread(() -> {
+                addMessage(getString(R.string.error_processing_message), ChatMessage.Sender.ROBOT);
+                    if (turnManager != null) turnManager.setState(TurnManager.State.IDLE);
             });
         }
     }
-
-    // tools definition moved to ToolRegistry
-
-    private void handleWebSocketTextMessage(String text) {
-        webSocketHandler.handleMessage(text);
     }
 
-    private void handleResponseDone(JSONObject message) {
-                    Log.i(TAG, "Full response received. Processing final output.");
-                    try {
-                        JSONObject responseObject = message.getJSONObject("response");
-                        JSONArray outputArray = responseObject.optJSONArray("output");
 
-                        if (outputArray == null || outputArray.length() == 0) {
-                            Log.i(TAG, "Response.done with no output. Finishing turn.");
-                            if (!audioPlayer.isPlaying()) {
-                                gestureController.stopNow();
-                                if (turnManager != null) turnManager.setState(TurnManager.State.LISTENING);
-                            }
-                return;
-                        }
-
-                        List<JSONObject> functionCalls = new ArrayList<>();
-                        List<JSONObject> messageItems = new ArrayList<>();
-
-                        for (int i = 0; i < outputArray.length(); i++) {
-                            JSONObject out = outputArray.getJSONObject(i);
-                            String outType = out.optString("type");
-                            if ("function_call".equals(outType)) {
-                                functionCalls.add(out);
-                            } else if ("message".equals(outType)) {
-                                messageItems.add(out);
-                            }
-                        }
-
-                        if (!functionCalls.isEmpty()) {
-                            for (JSONObject fc : functionCalls) {
-                                String toolName = fc.getString("name");
-                                String callId = fc.getString("call_id");
-                                String argsString = fc.getString("arguments");
-                                JSONObject args = new JSONObject(argsString);
-
-                                final String fToolName = toolName;
-                                final String fArgsString = args.toString();
-                                runOnUiThread(() -> addFunctionCall(fToolName, fArgsString));
-
-                                if ("analyze_vision".equals(toolName)) {
-                                    startAnalyzeVisionFlow(callId, args.optString("prompt", ""));
-                                    } else {
-                                    String result = toolExecutor.execute(toolName, args);
-                                    final String fResult = result;
-                                    runOnUiThread(() -> updateFunctionCallResult(fResult));
-                                    sendToolResult(callId, result);
-                                }
-                                expectingFinalAnswerAfterToolCall = true;
-                            }
-                        }
-
-                        if (!messageItems.isEmpty()) {
-                            try {
-                                JSONObject firstMsg = messageItems.get(0);
-                                JSONObject assistantMessage = new JSONObject();
-                                assistantMessage.put("role", "assistant");
-                                assistantMessage.put("content", firstMsg.optJSONArray("content"));
-                                Log.d(TAG, "Final assistant message added to local history.");
-                                } catch (Exception e) {
-                                Log.e(TAG, "Could not save final assistant message to history", e);
-                            }
-                        }
-                                } catch (Exception e) {
-                        Log.e(TAG, "Error processing response.done message. Attempting to recover.", e);
-                        if (!audioPlayer.isPlaying()) {
-                            gestureController.stopNow();
-                            if (turnManager != null) turnManager.setState(TurnManager.State.LISTENING);
-                        }
-                    }
-    }
+    // handleResponseDone() moved to onResponseDone() in RealtimeEventHandler.Listener
 
     private void sendToolResult(String callId, String result) {
         if (sessionManager == null || !sessionManager.isConnected()) return;
         try {
-            // Mark that a follow-up answer is expected; mic will only be paused when audio actually starts
+            // Mark that a follow-up answer is expected
             expectingFinalAnswerAfterToolCall = true;
  
-            JSONObject toolResultPayload = new JSONObject();
-            toolResultPayload.put("type", "conversation.item.create");
-            
-            JSONObject item = new JSONObject();
-            item.put("type", "function_call_output");
-            item.put("call_id", callId);
-            item.put("output", result);
-            
-            toolResultPayload.put("item", item);
-            
-            boolean sentTool = sessionManager.send(toolResultPayload.toString());
+            // Send the tool result via the session manager
+            boolean sentTool = sessionManager.sendToolResult(callId, result);
             if (!sentTool) {
-                Log.e(TAG, "🚨 DIAGNOSTIC: Failed to send tool result - WebSocket connection broken");
-                runOnUiThread(() -> addMessage("Connection lost during tool execution. Please restart the app.", ChatMessage.Sender.ROBOT));
+                handleWebSocketSendError("tool result");
                 return;
             }
-            Log.d(TAG, "Sent tool result: " + toolResultPayload);
  
             // After sending the tool result, we must ask for a new response
-            JSONObject createResponsePayload = new JSONObject();
-            createResponsePayload.put("type", "response.create");
-            boolean sentToolResponse = sessionManager.send(createResponsePayload.toString());
+            boolean sentToolResponse = sessionManager.requestResponse();
             if (!sentToolResponse) {
-                Log.e(TAG, "🚨 DIAGNOSTIC: Failed to send tool response request - WebSocket connection broken");
-                runOnUiThread(() -> addMessage("Connection lost after tool execution. Please restart the app.", ChatMessage.Sender.ROBOT));
+                handleWebSocketSendError("tool response request");
                 return;
             }
-            Log.d(TAG, "Requested new response after tool call.");
 
             // Hold state in THINKING until the next response audio begins,
             // but do NOT override SPEAKING to preserve ability to interrupt current speech
@@ -1649,8 +1419,6 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             Log.e(TAG, "Error sending tool result", e);
         }
     }
-    
-
 
     private void disconnectWebSocket() {
         if (sessionManager != null) {
@@ -1684,224 +1452,6 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             Log.d(TAG, "No active session to disconnect");
         }
     }
-    
-    private void showQuizDialog(final String question, final String[] options, final String correctAnswer) {
-        if (isFinishing()) { Log.w(TAG, "Not showing quiz dialog because activity is finishing."); return; }
-        View dialogView = getLayoutInflater().inflate(R.layout.dialog_quiz, null);
-        AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.QuizDialog);
-        builder.setView(dialogView);
-        builder.setCancelable(false);
-        
-        // Get references to the UI elements
-        TextView questionTextView = dialogView.findViewById(R.id.quiz_question_textview);
-        Button option1Button = dialogView.findViewById(R.id.quiz_option_1);
-        Button option2Button = dialogView.findViewById(R.id.quiz_option_2);
-        Button option3Button = dialogView.findViewById(R.id.quiz_option_3);
-        Button option4Button = dialogView.findViewById(R.id.quiz_option_4);
-        List<Button> buttons = new ArrayList<>();
-        buttons.add(option1Button);
-        buttons.add(option2Button);
-        buttons.add(option3Button);
-        buttons.add(option4Button);
-
-        // Set question and button texts
-        questionTextView.setText(question);
-        for (int i = 0; i < buttons.size() && i < options.length; i++) {
-            buttons.get(i).setText(options[i]);
-        }
-
-        final AlertDialog dialog = builder.create();
-
-        // Set onClick listeners for each button
-        for (final Button button : buttons) {
-            button.setOnClickListener(v -> {
-                // NEW: Interrupt robot if it's currently speaking
-                if (turnManager != null && turnManager.getState() == TurnManager.State.SPEAKING) {
-                    if (hasActiveResponse || (audioPlayer != null && audioPlayer.isPlaying())) {
-                        fabInterrupt.performClick();
-                    }
-                }
-
-                String selectedOption = button.getText().toString();
-                boolean isCorrect = selectedOption.equals(correctAnswer);
-
-                // Disable all buttons to prevent multiple answers
-                for (Button b : buttons) {
-                    b.setEnabled(false);
-                }
-
-                // Color the buttons based on the answer
-                if (isCorrect) {
-                    int green = ContextCompat.getColor(this, R.color.correct_green);
-                    button.setBackgroundTintList(ColorStateList.valueOf(green));
-                    button.setTextColor(Color.WHITE);
-                } else {
-                    int red = ContextCompat.getColor(this, R.color.incorrect_red);
-                    button.setBackgroundTintList(ColorStateList.valueOf(red));
-                    button.setTextColor(Color.WHITE);
-                    for (Button b : buttons) {
-                        if (b.getText().toString().equals(correctAnswer)) {
-                            int green = ContextCompat.getColor(this, R.color.correct_green);
-                            b.setBackgroundTintList(ColorStateList.valueOf(green));
-                            b.setTextColor(Color.WHITE);
-                        }
-                    }
-                }
-
-                // Send feedback to the model
-                String feedbackMessage = getString(R.string.quiz_feedback_format, question, selectedOption);
-                stopContinuousRecognition();
-                addMessage(feedbackMessage, ChatMessage.Sender.USER);
-                sendTextToAzure(feedbackMessage);
-
-                // Close the dialog after a delay
-                new Handler(Looper.getMainLooper()).postDelayed(dialog::dismiss, 4000); // 4 seconds delay
-            });
-        }
-        
-        dialog.show();
-        // Make dialog full-screen
-        if (dialog.getWindow() != null) {
-            dialog.getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
-        }
-    }
-
-    private void showMemoryGameDialog(String difficulty) {
-        if (isFinishing()) { 
-            Log.w(TAG, "Not showing memory game dialog because activity is finishing."); 
-            return; 
-        }
-        
-        MemoryGameDialog memoryGame = new MemoryGameDialog(this, new MemoryGameDialog.GameEventListener() {
-            @Override
-            public void sendContextUpdate(String message) {
-                // Send context update without requesting a response
-                sendContextToModel(message, false);
-            }
-            
-            @Override
-            public void sendContextUpdateWithResponse(String message) {
-                // Send context update and request a response
-                sendContextToModel(message, true);
-            }
-            
-            @Override
-            public void onGameClosed() {
-                Log.i(TAG, "Memory game closed by user");
-            }
-        });
-        
-        memoryGame.show(difficulty);
-    }
-
-    private void showYouTubePlayerDialog(YouTubeSearchService.YouTubeVideo video) {
-        if (isFinishing()) { 
-            Log.w(TAG, "Not showing YouTube player because activity is finishing."); 
-            return; 
-        }
-        
-        if (video == null) {
-            Log.e(TAG, "Cannot show YouTube player - video is null");
-            return;
-        }
-        
-        Log.i(TAG, "Opening YouTube player for: " + video.getTitle());
-        
-        YouTubePlayerDialog youtubePlayer = new YouTubePlayerDialog(this, new YouTubePlayerDialog.PlayerEventListener() {
-            @Override
-            public void onPlayerOpened() {
-                Log.i(TAG, "YouTube player opened - muting microphone");
-                // Mute microphone when video starts
-                mute();
-            }
-            
-            @Override
-            public void onPlayerClosed() {
-                Log.i(TAG, "YouTube player closed - un-muting microphone");
-                // Un-mute microphone when video closes
-                unmute();
-            }
-        });
-        
-        youtubePlayer.playVideo(video);
-    }
-
-    private void sendContextToModel(String message, boolean requestResponse) {
-        if (sessionManager == null || !sessionManager.isConnected()) {
-            Log.e(TAG, "WebSocket is not connected. Cannot send context update.");
-            return;
-        }
-
-        try {
-            // Interrupt only if audio is truly still playing, with a small guard window after playback finished
-            if (requestResponse && turnManager != null && turnManager.getState() == TurnManager.State.SPEAKING) {
-                long now = android.os.SystemClock.uptimeMillis();
-                boolean isPlaying = (audioPlayer != null && audioPlayer.isPlaying());
-                long sinceDone = now - lastAudioDoneTs;
-                Log.d(TAG, "🚨 DIAGNOSTIC: contextUpdate guard: state=SPEAKING, isPlaying=" + isPlaying + ", sinceDoneMs=" + sinceDone);
-                if (isPlaying && sinceDone > 200) {
-                    Log.d(TAG, "🚨 DIAGNOSTIC: triggering interrupt via FAB (cancel+truncate)");
-                    fabInterrupt.performClick(); // triggers response.cancel + truncate
-                } else {
-                    Log.d(TAG, "🚨 DIAGNOSTIC: skip interrupt (isPlaying=" + isPlaying + ", sinceDoneMs=" + sinceDone + ")");
-                }
-            }
-
-            // Step 1: Send the context message to add it to the server-side history
-            JSONObject createItemPayload = new JSONObject();
-            createItemPayload.put("type", "conversation.item.create");
-
-            JSONObject item = new JSONObject();
-            item.put("type", "message");
-            item.put("role", "user");
-
-            JSONArray contentArray = new JSONArray();
-            JSONObject content = new JSONObject();
-            content.put("type", "input_text");
-            content.put("text", message);
-            contentArray.put(content);
-
-            item.put("content", contentArray);
-            createItemPayload.put("item", item);
-
-            boolean sentContext = sessionManager.send(createItemPayload.toString());
-            if (!sentContext) {
-                Log.e(TAG, "🚨 DIAGNOSTIC: Failed to send context update - WebSocket connection broken");
-                runOnUiThread(() -> addMessage("Connection lost during status update. Please restart the app.", ChatMessage.Sender.ROBOT));
-                return;
-            }
-            Log.d(TAG, "Sent context update: " + message);
-
-            // Step 2: If response is requested, ask the model to respond
-            if (requestResponse) {
-                JSONObject createResponsePayload = new JSONObject();
-                createResponsePayload.put("type", "response.create");
-                
-                JSONObject responseDetails = new JSONObject();
-                responseDetails.put("modalities", new JSONArray().put("audio").put("text"));
-                createResponsePayload.put("response", responseDetails);
-
-                            boolean sentContextResponse = sessionManager.send(createResponsePayload.toString());
-            if (sentContextResponse) {
-                Log.d(TAG, "Requested response after context update");
-            } else {
-                Log.e(TAG, "🚨 DIAGNOSTIC: Failed to send context response request - WebSocket connection broken");
-                runOnUiThread(() -> addMessage("Connection lost during context update. Please restart the app.", ChatMessage.Sender.ROBOT));
-                return;
-            }
-                
-                // Update turn manager state for expected response
-                if (turnManager != null) {
-                    turnManager.setState(TurnManager.State.THINKING);
-                }
-            }
-
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to send context update", e);
-        }
-    }
-
-
 
     // Wrapper to initiate WebSocket connection via sessionManager and wait for session.updated
     private Future<Void> connectWebSocket() {
@@ -1909,31 +1459,14 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         if (sessionManager == null) {
             Log.w(TAG, "sessionManager was null in connectWebSocket - this should not happen");
             sessionManager = new RealtimeSessionManager();
-            sessionManager.setListener(new RealtimeSessionManager.Listener() {
-                @Override public void onOpen(Response response) { 
-                    Log.i(TAG, "WebSocket onOpen() in connectWebSocket - sending initial session config");
-                    ChatActivity.this.sendInitialSessionConfig(); 
-                }
-                @Override public void onTextMessage(String text) { if (eventHandler != null) eventHandler.handle(text); else handleWebSocketTextMessage(text); }
-                @Override public void onBinaryMessage(okio.ByteString bytes) { }
-                @Override public void onClosing(int code, String reason) { }
-                @Override public void onClosed(int code, String reason) {
-                    if (connectionPromise != null && !connectionPromise.getFuture().isDone()) {
-                        connectionPromise.setError("WebSocket closed before session was updated.");
-                        connectionPromise = null;
-                    }
-                }
-                @Override public void onFailure(Throwable t, Response response) {
-                    Log.e(TAG, "WebSocket Failure: " + t.getMessage(), t);
-                    if (connectionPromise != null && !connectionPromise.getFuture().isDone()) {
-                        connectionPromise.setError("WebSocket Failure: " + t.getMessage());
-                        connectionPromise = null;
-                    }
-                }
-            });
+            
+            // Set session dependencies (should be available in connectWebSocket)
+            sessionManager.setSessionDependencies(toolRegistry, toolContext, settingsManager, keyManager);
+            
+            sessionManager.setListener(createSessionManagerListener());
         }
         if (sessionManager.isConnected()) {
-            connectionPromise.setValue(null);
+            completeConnectionPromise();
             return connectionPromise.getFuture();
         }
         // Get current API provider and build connection parameters
@@ -1958,6 +1491,25 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         return connectionPromise.getFuture();
     }
 
+    private RealtimeSessionManager.Listener createSessionManagerListener() {
+        return new RealtimeSessionManager.Listener() {
+            @Override public void onOpen(Response response) {
+                Log.i(TAG, "WebSocket onOpen() - configuring initial session");
+                sessionManager.configureInitialSession();
+            }
+            @Override public void onTextMessage(String text) { if (eventHandler != null) eventHandler.handle(text); }
+            @Override public void onBinaryMessage(okio.ByteString bytes) { /* ignore */ }
+            @Override public void onClosing(int code, String reason) { }
+            @Override public void onClosed(int code, String reason) {
+                failConnectionPromise("WebSocket closed before session was updated.");
+            }
+            @Override public void onFailure(Throwable t, Response response) {
+                Log.e(TAG, "WebSocket Failure: " + t.getMessage(), t);
+                failConnectionPromise("WebSocket Failure: " + t.getMessage());
+            }
+        };
+    }
+
     private void releaseAudioTrack() {
         if (audioPlayer != null) audioPlayer.release();
         try { gestureController.shutdown(); } catch (Exception ignored) {}
@@ -1969,13 +1521,14 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             Log.w(TAG, "Cannot start gestures - qiContext is null");
             return;
         }
-        if (gesturesSuppressed) {
+        if (navigationServiceManager != null && navigationServiceManager.areGesturesSuppressed()) {
             Log.w(TAG, "Gestures suppressed - not starting gesture loop (critical navigation phase)");
             return;
         }
         Log.i(TAG, "Starting gesture loop for speaking state");
         gestureController.start(qiContext,
-                () -> turnManager != null && turnManager.getState() == TurnManager.State.SPEAKING && qiContext != null && !gesturesSuppressed,
+                () -> turnManager != null && turnManager.getState() == TurnManager.State.SPEAKING && qiContext != null && 
+                      (navigationServiceManager == null || !navigationServiceManager.areGesturesSuppressed()),
                 this::getRandomExplainAnimationResId);
     }
 
@@ -1996,12 +1549,6 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         java.util.Random rnd = new java.util.Random();
         return ids[rnd.nextInt(ids.length)];
     }
-
-
-
-
-
-
 
     private void addMessage(String text, ChatMessage.Sender sender) {
         runOnUiThread(() -> {
@@ -2035,152 +1582,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     }
 
 
-
-    private void addImageMessage(String imagePath) {
-        runOnUiThread(() -> {
-            ChatMessage msg = new ChatMessage("", imagePath, ChatMessage.Sender.ROBOT);
-            messageList.add(msg);
-            chatAdapter.notifyItemInserted(messageList.size() - 1);
-            chatRecyclerView.scrollToPosition(messageList.size() - 1);
-        });
-    }
-
-    private void startAnalyzeVisionFlow(String callId, String prompt) {
-        String apiKey = keyManager.getGroqApiKey();
-        runOnUiThread(() -> statusTextView.setText(getString(R.string.status_analyzing_vision)));
-        visionService.startAnalyze(prompt, apiKey, new VisionService.Callback() {
-            @Override public void onResult(String resultJson) {
-                try {
-                    // Append context for the realtime response so it speaks in "Du" form
-                    org.json.JSONObject obj = new org.json.JSONObject(resultJson);
-                    String desc = obj.optString("description", "");
-                    String context = getString(R.string.vision_context_suffix);
-                    if (!desc.isEmpty()) obj.put("description", desc + context);
-                    String adjusted = obj.toString();
-                    sendToolResult(callId, adjusted);
-                    runOnUiThread(() -> updateFunctionCallResult(adjusted));
-                } catch (Exception e) {
-                    // Fallback: if parsing fails, send original string
-                    sendToolResult(callId, resultJson);
-                    runOnUiThread(() -> updateFunctionCallResult(resultJson));
-                }
-            }
-            @Override public void onError(String errorMessage) {
-                sendToolResultSafelyError(callId, errorMessage);
-            }
-            @Override public void onInfo(String message) {
-                runOnUiThread(() -> addMessage(message, ChatMessage.Sender.ROBOT));
-                }
-            @Override public void onPhotoCaptured(String path) {
-                // Only show image in chat, without additional text
-                addImageMessage(path);
-                synchronized (sessionImagePaths) { sessionImagePaths.add(path); }
-            }
-        });
-        }
-    // Camera2 moved into VisionService
-
-    private void sendToolResultSafelyError(String callId, String errorMsg) {
-        try {
-            JSONObject err = new JSONObject();
-            err.put("error", errorMsg);
-            if (callId != null) sendToolResult(callId, err.toString());
-            runOnUiThread(() -> addMessage(getString(R.string.function_result_error_prefix, errorMsg), ChatMessage.Sender.ROBOT));
-        } catch (Exception ignored) {}
-    }
-
-    // Sends full initial session.update (voice, temperature, audio format, turn_detection, instructions, tools)
-    private void sendInitialSessionConfig() {
-        if (sessionManager == null || !sessionManager.isConnected()) {
-            Log.w(TAG, "Session config SKIPPED - sessionManager null/disconnected");
-            return;
-        }
-        try {
-            String voice = settingsManager.getVoice();
-            float temperature = settingsManager.getTemperature();
-            String systemPrompt = settingsManager.getSystemPrompt();
-
-            // Debug initial setup
-            java.util.Set<String> enabledTools = settingsManager.getEnabledTools();
-            Log.i(TAG, "Initial session - Enabled tools: " + enabledTools);
-
-            JSONObject payload = new JSONObject();
-            payload.put("type", "session.update");
-
-            JSONObject sessionConfig = new JSONObject();
-            sessionConfig.put("voice", voice);
-            sessionConfig.put("temperature", temperature);
-            sessionConfig.put("output_audio_format", "pcm16");
-            sessionConfig.put("turn_detection", JSONObject.NULL);
-            sessionConfig.put("instructions", systemPrompt);
-            
-            JSONArray toolsArray = ToolRegistry.buildToolsDefinitionForAzure(this, enabledTools);
-            sessionConfig.put("tools", toolsArray);
-            
-            // Debug tools array
-            Log.i(TAG, "Initial session tools: " + toolsArray.length() + " tools");
-            for (int i = 0; i < toolsArray.length(); i++) {
-                JSONObject tool = toolsArray.getJSONObject(i);
-                Log.d(TAG, "  Initial tool " + i + ": " + tool.optString("name"));
-            }
-
-            payload.put("session", sessionConfig);
-
-            sessionManager.send(payload.toString());
-            Log.d(TAG, "Sent initial session.update with " + toolsArray.length() + " tools");
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to send initial session.update", e);
-        }
-    }
-
-    // Sends session.update with current settings during an active session
-    private void sendSessionUpdate() {
-        if (sessionManager == null || !sessionManager.isConnected()) return;
-        try {
-            String voice = settingsManager.getVoice();
-            float temperature = settingsManager.getTemperature();
-            String systemPrompt = settingsManager.getSystemPrompt();
-            java.util.Set<String> enabledTools = settingsManager.getEnabledTools();
-
-            // Debug logging for tools
-            Log.i(TAG, "Session update - Enabled tools: " + enabledTools);
-            
-            // Debug YouTube API key
-            ApiKeyManager keyManager = new ApiKeyManager(this);
-            if (enabledTools.contains("play_youtube_video")) {
-                boolean hasYouTubeKey = keyManager.isYouTubeAvailable();
-                Log.i(TAG, "YouTube tool enabled - API key available: " + hasYouTubeKey);
-                if (!hasYouTubeKey) {
-                    Log.w(TAG, "YouTube tool enabled but no API key found!");
-                }
-            }
-
-            JSONObject payload = new JSONObject();
-            payload.put("type", "session.update");
-
-            JSONObject sessionConfig = new JSONObject();
-            sessionConfig.put("voice", voice);
-            sessionConfig.put("temperature", temperature);
-            sessionConfig.put("instructions", systemPrompt);
-            
-            JSONArray toolsArray = ToolRegistry.buildToolsDefinitionForAzure(this, enabledTools);
-            sessionConfig.put("tools", toolsArray);
-            
-            // Debug tools array
-            Log.i(TAG, "Tools in session.update: " + toolsArray.length() + " tools");
-            for (int i = 0; i < toolsArray.length(); i++) {
-                JSONObject tool = toolsArray.getJSONObject(i);
-                Log.d(TAG, "  Tool " + i + ": " + tool.optString("name"));
-            }
-
-            payload.put("session", sessionConfig);
-
-            sessionManager.send(payload.toString());
-            Log.d(TAG, "Sent session.update with " + toolsArray.length() + " tools");
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to send session.update", e);
-        }
-    }
+    // Session configuration methods moved to RealtimeSessionManager
 
     private void deleteSessionImages() {
         synchronized (sessionImagePaths) {
@@ -2215,13 +1617,17 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         });
     }
     
+    
     /**
-     * Interrupts any active response and mutes the microphone
+     * Interrupts any active speech by cancelling responses, truncating audio, and stopping playback
+     * Core logic used by both FAB interrupt and interrupt-and-mute functionality
      */
-    private void interruptAndMute() {
+    private void interruptSpeech() {
         try {
-            // Perform the same interrupt logic as the FAB button
-            if (sessionManager != null && sessionManager.isConnected()) {
+            if (sessionManager == null || !sessionManager.isConnected()) return;
+            
+            Log.d(TAG, "🚨 DIAGNOSTIC: interruptSpeech called: hasActiveResponse=" + hasActiveResponse);
+            
                 // 1) Cancel further generation first (send only if there is an active response)
                 if (hasActiveResponse) {
                     JSONObject cancel = new JSONObject();
@@ -2234,7 +1640,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                 // 2) Truncate current assistant item if we have its id
                 if (lastAssistantItemId != null) {
                     int playedMs = audioPlayer != null ? Math.max(0, audioPlayer.getEstimatedPlaybackPositionMs()) : 0;
-                    Log.d(TAG, "🚨 DIAGNOSTIC: interruptAndMute truncate: item=" + lastAssistantItemId + ", audio_end_ms=" + playedMs);
+                Log.d(TAG, "🚨 DIAGNOSTIC: sending truncate for item=" + lastAssistantItemId + ", audio_end_ms=" + playedMs);
                     JSONObject truncate = new JSONObject();
                     truncate.put("type", "conversation.item.truncate");
                     truncate.put("item_id", lastAssistantItemId);
@@ -2246,9 +1652,17 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                 // 3) Stop local audio and gestures
                 if (audioPlayer != null) audioPlayer.interruptNow();
                 gestureController.stopNow();
-            }
-            
-            // 4) Set muted state instead of going directly to listening
+        } catch (Exception e) {
+            Log.e(TAG, "Error during interruptSpeech", e);
+        }
+    }
+
+    /**
+     * Interrupts any active response and mutes the microphone
+     */
+    private void interruptAndMute() {
+        try {
+            interruptSpeech();
             mute();
         } catch (Exception e) {
             Log.e(TAG, "Interrupt and mute failed", e);
@@ -2271,317 +1685,82 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     /**
      * Un-mutes the microphone and resumes listening
      */
+    @SuppressWarnings("SpellCheckingInspection")
     private void unmute() {
         isMuted = false;
         runOnUiThread(() -> {
             statusTextView.setText(getString(R.string.status_listening));
             findViewById(R.id.fab_interrupt).setVisibility(View.GONE);
         });
+        
+        // CRITICAL FIX: Directly start recognition instead of relying on TurnManager state change,
+        // which won't fire if the state is already LISTENING.
+        try {
         startContinuousRecognition();
-        if (turnManager != null) {
-            turnManager.setState(TurnManager.State.LISTENING);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to start recognition on unmute", e);
+            runOnUiThread(() -> statusTextView.setText(getString(R.string.status_recognizer_not_ready)));
         }
+        
         Log.i(TAG, "Microphone un-muted - resuming listening");
     }
     
     /**
-     * Handle touch sensor events - interrupt speech if needed and send event to API
+     * Handle service state changes for proper service management
+     * @param mode Service mode (e.g., "enterLocalizationMode", "resumeNormalOperation")
      */
-    private void handleTouchSensorEvent(String sensorName) {
-        Log.i(TAG, "Touch sensor event: " + sensorName + " touched");
-        // We no longer need touchState; keep signature for future use
-        
-        // Check if robot is currently speaking and needs interruption
-        boolean wasInterrupted = false;
-        if (turnManager != null && turnManager.getState() == TurnManager.State.SPEAKING) {
-            if (hasActiveResponse || (audioPlayer != null && audioPlayer.isPlaying())) {
-                Log.i(TAG, "Interrupting speech due to touch on: " + sensorName);
-                // Ensure UI interaction runs on main thread
-                runOnUiThread(() -> {
-                    try {
-                        // Interrupt via existing UI flow; this will stop audio and clean up
-                        fabInterrupt.performClick();
-                        // Do not override state here; sendTextToAzure will move to THINKING
-                    } catch (Exception ignored) {}
-                });
-                wasInterrupted = true;
-            }
-        }
-        
-        // Send touch event to Realtime API (always touched at this point)
-        // If we interrupted, add a small delay to ensure the interrupt completes
-        if (wasInterrupted) {
-            threadManager.executeNetwork(() -> {
-                try {
-                    Thread.sleep(150); // small delay to let cancel/truncate propagate
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-                sendTouchEventToAPI(sensorName);
-            });
-        } else {
-            sendTouchEventToAPI(sensorName);
+    public void handleServiceStateChange(String mode) {
+        Log.i(TAG, "Service state change received: " + mode + " - delegating to NavigationServiceManager");
+        if (navigationServiceManager != null) {
+            navigationServiceManager.handleServiceStateChange(mode);
         }
     }
+
     
     /**
-     * Send touch event to the Realtime API as a user message
+     * Add image message to chat (called directly by tools)
      */
-    private void sendTouchEventToAPI(String sensorName) {
-        if (sessionManager == null || !sessionManager.isConnected()) {
-            Log.w(TAG, "Cannot send touch event - WebSocket not connected");
-            return;
-        }
-        
-        try {
-            // Create a human-readable message about the touch event
-            String touchMessage = String.format("The user touched the %s.", getSensorDisplayName(sensorName));
-                
-            Log.d(TAG, "Sending touch event to API: " + touchMessage);
-            
-            // Send as regular text message using existing infrastructure
+    public void addImageMessage(String imagePath) {
             runOnUiThread(() -> {
-                // Add touch event to chat (optional - could be made configurable)
-                addMessage("👋 " + getSensorDisplayName(sensorName) + " touched", ChatMessage.Sender.USER);
-                
-                // Send to API
-                sendTextToAzure(touchMessage);
-            });
-            
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to send touch event to API", e);
+            ChatMessage msg = new ChatMessage("", imagePath, ChatMessage.Sender.ROBOT);
+            messageList.add(msg);
+            chatAdapter.notifyItemInserted(messageList.size() - 1);
+            chatRecyclerView.scrollToPosition(messageList.size() - 1);
+        });
+    }
+    
+    /**
+     * Add image to session cleanup list (called directly by tools)
+     */
+    public void addImageToSessionCleanup(String imagePath) {
+        synchronized (sessionImagePaths) {
+            sessionImagePaths.add(imagePath);
         }
     }
     
     /**
-     * Get user-friendly display name for touch sensors
+     * Update navigation status display (called directly by tools)
      */
-    private String getSensorDisplayName(String sensorName) {
-        switch (sensorName) {
-            case "Head/Touch":
-                return "head";
-            case "LHand/Touch":
-                return "left hand";
-            case "RHand/Touch":
-                return "right hand";
-            case "Bumper/FrontLeft":
-                return "front left bumper";
-            case "Bumper/FrontRight":
-                return "front right bumper";
-            case "Bumper/Back":
-                return "back bumper";
-            default:
-                return sensorName;
-        }
-    }
-
-    // StatusUpdateListener implementation for ToolExecutor
-    @Override
-    public void onMapStatusChanged(String status) {
+    public void updateNavigationStatus(String mapStatus, String localizationStatus) {
+        Log.i(TAG, "Updating navigation status - Map: " + mapStatus + ", Localization: " + localizationStatus);
         runOnUiThread(() -> {
-            // Map status is managed in ChatActivity startup, not needed here
-        });
-    }
-
-    @Override
-    public void onLocalizationStatusChanged(String status) {
-        runOnUiThread(() -> {
-            switch (status) {
-                case "STARTING":
-                    updateLocalizationStatus(getString(R.string.nav_localization_starting));
-                    break;
-                case "RUNNING":
-                    updateLocalizationStatus(getString(R.string.nav_localization_running));
-                    break;
-                case "ERROR":
-                    updateLocalizationStatus(getString(R.string.nav_localization_error));
-                    break;
-                default:
-                    updateLocalizationStatus(getString(R.string.nav_localization_waiting));
-                    break;
+            if (mapStatus != null) {
+                updateMapStatus(mapStatus);
+            }
+            if (localizationStatus != null) {
+                updateLocalizationStatus(localizationStatus);
             }
         });
     }
     
     /**
-     * Service Management for Navigation Phases
+     * Get NavigationServiceManager for tool access
      */
-    
-
-    
-    /**
-     * Phase 2: Localization Mode - Pause ALL services for stable localization
-     */
-    private void enterLocalizationMode() {
-        Log.i(TAG, "Navigation Phase 2: Entering Localization Mode - ALL services paused");
-        
-        // CRITICAL: Suppress gestures completely during localization
-        gesturesSuppressed = true;
-        gestureController.stopNow();
-        Log.i(TAG, "Gestures suppressed and stopped for localization (prevents interference)");
-        
-        // CRITICAL: Hold autonomous abilities (BasicAwareness, BackgroundMovement) to prevent head movement
-        holdAutonomousAbilities();
-        
-        if (perceptionService != null && perceptionService.isInitialized()) {
-            perceptionService.stopMonitoring();
-            Log.i(TAG, "Perception monitoring stopped for localization");
-        }
-        if (touchSensorManager != null) {
-            touchSensorManager.pause();
-            Log.i(TAG, "Touch sensors paused for localization");
-        }
+    public NavigationServiceManager getNavigationServiceManager() {
+        return navigationServiceManager;
     }
     
-    /**
-     * Phase 3: Navigation Mode - Keep all services paused during movement
-     */
-    private void enterNavigationMode() {
-        Log.i(TAG, "Navigation Phase 3: Entering Navigation Mode - services remain paused");
-        // Keep gestures suppressed during movement
-        gesturesSuppressed = true;
-        // Keep all paused during movement (already paused from localization)
-        // No additional actions needed - robot should move without interference
-    }
-    
-    /**
-     * Phase 4: Resume Normal Operation - Restore all services
-     */
-    private void resumeNormalOperation() {
-        Log.i(TAG, "Navigation Phase 4: Resuming Normal Operation - restoring all services");
-        
-        // CRITICAL: Re-enable gestures
-        gesturesSuppressed = false;
-        Log.i(TAG, "Gesture suppression lifted - gestures allowed again");
-        
-        // CRITICAL: Release autonomous abilities (restore BasicAwareness, BackgroundMovement)
-        releaseAutonomousAbilities();
-        
-        // Resume gestures if currently speaking
-        if (turnManager != null && turnManager.getState() == TurnManager.State.SPEAKING) {
-            startExplainGesturesLoop();
-            Log.i(TAG, "Gestures resumed (robot is speaking)");
-        }
-        
-        // Resume perception monitoring
-        if (perceptionService != null && perceptionService.isInitialized()) {
-            perceptionService.startMonitoring();
-            Log.i(TAG, "Perception monitoring resumed");
-        }
-        
-        // Resume touch sensors
-        if (touchSensorManager != null) {
-            touchSensorManager.resume();
-            Log.i(TAG, "Touch sensors resumed");
-        }
-        
-        Log.i(TAG, "All services restored to normal operation");
-    }
-    
-    /**
-     * Hold autonomous abilities (BasicAwareness, BackgroundMovement) during critical operations
-     * This prevents head tracking and background movements that interfere with localization/mapping
-     */
-    private void holdAutonomousAbilities() {
-        if (qiContext == null) {
-            Log.w(TAG, "Cannot hold autonomous abilities - qiContext is null");
-            return;
-        }
-        
-        if (autonomousAbilitiesHeld) {
-            Log.d(TAG, "Autonomous abilities already held");
-            return;
-        }
-        
-        try {
-            // Hold head and body movements to prevent interference during critical operations
-            // Based on QiSDK documentation: https://qisdk.softbankrobotics.com/sdk/doc/pepper-sdk/ch4_api/abilities/reference/autonomous_abilities.html
-            // Using degrees of freedom constraint to prevent head tracking and body movements
-            autonomousAbilitiesHolder = com.aldebaran.qi.sdk.builder.HolderBuilder.with(qiContext)
-                    .withDegreesOfFreedom(
-                            com.aldebaran.qi.sdk.object.autonomousabilities.DegreeOfFreedom.ROBOT_FRAME_ROTATION
-                    )
-                    .build();
-            
-            autonomousAbilitiesHolder.async().hold();
-            autonomousAbilitiesHeld = true;
-            Log.i(TAG, "Autonomous abilities held (head and body movements constrained) - robot will remain still during critical operations");
-            
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to hold autonomous abilities", e);
-        }
-    }
-    
-    /**
-     * Release autonomous abilities to restore normal robot behavior
-     */
-    private void releaseAutonomousAbilities() {
-        if (!autonomousAbilitiesHeld || autonomousAbilitiesHolder == null) {
-            Log.d(TAG, "No autonomous abilities to release");
-            return;
-        }
-        
-        try {
-            autonomousAbilitiesHolder.async().release();
-            autonomousAbilitiesHolder = null;
-            autonomousAbilitiesHeld = false;
-            Log.i(TAG, "Autonomous abilities released - robot behavior restored to normal");
-            
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to release autonomous abilities", e);
-        }
-    }
-    
-    // ==================== GAME MANAGEMENT ====================
-    
-    /**
-     * Show Tic Tac Toe game dialog
-     * Called from ToolExecutor when AI starts a game
-     * If a game is already open, close it and start a new one
-     */
-    public void showTicTacToeGame() {
-        // Close existing dialog if open (to start fresh game)
-        if (ticTacToeDialog != null && ticTacToeDialog.isShowing()) {
-            ticTacToeDialog.dismiss();
-            Log.i(TAG, "Closed existing Tic Tac Toe game dialog for new game");
-        }
-        
-        // Create and show new game dialog
-        ticTacToeDialog = new TicTacToeDialog(this, toolExecutor);
-        ticTacToeDialog.show();
-        Log.i(TAG, "Tic Tac Toe game dialog opened (new game)");
-    }
-    
-    /**
-     * Get current Tic Tac Toe dialog instance
-     * Used by ToolExecutor to access game state
-     * @return Current TicTacToeDialog or null if not active
-     */
-    public TicTacToeDialog getTicTacToeDialog() {
-        return ticTacToeDialog;
-    }
-    
-    /**
-     * Add confidence warning to text if confidence is below threshold
-     * @param text Original transcribed text
-     * @param confidence Confidence score (0.0-1.0)
-     * @return Text with potential warning appended
-     */
-    private String addConfidenceWarningIfNeeded(String text, double confidence) {
-        // Get confidence threshold from settings (default 0.7 = 70%)
-        double threshold = settingsManager.getConfidenceThreshold();
-        
-        Log.d(TAG, "Speech recognition confidence: " + confidence + " (threshold: " + threshold + ")");
-        
-        if (confidence < threshold) {
-            Log.w(TAG, "Low confidence speech recognition: " + confidence + " for text: '" + text + "'");
-            return text + " [WARNING: Low speech recognition confidence (" + 
-                   String.format(java.util.Locale.US, "%.1f%%", confidence * 100) + 
-                   "). Please ask for clarification if this doesn't make sense.]";
-        }
-        
-        return text;
-    }
+    // addConfidenceWarningIfNeeded() moved to SpeechRecognizerManager
 
 }
 

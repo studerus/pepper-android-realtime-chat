@@ -16,29 +16,55 @@ import java.util.concurrent.Executors;
 
 @SuppressWarnings("SpellCheckingInspection")
 public class SpeechRecognizerManager {
-    public interface Listener {
-        void onRecognizing(String partialText);
-        void onRecognized(String text, double confidence);
-        void onError(Exception ex);
+    
+    // Activity-focused callback interface
+    public interface ActivityCallbacks {
+        void onRecognizedText(String text);
+        void onPartialText(String partialText);
+        void onError(String errorMessage);
+        void onStarted();
+        void onStopped();
     }
+    
+    // Internal listener interface for Azure SDK
+
 
     private static final String TAG = "SpeechRecMgr";
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private SpeechRecognizer recognizer;
-    private Listener listener;
+    private ActivityCallbacks activityCallbacks;
     private final Object recognizerLock = new Object();
+    private volatile boolean isRunning = false;
+    
+    // Configuration for current session
+    private String currentApiKey;
+    private String currentRegion;
+    private String currentLanguage;
+    private int currentSilenceTimeout;
+    private double confidenceThreshold = 0.7; // Default 70%
 
-    public void setListener(Listener listener) {
-        this.listener = listener;
+    public void setCallbacks(ActivityCallbacks callbacks) {
+        this.activityCallbacks = callbacks;
     }
 
-    public void initialize(String key, String region, String language, int silenceTimeoutMs) {
+    public void configure(String key, String region, String language, int silenceTimeoutMs, double confidenceThreshold) {
+        // Store configuration for potential re-initialization
+        this.currentApiKey = key;
+        this.currentRegion = region;
+        this.currentLanguage = language;
+        this.currentSilenceTimeout = silenceTimeoutMs;
+        this.confidenceThreshold = confidenceThreshold;
+        
+        initialize();
+    }
+    
+    private void initialize() {
         executor.submit(() -> {
             try {
-                SpeechConfig cfg = SpeechConfig.fromSubscription(key, region);
-                cfg.setSpeechRecognitionLanguage(language);
-                cfg.setProperty("Speech_SegmentationSilenceTimeoutMs", String.valueOf(silenceTimeoutMs));
+                SpeechConfig cfg = SpeechConfig.fromSubscription(currentApiKey, currentRegion);
+                cfg.setSpeechRecognitionLanguage(currentLanguage);
+                cfg.setProperty("Speech_SegmentationSilenceTimeoutMs", String.valueOf(currentSilenceTimeout));
                 
                 // Enable detailed results for confidence scores
                 cfg.requestWordLevelTimestamps();
@@ -57,41 +83,137 @@ public class SpeechRecognizerManager {
                 Thread.sleep(500);
 
                 recognizer.recognizing.addEventListener((s, e) -> {
-                    if (listener != null && e != null) {
-                        try { listener.onRecognizing(e.getResult().getText()); } catch (Exception ignored) {}
+                    if (activityCallbacks != null && e != null) {
+                        try { 
+                            activityCallbacks.onPartialText(e.getResult().getText());
+                        } catch (Exception ignored) {}
                     }
                 });
                 recognizer.recognized.addEventListener((s, e) -> {
                     try {
                         if (e.getResult().getReason() == ResultReason.RecognizedSpeech) {
                             String text = e.getResult().getText();
-                            if (listener != null && text != null && !text.isEmpty()) {
+                            if (activityCallbacks != null && text != null && !text.isEmpty()) {
                                 double confidence = extractConfidenceScore(e.getResult());
-                                listener.onRecognized(text, confidence);
+                                String finalText = addConfidenceWarningIfNeeded(text, confidence);
+                                activityCallbacks.onRecognizedText(finalText);
                             }
                         }
                     } catch (Exception ex) {
-                        if (listener != null) listener.onError(ex);
+                        if (activityCallbacks != null) activityCallbacks.onError(ex.getMessage());
                     }
                 });
-                Log.i(TAG, "Recognizer initialized for " + language + ", silence=" + silenceTimeoutMs + "ms");
+                Log.i(TAG, "Recognizer initialized for " + currentLanguage + ", silence=" + currentSilenceTimeout + "ms");
             } catch (Exception ex) {
                 Log.e(TAG, "Initialize failed", ex);
-                if (listener != null) listener.onError(ex);
+                if (activityCallbacks != null) activityCallbacks.onError("Initialization failed: " + ex.getMessage());
             }
         });
     }
 
-    public void startContinuous() {
+    public void start() {
+        if (isRunning) {
+            Log.i(TAG, "STT already running, skipping duplicate start call");
+            return;
+        }
+        
+        if (executor.isShutdown()) {
+            Log.w(TAG, "Cannot start STT - executor already shutdown");
+            return;
+        }
+        
         executor.submit(() -> {
-            try { if (recognizer != null) recognizer.startContinuousRecognitionAsync().get(); } catch (Exception ex) { if (listener != null) listener.onError(ex); }
+            try {
+                if (recognizer != null) {
+                    recognizer.startContinuousRecognitionAsync().get();
+                    isRunning = true;
+                    if (activityCallbacks != null) activityCallbacks.onStarted();
+                    Log.i(TAG, "Continuous recognition started");
+                } else {
+                    handleStartFailure(new IllegalStateException("Recognizer not initialized"));
+                }
+            } catch (Exception ex) {
+                handleStartFailure(ex);
+            }
         });
     }
 
-    public void stopContinuous() {
+    public void stop() {
+        if (executor.isShutdown()) {
+            Log.w(TAG, "Executor already shutdown, stopping STT directly (non-blocking)");
+            try {
+                if (recognizer != null) {
+                    recognizer.stopContinuousRecognitionAsync(); // fire-and-forget
+                    isRunning = false;
+                    if (activityCallbacks != null) activityCallbacks.onStopped();
+                    Log.i(TAG, "Continuous recognition stop requested");
+                }
+            } catch (Exception ex) {
+                isRunning = false; // Reset flag even on error
+                Log.e(TAG, "Error stopping speech recognizer (ignored)", ex);
+            }
+            return;
+        }
+        
         executor.submit(() -> {
-            try { if (recognizer != null) recognizer.stopContinuousRecognitionAsync().get(); } catch (Exception ex) { if (listener != null) listener.onError(ex); }
+            try {
+                if (recognizer != null) {
+                    recognizer.stopContinuousRecognitionAsync(); // do not block on get()
+                    isRunning = false;
+                    if (activityCallbacks != null) activityCallbacks.onStopped();
+                    Log.i(TAG, "Continuous recognition stop requested (async)");
+                }
+            } catch (Exception ex) {
+                isRunning = false; // Reset flag even on error
+                Log.e(TAG, "Error stopping speech recognizer (ignored)", ex);
+            }
         });
+    }
+    
+    private void handleStartFailure(Exception ex) {
+        if (isFirstLaunchSpeechError(ex)) {
+            Log.i(TAG, "Detected first-launch speech error, attempting lazy re-initialization");
+            try {
+                initialize(); // Re-initialize
+                Thread.sleep(1000);
+                if (recognizer != null) {
+                    recognizer.startContinuousRecognitionAsync().get();
+                    isRunning = true;
+                    if (activityCallbacks != null) activityCallbacks.onStarted();
+                    Log.i(TAG, "Lazy speech initialization successful");
+                    return;
+                }
+            } catch (Exception retryEx) {
+                Log.e(TAG, "Retry initialization failed", retryEx);
+            }
+        }
+        
+        if (activityCallbacks != null) {
+            activityCallbacks.onError("Speech recognition failed to start: " + ex.getMessage());
+        }
+    }
+    
+    /**
+     * Add confidence warning to text if below threshold
+     */
+    private String addConfidenceWarningIfNeeded(String text, double confidence) {
+        if (confidence < confidenceThreshold) {
+            return text + " [Low confidence: " + Math.round(confidence * 100) + "%]";
+        }
+        return text;
+    }
+    
+    /**
+     * Check if error indicates first-launch speech initialization failure
+     */
+    private boolean isFirstLaunchSpeechError(Exception ex) {
+        String msg = ex.getMessage();
+        return msg != null && (
+            msg.contains("0x22") || 
+            msg.contains("SPXERR_INVALID_RECOGNIZER") ||
+            msg.contains("invalid recognizer") ||
+            msg.contains("not initialized")
+        );
     }
 
     public void warmup() throws Exception {
@@ -222,7 +344,7 @@ public class SpeechRecognizerManager {
     public void shutdown() {
         try {
             if (recognizer != null) {
-                try { recognizer.stopContinuousRecognitionAsync().get(); } catch (Exception ignored) {}
+                try { recognizer.stopContinuousRecognitionAsync(); } catch (Exception ignored) {}
                 try { recognizer.close(); } catch (Exception ignored) {}
                 recognizer = null;
             }

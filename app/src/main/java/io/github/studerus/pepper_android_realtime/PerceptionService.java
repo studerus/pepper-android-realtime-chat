@@ -172,7 +172,7 @@ public class PerceptionService {
             }
 
             // Extract face picture with improved error handling and thread safety
-            info.facePicture = extractFacePictureSafely((Human) human, info.id);
+            info.facePicture = extractFacePictureSafely(human, info.id);
 
             // Compute basic emotion for dashboard
             info.basicEmotion = PerceptionData.HumanInfo.computeBasicEmotion(info.excitementState, info.pleasureState);

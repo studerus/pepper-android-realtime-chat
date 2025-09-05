@@ -30,43 +30,82 @@ public class GestureController {
         running = true;
         Log.i(TAG, "GestureController starting with qiContext: " + (qiContext != null));
         gestureExecutor.submit(() -> {
-            Random random = new Random();
             Log.i(TAG, "Gesture thread started, entering main loop");
-            while (keepRunning.get()) {
-                try {
-                    Integer resId = nextResId.get();
-                    if (resId == null) {
-                        Log.d(TAG, "No animation resource provided, breaking loop");
-                        break;
-                    }
-                    Log.d(TAG, "Building animation with resource ID: " + resId);
-                    Future<Animation> animationFuture = AnimationBuilder.with(qiContext)
-                            .withResources(resId)
-                            .buildAsync();
-                    Animation animation = animationFuture.get();
-                    Log.d(TAG, "Animation built successfully, starting animate");
-                    Animate animate = AnimateBuilder.with(qiContext)
-                            .withAnimation(animation)
-                            .build();
-                    currentRunFuture = animate.async().run();
-                    Log.d(TAG, "Animation started, waiting for completion");
-                    currentRunFuture.get();
-                    Log.d(TAG, "Animation completed successfully");
-                } catch (Exception e) {
-                    Log.w(TAG, "Gesture run failed", e);
-                } finally {
-                    currentRunFuture = null;
-                }
-                // Necessary delay between gestures for natural timing
-                try { 
-                    //noinspection BusyWait
-                    Thread.sleep(250 + random.nextInt(500)); 
-                } catch (InterruptedException e) { 
-                    Thread.currentThread().interrupt(); 
-                    break; 
-                }
-            }
+            runNextGestureNonBlocking(qiContext, keepRunning, nextResId);
+        });
+    }
+
+    private void runNextGestureNonBlocking(QiContext qiContext, BoolSupplier keepRunning, IntSupplier nextResId) {
+        if (!keepRunning.get()) {
             running = false;
+            return;
+        }
+        Integer resId = null;
+        try {
+            resId = nextResId.get();
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to get next animation resource id", e);
+        }
+        if (resId == null) {
+            Log.d(TAG, "No animation resource provided, stopping gesture loop");
+            running = false;
+            return;
+        }
+        Log.d(TAG, "Building animation with resource ID: " + resId);
+        AnimationBuilder.with(qiContext)
+            .withResources(resId)
+            .buildAsync()
+            .thenConsume(animationFuture -> {
+                if (animationFuture.hasError()) {
+                    Log.w(TAG, "Animation build failed", animationFuture.getError());
+                    scheduleNextAfterDelay(qiContext, keepRunning, nextResId, 350);
+                    return;
+                }
+                Animation animation = animationFuture.getValue();
+                if (animation == null) {
+                    Log.w(TAG, "Animation build returned null");
+                    scheduleNextAfterDelay(qiContext, keepRunning, nextResId, 350);
+                    return;
+                }
+                Log.d(TAG, "Animation built successfully, starting animate");
+                AnimateBuilder.with(qiContext)
+                    .withAnimation(animation)
+                    .buildAsync()
+                    .thenConsume(animateFuture -> {
+                        if (animateFuture.hasError()) {
+                            Log.w(TAG, "Failed to build animate action", animateFuture.getError());
+                            scheduleNextAfterDelay(qiContext, keepRunning, nextResId, 350);
+                            return;
+                        }
+                        Animate animate = animateFuture.getValue();
+                        currentRunFuture = animate.async().run();
+                        Log.d(TAG, "Animation started, awaiting completion (non-blocking)");
+                        currentRunFuture.thenConsume(runFuture -> {
+                            try {
+                                if (runFuture.isSuccess()) {
+                                    Log.d(TAG, "Animation completed successfully");
+                                } else if (runFuture.isCancelled()) {
+                                    Log.w(TAG, "Animation cancelled");
+                                } else if (runFuture.hasError()) {
+                                    Log.w(TAG, "Animation failed", runFuture.getError());
+                                }
+                            } finally {
+                                currentRunFuture = null;
+                                scheduleNextAfterDelay(qiContext, keepRunning, nextResId, 350);
+                            }
+                        });
+                    });
+            });
+    }
+
+    private void scheduleNextAfterDelay(QiContext qiContext, BoolSupplier keepRunning, IntSupplier nextResId, int delayMs) {
+        gestureExecutor.submit(() -> {
+            try {
+                Thread.sleep(delayMs);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            runNextGestureNonBlocking(qiContext, keepRunning, nextResId);
         });
     }
 
@@ -75,7 +114,7 @@ public class GestureController {
         try {
             Future<Void> f = currentRunFuture;
             if (f != null && !f.isDone()) {
-                try { f.cancel(true); } catch (Exception ignored) {}
+                try { f.requestCancellation(); } catch (Exception ignored) {}
             }
         } catch (Exception ignored) {}
     }

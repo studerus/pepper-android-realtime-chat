@@ -1,7 +1,11 @@
-package io.github.studerus.pepper_android_realtime;
+package io.github.studerus.pepper_android_realtime.tools.games;
+
+import io.github.studerus.pepper_android_realtime.R;
+import io.github.studerus.pepper_android_realtime.DynamicGridSpacingItemDecoration;
 
 import android.app.AlertDialog;
 import android.content.Context;
+import io.github.studerus.pepper_android_realtime.tools.ToolContext;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.DisplayMetrics;
@@ -15,22 +19,22 @@ import android.widget.TextView;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
 public class MemoryGameDialog {
     
-    public interface GameEventListener {
-        void sendContextUpdate(String message);
-        void sendContextUpdateWithResponse(String message);
+    public interface GameClosedListener {
         void onGameClosed();
     }
 
     private static final String TAG = "MemoryGameDialog";
     
     private final Context context;
-    private final GameEventListener eventListener;
+    private final ToolContext toolContext;
+    private final GameClosedListener closeListener;
     private AlertDialog dialog;
     
     // Game state
@@ -77,9 +81,10 @@ public class MemoryGameDialog {
     private static final int MEDIUM_PAIRS = 8; 
     private static final int HARD_PAIRS = 12;
 
-    public MemoryGameDialog(Context context, GameEventListener eventListener) {
+    public MemoryGameDialog(Context context, ToolContext toolContext, GameClosedListener closeListener) {
         this.context = context;
-        this.eventListener = eventListener;
+        this.toolContext = toolContext;
+        this.closeListener = closeListener;
         this.timerHandler = new Handler(Looper.getMainLooper());
     }
 
@@ -93,11 +98,11 @@ public class MemoryGameDialog {
         createDialog();
         
         // Send initial context update
-        if (eventListener != null) {
+        if (toolContext != null) {
             String initialMessage = String.format(Locale.US,
                 "User started a memory game (difficulty: %s, %d card pairs). The game is now running.",
                 difficulty, totalPairs);
-            eventListener.sendContextUpdate(initialMessage);
+            toolContext.sendAsyncUpdate(initialMessage, false);
         }
     }
 
@@ -151,10 +156,7 @@ public class MemoryGameDialog {
         }
         
         // Create a list of all symbols and shuffle it
-        List<String> availableSymbols = new ArrayList<>();
-        for (String symbol : ALL_SYMBOLS) {
-            availableSymbols.add(symbol);
-        }
+        List<String> availableSymbols = new ArrayList<>(Arrays.asList(ALL_SYMBOLS));
         Collections.shuffle(availableSymbols);
         
         // Take the first 'count' symbols from the shuffled list
@@ -245,10 +247,10 @@ public class MemoryGameDialog {
             firstFlippedCard = clickedCard;
             
             // Send context update
-            if (eventListener != null) {
+            if (toolContext != null) {
                 String message = String.format(Locale.US,
                     "User revealed the first card: %s", cardInfo);
-                eventListener.sendContextUpdate(message);
+                toolContext.sendAsyncUpdate(message, false);
             }
             
         } else if (secondFlippedCard == null) {
@@ -278,13 +280,13 @@ public class MemoryGameDialog {
                     gameCompleteWithFinalPair(firstFlippedCard, firstCardIndex, cardInfo);
                 } else {
                     // Game continues - send pair found message with feedback request
-                    if (eventListener != null) {
+                    if (toolContext != null) {
                         String message = String.format(Locale.US,
                             "User found a matching pair! First card: %s, Second card: %s. " +
                             "Current score: %d of %d pairs found, %d moves. Give a very short feedback to the user.",
                             getCardInfo(firstFlippedCard, firstCardIndex),
                             cardInfo, matchedPairs, totalPairs, moves);
-                        eventListener.sendContextUpdateWithResponse(message);
+                        toolContext.sendAsyncUpdate(message, true);
                     }
                 }
                 
@@ -295,12 +297,12 @@ public class MemoryGameDialog {
                 
             } else {
                 // No match - flip cards back after delay
-                if (eventListener != null) {
+                if (toolContext != null) {
                     String message = String.format(Locale.US,
                         "User revealed two different cards: %s and %s. Cards will be flipped back. Current score: %d moves.",
                         getCardInfo(firstFlippedCard, cards.indexOf(firstFlippedCard)),
                         cardInfo, moves);
-                    eventListener.sendContextUpdate(message);
+                    toolContext.sendAsyncUpdate(message, false);
                 }
                 
                 new Handler(Looper.getMainLooper()).postDelayed(() -> {
@@ -338,14 +340,14 @@ public class MemoryGameDialog {
         String timeString = String.format(Locale.US, "%02d:%02d", minutes, seconds);
         
         // Send final message combining last pair found and game completion
-        if (eventListener != null) {
+                            if (toolContext != null) {
             String message = String.format(Locale.US,
                 "User found the final matching pair! First card: %s, Second card: %s. " +
                 "GAME COMPLETED! Final statistics: All %d pairs found in %d moves and %s time. " +
                 "Congratulate the user on completing the memory game!",
                 getCardInfo(firstCard, firstCardIndex), secondCardInfo,
                 totalPairs, moves, timeString);
-            eventListener.sendContextUpdateWithResponse(message);
+            toolContext.sendAsyncUpdate(message, true);
         }
         
         // Auto-close dialog after 5 seconds
@@ -391,15 +393,15 @@ public class MemoryGameDialog {
         }
         
         // Send context update about early closure if game wasn't completed
-        if (matchedPairs < totalPairs && eventListener != null) {
+        if (matchedPairs < totalPairs && toolContext != null) {
             String message = String.format(Locale.US,
                 "User closed the memory game early. Score when closing: %d of %d pairs found, %d moves.",
                 matchedPairs, totalPairs, moves);
-            eventListener.sendContextUpdate(message);
+            toolContext.sendAsyncUpdate(message, false);
         }
         
-        if (eventListener != null) {
-            eventListener.onGameClosed();
+        if (closeListener != null) {
+            closeListener.onGameClosed();
         }
         
         Log.i(TAG, "Memory game closed");

@@ -1,4 +1,6 @@
-package io.github.studerus.pepper_android_realtime;
+package io.github.studerus.pepper_android_realtime.tools.games;
+
+import io.github.studerus.pepper_android_realtime.R;
 
 import android.view.LayoutInflater;
 import android.view.View;

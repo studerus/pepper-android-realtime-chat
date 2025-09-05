@@ -10,6 +10,7 @@ import com.aldebaran.qi.sdk.object.touch.TouchState;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import io.github.studerus.pepper_android_realtime.OptimizedThreadManager;
 
 /**
  * Manages all touch sensors on the Pepper robot
@@ -135,13 +136,6 @@ public class TouchSensorManager {
     }
     
     /**
-     * Check if touch sensor is currently paused
-     */
-    public boolean isPaused() {
-        return isPaused;
-    }
-    
-    /**
      * Handle touch events with debouncing and callback
      */
     private void handleTouchEvent(String sensorName, TouchState touchState) {
@@ -184,27 +178,52 @@ public class TouchSensorManager {
     }
     
     /**
+     * Create human-readable message for touch sensor events
+     */
+    public static String createTouchMessage(String sensorName) {
+        switch (sensorName) {
+            case "Head/Touch":
+                return "[User touched my head]";
+            case "LHand/Touch":
+                return "[User touched my left hand]";
+            case "RHand/Touch":
+                return "[User touched my right hand]";
+            case "Bumper/FrontLeft":
+                return "[User touched my front left bumper]";
+            case "Bumper/FrontRight":
+                return "[User touched my front right bumper]";
+            case "Bumper/Back":
+                return "[User touched my back bumper]";
+            default:
+                return "[User touched sensor: " + sensorName + "]";
+        }
+    }
+    
+    /**
      * Cleanup when robot focus is lost
      */
     public void shutdown() {
         try {
-            // CRITICAL: Remove all listeners before clearing sensors
-            for (Map.Entry<String, TouchSensor> entry : touchSensors.entrySet()) {
-                try {
-                    TouchSensor sensor = entry.getValue();
-                    if (sensor != null) {
-                        sensor.removeAllOnStateChangedListeners();
-                        Log.d(TAG, "Removed listeners from sensor: " + entry.getKey());
+            // Remove listeners off the main thread to avoid NetworkOnMainThreadException
+            final Map<String, TouchSensor> sensorsSnapshot = new java.util.HashMap<>(touchSensors);
+            OptimizedThreadManager.getInstance().executeNetwork(() -> {
+                for (Map.Entry<String, TouchSensor> entry : sensorsSnapshot.entrySet()) {
+                    try {
+                        TouchSensor sensor = entry.getValue();
+                        if (sensor != null) {
+                            sensor.removeAllOnStateChangedListeners();
+                            Log.d(TAG, "Removed listeners from sensor: " + entry.getKey());
+                        }
+                    } catch (Exception e) {
+                        Log.w(TAG, "Error removing listeners from sensor: " + entry.getKey(), e);
                     }
-                } catch (Exception e) {
-                    Log.w(TAG, "Error removing listeners from sensor: " + entry.getKey(), e);
                 }
-            }
-            
+                Log.i(TAG, "TouchSensorManager listeners removal completed");
+            });
+
             touchSensors.clear();
-            
-            Log.i(TAG, "TouchSensorManager shutdown completed");
-            
+            Log.i(TAG, "TouchSensorManager shutdown scheduled");
+
         } catch (Exception e) {
             Log.e(TAG, "Error during TouchSensorManager shutdown", e);
         }

@@ -1,4 +1,6 @@
-package io.github.studerus.pepper_android_realtime;
+package io.github.studerus.pepper_android_realtime.tools.games;
+
+import io.github.studerus.pepper_android_realtime.R;
 
 import android.app.Dialog;
 import android.content.Context;
@@ -12,22 +14,29 @@ import android.util.Log;
 
 /**
  * Tic Tac Toe game dialog with 3x3 button grid
- * Handles user interactions and communicates with ToolExecutor
+ * Handles user interactions and communicates with the new tool system
  */
 public class TicTacToeDialog extends Dialog {
     
     private static final String TAG = "TicTacToeDialog";
     
+    /**
+     * Interface for communicating game updates to the AI system
+     */
+    public interface GameUpdateCallback {
+        void sendGameUpdate(String message, boolean requestResponse);
+    }
+    
     private final TicTacToeGame game;
-    private final ToolExecutor toolExecutor;
+    private final GameUpdateCallback gameUpdateCallback;
     private Button[] boardButtons;
     private TextView statusText;
     private final Handler autoCloseHandler;
     
-    public TicTacToeDialog(Context context, ToolExecutor toolExecutor) {
+    public TicTacToeDialog(Context context, GameUpdateCallback callback) {
         super(context);
-        this.toolExecutor = toolExecutor;
         this.game = new TicTacToeGame();
+        this.gameUpdateCallback = callback;
         this.autoCloseHandler = new Handler(Looper.getMainLooper());
         
         initializeDialog();
@@ -115,7 +124,9 @@ public class TicTacToeDialog extends Dialog {
             // Game continues - send update and request AI move
             String update = String.format(java.util.Locale.US, "[GAME] User X on pos %d. Board: %s. Your turn!", 
                                         position, boardState);
-            toolExecutor.sendGameUpdate(update, true);
+            if (gameUpdateCallback != null) {
+                gameUpdateCallback.sendGameUpdate(update, true);
+            }
             
             // Update status to show AI is thinking
             statusText.setText(getContext().getString(R.string.ttt_ai_thinking));
@@ -126,7 +137,9 @@ public class TicTacToeDialog extends Dialog {
             String gameResult = TicTacToeGame.getGameResultMessage(winner);
             String update = String.format(java.util.Locale.US, "[GAME] User X on pos %d. Board: %s. GAME OVER: %s", 
                                         position, boardState, gameResult);
-            toolExecutor.sendGameUpdate(update, true);
+            if (gameUpdateCallback != null) {
+                gameUpdateCallback.sendGameUpdate(update, true);
+            }
             
             // Update UI for game end
             updateGameEndUI(winner);
@@ -168,7 +181,9 @@ public class TicTacToeDialog extends Dialog {
             String gameResult = TicTacToeGame.getGameResultMessage(winner);
             String update = String.format(java.util.Locale.US, "[GAME] AI O on pos %d. Board: %s. GAME OVER: %s", 
                                         position, game.getBoardString(), gameResult);
-            toolExecutor.sendGameUpdate(update, true);
+            if (gameUpdateCallback != null) {
+                gameUpdateCallback.sendGameUpdate(update, true);
+            }
             
             updateGameEndUI(winner);
             scheduleAutoClose();
@@ -283,7 +298,7 @@ public class TicTacToeDialog extends Dialog {
     }
     
     /**
-     * Get current game instance (for ToolExecutor access)
+     * Get current game instance (for new tool system access)
      * @return Current TicTacToeGame instance
      */
     public TicTacToeGame getGame() {

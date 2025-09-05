@@ -19,7 +19,8 @@
     <string name="status_muted_tap_to_unmute">Muted — tap to unmute</string>
     
     <!-- Navigation Status Messages -->
-    <string name="nav_map_none">🗺️ Map: None</string>
+    <string name="nav_map_none">🗺️ Map: none</string>
+    <string name="nav_map_saved">🗺️ Map: Saved</string>
     <string name="nav_map_loading">🗺️ Map: Loading…</string>
     <string name="nav_map_loading_size">🗺️ Map: Loading… (%dMB)</string>
     <string name="nav_map_ready">🗺️ Map: Ready</string>
@@ -27,6 +28,7 @@
     <string name="nav_map_error">🗺️ Map: Error</string>
     
     <string name="nav_localization_waiting">🧭 Localization: Waiting</string>
+    <string name="nav_localization_not_running">🧭 Localization: Not running</string>
     <string name="nav_localization_starting">🧭 Localization: Starting…</string>
     <string name="nav_localization_running">🧭 Localization: Running</string>
     <string name="nav_localization_stopped">🧭 Localization: Stopped</string>
@@ -54,6 +56,10 @@
     <!-- Setup Messages -->
     <string name="setup_initial_complete">Initial Setup complete. Starting recognition now.</string>
     <string name="setup_error_during">Error during setup: %s</string>
+    <string name="robot_initialization_timeout">Robot initialization timeout - check robot status</string>
+    <string name="robot_focus_lost_message">Robot focus lost - app will continue without robot features</string>
+    <string name="robot_focus_refused_message">Robot focus refused: %s</string>
+    <string name="error_processing_message">Error processing your message. Please try again or restart the app if the problem persists.</string>
     
     <!-- System Prompt Default -->
     <string name="default_system_prompt">You are a helpful assistant embodied in a Pepper robot. Respond as if you are the robot speaking. Don\'t embed tags in your response because Pepper can\'t read them. Answer in Swiss German.</string>
@@ -99,6 +105,10 @@
     <string name="last_update_format">Last update: %1$s</string>
     <string name="api_key_required_format">API key required: %1$s</string>
     
+    <!-- Popups -->
+    <string name="popup_map_status_prefix">🗺️ Map: </string>
+    <string name="popup_localization_status_prefix">🧭 Localization: </string>
+    
     <!-- Tic Tac Toe Game -->
     <string name="ttt_game_title">🎮 Tic Tac Toe</string>
     <string name="ttt_your_turn">Your turn! (You are X)</string>
@@ -108,4 +118,11 @@
     <string name="ttt_draw">🤝 It\'s a draw! Well played!</string>
     <string name="ttt_new_game">🔄 New Game</string>
     <string name="ttt_close_button">✕</string>
+    
+    <!-- SettingsManager Strings -->
+    <string name="tool_prefix">Tool: %s</string>
+    <string name="default_model">gpt-4o-realtime-preview</string>
+    <string name="azure_default_model">gpt-4o-realtime-preview</string>
+    <string name="openai_default_model">gpt-realtime</string>
+    <string name="provider_display_format">%1$s (%2$s)</string>
 </resources>

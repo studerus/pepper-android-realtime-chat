@@ -109,6 +109,60 @@
             android:layout_height="wrap_content"
             android:layout_alignParentTop="true"
             android:layout_alignParentEnd="true" />
+            
+        <!-- Map Preview Overlay -->
+        <FrameLayout
+            android:id="@+id/map_preview_container"
+            android:layout_width="320dp"
+            android:layout_height="240dp"
+            android:layout_below="@id/topAppBar"
+            android:layout_alignParentEnd="true"
+            android:layout_marginTop="8dp"
+            android:layout_marginEnd="8dp"
+            android:background="#A0333333"
+            android:visibility="gone"
+            tools:visibility="visible">
+
+            <io.github.studerus.pepper_android_realtime.ui.MapPreviewView
+                android:id="@+id/map_preview_view"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+
+        </FrameLayout>
+
+        <!-- Image Overlay -->
+        <RelativeLayout
+            android:id="@+id/image_overlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#CC000000"
+            android:visibility="gone"
+            android:clickable="true"
+            android:focusable="true">
+            
+            <ImageView
+                android:id="@+id/overlay_image"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_centerInParent="true"
+                android:layout_margin="32dp"
+                android:adjustViewBounds="true"
+                android:scaleType="centerInside" />
+                
+            <TextView
+                android:id="@+id/close_overlay_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentTop="true"
+                android:layout_alignParentEnd="true"
+                android:layout_margin="16dp"
+                android:text="✕ Tap to close"
+                android:textColor="@android:color/white"
+                android:textSize="16sp"
+                android:padding="8dp"
+                android:background="#80000000" />
+                
+        </RelativeLayout>
 
     </RelativeLayout>
 

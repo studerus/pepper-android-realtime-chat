@@ -1,7 +1,7 @@
 package io.github.studerus.pepper_android_realtime;
 
+import android.app.Activity;
 import android.content.Context;
-import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
@@ -104,7 +104,7 @@ public class ChatMessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
                     imageView.setVisibility(View.VISIBLE);
                     int thumbPx = dpToPx(messageHolder.itemView.getContext(), 220);
                     imageView.setImageBitmap(decodeSampledBitmapFromPath(path, thumbPx, thumbPx));
-                    imageView.setOnClickListener(v -> openFullscreen(v.getContext(), path));
+                    imageView.setOnClickListener(v -> showImageOverlay(v, path));
                 } else {
                     imageView.setVisibility(View.GONE);
                     imageView.setOnClickListener(null);
@@ -118,10 +118,34 @@ public class ChatMessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
         return Math.round(dp * (metrics.densityDpi / 160f));
     }
 
-    private void openFullscreen(Context context, String path) {
-        Intent intent = new Intent(context, FullscreenImageActivity.class);
-        intent.putExtra("image_path", path);
-        context.startActivity(intent);
+    private void showImageOverlay(View clickedView, String imagePath) {
+        // Find the root activity view to add overlay
+        Activity activity = (Activity) clickedView.getContext();
+        View rootView = activity.findViewById(android.R.id.content);
+        View imageOverlay = activity.findViewById(R.id.image_overlay);
+        
+        if (imageOverlay != null && rootView != null) {
+            ImageView overlayImage = imageOverlay.findViewById(R.id.overlay_image);
+            
+            if (overlayImage != null) {
+                // Load image
+                Bitmap bitmap = decodeSampledBitmapFromPath(imagePath, 1024, 1024);
+                overlayImage.setImageBitmap(bitmap);
+                
+                // Show overlay
+                imageOverlay.setVisibility(View.VISIBLE);
+                
+                // Set click listener to close
+                imageOverlay.setOnClickListener(v -> hideImageOverlay(activity));
+            }
+        }
+    }
+    
+    private void hideImageOverlay(Activity activity) {
+        View imageOverlay = activity.findViewById(R.id.image_overlay);
+        if (imageOverlay != null) {
+            imageOverlay.setVisibility(View.GONE);
+        }
     }
 
     public static Bitmap decodeSampledBitmapFromPath(String path, int reqWidth, int reqHeight) {
