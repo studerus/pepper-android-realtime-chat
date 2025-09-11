@@ -9,7 +9,6 @@ import com.aldebaran.qi.sdk.builder.AnimationBuilder;
 import com.aldebaran.qi.sdk.object.actuation.Animate;
 import com.aldebaran.qi.sdk.object.actuation.Animation;
 
-import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -18,6 +17,7 @@ public class GestureController {
     public interface IntSupplier { Integer get(); }
 
     private static final String TAG = "GestureController";
+    private static final int NEXT_DELAY_MS = 350;
     private final ExecutorService gestureExecutor = Executors.newSingleThreadExecutor();
     private volatile boolean running = false;
     private volatile Future<Void> currentRunFuture = null;
@@ -58,13 +58,13 @@ public class GestureController {
             .thenConsume(animationFuture -> {
                 if (animationFuture.hasError()) {
                     Log.w(TAG, "Animation build failed", animationFuture.getError());
-                    scheduleNextAfterDelay(qiContext, keepRunning, nextResId, 350);
+                    scheduleNextAfterDelay(qiContext, keepRunning, nextResId);
                     return;
                 }
                 Animation animation = animationFuture.getValue();
                 if (animation == null) {
                     Log.w(TAG, "Animation build returned null");
-                    scheduleNextAfterDelay(qiContext, keepRunning, nextResId, 350);
+                    scheduleNextAfterDelay(qiContext, keepRunning, nextResId);
                     return;
                 }
                 Log.d(TAG, "Animation built successfully, starting animate");
@@ -74,7 +74,7 @@ public class GestureController {
                     .thenConsume(animateFuture -> {
                         if (animateFuture.hasError()) {
                             Log.w(TAG, "Failed to build animate action", animateFuture.getError());
-                            scheduleNextAfterDelay(qiContext, keepRunning, nextResId, 350);
+                            scheduleNextAfterDelay(qiContext, keepRunning, nextResId);
                             return;
                         }
                         Animate animate = animateFuture.getValue();
@@ -91,17 +91,17 @@ public class GestureController {
                                 }
                             } finally {
                                 currentRunFuture = null;
-                                scheduleNextAfterDelay(qiContext, keepRunning, nextResId, 350);
+                                scheduleNextAfterDelay(qiContext, keepRunning, nextResId);
                             }
                         });
                     });
             });
     }
 
-    private void scheduleNextAfterDelay(QiContext qiContext, BoolSupplier keepRunning, IntSupplier nextResId, int delayMs) {
+    private void scheduleNextAfterDelay(QiContext qiContext, BoolSupplier keepRunning, IntSupplier nextResId) {
         gestureExecutor.submit(() -> {
             try {
-                Thread.sleep(delayMs);
+                Thread.sleep(NEXT_DELAY_MS);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }

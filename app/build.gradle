@@ -35,6 +35,8 @@ android {
         buildConfigField "String", "GROQ_API_KEY", "\"${localProps.getProperty('GROQ_API_KEY', '')}\""
         buildConfigField "String", "TAVILY_API_KEY", "\"${localProps.getProperty('TAVILY_API_KEY', '')}\""
         buildConfigField "String", "OPENWEATHER_API_KEY", "\"${localProps.getProperty('OPENWEATHER_API_KEY', '')}\""
+        buildConfigField "String", "AZURE_FACE_API_KEY", "\"${localProps.getProperty('AZURE_FACE_API_KEY', '')}\""
+        buildConfigField "String", "AZURE_FACE_ENDPOINT", "\"${localProps.getProperty('AZURE_FACE_ENDPOINT', '')}\""
         
         // Automatically include all API keys from local.properties that end with _API_KEY
         localProps.each { key, value ->

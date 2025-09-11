@@ -32,20 +32,21 @@ public class MovePepperTool implements Tool {
             JSONObject tool = new JSONObject();
             tool.put("type", "function");
             tool.put("name", getName());
-            tool.put("description", "Move Pepper robot in a specific direction for a given distance. Use this when the user asks Pepper to move around the room. Call the function directly without announcing it.");
+            tool.put("description", "Move Pepper robot in a specific direction for a given distance. Use this when the user asks Pepper to move around the room. Call the function directly without announcing it. You can combine forward/backward and sideways movements.");
             
             JSONObject params = new JSONObject();
             params.put("type", "object");
             
             JSONObject properties = new JSONObject();
-            properties.put("direction", new JSONObject()
-                .put("type", "string")
-                .put("description", "Direction to move")
-                .put("enum", new JSONArray().put("forward").put("backward").put("left").put("right")));
-            properties.put("distance", new JSONObject()
+            properties.put("distance_forward", new JSONObject()
                 .put("type", "number")
-                .put("description", "Distance to move in meters (0.1-4.0)")
-                .put("minimum", 0.1)
+                .put("description", "Distance to move forward (positive) or backward (negative) in meters (-4.0 to 4.0). Optional, defaults to 0.")
+                .put("minimum", -4.0)
+                .put("maximum", 4.0));
+            properties.put("distance_sideways", new JSONObject()
+                .put("type", "number")
+                .put("description", "Distance to move left (positive) or right (negative) in meters (-4.0 to 4.0). Optional, defaults to 0.")
+                .put("minimum", -4.0)
                 .put("maximum", 4.0));
             properties.put("speed", new JSONObject()
                 .put("type", "number")
@@ -55,7 +56,8 @@ public class MovePepperTool implements Tool {
                 .put("default", 0.4));
             
             params.put("properties", properties);
-            params.put("required", new JSONArray().put("direction").put("distance"));
+            // No required parameters, as at least one of the distances should be provided.
+            // This is handled in the execute logic.
             tool.put("parameters", params);
             
             return tool;
@@ -66,24 +68,15 @@ public class MovePepperTool implements Tool {
 
     @Override
     public String execute(JSONObject args, ToolContext context) throws Exception {
-        String direction = args.optString("direction", "");
-        double distance = args.optDouble("distance", 0);
+        double distanceForward = args.optDouble("distance_forward", 0.0);
+        double distanceSideways = args.optDouble("distance_sideways", 0.0);
         double speed = args.optDouble("speed", 0.4);
         
-        // Validate required parameters
-        if (direction.isEmpty()) {
-            return new JSONObject().put("error", "Missing required parameter: direction").toString();
+        // Validate that at least one movement is requested
+        if (distanceForward == 0.0 && distanceSideways == 0.0) {
+            return new JSONObject().put("error", "Please provide a non-zero distance for 'distance_forward' or 'distance_sideways'.").toString();
         }
-        if (distance <= 0) {
-            return new JSONObject().put("error", "Missing or invalid parameter: distance").toString();
-        }
-        
-        // Validate direction
-        if (!direction.equals("forward") && !direction.equals("backward") && 
-            !direction.equals("left") && !direction.equals("right")) {
-            return new JSONObject().put("error", "Invalid direction. Use: forward, backward, left, right").toString();
-        }
-        
+
         // Check if robot is ready
         if (context.isQiContextNotReady()) {
             return new JSONObject().put("error", "Robot not ready").toString();
@@ -94,7 +87,7 @@ public class MovePepperTool implements Tool {
             return new JSONObject().put("error", "Cannot move while charging flap is open. Please close the charging flap first for safety.").toString();
         }
         
-        Log.i(TAG, "Starting movement: " + direction + " " + distance + "m at " + speed + "m/s");
+        Log.i(TAG, "Starting movement: forward=" + distanceForward + "m, sideways=" + distanceSideways + "m at " + speed + "m/s");
         
         // Use NavigationServiceManager for coordinated movement with service management
         NavigationServiceManager navManager = context.getNavigationServiceManager();
@@ -103,24 +96,25 @@ public class MovePepperTool implements Tool {
         }
         
         // Execute movement using manager with tool-level callback (does not override manager listener)
-        final String finalDirection = direction;
-        final double finalDistance = distance;
-        navManager.movePepper(context.getQiContext(), direction, distance, speed)
+        final double finalDistanceForward = distanceForward;
+        final double finalDistanceSideways = distanceSideways;
+        navManager.movePepper(context.getQiContext(), distanceForward, distanceSideways, speed)
             .thenConsume(f -> {
                 boolean success = !f.hasError() && f.getValue() != null && f.getValue().success;
                 String error = f.hasError() ? (f.getError() != null ? f.getError().getMessage() : "movement error")
-                                            : (f.getValue() != null ? f.getValue().error : null);
+                                             : (f.getValue() != null ? f.getValue().error : null);
                 Log.i(TAG, "Movement finished (tool future), success=" + success + ", error=" + error);
                 String message;
+                String movementDesc = buildMovementDescription(finalDistanceForward, finalDistanceSideways);
                 if (success) {
                 message = String.format(Locale.US,
-                    "[MOVEMENT COMPLETED] You have successfully moved %s %.1f meters and arrived at your destination. Please inform the user that you have completed the movement.",
-                    finalDirection, finalDistance);
+                    "[MOVEMENT COMPLETED] You have successfully moved %s and arrived at your destination. Please inform the user that you have completed the movement.",
+                    movementDesc);
                 } else {
                 String userFriendlyError = translateMovementError(error);
                 message = String.format(Locale.US,
-                    "[MOVEMENT FAILED] You couldn't complete the movement %s %.1f meters. %s Please inform the user about this problem and offer alternative solutions or ask if they want you to try a different direction.",
-                    finalDirection, finalDistance, userFriendlyError);
+                    "[MOVEMENT FAILED] You couldn't complete the movement %s. %s Please inform the user about this problem and offer alternative solutions or ask if they want you to try a different direction.",
+                    movementDesc, userFriendlyError);
                 }
                 context.sendAsyncUpdate(message, true);
             });
@@ -128,11 +122,11 @@ public class MovePepperTool implements Tool {
         // Return immediate confirmation
         JSONObject result = new JSONObject();
         result.put("status", "Movement started");
-        result.put("direction", direction);
-        result.put("distance", distance);
+        result.put("distance_forward", distanceForward);
+        result.put("distance_sideways", distanceSideways);
         result.put("speed", speed);
         result.put("message", String.format(Locale.US, 
-            "Movement started. Pepper is now moving %s %.1f meters.", direction, distance));
+            "Movement started. Pepper is now moving %s.", buildMovementDescription(distanceForward, distanceSideways)));
         return result.toString();
     }
 
@@ -167,6 +161,23 @@ public class MovePepperTool implements Tool {
             Log.w(TAG, "Could not check charging flap status: " + e.getMessage(), e);
             return false; // Allow movement if check fails to avoid false blocking
         }
+    }
+
+    /**
+     * Builds a human-readable description of the movement for logs and messages.
+     */
+    private String buildMovementDescription(double forward, double sideways) {
+        StringBuilder desc = new StringBuilder();
+        if (forward != 0) {
+            desc.append(String.format(Locale.US, "%.1f meters %s", Math.abs(forward), forward > 0 ? "forward" : "backward"));
+        }
+        if (sideways != 0) {
+            if (desc.length() > 0) {
+                desc.append(" and ");
+            }
+            desc.append(String.format(Locale.US, "%.1f meters to the %s", Math.abs(sideways), sideways > 0 ? "left" : "right"));
+        }
+        return desc.toString();
     }
 
     /**

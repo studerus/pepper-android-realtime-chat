@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apb/res-auto"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_margin="1dp"
@@ -8,113 +8,176 @@
     app:cardElevation="1dp"
     app:cardBackgroundColor="@android:color/white">
 
-    <!-- Single row layout matching the column headers -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:padding="8dp"
-        android:gravity="center_vertical">
+        android:orientation="vertical"
+        android:padding="8dp">
 
-        <!-- Face Picture - circular thumbnail -->
-        <ImageView
-            android:id="@+id/human_face_picture"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:layout_marginEnd="8dp"
-            android:background="@android:drawable/btn_dialog"
-            android:scaleType="centerCrop"
-            android:src="@android:drawable/ic_menu_gallery"
-            android:contentDescription="Human face picture" />
-
-        <!-- Demographics - matches header width -->
-        <TextView
-            android:id="@+id/human_demographics"
-            android:layout_width="95dp"
+        <!-- Top Row: Core Info -->
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="25y, ♂️"
-            android:textSize="15sp"
-            android:textStyle="bold"
-            android:textColor="@android:color/black"
-            android:gravity="start|center_vertical" />
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
 
-        <!-- Distance - matches header width -->
-        <TextView
-            android:id="@+id/human_distance"
-            android:layout_width="70dp"
-            android:layout_height="wrap_content"
-            android:text="1.2m"
-            android:textSize="14sp"
-            android:textColor="#666666"
-            android:layout_marginStart="10dp"
-            android:gravity="start|center_vertical" />
+            <!-- Face Picture - circular thumbnail -->
+            <ImageView
+                android:id="@+id/human_face_picture"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginEnd="8dp"
+                android:background="@android:drawable/btn_dialog"
+                android:scaleType="centerCrop"
+                android:src="@android:drawable/ic_menu_gallery"
+                android:contentDescription="Human face picture" />
 
-        <!-- Emotion - matches header width -->
-        <TextView
-            android:id="@+id/human_emotion"
-            android:layout_width="95dp"
-            android:layout_height="wrap_content"
-            android:text="😊 Joyful"
-            android:textSize="14sp"
-            android:textColor="#333333"
-            android:layout_marginStart="10dp"
-            android:gravity="start|center_vertical" />
+            <!-- Demographics - matches header width -->
+            <TextView
+                android:id="@+id/human_demographics"
+                android:layout_width="95dp"
+                android:layout_height="wrap_content"
+                android:text="25y, ♂️"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:textColor="@android:color/black"
+                android:gravity="start|center_vertical" />
 
-        <!-- Pleasure State - matches header width -->
-        <TextView
-            android:id="@+id/human_pleasure"
-            android:layout_width="85dp"
-            android:layout_height="wrap_content"
-            android:text="😊 Positive"
-            android:textSize="14sp"
-            android:textColor="#333333"
-            android:layout_marginStart="10dp"
-            android:gravity="start|center_vertical" />
+            <!-- Distance - matches header width -->
+            <TextView
+                android:id="@+id/human_distance"
+                android:layout_width="70dp"
+                android:layout_height="wrap_content"
+                android:text="1.2m"
+                android:textSize="14sp"
+                android:textColor="#666666"
+                android:layout_marginStart="10dp"
+                android:gravity="start|center_vertical" />
 
-        <!-- Excitement State - matches header width -->
-        <TextView
-            android:id="@+id/human_excitement"
-            android:layout_width="85dp"
-            android:layout_height="wrap_content"
-            android:text="⚡ Excited"
-            android:textSize="14sp"
-            android:textColor="#333333"
-            android:layout_marginStart="10dp"
-            android:gravity="start|center_vertical" />
+            <!-- Emotion - matches header width -->
+            <TextView
+                android:id="@+id/human_emotion"
+                android:layout_width="95dp"
+                android:layout_height="wrap_content"
+                android:text="😊 Joyful"
+                android:textSize="14sp"
+                android:textColor="#333333"
+                android:layout_marginStart="10dp"
+                android:gravity="start|center_vertical" />
 
-        <!-- Smile State - matches header width -->
-        <TextView
-            android:id="@+id/human_smile"
-            android:layout_width="85dp"
-            android:layout_height="wrap_content"
-            android:text="😊 Genuine"
-            android:textSize="14sp"
-            android:textColor="#333333"
-            android:layout_marginStart="10dp"
-            android:gravity="start|center_vertical" />
+            <!-- Pleasure State - matches header width -->
+            <TextView
+                android:id="@+id/human_pleasure"
+                android:layout_width="85dp"
+                android:layout_height="wrap_content"
+                android:text="😊 Positive"
+                android:textSize="14sp"
+                android:textColor="#333333"
+                android:layout_marginStart="10dp"
+                android:gravity="start|center_vertical" />
 
-        <!-- Attention - flexible width -->
-        <TextView
-            android:id="@+id/human_attention"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Focused"
-            android:textSize="14sp"
-            android:textColor="#333333"
-            android:layout_marginStart="10dp"
-            android:gravity="start|center_vertical" />
+            <!-- Excitement State - matches header width -->
+            <TextView
+                android:id="@+id/human_excitement"
+                android:layout_width="85dp"
+                android:layout_height="wrap_content"
+                android:text="⚡ Excited"
+                android:textSize="14sp"
+                android:textColor="#333333"
+                android:layout_marginStart="10dp"
+                android:gravity="start|center_vertical" />
 
-        <!-- Engagement - matches header width -->
-        <TextView
-            android:id="@+id/human_engagement"
-            android:layout_width="85dp"
+            <!-- Smile State - matches header width -->
+            <TextView
+                android:id="@+id/human_smile"
+                android:layout_width="85dp"
+                android:layout_height="wrap_content"
+                android:text="😊 Genuine"
+                android:textSize="14sp"
+                android:textColor="#333333"
+                android:layout_marginStart="10dp"
+                android:gravity="start|center_vertical" />
+
+            <!-- Attention - flexible width -->
+            <TextView
+                android:id="@+id/human_attention"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Focused"
+                android:textSize="14sp"
+                android:textColor="#333333"
+                android:layout_marginStart="10dp"
+                android:gravity="start|center_vertical" />
+
+            <!-- Engagement - matches header width -->
+            <TextView
+                android:id="@+id/human_engagement"
+                android:layout_width="85dp"
+                android:layout_height="wrap_content"
+                android:text="Engaged"
+                android:textSize="14sp"
+                android:textColor="#333333"
+                android:layout_marginStart="10dp"
+                android:gravity="start|center_vertical" />
+
+        </LinearLayout>
+
+        <!-- Bottom Row: Azure AI Vision Info -->
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Engaged"
-            android:textSize="14sp"
-            android:textColor="#333333"
-            android:layout_marginStart="10dp"
-            android:gravity="start|center_vertical" />
+            android:orientation="horizontal"
+            android:layout_marginTop="6dp"
+            android:paddingStart="48dp"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🤖 Azure:"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/professional_blue"
+                android:layout_marginEnd="8dp"/>
+
+            <TextView
+                android:id="@+id/azure_head_pose"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Pose: N/A"
+                android:textSize="12sp"
+                android:textColor="#444"
+                android:layout_marginEnd="12dp"/>
+                
+            <TextView
+                android:id="@+id/azure_glasses"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Glasses: N/A"
+                android:textSize="12sp"
+                android:textColor="#444"
+                android:layout_marginEnd="12dp"/>
+
+            <TextView
+                android:id="@+id/azure_mask"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Mask: N/A"
+                android:textSize="12sp"
+                android:textColor="#444"
+                android:layout_marginEnd="12dp"/>
+
+            <TextView
+                android:id="@+id/azure_quality"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Quality: N/A"
+                android:textSize="12sp"
+                android:textColor="#444"
+                android:layout_marginEnd="12dp"/>
+                
+        </LinearLayout>
 
     </LinearLayout>
 

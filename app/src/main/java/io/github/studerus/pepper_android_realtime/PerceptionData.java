@@ -22,8 +22,24 @@ public class PerceptionData {
         public double distanceMeters = -1.0;
         public BasicEmotion basicEmotion = BasicEmotion.UNKNOWN;
         public Bitmap facePicture = null; // Face picture from QiSDK
-        
 
+        // --- Data from Azure Face API (generic REST fields) ---
+        @SuppressWarnings("unused") // Reserved for Phase 2 (Identify) implementation
+        public String recognizedName = null; // Will be used after approval
+        @SuppressWarnings("unused") // Reserved for Phase 2 (Identify) implementation
+        public Integer estimatedAgeAzure = null; // Will be used after approval
+        @SuppressWarnings("unused") // Reserved for Phase 2 (Identify) implementation
+        public String primaryEmotion = null; // Will be used after approval
+        
+        // Attributes available now (generic)
+        public Double azureYawDeg = null;
+        public Double azurePitchDeg = null;
+        public Double azureRollDeg = null;
+        public String glassesType = "N/A";
+        public Boolean isMasked = null;
+        public String imageQuality = "N/A";
+        public Double blurLevel = null;
+        public String exposureLevel = null;
         
         /**
          * Get attention level for UI display

@@ -22,7 +22,7 @@
     <string name="nav_map_none">🗺️ Map: none</string>
     <string name="nav_map_saved">🗺️ Map: Saved</string>
     <string name="nav_map_loading">🗺️ Map: Loading…</string>
-    <string name="nav_map_loading_size">🗺️ Map: Loading… (%dMB)</string>
+    <string name="nav_map_loading_size">🗺️ Map: Loading… (%1$dMB)</string>
     <string name="nav_map_ready">🗺️ Map: Ready</string>
     <string name="nav_map_creating">🗺️ Map: Creating…</string>
     <string name="nav_map_error">🗺️ Map: Error</string>
@@ -97,10 +97,10 @@
     <string name="memory_game_title">Memory Game</string>
     <string name="memory_close_button">✕</string>
     <string name="memory_moves_format">Moves: %d</string>
-    <string name="memory_pairs_format" formatted="false">Pairs: %d/%d</string>
-    <string name="memory_time_format" formatted="false">Time: %02d:%02d</string>
-    <string name="memory_card_face_down">?</string>
-    <string name="warmup_failed_msg">Connected to AI, but speech recognition warmup failed. You can still use the app, speech recognition will initialize when first used.</string>
+    <string name="memory_pairs_format">Pairs: %1$d/%2$d</string>
+    <string name="memory_time_format">Time: %1$02d:%2$02d</string>
+    <string name="memory_card_face_down" translatable="false">？</string>
+    <string name="warmup_failed_msg">Connected to AI, but speech recognition warmup failed. You can still use the app, speech recognition will initialize on first use.</string>
     <string name="ready_sr_lazy_init">Ready (Speech Recognition will initialize on first use)</string>
     <string name="last_update_format">Last update: %1$s</string>
     <string name="api_key_required_format">API key required: %1$s</string>

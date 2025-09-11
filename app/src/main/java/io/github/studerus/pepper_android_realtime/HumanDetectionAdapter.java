@@ -77,6 +77,12 @@ public class HumanDetectionAdapter extends RecyclerView.Adapter<HumanDetectionAd
         private final TextView smile;
         private final TextView attention;
         private final TextView engagement;
+        // Azure UI Elements
+        private final TextView azureHeadPose;
+        private final TextView azureGlasses;
+        private final TextView azureMask;
+        private final TextView azureQuality;
+        private int lastW = -1, lastH = -1;
         
         public HumanViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -89,14 +95,24 @@ public class HumanDetectionAdapter extends RecyclerView.Adapter<HumanDetectionAd
             smile = itemView.findViewById(R.id.human_smile);
             attention = itemView.findViewById(R.id.human_attention);
             engagement = itemView.findViewById(R.id.human_engagement);
+            // Azure Views
+            azureHeadPose = itemView.findViewById(R.id.azure_head_pose);
+            azureGlasses = itemView.findViewById(R.id.azure_glasses);
+            azureMask = itemView.findViewById(R.id.azure_mask);
+            azureQuality = itemView.findViewById(R.id.azure_quality);
         }
         
         public void bind(PerceptionData.HumanInfo human) {
             // Set face picture with debugging
             if (human.facePicture != null) {
                 facePicture.setImageBitmap(human.facePicture);
-                android.util.Log.d("HumanAdapter", "🖼️ Displaying face picture for human " + human.id + 
-                    " (" + human.facePicture.getWidth() + "x" + human.facePicture.getHeight() + ")");
+                int w = human.facePicture.getWidth();
+                int h = human.facePicture.getHeight();
+                if (w != lastW || h != lastH) {
+                    android.util.Log.d("HumanAdapter", "🖼️ Displaying face picture for human " + human.id +
+                        " (" + w + "x" + h + ")");
+                    lastW = w; lastH = h;
+                }
             } else {
                 // Use default placeholder 
                 facePicture.setImageResource(android.R.drawable.ic_menu_gallery);
@@ -126,6 +142,34 @@ public class HumanDetectionAdapter extends RecyclerView.Adapter<HumanDetectionAd
             
             // Set engagement state
             engagement.setText(human.getEngagementLevel());
+
+            // --- Bind Azure Data ---
+            azureHeadPose.setText(formatHeadPose(human.azureYawDeg));
+            azureGlasses.setText(String.format("Glasses: %s", human.glassesType));
+            azureMask.setText(formatMask(human.isMasked));
+            azureQuality.setText(String.format("Quality: %s", human.imageQuality));
+        }
+
+        private String formatHeadPose(Double yawDeg) {
+            if (yawDeg == null) {
+                return "Pose: N/A";
+            }
+            String direction;
+            if (yawDeg < -10.0) {
+                direction = "Right";
+            } else if (yawDeg > 10.0) {
+                direction = "Left";
+            } else {
+                direction = "Forward";
+            }
+            return String.format(java.util.Locale.US, "Pose: %s (%.0f°)", direction, yawDeg);
+        }
+
+        private String formatMask(Boolean isMasked) {
+            if (isMasked == null) {
+                return "Mask: N/A";
+            }
+            return "Mask: " + (isMasked ? "Yes" : "No");
         }
     }
 }

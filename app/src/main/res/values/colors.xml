@@ -8,6 +8,7 @@
     <color name="teal_700">#FF018786</color>
     
     <!-- New Professional Blue theme -->
+    <color name="colorPrimary">#FF1E40AF</color> <!-- Added for compatibility -->
     <color name="professional_blue">#FF1E40AF</color>
     <color name="professional_blue_dark">#FF1E3A8A</color>
     <color name="professional_blue_light">#FF3B82F6</color>

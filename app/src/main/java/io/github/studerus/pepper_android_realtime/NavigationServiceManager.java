@@ -69,7 +69,7 @@ public class NavigationServiceManager {
     // Concurrency control for map building
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final AtomicBoolean isMapBeingBuilt = new AtomicBoolean(false);
-    private volatile Promise<Boolean> inflightMapLoadPromise;
+    private volatile Promise<Boolean> inFlightMapLoadPromise;
  
     private void beginCriticalMapLoad(QiContext qiContext) {
         try {
@@ -113,8 +113,9 @@ public class NavigationServiceManager {
     /**
      * Returns true while a map build/load is currently in progress.
      */
+    @SuppressWarnings("unused")
     public boolean isMapLoadingInProgress() {
-        return isMapBeingBuilt != null && isMapBeingBuilt.get();
+        return isMapBeingBuilt.get();
     }
     
     /**
@@ -344,6 +345,7 @@ public class NavigationServiceManager {
     /**
      * Check whether a map is currently loaded into memory (Localize created/running)
      */
+    @SuppressWarnings("BooleanMethodIsAlwaysInverted")
     public boolean isMapLoaded() {
         return mapLoaded;
     }
@@ -381,7 +383,7 @@ public class NavigationServiceManager {
         // Prevent multiple concurrent builds of the large map object
         if (isMapBeingBuilt.compareAndSet(false, true)) {
             Log.i(TAG, "Starting robust map loading process...");
-            inflightMapLoadPromise = promise;
+            inFlightMapLoadPromise = promise;
             // Enter critical section: pause interfering services and autonomous abilities
             beginCriticalMapLoad(qiContext);
             
@@ -398,8 +400,8 @@ public class NavigationServiceManager {
                         isMapBeingBuilt.set(false);
                         // Leave critical section (failure)
                         mainHandler.post(() -> endCriticalMapLoad(false));
-                        Promise<Boolean> p = inflightMapLoadPromise;
-                        inflightMapLoadPromise = null;
+                        Promise<Boolean> p = inFlightMapLoadPromise;
+                        inFlightMapLoadPromise = null;
                         if (p != null) p.setValue(false);
                         return;
                     }
@@ -425,14 +427,14 @@ public class NavigationServiceManager {
                                         try { if (onMapLoaded != null) onMapLoaded.run(); } catch (Throwable t) { Log.w(TAG, "onMapLoaded callback error", t); }
                                         endCriticalMapLoad(true);
                                     });
-                                    Promise<Boolean> p = inflightMapLoadPromise;
-                                    inflightMapLoadPromise = null;
+                                    Promise<Boolean> p = inFlightMapLoadPromise;
+                                    inFlightMapLoadPromise = null;
                                     if (p != null) p.setValue(true);
                                 } catch (Exception e) {
                                     Log.e(TAG, "Error caching map graphics after build", e);
                                     mainHandler.post(() -> endCriticalMapLoad(false));
-                                    Promise<Boolean> p = inflightMapLoadPromise;
-                                    inflightMapLoadPromise = null;
+                                    Promise<Boolean> p = inFlightMapLoadPromise;
+                                    inFlightMapLoadPromise = null;
                                     if (p != null) p.setValue(false);
                                 } finally {
                                     isMapBeingBuilt.set(false); // Release lock
@@ -442,8 +444,8 @@ public class NavigationServiceManager {
                         } catch (Exception e) {
                             Log.e(TAG, "Failed to build ExplorationMap", e);
                             mainHandler.post(() -> endCriticalMapLoad(false));
-                            Promise<Boolean> p = inflightMapLoadPromise;
-                            inflightMapLoadPromise = null;
+                            Promise<Boolean> p = inFlightMapLoadPromise;
+                            inFlightMapLoadPromise = null;
                             if (p != null) p.setValue(false);
                             isMapBeingBuilt.set(false); // Release lock on failure
                         }
@@ -453,12 +455,14 @@ public class NavigationServiceManager {
         } else {
             Log.w(TAG, "Map is already being built. Waiting for completion.");
             // Return the in-flight future so callers can await completion
-            Promise<Boolean> p = inflightMapLoadPromise;
+            Promise<Boolean> p = inFlightMapLoadPromise;
             if (p != null) {
                 return p.getFuture();
             }
             // Fallback: no known in-flight promise; fail fast to avoid hanging callers
-            promise.setValue(false);
+            Promise<Boolean> fail = new Promise<>();
+            fail.setValue(false);
+            return fail.getFuture();
         }
         
         return promise.getFuture();
@@ -518,8 +522,8 @@ public class NavigationServiceManager {
             // Clear previous cached data to free memory
             if (cachedMapBitmap != null && !cachedMapBitmap.isRecycled()) {
                 cachedMapBitmap.recycle();
-                cachedMapBitmap = null;
             }
+            cachedMapBitmap = null;
             cachedMapGfx = null;
             
             // Force garbage collection before heavy bitmap operations
@@ -557,6 +561,7 @@ public class NavigationServiceManager {
     /**
      * Ensure robot is localized (requires a loaded map). Non-blocking.
      */
+    @SuppressWarnings("UnusedReturnValue")
     public Future<Boolean> ensureLocalizationIfNeeded(QiContext qiContext, Runnable onLocalized, Runnable onFailed) {
         Promise<Boolean> promise = new Promise<>();
         AtomicBoolean completed = new AtomicBoolean(false);
@@ -713,6 +718,7 @@ public class NavigationServiceManager {
      * Uses thread separation to avoid blocking UI/QiSDK threads.
      * @param newMap The newly created ExplorationMap object.
      */
+    @SuppressWarnings("unused")
     public void cacheNewMap(ExplorationMap newMap) {
         cacheNewMap(newMap, null);
     }
@@ -879,7 +885,7 @@ public class NavigationServiceManager {
     /**
      * Move Pepper with service coordination
      */
-    public Future<MovementResult> movePepper(QiContext qiContext, String direction, double distance, double speed) {
+    public Future<MovementResult> movePepper(QiContext qiContext, double distanceForward, double distanceSideways, double speed) {
         if (movementController == null) {
             Log.e(TAG, "Cannot move - MovementController is null");
             Promise<MovementResult> failed = new Promise<>();
@@ -892,13 +898,13 @@ public class NavigationServiceManager {
             busy.setValue(new MovementResult(false, "Another movement is already in progress"));
             return busy.getFuture();
         }
-        Log.i(TAG, "Starting coordinated movement: " + direction + " " + distance + "m");
+        Log.i(TAG, "Starting coordinated movement: forward=" + distanceForward + "m, sideways=" + distanceSideways + "m");
         mainHandler.post(() -> setNavigationPhase(NavigationPhase.NAVIGATION_MODE));
         Promise<MovementResult> p = new Promise<>();
         pendingMovementPromise = p;
         Future<Void> holdFuture = (qiContext != null) ? ensureAutonomousAbilitiesHeld(qiContext) : null;
         if (holdFuture == null) {
-            movementController.movePepper(qiContext, direction, distance, speed);
+            movementController.movePepper(qiContext, distanceForward, distanceSideways, speed);
         } else {
             holdFuture.thenConsume(res -> {
                 if (res.hasError()) {
@@ -908,7 +914,7 @@ public class NavigationServiceManager {
                         p.setValue(new MovementResult(false, "Failed to prepare robot for movement"));
                     } catch (Exception ignored) { }
                 } else {
-                    movementController.movePepper(qiContext, direction, distance, speed);
+                    movementController.movePepper(qiContext, distanceForward, distanceSideways, speed);
                 }
             });
         }

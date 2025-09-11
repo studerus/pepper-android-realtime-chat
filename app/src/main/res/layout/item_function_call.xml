@@ -67,7 +67,7 @@
                     android:layout_width="20dp"
                     android:layout_height="20dp"
                     android:src="@drawable/ic_expand_more"
-                    android:tint="@color/function_call_icon" />
+                    app:tint="@color/function_call_icon" />
 
             </LinearLayout>
 

@@ -42,11 +42,11 @@ public class MovementController {
     /**
      * Move Pepper in a specified direction
      * @param qiContext QiContext for accessing robot services
-     * @param direction "forward", "backward", "left", "right"
-     * @param distance distance in meters (0.5-3.0)
+     * @param distanceForward distance forward (positive) or backward (negative) in meters
+     * @param distanceSideways distance left (positive) or right (negative) in meters
      * @param speed optional speed in m/s (0.1-0.55), default 0.4
      */
-    public void movePepper(QiContext qiContext, String direction, double distance, double speed) {
+    public void movePepper(QiContext qiContext, double distanceForward, double distanceSideways, double speed) {
         if (qiContext == null) {
             Log.e(TAG, "QiContext is null - cannot move Pepper");
             if (listener != null) listener.onMovementFinished(false, "Robot not ready");
@@ -55,9 +55,6 @@ public class MovementController {
         
         try {
             // Validate parameters
-            if (distance < 0.1 || distance > 4.0) {
-                throw new IllegalArgumentException("Distance must be between 0.1 and 4.0 meters");
-            }
             if (speed < 0.1 || speed > 0.55) {
                 speed = 0.4; // Use default speed
             }
@@ -70,7 +67,8 @@ public class MovementController {
             Frame robotFrame = actuation.robotFrame();
             
             // Create transform based on direction
-            Transform transform = createTransform(direction, distance);
+            // X is forward/backward, Y is left(+)/right(-)
+            Transform transform = TransformBuilder.create().from2DTranslation(distanceForward, distanceSideways);
             
             // Create target frame
             FreeFrame targetFrame = mapping.makeFreeFrame();
@@ -85,7 +83,7 @@ public class MovementController {
             
             // Add listeners
             goTo.addOnStartedListener(() -> {
-                Log.i(TAG, "Movement started: " + direction + " " + distance + "m");
+                Log.i(TAG, "Movement started: forward=" + distanceForward + "m, sideways=" + distanceSideways + "m");
                 if (listener != null) listener.onMovementStarted();
             });
             
@@ -208,21 +206,6 @@ public class MovementController {
         } catch (Exception e) {
             Log.e(TAG, "Error creating turn", e);
             if (listener != null) listener.onMovementFinished(false, e.getMessage());
-        }
-    }
-    
-    private Transform createTransform(String direction, double distance) {
-        switch (direction.toLowerCase()) {
-            case "forward":
-                return TransformBuilder.create().fromXTranslation(distance);
-            case "backward":
-                return TransformBuilder.create().fromXTranslation(-distance);
-            case "left":
-                return TransformBuilder.create().from2DTranslation(0, distance);
-            case "right":
-                return TransformBuilder.create().from2DTranslation(0, -distance);
-            default:
-                throw new IllegalArgumentException("Invalid direction: " + direction + ". Use forward, backward, left, or right.");
         }
     }
     
