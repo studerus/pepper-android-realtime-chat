@@ -182,7 +182,7 @@ public class PerceptionService {
             }
 
             // Build base list
-            List<PerceptionData.HumanInfo> humanInfoList = new ArrayList<>();
+                    List<PerceptionData.HumanInfo> humanInfoList = new ArrayList<>();
             for (Human h : humansSnapshot) {
                 PerceptionData.HumanInfo info = mapHuman(h);
                 // Apply cached Azure attrs so UI does not flip back to N/A
@@ -344,7 +344,7 @@ public class PerceptionService {
             return null;
         }
     }
-    
+
     /**
      * Map QiSDK Human to UI-friendly HumanInfo
      */

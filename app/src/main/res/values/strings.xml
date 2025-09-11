@@ -124,5 +124,4 @@
     <string name="default_model">gpt-4o-realtime-preview</string>
     <string name="azure_default_model">gpt-4o-realtime-preview</string>
     <string name="openai_default_model">gpt-realtime</string>
-    <string name="provider_display_format">%1$s (%2$s)</string>
 </resources>

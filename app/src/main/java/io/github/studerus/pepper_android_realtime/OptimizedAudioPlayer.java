@@ -34,8 +34,8 @@ public class OptimizedAudioPlayer {
     private static final String TAG = "OptimizedAudioPlayer";
     
     // Performance-optimized buffer using bounded queue for O(1) operations
-    // Increased to 120 to prevent audio gaps with OpenAI gpt-realtime (~5-6 seconds of audio at 24kHz)
-    private final ArrayBlockingQueue<byte[]> audioBuffer = new ArrayBlockingQueue<>(120);
+    // Increased to 150 to handle GA API's larger/more frequent audio chunks (~6-7 seconds of audio at 24kHz)
+    private final ArrayBlockingQueue<byte[]> audioBuffer = new ArrayBlockingQueue<>(150);
     
     // Atomic flags for lock-free operations
     private final AtomicBoolean isPlaying = new AtomicBoolean(false);
@@ -216,7 +216,7 @@ public class OptimizedAudioPlayer {
 
     private void initializeAudioTrack() {
         try {
-            int internalBufferMs = 200; // Further reduced for memory savings (was 300ms)
+            int internalBufferMs = 300; // Increased for GA API compatibility (was 200ms)
             int channelConfig = AudioFormat.CHANNEL_OUT_MONO;
             int audioFormat = AudioFormat.ENCODING_PCM_16BIT;
             int minBuf = AudioTrack.getMinBufferSize(sampleRateHz, channelConfig, audioFormat);

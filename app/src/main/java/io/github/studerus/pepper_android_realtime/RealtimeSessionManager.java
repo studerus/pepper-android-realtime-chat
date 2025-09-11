@@ -35,6 +35,9 @@ public class RealtimeSessionManager {
     }
 
     private static final String TAG = "RealtimeSession";
+    
+    // Latency measurement for audio response time
+    public static volatile long responseCreateTimestamp = 0;
 
     private final OkHttpClient client;
     private WebSocket webSocket;
@@ -142,11 +145,15 @@ public class RealtimeSessionManager {
             JSONObject createResponsePayload = new JSONObject();
             createResponsePayload.put("type", "response.create");
             
-            JSONObject responseDetails = new JSONObject();
-            responseDetails.put("modalities", new JSONArray().put("audio").put("text"));
-            createResponsePayload.put("response", responseDetails);
+            // GA API doesn't support response.modalities - let it use session defaults
+            // JSONObject responseDetails = new JSONObject();
+            // responseDetails.put("modalities", new JSONArray().put("audio").put("text"));
+            // createResponsePayload.put("response", responseDetails);
 
-            Log.d(TAG, "Sending response.create");
+            // Reset latency measurement for new response and record timestamp
+            RealtimeEventHandler.resetLatencyMeasurement();
+            responseCreateTimestamp = System.currentTimeMillis();
+            Log.d(TAG, "Sending response.create at " + responseCreateTimestamp);
             return send(createResponsePayload.toString());
         } catch (Exception e) {
             Log.e(TAG, "Error creating response request", e);
@@ -220,20 +227,50 @@ public class RealtimeSessionManager {
         
         try {
             String voice = settingsManager.getVoice();
+            String model = settingsManager.getModel();
             float temperature = settingsManager.getTemperature();
             String systemPrompt = settingsManager.getSystemPrompt();
             Set<String> enabledTools = settingsManager.getEnabledTools();
             
-            Log.i(TAG, "Initial session configuration - Enabled tools: " + enabledTools);
+            Log.i(TAG, "Initial session configuration - Model: " + model + ", Enabled tools: " + enabledTools);
             
             JSONObject payload = new JSONObject();
             payload.put("type", "session.update");
             
             JSONObject sessionConfig = new JSONObject();
-            sessionConfig.put("voice", voice);
-            sessionConfig.put("temperature", temperature);
-            sessionConfig.put("output_audio_format", "pcm16");
-            sessionConfig.put("turn_detection", JSONObject.NULL);
+            
+            // For OpenAI Direct with gpt-realtime, use GA API structure
+            if ("gpt-realtime".equals(model) && settingsManager.getApiProvider() == RealtimeApiProvider.OPENAI_DIRECT) {
+                sessionConfig.put("type", "realtime");
+                
+                // GA API uses structured audio configuration
+                JSONObject audio = new JSONObject();
+                
+                // Output configuration
+                JSONObject output = new JSONObject();
+                output.put("voice", voice);
+                JSONObject format = new JSONObject();
+                format.put("type", "audio/pcm");
+                format.put("rate", 24000);
+                output.put("format", format);
+                audio.put("output", output);
+                
+                // Input configuration with turn detection
+                JSONObject input = new JSONObject();
+                JSONObject turnDetection = new JSONObject();
+                turnDetection.put("type", "server_vad");
+                input.put("turn_detection", turnDetection);
+                audio.put("input", input);
+                
+                sessionConfig.put("audio", audio);
+                // Note: temperature not supported in GA API
+            } else {
+                // All other combinations use direct voice and legacy parameters
+                sessionConfig.put("voice", voice);
+                sessionConfig.put("temperature", temperature);
+                sessionConfig.put("output_audio_format", "pcm16");
+                sessionConfig.put("turn_detection", JSONObject.NULL);
+            }
             sessionConfig.put("instructions", systemPrompt);
             
             JSONArray toolsArray = toolRegistry.buildToolsDefinitionForAzure(toolContext, enabledTools);
@@ -283,11 +320,12 @@ public class RealtimeSessionManager {
         
         try {
             String voice = settingsManager.getVoice();
+            String model = settingsManager.getModel();
             float temperature = settingsManager.getTemperature();
             String systemPrompt = settingsManager.getSystemPrompt();
             Set<String> enabledTools = settingsManager.getEnabledTools();
             
-            Log.i(TAG, "Session update - Enabled tools: " + enabledTools);
+            Log.i(TAG, "Session update - Model: " + model + ", Enabled tools: " + enabledTools);
             
             // Debug YouTube API key availability
             if (keyManager != null && enabledTools.contains("play_youtube_video")) {
@@ -302,8 +340,30 @@ public class RealtimeSessionManager {
             payload.put("type", "session.update");
             
             JSONObject sessionConfig = new JSONObject();
-            sessionConfig.put("voice", voice);
-            sessionConfig.put("temperature", temperature);
+            
+            // For OpenAI Direct with gpt-realtime, use GA API structure
+            if ("gpt-realtime".equals(model) && settingsManager.getApiProvider() == RealtimeApiProvider.OPENAI_DIRECT) {
+                sessionConfig.put("type", "realtime");
+                
+                // GA API uses structured audio configuration
+                JSONObject audio = new JSONObject();
+                
+                // Output configuration
+                JSONObject output = new JSONObject();
+                output.put("voice", voice);
+                JSONObject format = new JSONObject();
+                format.put("type", "audio/pcm");
+                format.put("rate", 24000);
+                output.put("format", format);
+                audio.put("output", output);
+                
+                sessionConfig.put("audio", audio);
+                // Note: temperature not supported in GA API
+            } else {
+                // All other combinations use direct voice and legacy parameters
+                sessionConfig.put("voice", voice);
+                sessionConfig.put("temperature", temperature);
+            }
             sessionConfig.put("instructions", systemPrompt);
             
             JSONArray toolsArray = toolRegistry.buildToolsDefinitionForAzure(toolContext, enabledTools);

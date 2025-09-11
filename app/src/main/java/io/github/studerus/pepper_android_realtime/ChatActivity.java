@@ -579,9 +579,8 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         
         if (perceptionService != null) {
             perceptionService.initialize(qiContext);
-            // Start perception monitoring for testing (normally only when dashboard is opened)
-            perceptionService.startMonitoring();
-            Log.i(TAG, "PerceptionService monitoring started for testing");
+            // Note: Monitoring will be started by DashboardManager when needed
+            Log.i(TAG, "PerceptionService initialized");
         }
         
         // Initialize touch sensor manager with QiContext
@@ -1027,9 +1026,14 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         sttManager.setCallbacks(new SpeechRecognizerManager.ActivityCallbacks() {
             @Override
             public void onRecognizedText(String text) {
-                // Gate STT: only accept in LISTENING state
+                // Gate STT: only accept in LISTENING state and when not muted
                 if (turnManager != null && turnManager.getState() != TurnManager.State.LISTENING) {
                     Log.i(TAG, "Ignoring STT result because state=" + turnManager.getState());
+                    return;
+                }
+                
+                if (isMuted) {
+                    Log.i(TAG, "Ignoring STT result because microphone is muted");
                     return;
                 }
                 
@@ -1041,6 +1045,11 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
 
             @Override
             public void onPartialText(String partialText) {
+                // Don't show partial text when muted
+                if (isMuted) {
+                    return;
+                }
+                
                 runOnUiThread(() -> {
                     if (statusTextView.getText().toString().startsWith("Listening")) {
                         statusTextView.setText(getString(R.string.status_listening_partial, partialText));
@@ -1471,7 +1480,9 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         }
         // Get current API provider and build connection parameters
         RealtimeApiProvider provider = settingsManager.getApiProvider();
-        String url = provider.getWebSocketUrl(keyManager.getAzureOpenAiEndpoint());
+        String selectedModel = settingsManager.getModel();
+        String url = provider.getWebSocketUrl(keyManager.getAzureOpenAiEndpoint(), selectedModel);
+        Log.i(TAG, "Connecting with selected model: " + selectedModel);
         
         java.util.HashMap<String, String> headers = new java.util.HashMap<>();
         
@@ -1485,7 +1496,14 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                 keyManager.getOpenAiApiKey()));
         }
         
-        headers.put("OpenAI-Beta", "realtime=v1");
+        // Beta header: only for non-GA models (gpt-realtime is GA, others are beta)
+        if (!"gpt-realtime".equals(selectedModel)) {
+            headers.put("OpenAI-Beta", "realtime=v1");
+            Log.d(TAG, "Using beta API for model: " + selectedModel);
+        } else {
+            Log.d(TAG, "Using GA API for model: " + selectedModel);
+        }
+        
         Log.d(TAG, "Connecting to " + provider.getDisplayName() + " - URL: " + url);
         sessionManager.connect(url, headers);
         return connectionPromise.getFuture();

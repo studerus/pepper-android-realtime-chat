@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import org.json.JSONObject;
 
 @SuppressWarnings("SpellCheckingInspection")
 public class SettingsManager {
@@ -113,7 +114,7 @@ public class SettingsManager {
                     }
                     TextView textView = (TextView) convertView;
                     RealtimeApiProvider provider = getItem(position);
-                    textView.setText(activity.getString(R.string.provider_display_format, provider.getDisplayName(), provider.getModelName()));
+                    textView.setText(provider.getDisplayName());
                     return convertView;
                 }
             };
@@ -127,11 +128,11 @@ public class SettingsManager {
             apiProviderSpinner.setEnabled(false);
         }
 
-        // Populate Model Spinner (now based on selected provider)
-        updateModelSpinnerForProvider(keyManager.getRealtimeApiProvider());
+        // Populate Model Spinner (provider-agnostic: all supported models)
+        updateModelSpinnerForProvider(null);
 
-        // Populate Voice Spinner
-        String[] voices = { "alloy", "ash", "ballad", "coral", "echo", "sage", "shimmer", "verse" };
+        // Populate Voice Spinner (includes new GA voices: cedar, marin)
+        String[] voices = { "alloy", "ash", "ballad", "cedar", "coral", "echo", "marin", "sage", "shimmer", "verse" };
         ArrayAdapter<String> voiceAdapter = new ArrayAdapter<>(activity, android.R.layout.simple_spinner_item, voices);
         voiceAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         voiceSpinner.setAdapter(voiceAdapter);
@@ -145,9 +146,9 @@ public class SettingsManager {
         // Load saved settings
         systemPromptInput.setText(settings.getString(KEY_SYSTEM_PROMPT, activity.getString(R.string.default_system_prompt)));
         
-        // Set API Provider selection
+        // Set API Provider selection (default: OPENAI_DIRECT)
         if (configuredProviders.length > 0) {
-            RealtimeApiProvider savedProvider = RealtimeApiProvider.fromString(settings.getString(KEY_API_PROVIDER, RealtimeApiProvider.AZURE_OPENAI.name()));
+            RealtimeApiProvider savedProvider = RealtimeApiProvider.fromString(settings.getString(KEY_API_PROVIDER, RealtimeApiProvider.OPENAI_DIRECT.name()));
             for (int i = 0; i < configuredProviders.length; i++) {
                 if (configuredProviders[i] == savedProvider) {
                     apiProviderSpinner.setSelection(i);
@@ -156,11 +157,11 @@ public class SettingsManager {
             }
         }
         
-        // Set model selection (based on current provider)
+        // Set model selection (provider-agnostic; default to gpt-realtime)
         @SuppressWarnings("unchecked")
         ArrayAdapter<String> currentModelAdapter = (ArrayAdapter<String>) modelSpinner.getAdapter();
         if (currentModelAdapter != null) {
-            String savedModel = settings.getString(KEY_MODEL, getDefaultModelForProvider(keyManager.getRealtimeApiProvider()));
+            String savedModel = settings.getString(KEY_MODEL, activity.getString(R.string.openai_default_model));
             int modelPosition = currentModelAdapter.getPosition(savedModel);
             if (modelPosition >= 0) {
                 modelSpinner.setSelection(modelPosition);
@@ -252,11 +253,11 @@ public class SettingsManager {
     }
 
     public void onDrawerClosed() {
-        String oldModel = settings.getString(KEY_MODEL, "gpt-4o-realtime-preview");
+        String oldModel = settings.getString(KEY_MODEL, "gpt-realtime");
         String oldVoice = settings.getString(KEY_VOICE, "ash");
         String oldLang = settings.getString(KEY_LANGUAGE, "de-CH");
         String oldPrompt = settings.getString(KEY_SYSTEM_PROMPT, "");
-        String oldProvider = settings.getString(KEY_API_PROVIDER, RealtimeApiProvider.AZURE_OPENAI.name());
+        String oldProvider = settings.getString(KEY_API_PROVIDER, RealtimeApiProvider.OPENAI_DIRECT.name());
         int oldTemp = settings.getInt(KEY_TEMPERATURE, 33);
         if (oldTemp < 0 || oldTemp > 100) oldTemp = 33;
         Set<String> oldTools = getEnabledTools();
@@ -298,6 +299,10 @@ public class SettingsManager {
     }
 
 
+
+    public String getModel() {
+        return settings.getString(KEY_MODEL, activity.getString(R.string.openai_default_model));
+    }
 
     public String getVoice() {
         return settings.getString(KEY_VOICE, "ash");
@@ -381,10 +386,23 @@ public class SettingsManager {
             ImageView expandIcon = toolItemView.findViewById(R.id.expand_icon);
             LinearLayout descriptionContainer = toolItemView.findViewById(R.id.description_container);
             
-            // Set tool information - use toolId as display name for now
+            // Set tool information
             toolName.setText(toolId);
-            toolDescription.setText(activity.getString(R.string.tool_prefix, toolId)); // Simple description since we don't have detailed info
             toolCheckbox.setChecked(enabledTools.contains(toolId));
+            
+            // Get the actual tool description from the tool definition
+            try {
+                io.github.studerus.pepper_android_realtime.tools.Tool tool = registry.createTool(toolId);
+                if (tool != null) {
+                    JSONObject definition = tool.getDefinition();
+                    String description = definition.optString("description", "No description available");
+                    toolDescription.setText(description);
+                } else {
+                    toolDescription.setText("Tool not available");
+                }
+            } catch (Exception e) {
+                toolDescription.setText("Error loading description");
+            }
             
             // Check API key availability if required
             boolean isApiKeyAvailable = true;
@@ -470,38 +488,20 @@ public class SettingsManager {
     }
 
     /**
-     * Update model spinner options based on selected API provider
+     * Update model spinner options (provider-agnostic)
      */
     private void updateModelSpinnerForProvider(RealtimeApiProvider provider) {
-        String[] models;
-        switch (provider) {
-            case AZURE_OPENAI:
-                models = new String[]{ "gpt-4o-realtime-preview", "gpt-4o-mini-realtime-preview" };
-                break;
-            case OPENAI_DIRECT:
-                models = new String[]{ "gpt-realtime" };
-                break;
-            default:
-                models = new String[]{ "gpt-4o-realtime-preview" };
-                break;
-        }
-        
+        String[] models = new String[]{ "gpt-realtime", "gpt-4o-realtime-preview", "gpt-4o-mini-realtime-preview" };
         ArrayAdapter<String> modelAdapter = new ArrayAdapter<>(activity, android.R.layout.simple_spinner_item, models);
         modelAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         modelSpinner.setAdapter(modelAdapter);
     }
     
     /**
-     * Get default model for a given provider
+     * Get default model (provider-agnostic): prefer OpenAI gpt-realtime
      */
     private String getDefaultModelForProvider(RealtimeApiProvider provider) {
-        switch (provider) {
-            case OPENAI_DIRECT:
-                return activity.getString(R.string.openai_default_model);
-            case AZURE_OPENAI:
-            default:
-                return activity.getString(R.string.azure_default_model);
-        }
+        return activity.getString(R.string.openai_default_model);
     }
     
     /**
@@ -509,7 +509,7 @@ public class SettingsManager {
      */
     private String getSelectedApiProvider() {
         if (apiProviderSpinner.getAdapter() == null || apiProviderSpinner.getSelectedItem() == null) {
-            return RealtimeApiProvider.AZURE_OPENAI.name();
+            return RealtimeApiProvider.OPENAI_DIRECT.name();
         }
         
         Object selectedItem = apiProviderSpinner.getSelectedItem();
@@ -518,14 +518,14 @@ public class SettingsManager {
         }
         
         // Fallback for error cases
-        return RealtimeApiProvider.AZURE_OPENAI.name();
+        return RealtimeApiProvider.OPENAI_DIRECT.name();
     }
     
     /**
      * Get currently selected API provider as enum
      */
     public RealtimeApiProvider getApiProvider() {
-        return RealtimeApiProvider.fromString(settings.getString(KEY_API_PROVIDER, RealtimeApiProvider.AZURE_OPENAI.name()));
+        return RealtimeApiProvider.fromString(settings.getString(KEY_API_PROVIDER, RealtimeApiProvider.OPENAI_DIRECT.name()));
     }
     
     public double getConfidenceThreshold() {

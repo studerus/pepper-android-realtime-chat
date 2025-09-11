@@ -29,18 +29,29 @@ public enum RealtimeApiProvider {
     /**
      * Get WebSocket URL for this provider
      * @param azureEndpoint Azure endpoint (only used for Azure provider)
+     * @param model Specific model to use (overrides default modelName)
      * @return WebSocket URL
      */
-    public String getWebSocketUrl(String azureEndpoint) {
+    public String getWebSocketUrl(String azureEndpoint, String model) {
+        String actualModel = (model != null && !model.isEmpty()) ? model : modelName;
         switch (this) {
             case AZURE_OPENAI:
                 return String.format("wss://%s/openai/realtime?api-version=2024-10-01-preview&deployment=%s", 
-                                    azureEndpoint, modelName);
+                                    azureEndpoint, actualModel);
             case OPENAI_DIRECT:
-                return String.format("wss://api.openai.com/v1/realtime?model=%s", modelName);
+                return String.format("wss://api.openai.com/v1/realtime?model=%s", actualModel);
             default:
                 throw new IllegalStateException("Unknown provider: " + this);
         }
+    }
+    
+    /**
+     * Get WebSocket URL for this provider (legacy method using default model)
+     * @param azureEndpoint Azure endpoint (only used for Azure provider)
+     * @return WebSocket URL
+     */
+    public String getWebSocketUrl(String azureEndpoint) {
+        return getWebSocketUrl(azureEndpoint, null);
     }
     
     /**
