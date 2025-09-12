@@ -583,6 +583,13 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             Log.i(TAG, "PerceptionService initialized");
         }
         
+        // Initialize vision service with QiContext for robot camera access
+        if (visionService == null) {
+            visionService = new VisionService(this);
+        }
+        visionService.initialize(qiContext);
+        Log.i(TAG, "VisionService initialized with robot camera");
+        
         // Initialize touch sensor manager with QiContext
         if (touchSensorManager == null) {
             touchSensorManager = new TouchSensorManager();
@@ -1395,6 +1402,8 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     }
     }
 
+    
+
 
     // handleResponseDone() moved to onResponseDone() in RealtimeEventHandler.Listener
 
@@ -1776,6 +1785,27 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
      */
     public NavigationServiceManager getNavigationServiceManager() {
         return navigationServiceManager;
+    }
+    
+    /**
+     * Get the GestureController instance for tool access
+     */
+    public GestureController getGestureController() {
+        return gestureController;
+    }
+    
+    /**
+     * Expose SettingsManager for tools/services that need to branch on model/provider
+     */
+    public SettingsManager getSettingsManager() {
+        return settingsManager;
+    }
+
+    /**
+     * Expose RealtimeSessionManager for tools/services that need direct API calls
+     */
+    public RealtimeSessionManager getSessionManager() {
+        return sessionManager;
     }
     
     // addConfidenceWarningIfNeeded() moved to SpeechRecognizerManager

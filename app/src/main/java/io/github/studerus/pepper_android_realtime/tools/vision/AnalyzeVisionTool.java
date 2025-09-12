@@ -70,10 +70,33 @@ public class AnalyzeVisionTool implements Tool {
         try {
             // Use existing VisionService for actual implementation
             VisionService visionService = new VisionService(context.getAppContext());
+            
+            // Initialize with QiContext for robot camera access
+            visionService.initialize(context.getQiContext());
+            
+            if (!visionService.isInitialized()) {
+                return new JSONObject().put("error", "Robot camera not available. Ensure robot has focus.").toString();
+            }
+            
             String apiKey = context.getApiKeyManager().getGroqApiKey();
             
+            // Stop robot gestures to maintain focus on user during photo capture
+            if (context.hasUi()) {
+                context.getActivity().getGestureController().stopNow();
+                Log.i(TAG, "Stopped robot gestures for vision analysis");
+                
+                // Wait for animation to fully stop and head to return to natural position
+                try {
+                    Thread.sleep(1000);
+                    Log.i(TAG, "Animation stop delay completed (1s) - ready for photo");
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    Log.w(TAG, "Animation stop delay interrupted");
+                }
+            }
+            
             // Update UI status by sending async update
-            context.sendAsyncUpdate("📸 Taking photo and analyzing with AI...", false);
+            context.sendAsyncUpdate("📸 Taking photo with robot camera...", false);
             
             // Use CountDownLatch to handle async vision analysis
             final CountDownLatch latch = new CountDownLatch(1);
@@ -83,17 +106,22 @@ public class AnalyzeVisionTool implements Tool {
                 @Override 
                 public void onResult(String resultJson) {
                     try {
-                        // Append context for the realtime response so it speaks in "Du" form
-                        org.json.JSONObject obj = new org.json.JSONObject(resultJson);
-                        String desc = obj.optString("description", "");
-                        String contextSuffix = context.getAppContext().getString(R.string.vision_context_suffix);
-                        if (!desc.isEmpty()) {
-                            obj.put("description", desc + contextSuffix);
+                        // For Groq path, append context to the description.
+                        // The gpt-realtime path is handled after latch.await().
+                        JSONObject obj = new JSONObject(resultJson);
+                        if (obj.has("description")) {
+                            String desc = obj.optString("description", "");
+                            String contextSuffix = context.getAppContext().getString(R.string.vision_context_suffix);
+                            if (!desc.isEmpty()) {
+                                obj.put("description", desc + contextSuffix);
+                            }
+                            result.set(obj.toString());
+                        } else {
+                            result.set(resultJson);
                         }
-                        result.set(obj.toString());
                         latch.countDown();
                     } catch (Exception e) {
-                        // Fallback: if parsing fails, use original string
+                        // Not a JSON or doesn't have "description", likely the gpt-realtime status.
                         result.set(resultJson);
                         latch.countDown();
                     }
@@ -124,13 +152,13 @@ public class AnalyzeVisionTool implements Tool {
                 
                 @Override 
                 public void onPhotoCaptured(String path) {
-                    // Add image to chat UI and session cleanup
+                    // Add image to chat UI and session cleanup (unchanged)
                     if (context.hasUi()) {
                         context.getActivity().addImageMessage(path);
                         context.getActivity().addImageToSessionCleanup(path);
                     }
                     // Inform about photo capture via async update
-                    context.sendAsyncUpdate("📷 Photo captured - analyzing with AI...", false);
+                    context.sendAsyncUpdate("📷 Foto aufgenommen.", false);
                 }
             });
             
@@ -144,7 +172,22 @@ public class AnalyzeVisionTool implements Tool {
                         return "{\"error\":\"Vision analysis timed out\"}";
                     }
                 }
-                return result.get();
+
+                // Check if this was the GA path (direct image send). If so, formulate a descriptive result.
+                String finalResult = result.get();
+                try {
+                    JSONObject resultJson = new JSONObject(finalResult);
+                    if ("sent_to_realtime".equals(resultJson.optString("status"))) {
+                        JSONObject newResult = new JSONObject();
+                        String contextMessage = context.getAppContext().getString(R.string.vision_context_suffix);
+                        newResult.put("description", "A photo has been sent for you to analyze." + contextMessage);
+                        finalResult = newResult.toString();
+                    }
+                } catch (Exception e) {
+                    // Not a JSON or doesn't have the status field, proceed with original result
+                }
+                
+                return finalResult;
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 try {

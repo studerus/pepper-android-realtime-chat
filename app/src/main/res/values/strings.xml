@@ -72,7 +72,7 @@
     <string name="confidence_threshold_label">ASR Confidence Threshold</string>
     
     <!-- Vision Analysis -->
-    <string name="vision_context_suffix">Context: The image comes from the robot front camera. The person shown is most likely you (the user). Speak directly to the person using the word you.</string>
+    <string name="vision_context_suffix">" Context: This photo was just taken by you, the robot. If a person is visible, it's likely the user you're speaking with, so address them directly as 'you'."</string>
     
     <!-- Quiz -->
     <string name="quiz_feedback_format">Bei der Frage \'%1$s\' habe ich die Antwort \'%2$s\' gewählt.</string>

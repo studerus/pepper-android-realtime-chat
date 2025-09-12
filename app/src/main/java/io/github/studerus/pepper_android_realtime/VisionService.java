@@ -1,25 +1,23 @@
 package io.github.studerus.pepper_android_realtime;
 
-import android.Manifest;
 import android.content.Context;
-import android.content.pm.PackageManager;
-import android.graphics.ImageFormat;
-import android.hardware.camera2.*;
-import android.media.Image;
-import android.media.ImageReader;
-import android.os.Handler;
-import android.os.HandlerThread;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.util.Base64;
 import android.util.Log;
-import android.view.Surface;
 
-import androidx.annotation.NonNull;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
+import com.aldebaran.qi.Future;
+import com.aldebaran.qi.sdk.QiContext;
+import com.aldebaran.qi.sdk.builder.TakePictureBuilder;
+import com.aldebaran.qi.sdk.object.camera.TakePicture;
+import com.aldebaran.qi.sdk.object.image.EncodedImage;
+import com.aldebaran.qi.sdk.object.image.EncodedImageHandle;
+import com.aldebaran.qi.sdk.object.image.TimestampedImageHandle;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.nio.ByteBuffer;
@@ -44,119 +42,195 @@ public class VisionService {
     private static final String GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
     private final Context context;
+    private final ChatActivity activityRef;
     private final OkHttpClient http;
     private final OptimizedThreadManager threadManager;
-
-    private HandlerThread cameraThread;
-    private Handler cameraHandler;
-    private CameraDevice cameraDevice;
-    private ImageReader imageReader;
+    
+    private QiContext qiContext;
+    private Future<TakePicture> takePictureAction;
     private volatile boolean working = false;
 
     public VisionService(Context context) {
         this.context = context.getApplicationContext();
+        this.activityRef = (context instanceof ChatActivity) ? (ChatActivity) context : null;
         // Use optimized shared API client for better performance and connection reuse
         this.http = OptimizedHttpClientManager.getInstance().getApiClient();
         // Use optimized thread manager for computation tasks
         this.threadManager = OptimizedThreadManager.getInstance();
     }
+    
+    /**
+     * Initialize with QiContext for robot camera access
+     */
+    public void initialize(QiContext qiContext) {
+        this.qiContext = qiContext;
+        if (qiContext != null) {
+            // Build the TakePicture action once for reuse
+            this.takePictureAction = TakePictureBuilder.with(qiContext).buildAsync();
+        }
+    }
 
     public void startAnalyze(String prompt, String groqApiKey, Callback callback) {
-        if (working) return;
+        if (working) {
+            callback.onError("Vision analysis already in progress");
+            return;
+        }
         working = true;
-        if (groqApiKey == null || groqApiKey.isEmpty() || groqApiKey.startsWith("your_")) {
+        
+        // Groq key is only required when we fall back to Groq analysis (older models)
+        
+        if (qiContext == null || takePictureAction == null) {
             working = false;
-            callback.onError("🔑 Vision analysis requires GROQ_API_KEY.\n" +
-                           "Get free key at: https://console.groq.com/\n" +
-                           "Add to local.properties: GROQ_API_KEY=your_key");
+            callback.onError("Robot camera not initialized. Ensure robot has focus.");
             return;
         }
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            working = false;
-            callback.onError("Camera permission not granted.");
-            return;
-        }
-        openCameraAndCapture(prompt, groqApiKey, callback);
+        
+        takePictureAndAnalyze(prompt, groqApiKey, callback);
     }
 
-    private void openCameraAndCapture(String prompt, String apiKey, Callback callback) {
-        try {
-            if (cameraThread == null) {
-                cameraThread = new HandlerThread("vision-camera-thread");
-                cameraThread.start();
-                cameraHandler = new Handler(cameraThread.getLooper());
-            }
-            CameraManager cm = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
-            String frontId = null;
-            for (String id : cm.getCameraIdList()) {
-                CameraCharacteristics ch = cm.getCameraCharacteristics(id);
-                Integer facing = ch.get(CameraCharacteristics.LENS_FACING);
-                if (facing != null && facing == CameraCharacteristics.LENS_FACING_FRONT) { frontId = id; break; }
-            }
-            if (frontId == null && cm.getCameraIdList().length > 0) frontId = cm.getCameraIdList()[0];
-            if (frontId == null) { fail(callback, "No camera available"); return; }
+    private void takePictureAndAnalyze(String prompt, String apiKey, Callback callback) {
+        if (takePictureAction == null) {
+            working = false;
+            callback.onError("Robot camera not available");
+            return;
+        }
 
-            if (imageReader != null) { try { imageReader.close(); } catch (Exception ignored) {} }
-            imageReader = ImageReader.newInstance(1280, 720, ImageFormat.JPEG, 1);
-            imageReader.setOnImageAvailableListener(reader -> {
-                try (Image image = reader.acquireLatestImage()) {
-                    if (image == null) return;
-                    ByteBuffer buffer = image.getPlanes()[0].getBuffer();
-                    byte[] bytes = new byte[buffer.remaining()];
-                    buffer.get(bytes);
-                    // Save to cache file for preview in chat
-                    try {
-                        File out = new File(context.getCacheDir(), "vision_" + System.currentTimeMillis() + ".jpg");
-                        try (FileOutputStream fos = new FileOutputStream(out)) {
-                            fos.write(bytes);
-                            fos.flush();
-                        }
-                        if (callback != null) callback.onPhotoCaptured(out.getAbsolutePath());
-                    } catch (Exception e) {
-                        Log.w(TAG, "Failed to save preview file", e);
-                    }
-                    String base64 = Base64.encodeToString(bytes, Base64.NO_WRAP);
-                    // Offload network analysis to dedicated computation thread (do NOT block camera handler)
-                    threadManager.executeComputation(() -> analyzeWithGroq(base64, prompt, apiKey, callback));
-                } catch (Exception e) {
-                    Log.e(TAG, "Image read failed", e);
-                    if (callback != null) callback.onError("Failed reading image: " + e.getMessage());
-                    working = false;
-                } finally {
-                    closeCamera();
-                }
-            }, cameraHandler);
-
-            if (ActivityCompat.checkSelfPermission(context, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-                fail(callback, "Camera permission missing");
-                return;
-            }
-            cm.openCamera(frontId, new CameraDevice.StateCallback() {
-                @Override public void onOpened(@NonNull CameraDevice camera) {
-                    cameraDevice = camera;
-                    try {
-                        Surface surface = imageReader.getSurface();
-                        camera.createCaptureSession(java.util.Collections.singletonList(surface), new CameraCaptureSession.StateCallback() {
-                            @Override public void onConfigured(@NonNull CameraCaptureSession session) {
-                                try {
-                                    CaptureRequest.Builder b = camera.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
-                                    b.addTarget(surface);
-                                    b.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
-                                    session.capture(b.build(), new CameraCaptureSession.CaptureCallback() {}, cameraHandler);
-                                } catch (CameraAccessException e) { fail(callback, "Capture failed: " + e.getMessage()); closeCamera(); }
+        Log.i(TAG, "Taking picture with robot head camera...");
+        
+        // Execute on realtime thread to avoid blocking QiSDK MainEventLoop
+        threadManager.executeRealtime(() -> {
+            try {
+                takePictureAction.andThenCompose(takePicture -> takePicture.async().run())
+                    .andThenConsume(timestampedImageHandle -> {
+                        try {
+                            Bitmap bitmap = convertToBitmap(timestampedImageHandle);
+                            if (bitmap == null) {
+                                working = false;
+                                callback.onError("Failed to convert robot camera image");
+                                return;
                             }
-                            @Override public void onConfigureFailed(@NonNull CameraCaptureSession session) { fail(callback, "Camera configure failed"); closeCamera(); }
-                        }, cameraHandler);
-                    } catch (CameraAccessException e) { fail(callback, "Session failed: " + e.getMessage()); closeCamera(); }
-                }
-                @Override public void onDisconnected(@NonNull CameraDevice camera) { closeCamera(); }
-                @Override public void onError(@NonNull CameraDevice camera, int error) { fail(callback, "Camera error: " + error); closeCamera(); }
-            }, cameraHandler);
-        } catch (Exception e) {
-            fail(callback, "Open camera failed: " + e.getMessage());
-            closeCamera();
+                            
+                            // Optimize bitmap for API upload (smaller size, lower quality)
+                            Bitmap optimizedBitmap = optimizeBitmapForApi(bitmap);
+                            
+                            // Single compression for both cache file and Base64
+                            byte[] jpegBytes;
+                            try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+                                optimizedBitmap.compress(Bitmap.CompressFormat.JPEG, 75, baos);
+                                jpegBytes = baos.toByteArray();
+                            }
+                            
+                            // Save to cache file (async, non-blocking)
+                            threadManager.executeComputation(() -> {
+                                try {
+                                    File out = new File(context.getCacheDir(), "vision_" + System.currentTimeMillis() + ".jpg");
+                                    try (FileOutputStream fos = new FileOutputStream(out)) {
+                                        fos.write(jpegBytes);
+                                    }
+                                    callback.onPhotoCaptured(out.getAbsolutePath());
+                                } catch (Exception e) {
+                                    Log.w(TAG, "Failed to save preview file", e);
+                                }
+                            });
+                            
+                            // Convert to Base64 once (reuse for GA direct image or Groq text analysis)
+                            String base64 = Base64.encodeToString(jpegBytes, Base64.NO_WRAP);
+
+                            // Decide path: if GA gpt-realtime is active, send image directly via WS
+                            boolean useGaImagePath = shouldSendImageDirectToRealtime();
+                            if (useGaImagePath) {
+                                threadManager.executeComputation(() -> {
+                                    try {
+                                        if (activityRef == null) throw new IllegalStateException("Activity reference not available");
+                                        RealtimeSessionManager sm = activityRef.getSessionManager();
+                                        if (sm == null || !sm.isConnected()) throw new IllegalStateException("Realtime session not connected");
+                                        boolean sentItem = sm.sendUserImageMessage(base64, "image/jpeg");
+                                        if (!sentItem) throw new IllegalStateException("Failed to send image message");
+                                        working = false;
+                                        callback.onResult(new JSONObject().put("status", "sent_to_realtime").toString());
+                                    } catch (Exception e) {
+                                        Log.e(TAG, "Failed to send image to realtime API, falling back to Groq", e);
+                                        analyzeWithGroq(base64, prompt, apiKey, callback);
+                                    }
+                                });
+                            } else {
+                                // Offload network analysis to computation thread (Groq path)
+                                threadManager.executeComputation(() -> analyzeWithGroq(base64, prompt, apiKey, callback));
+                            }
+                            
+                        } catch (Exception e) {
+                            Log.e(TAG, "Error processing robot camera image", e);
+                            working = false;
+                            callback.onError("Failed processing robot camera image: " + e.getMessage());
+                        }
+                    });
+            } catch (Exception e) {
+                Log.e(TAG, "Robot camera capture failed", e);
+                working = false;
+                callback.onError("Robot camera capture failed: " + e.getMessage());
+            }
+        });
+    }
+
+    /**
+     * Decide if we should send the image directly to the Realtime API (GA gpt-realtime)
+     */
+    private boolean shouldSendImageDirectToRealtime() {
+        try {
+            if (activityRef == null) return false;
+            String model = activityRef.getSettingsManager().getModel();
+            RealtimeApiProvider provider = activityRef.getSettingsManager().getApiProvider();
+            return "gpt-realtime".equals(model) && provider == RealtimeApiProvider.OPENAI_DIRECT;
+        } catch (Exception ignored) {
+            return false;
         }
     }
+    
+    /**
+     * Convert TimestampedImageHandle to Bitmap (same logic as PerceptionService)
+     */
+    private Bitmap convertToBitmap(TimestampedImageHandle timestampedImageHandle) {
+        try {
+            EncodedImageHandle encodedImageHandle = timestampedImageHandle.getImage();
+            EncodedImage encodedImage = encodedImageHandle.getValue();
+            ByteBuffer buffer = encodedImage.getData();
+            buffer.rewind();
+            byte[] pictureBufferArray = new byte[buffer.remaining()];
+            buffer.get(pictureBufferArray);
+            return BitmapFactory.decodeByteArray(pictureBufferArray, 0, pictureBufferArray.length);
+        } catch (Exception e) {
+            Log.e(TAG, "Error converting TimestampedImageHandle to Bitmap", e);
+            return null;
+        }
+    }
+    
+    /**
+     * Optimize bitmap for API upload by reducing size while maintaining aspect ratio
+     */
+    private Bitmap optimizeBitmapForApi(Bitmap original) {
+        if (original == null) return null;
+        
+        // Target max dimension for API upload (smaller = faster processing)
+        int maxDimension = 800;
+        int width = original.getWidth();
+        int height = original.getHeight();
+        
+        // Skip resizing if already small enough
+        if (width <= maxDimension && height <= maxDimension) {
+            return original;
+        }
+        
+        // Calculate scale factor to maintain aspect ratio
+        float scale = Math.min((float) maxDimension / width, (float) maxDimension / height);
+        int newWidth = Math.round(width * scale);
+        int newHeight = Math.round(height * scale);
+        
+        Log.d(TAG, String.format("Optimizing bitmap: %dx%d → %dx%d (scale: %.2f)", 
+               width, height, newWidth, newHeight, scale));
+        
+        return Bitmap.createScaledBitmap(original, newWidth, newHeight, true);
+    }
+    
 
     private void analyzeWithGroq(String base64Jpeg, String prompt, String apiKey, Callback callback) {
         try {
@@ -222,16 +296,10 @@ public class VisionService {
         }
     }
 
-    private void fail(Callback cb, String msg) {
-        working = false;
-        cb.onError(msg);
-    }
-
-    private void closeCamera() {
-        try { if (cameraDevice != null) cameraDevice.close(); } catch (Exception ignored) {}
-        cameraDevice = null;
-        try { if (imageReader != null) imageReader.close(); } catch (Exception ignored) {}
-        imageReader = null;
-        // leave thread for reuse
+    /**
+     * Check if the service is initialized and ready to use
+     */
+    public boolean isInitialized() {
+        return qiContext != null && takePictureAction != null;
     }
 }

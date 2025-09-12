@@ -161,6 +161,41 @@ public class RealtimeSessionManager {
         }
     }
 
+    /**
+     * Send a user image message to the Realtime API (GA/Beta) as a conversation item
+     * Uses input_image content with a data URL to avoid separate upload steps.
+     *
+     * @param base64 Base64-encoded JPEG/PNG without data URL prefix
+     * @param mime   MIME type, e.g. "image/jpeg" (default recommended)
+     */
+    public boolean sendUserImageMessage(String base64, String mime) {
+        try {
+            String safeMime = (mime == null || mime.isEmpty()) ? "image/jpeg" : mime;
+
+            JSONObject payload = new JSONObject();
+            payload.put("type", "conversation.item.create");
+
+            JSONObject item = new JSONObject();
+            item.put("type", "message");
+            item.put("role", "user");
+
+            JSONArray contentArray = new JSONArray();
+            JSONObject img = new JSONObject();
+            img.put("type", "input_image");
+            img.put("image_url", "data:" + safeMime + ";base64," + base64);
+            contentArray.put(img);
+            item.put("content", contentArray);
+
+            payload.put("item", item);
+
+            Log.d(TAG, "Sending conversation.item.create with image content");
+            return send(payload.toString());
+        } catch (Exception e) {
+            Log.e(TAG, "Error creating user image message", e);
+            return false;
+        }
+    }
+
     public boolean sendToolResult(String callId, String result) {
         try {
             JSONObject toolResultPayload = new JSONObject();

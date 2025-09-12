@@ -105,7 +105,12 @@ public class GestureController {
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
-            runNextGestureNonBlocking(qiContext, keepRunning, nextResId);
+            // Check if we're still supposed to be running before starting next gesture
+            if (running) {
+                runNextGestureNonBlocking(qiContext, keepRunning, nextResId);
+            } else {
+                Log.d(TAG, "GestureController stopped, not scheduling next animation");
+            }
         });
     }
 
