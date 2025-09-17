@@ -8,10 +8,8 @@ import io.github.studerus.pepper_android_realtime.NavigationServiceManager;
 import io.github.studerus.pepper_android_realtime.tools.Tool;
 import io.github.studerus.pepper_android_realtime.tools.ToolContext;
 
-import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.util.Locale;
 
 /**
  * Tool for moving Pepper robot in specific directions.
@@ -107,12 +105,12 @@ public class MovePepperTool implements Tool {
                 String message;
                 String movementDesc = buildMovementDescription(finalDistanceForward, finalDistanceSideways);
                 if (success) {
-                message = String.format(Locale.US,
+                message = String.format(java.util.Locale.US,
                     "[MOVEMENT COMPLETED] You have successfully moved %s and arrived at your destination. Please inform the user that you have completed the movement.",
                     movementDesc);
                 } else {
                 String userFriendlyError = translateMovementError(error);
-                message = String.format(Locale.US,
+                message = String.format(java.util.Locale.US,
                     "[MOVEMENT FAILED] You couldn't complete the movement %s. %s Please inform the user about this problem and offer alternative solutions or ask if they want you to try a different direction.",
                     movementDesc, userFriendlyError);
                 }
@@ -125,7 +123,7 @@ public class MovePepperTool implements Tool {
         result.put("distance_forward", distanceForward);
         result.put("distance_sideways", distanceSideways);
         result.put("speed", speed);
-        result.put("message", String.format(Locale.US, 
+        result.put("message", String.format(java.util.Locale.US, 
             "Movement started. Pepper is now moving %s.", buildMovementDescription(distanceForward, distanceSideways)));
         return result.toString();
     }
@@ -169,13 +167,13 @@ public class MovePepperTool implements Tool {
     private String buildMovementDescription(double forward, double sideways) {
         StringBuilder desc = new StringBuilder();
         if (forward != 0) {
-            desc.append(String.format(Locale.US, "%.1f meters %s", Math.abs(forward), forward > 0 ? "forward" : "backward"));
+            desc.append(String.format(java.util.Locale.US, "%.1f meters %s", Math.abs(forward), forward > 0 ? "forward" : "backward"));
         }
         if (sideways != 0) {
             if (desc.length() > 0) {
                 desc.append(" and ");
             }
-            desc.append(String.format(Locale.US, "%.1f meters to the %s", Math.abs(sideways), sideways > 0 ? "left" : "right"));
+            desc.append(String.format(java.util.Locale.US, "%.1f meters to the %s", Math.abs(sideways), sideways > 0 ? "left" : "right"));
         }
         return desc.toString();
     }

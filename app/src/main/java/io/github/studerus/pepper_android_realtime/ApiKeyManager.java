@@ -130,14 +130,6 @@ public class ApiKeyManager {
     
     // ==================== REALTIME API PROVIDER MANAGEMENT ====================
     
-    /**
-     * Get currently selected Realtime API provider
-     * @return Current provider (defaults to AZURE_OPENAI)
-     */
-    public RealtimeApiProvider getRealtimeApiProvider() {
-        String providerName = settings.getString("realtime_api_provider", RealtimeApiProvider.AZURE_OPENAI.name());
-        return RealtimeApiProvider.fromString(providerName);
-    }
     
 
     

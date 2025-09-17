@@ -121,9 +121,12 @@ public class TicTacToeDialog extends Dialog {
         String boardState = game.getBoardString();
         
         if (winner == TicTacToeGame.GAME_CONTINUE) {
-            // Game continues - send update and request AI move
-            String update = String.format(java.util.Locale.US, "[GAME] User X on pos %d. Board: %s. Your turn!", 
-                                        position, boardState);
+            // Game continues - send update and request AI move with strategy reminder
+            String readableBoard = formatBoardForAI(boardState);
+            String threatAnalysis = analyzeThreats(boardState);
+            String strategyHint = " Strategy: 1) Win if you can complete three O's in a row, 2) Block user if they can win with X next move, 3) Take center (4), 4) Take corners (0,2,6,8). Play competitively!";
+            String update = String.format(java.util.Locale.US, "[GAME] User X on pos %d.\n%s\n%s\nYour turn!%s", 
+                                        position, readableBoard, threatAnalysis, strategyHint);
             if (gameUpdateCallback != null) {
                 gameUpdateCallback.sendGameUpdate(update, true);
             }
@@ -134,9 +137,10 @@ public class TicTacToeDialog extends Dialog {
             
         } else {
             // Game ended with user move - send combined message
+            String readableBoard = formatBoardForAI(boardState);
             String gameResult = TicTacToeGame.getGameResultMessage(winner);
-            String update = String.format(java.util.Locale.US, "[GAME] User X on pos %d. Board: %s. GAME OVER: %s", 
-                                        position, boardState, gameResult);
+            String update = String.format(java.util.Locale.US, "[GAME] User X on pos %d.\n%s\nGAME OVER: %s", 
+                                        position, readableBoard, gameResult);
             if (gameUpdateCallback != null) {
                 gameUpdateCallback.sendGameUpdate(update, true);
             }
@@ -178,9 +182,10 @@ public class TicTacToeDialog extends Dialog {
         int winner = game.checkWinner();
         if (winner != TicTacToeGame.GAME_CONTINUE) {
             // Game ended with AI move - send context update to inform AI
+            String readableBoard = formatBoardForAI(game.getBoardString());
             String gameResult = TicTacToeGame.getGameResultMessage(winner);
-            String update = String.format(java.util.Locale.US, "[GAME] AI O on pos %d. Board: %s. GAME OVER: %s", 
-                                        position, game.getBoardString(), gameResult);
+            String update = String.format(java.util.Locale.US, "[GAME] AI O on pos %d.\n%s\nGAME OVER: %s", 
+                                        position, readableBoard, gameResult);
             if (gameUpdateCallback != null) {
                 gameUpdateCallback.sendGameUpdate(update, true);
             }
@@ -295,6 +300,68 @@ public class TicTacToeDialog extends Dialog {
         cancelAutoClose();
         super.dismiss();
         Log.i(TAG, "TicTacToe dialog dismissed");
+    }
+    
+    /**
+     * Format board state in a readable way for AI with position numbers
+     * @param boardString Raw board string like "---XO-X--"
+     * @return Formatted board with position numbers for AI understanding
+     */
+    private String formatBoardForAI(String boardString) {
+        return "Board positions:\n" +
+               "0|1|2     " + boardString.charAt(0) + "|" + boardString.charAt(1) + "|" + boardString.charAt(2) + "\n" +
+               "3|4|5  => " + boardString.charAt(3) + "|" + boardString.charAt(4) + "|" + boardString.charAt(5) + "\n" +
+               "6|7|8     " + boardString.charAt(6) + "|" + boardString.charAt(7) + "|" + boardString.charAt(8);
+    }
+    
+    /**
+     * Analyze the current board for immediate threats and opportunities
+     * @param boardString Current board state
+     * @return Analysis string with specific recommendations
+     */
+    private String analyzeThreats(String boardString) {
+        StringBuilder analysis = new StringBuilder();
+        
+        // Win patterns: rows, columns, diagonals
+        int[][] patterns = {
+            {0,1,2}, {3,4,5}, {6,7,8}, // rows
+            {0,3,6}, {1,4,7}, {2,5,8}, // columns  
+            {0,4,8}, {2,4,6}           // diagonals
+        };
+        
+        // Check for AI win opportunities (two O's and one empty)
+        for (int[] pattern : patterns) {
+            int oCount = 0, xCount = 0, emptyPos = -1;
+            for (int pos : pattern) {
+                char cell = boardString.charAt(pos);
+                if (cell == 'O') oCount++;
+                else if (cell == 'X') xCount++;
+                else emptyPos = pos;
+            }
+            if (oCount == 2 && xCount == 0 && emptyPos != -1) {
+                analysis.append("CRITICAL: You can WIN by playing position ").append(emptyPos).append("!\n");
+                return analysis.toString();
+            }
+        }
+        
+        // Check for user threats (two X's and one empty) 
+        for (int[] pattern : patterns) {
+            int oCount = 0, xCount = 0, emptyPos = -1;
+            for (int pos : pattern) {
+                char cell = boardString.charAt(pos);
+                if (cell == 'O') oCount++;
+                else if (cell == 'X') xCount++;
+                else emptyPos = pos;
+            }
+            if (xCount == 2 && oCount == 0 && emptyPos != -1) {
+                analysis.append("URGENT: User can win next turn! BLOCK position ").append(emptyPos).append("!\n");
+                return analysis.toString();
+            }
+        }
+        
+        // No immediate threats
+        analysis.append("Analysis: No immediate threats. Play strategically.\n");
+        return analysis.toString();
     }
     
     /**

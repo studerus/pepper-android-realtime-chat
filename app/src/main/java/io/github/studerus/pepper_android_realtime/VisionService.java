@@ -45,7 +45,7 @@ public class VisionService {
     private final ChatActivity activityRef;
     private final OkHttpClient http;
     private final OptimizedThreadManager threadManager;
-    
+
     private QiContext qiContext;
     private Future<TakePicture> takePictureAction;
     private volatile boolean working = false;
@@ -122,15 +122,15 @@ public class VisionService {
                             
                             // Save to cache file (async, non-blocking)
                             threadManager.executeComputation(() -> {
-                                try {
-                                    File out = new File(context.getCacheDir(), "vision_" + System.currentTimeMillis() + ".jpg");
-                                    try (FileOutputStream fos = new FileOutputStream(out)) {
+                    try {
+                        File out = new File(context.getCacheDir(), "vision_" + System.currentTimeMillis() + ".jpg");
+                        try (FileOutputStream fos = new FileOutputStream(out)) {
                                         fos.write(jpegBytes);
-                                    }
+                        }
                                     callback.onPhotoCaptured(out.getAbsolutePath());
-                                } catch (Exception e) {
-                                    Log.w(TAG, "Failed to save preview file", e);
-                                }
+                    } catch (Exception e) {
+                        Log.w(TAG, "Failed to save preview file", e);
+                    }
                             });
                             
                             // Convert to Base64 once (reuse for GA direct image or Groq text analysis)
@@ -155,7 +155,7 @@ public class VisionService {
                                 });
                             } else {
                                 // Offload network analysis to computation thread (Groq path)
-                                threadManager.executeComputation(() -> analyzeWithGroq(base64, prompt, apiKey, callback));
+                    threadManager.executeComputation(() -> analyzeWithGroq(base64, prompt, apiKey, callback));
                             }
                             
                         } catch (Exception e) {
@@ -164,9 +164,9 @@ public class VisionService {
                             callback.onError("Failed processing robot camera image: " + e.getMessage());
                         }
                     });
-            } catch (Exception e) {
+                } catch (Exception e) {
                 Log.e(TAG, "Robot camera capture failed", e);
-                working = false;
+                    working = false;
                 callback.onError("Robot camera capture failed: " + e.getMessage());
             }
         });

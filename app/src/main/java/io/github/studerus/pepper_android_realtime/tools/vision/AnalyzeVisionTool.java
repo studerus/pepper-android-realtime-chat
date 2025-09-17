@@ -80,20 +80,7 @@ public class AnalyzeVisionTool implements Tool {
             
             String apiKey = context.getApiKeyManager().getGroqApiKey();
             
-            // Stop robot gestures to maintain focus on user during photo capture
-            if (context.hasUi()) {
-                context.getActivity().getGestureController().stopNow();
-                Log.i(TAG, "Stopped robot gestures for vision analysis");
-                
-                // Wait for animation to fully stop and head to return to natural position
-                try {
-                    Thread.sleep(1000);
-                    Log.i(TAG, "Animation stop delay completed (1s) - ready for photo");
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    Log.w(TAG, "Animation stop delay interrupted");
-                }
-            }
+            // Gestures now only move arms, not head - no need to stop them for vision
             
             // Update UI status by sending async update
             context.sendAsyncUpdate("📸 Taking photo with robot camera...", false);

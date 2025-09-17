@@ -51,6 +51,21 @@ import io.github.studerus.pepper_android_realtime.ui.MapPreviewView;
 import io.github.studerus.pepper_android_realtime.ui.MapState;
 import io.github.studerus.pepper_android_realtime.data.LocationProvider;
 import android.widget.FrameLayout;
+import io.github.studerus.pepper_android_realtime.BuildConfig;
+
+// libqi-java imports for NAOqi head session PoC
+import com.aldebaran.qi.AnyObject;
+import com.aldebaran.qi.QiException;
+import com.aldebaran.qi.Session;
+// SSHJ imports (fixed-IP SSH test to head)
+import net.schmizz.sshj.SSHClient;
+import net.schmizz.sshj.connection.channel.direct.Session.Command;
+import net.schmizz.sshj.transport.verification.PromiscuousVerifier;
+import net.schmizz.sshj.Config;
+import net.schmizz.sshj.DefaultConfig;
+import net.schmizz.sshj.transport.kex.KeyExchange;
+import net.schmizz.sshj.common.Factory;
+
 
 public class ChatActivity extends AppCompatActivity implements RobotLifecycleCallbacks {
 
@@ -124,6 +139,9 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
 
     // Navigation Service Management
     private NavigationServiceManager navigationServiceManager;
+
+    // Minimal NAOqi head-session PoC (libqi-java)
+    // SSH connection test to robot head
 
 
     @Override
@@ -404,6 +422,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
 
     @Override
     protected void onDestroy() {
+        // SSH test cleanup handled automatically
         if (sttManager != null) {
             sttManager.shutdown();
         }
@@ -635,6 +654,9 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             // Show warmup indicator before starting async operations
             showWarmupIndicator();
 
+            // Test SSH connectivity to robot head
+            testFixedIpSshConnect();
+
             // Asynchronous initialization
             Future<Void> connectFuture = connectWebSocket();
             
@@ -700,6 +722,8 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         
         // CRITICAL: Set focus lost flag to stop all robot operations
         robotFocusAvailable = false;
+
+        // SSH test cleanup handled automatically
         
         // CRITICAL: Reset STT flag to prevent double start when focus is regained
         sttIsRunning = false;
@@ -1507,7 +1531,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         
         // Beta header: only for non-GA models (gpt-realtime is GA, others are beta)
         if (!"gpt-realtime".equals(selectedModel)) {
-            headers.put("OpenAI-Beta", "realtime=v1");
+        headers.put("OpenAI-Beta", "realtime=v1");
             Log.d(TAG, "Using beta API for model: " + selectedModel);
         } else {
             Log.d(TAG, "Using GA API for model: " + selectedModel);
@@ -1641,6 +1665,65 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         runOnUiThread(() -> {
             warmupIndicatorLayout.setVisibility(View.GONE);
             // The status will be set to Listening by the TurnManager, so no need to set it here.
+        });
+    }
+
+    /**
+     * Test SSH connection to robot head using fixed IP (198.18.0.1).
+     * Only validates connection with 'echo ok' command.
+     */
+    private void testFixedIpSshConnect() {
+        threadManager.executeNetwork(() -> {
+            String host = "198.18.0.1"; // Known working IP
+            SSHClient ssh = null;
+            try {
+                Log.i(TAG, "[SSH-TEST] Connecting to " + host);
+                // Configure SSH to avoid Curve25519/X25519 which is missing on older Android crypto providers
+                Config config = new DefaultConfig();
+                java.util.List<Factory.Named<KeyExchange>> kex = new java.util.ArrayList<>(config.getKeyExchangeFactories());
+                java.util.Iterator<Factory.Named<KeyExchange>> it = kex.iterator();
+                while (it.hasNext()) {
+                    Factory.Named<KeyExchange> f = it.next();
+                    String name = f.getName();
+                    if (name != null && name.toLowerCase().contains("curve25519")) {
+                        it.remove();
+                    }
+                }
+                config.setKeyExchangeFactories(kex);
+                ssh = new SSHClient(config);
+                ssh.setConnectTimeout(3000);
+                ssh.setTimeout(5000);
+                ssh.addHostKeyVerifier(new PromiscuousVerifier());
+                ssh.connect(host, 22);
+                String password = BuildConfig.PEPPER_SSH_PASSWORD != null ? BuildConfig.PEPPER_SSH_PASSWORD : "";
+                if (password.isEmpty()) {
+                    Log.w(TAG, "[SSH-TEST] PEPPER_SSH_PASSWORD empty - please set in local.properties");
+                }
+                ssh.authPassword("nao", password);
+                try (net.schmizz.sshj.connection.channel.direct.Session sess = ssh.startSession()) {
+                    Command cmd = sess.exec("echo ok");
+                    cmd.join(5, java.util.concurrent.TimeUnit.SECONDS);
+                    Integer exitStatus = cmd.getExitStatus();
+                    if (exitStatus == null) {
+                        Log.w(TAG, "[SSH-TEST] Command timeout");
+                    } else {
+                        Log.i(TAG, "[SSH-TEST] Connected successfully, exit=" + exitStatus);
+                        java.io.InputStream is = cmd.getInputStream();
+                        int available = is.available();
+                        String out = "";
+                        if (available > 0) {
+                            byte[] buf = new byte[Math.min(available, 64)];
+                            int n = is.read(buf);
+                            if (n > 0) out = new String(buf, 0, n);
+                        }
+                        Log.i(TAG, "[SSH-TEST] stdout='" + out.trim() + "'");
+                    }
+                }
+            } catch (Exception e) {
+                Log.w(TAG, "[SSH-TEST] Failed: " + e.getClass().getSimpleName() + " - " + e.getMessage());
+            } finally {
+                try { if (ssh != null) ssh.disconnect(); } catch (Exception ignore) {}
+            }
         });
     }
     

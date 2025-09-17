@@ -139,6 +139,8 @@ public class RealtimeEventHandler {
                     } catch (Exception ignored) {}
                     break;
                 case "response.audio.done":
+                case "response.output_audio.done":
+                    // Both Beta API and GA API audio done events - same handling
                     if (listener != null) listener.onAudioDone();
                     break;
                 case "response.done":
@@ -209,10 +211,6 @@ public class RealtimeEventHandler {
                     String gaDelta = obj.optString("delta", "");
                     String gaResponseId = obj.optString("response_id", "");
                     if (listener != null) listener.onAudioTranscriptDelta(gaDelta, gaResponseId);
-                    break;
-                case "response.output_audio.done":
-                    // GA API audio done - same handling as Beta API
-                    if (listener != null) listener.onAudioDone();
                     break;
                 case "response.output_audio_transcript.done":
                     // GA API transcript done - log the transcript content

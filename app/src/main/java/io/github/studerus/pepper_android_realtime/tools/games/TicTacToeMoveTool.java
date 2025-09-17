@@ -26,7 +26,7 @@ public class TicTacToeMoveTool implements Tool {
             JSONObject tool = new JSONObject();
             tool.put("type", "function");
             tool.put("name", getName());
-            tool.put("description", "Make a move in the current Tic Tac Toe game. Choose a position from 0-8 where 0=top-left, 1=top-center, 2=top-right, 3=middle-left, 4=center, 5=middle-right, 6=bottom-left, 7=bottom-center, 8=bottom-right. The user can see the game board visually, so don't describe the board state after your move.");
+            tool.put("description", "Make a strategic move in the current Tic Tac Toe game. Choose a position from 0-8 where 0=top-left, 1=top-center, 2=top-right, 3=middle-left, 4=center, 5=middle-right, 6=bottom-left, 7=bottom-center, 8=bottom-right. Play strategically: 1) Win immediately if you can complete three in a row, 2) Block the user if they can win on their next move, 3) Take the center (position 4) if available, 4) Take corners (0,2,6,8) over edges. Don't make it too easy for the user to win - play competitively but not perfectly. The user can see the game board visually, so don't describe the board state after your move.");
             
             JSONObject params = new JSONObject();
             params.put("type", "object");

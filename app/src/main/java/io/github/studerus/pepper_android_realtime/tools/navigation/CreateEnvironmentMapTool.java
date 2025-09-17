@@ -17,7 +17,6 @@ import org.json.JSONObject;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 /**
  * Tool for creating environment maps for robot navigation.
@@ -68,10 +67,7 @@ public class CreateEnvironmentMapTool implements Tool {
             return new JSONObject().put("error", "Cannot create map while charging flap is open. Mapping requires robot movement. Please close the charging flap first.").toString();
         }
 
-        // Use a final variable for access in lambda
-        final String mapName = ACTIVE_MAP_NAME;
-        
-        Log.i(TAG, "Starting environment mapping prerequisite checks for: " + mapName);
+        Log.i(TAG, "Starting environment mapping prerequisite checks for: " + ACTIVE_MAP_NAME);
 
         // Get the NavigationServiceManager from the context
         NavigationServiceManager navManager = context.getActivity().getNavigationServiceManager();
@@ -102,7 +98,7 @@ public class CreateEnvironmentMapTool implements Tool {
 
                 // Clear all existing locations when starting a new map
                 // New map = new coordinate system = old locations become invalid
-                List<String> deletedLocations = clearAllLocations(context);
+                clearAllLocations(context);
 
             } catch (Exception e) {
                 Log.e(TAG, "Error starting manual mapping", e);
@@ -251,9 +247,8 @@ public class CreateEnvironmentMapTool implements Tool {
 
     /**
      * Clear all existing locations since they become invalid with a new map
-     * @return List of deleted location names for user feedback
      */
-    private List<String> clearAllLocations(ToolContext context) {
+    private void clearAllLocations(ToolContext context) {
         List<String> deletedLocations = new ArrayList<>();
         try {
             File locationsDir = new File(context.getAppContext().getFilesDir(), "locations");
@@ -282,18 +277,6 @@ public class CreateEnvironmentMapTool implements Tool {
             Log.e(TAG, "Error clearing locations", e);
         }
         
-        return deletedLocations;
     }
 
-    /**
-     * Build comma-separated list from string array
-     */
-    private static String buildCommaList(List<String> items) {
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < items.size(); i++) {
-            if (i > 0) sb.append(", ");
-            sb.append(items.get(i));
-        }
-        return sb.toString();
-    }
 }

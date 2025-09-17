@@ -3,12 +3,9 @@ package io.github.studerus.pepper_android_realtime.tools.navigation;
 import android.util.Log;
 import com.aldebaran.qi.Future;
 import com.aldebaran.qi.sdk.QiContext;
-import com.aldebaran.qi.sdk.builder.LocalizeBuilder;
 import com.aldebaran.qi.sdk.object.actuation.ExplorationMap;
-import com.aldebaran.qi.sdk.object.actuation.Localize;
 import com.aldebaran.qi.sdk.object.actuation.LocalizeAndMap;
 import java.nio.charset.StandardCharsets;
-import java.util.concurrent.atomic.AtomicBoolean;
 import io.github.studerus.pepper_android_realtime.tools.Tool;
 import io.github.studerus.pepper_android_realtime.tools.ToolContext;
 import io.github.studerus.pepper_android_realtime.OptimizedThreadManager;
@@ -127,7 +124,6 @@ public class FinishEnvironmentMapTool implements Tool {
                         // 2c) Cache the new map, update UI, and start new localization via manager
                         if (context.hasUi() && context.getActivity().getNavigationServiceManager() != null) {
                             Log.i(TAG, "Caching map directly via NavigationServiceManager and preparing UI/localization.");
-                            final QiContext qctx = qiContext;
                             final NavigationServiceManager navManager = context.getActivity().getNavigationServiceManager();
 
                             // Cache with callback to ensure proper sequencing
@@ -145,7 +141,7 @@ public class FinishEnvironmentMapTool implements Tool {
 
                                     Log.i(TAG, "Starting localization after successful map caching...");
                                     // Start localization via manager so actions/futures are tracked consistently
-                                    navManager.ensureLocalizationIfNeeded(qctx,
+                                    navManager.ensureLocalizationIfNeeded(qiContext,
                                             () -> {
                                                 // onLocalized: resume normal operation and inform user
                                                 try {

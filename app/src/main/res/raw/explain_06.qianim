@@ -1,20 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Animation xmlns:editor="http://www.ald.softbankrobotics.com/animation/editor" typeVersion="2.0" editor:fps="25">
     <ActuatorCurve fps="25" actuator="HeadYaw" mute="false" unit="degree">
-        <Key value="-4.04542017" frame="16">
-            <Tangent side="right" abscissaParam="4" ordinateParam="0" editor:interpType="bezier_auto"/>
-        </Key>
-        <Key value="-3.43018007" frame="28">
-            <Tangent side="left" abscissaParam="-4" ordinateParam="0" editor:interpType="bezier_auto"/>
-        </Key>
+        <Key value="-4.04542017" frame="16"/>
     </ActuatorCurve>
     <ActuatorCurve fps="25" actuator="HeadPitch" mute="false" unit="degree">
-        <Key value="-7.03374004" frame="16">
-            <Tangent side="right" abscissaParam="4" ordinateParam="0" editor:interpType="bezier_auto"/>
-        </Key>
-        <Key value="-6" frame="28">
-            <Tangent side="left" abscissaParam="-4" ordinateParam="0" editor:interpType="bezier_auto"/>
-        </Key>
+        <Key value="-7.03374004" frame="16"/>
     </ActuatorCurve>
     <ActuatorCurve fps="25" actuator="LShoulderPitch" mute="false" unit="degree">
         <Key value="59.7639999" frame="14">

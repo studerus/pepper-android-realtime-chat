@@ -14,5 +14,5 @@ dependencyResolutionManagement {
         maven { url 'https://csspeechstorage.blob.core.windows.net/maven/' }
     }
 }
-rootProject.name = "pepper_test2"
+rootProject.name = "pepper_android_realtime"
 include ':app'

@@ -22,9 +22,6 @@ public enum RealtimeApiProvider {
         return displayName;
     }
     
-    public String getModelName() {
-        return modelName;
-    }
     
     /**
      * Get WebSocket URL for this provider
@@ -45,14 +42,6 @@ public enum RealtimeApiProvider {
         }
     }
     
-    /**
-     * Get WebSocket URL for this provider (legacy method using default model)
-     * @param azureEndpoint Azure endpoint (only used for Azure provider)
-     * @return WebSocket URL
-     */
-    public String getWebSocketUrl(String azureEndpoint) {
-        return getWebSocketUrl(azureEndpoint, null);
-    }
     
     /**
      * Check if this provider requires Azure configuration

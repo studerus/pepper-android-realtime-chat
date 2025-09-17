@@ -1,29 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Animation xmlns:editor="http://www.ald.softbankrobotics.com/animation/editor" typeVersion="2.0" editor:fps="25">
-    <ActuatorCurve fps="25" actuator="HeadYaw" mute="false" unit="degree">
-        <Key value="-4.13331985" frame="19">
-            <Tangent side="right" abscissaParam="8.66666667" ordinateParam="0" editor:interpType="bezier_auto"/>
-        </Key>
-        <Key value="-4.13331985" frame="45">
-            <Tangent side="left" abscissaParam="-8.66666667" ordinateParam="0" editor:interpType="bezier_auto"/>
-            <Tangent side="right" abscissaParam="8" ordinateParam="0" editor:interpType="bezier_auto"/>
-        </Key>
-        <Key value="-4.48487997" frame="69">
-            <Tangent side="left" abscissaParam="-8" ordinateParam="0" editor:interpType="bezier_auto"/>
-        </Key>
-    </ActuatorCurve>
-    <ActuatorCurve fps="25" actuator="HeadPitch" mute="false" unit="degree">
-        <Key value="2.89802003" frame="19">
-            <Tangent side="right" abscissaParam="8.66666667" ordinateParam="0" editor:interpType="bezier_auto"/>
-        </Key>
-        <Key value="-13.3619003" frame="45">
-            <Tangent side="left" abscissaParam="-8.66666667" ordinateParam="3.67153264" editor:interpType="bezier_auto"/>
-            <Tangent side="right" abscissaParam="8" ordinateParam="-3.38910706" editor:interpType="bezier_auto"/>
-        </Key>
-        <Key value="-18.2838993" frame="69">
-            <Tangent side="left" abscissaParam="-8" ordinateParam="0" editor:interpType="bezier_auto"/>
-        </Key>
-    </ActuatorCurve>
     <ActuatorCurve fps="25" actuator="LShoulderPitch" mute="false" unit="degree">
         <Key value="47.9864998" frame="17">
             <Tangent side="right" abscissaParam="8.66666667" ordinateParam="0" editor:interpType="bezier_auto"/>

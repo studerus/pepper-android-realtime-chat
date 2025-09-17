@@ -3,6 +3,7 @@ plugins {
 }
 
 android {
+    namespace 'io.github.studerus.pepper_android_realtime'
     compileSdk 32
 
     defaultConfig {
@@ -37,6 +38,9 @@ android {
         buildConfigField "String", "OPENWEATHER_API_KEY", "\"${localProps.getProperty('OPENWEATHER_API_KEY', '')}\""
         buildConfigField "String", "AZURE_FACE_API_KEY", "\"${localProps.getProperty('AZURE_FACE_API_KEY', '')}\""
         buildConfigField "String", "AZURE_FACE_ENDPOINT", "\"${localProps.getProperty('AZURE_FACE_ENDPOINT', '')}\""
+
+        // Pepper head SSH password (for SSH testing from tablet)
+        buildConfigField "String", "PEPPER_SSH_PASSWORD", "\"${localProps.getProperty('PEPPER_SSH_PASSWORD', '')}\""
         
         // Automatically include all API keys from local.properties that end with _API_KEY
         localProps.each { key, value ->
@@ -62,6 +66,10 @@ android {
         exclude 'META-INF/androidx.localbroadcastmanager_localbroadcastmanager.version'
         // Add additional exclude rules as needed if new errors occur
     }
+
+    buildFeatures {
+        buildConfig true
+    }
 }
 
 dependencies {
@@ -69,6 +77,9 @@ dependencies {
     // Pepper SDK - ONLY THIS LINE IS NEEDED
     implementation 'com.aldebaran:qisdk:1.7.5'
     implementation 'com.aldebaran:qisdk-design:1.7.5'
+
+    // libqi Java bindings for direct NAOqi session access (remote services/events)
+    implementation 'com.aldebaran:libqi-java-android:2.9.0'
 
     // Azure Speech SDK
     implementation 'com.microsoft.cognitiveservices.speech:client-sdk:1.31.0'
@@ -83,6 +94,9 @@ dependencies {
     implementation 'androidx.activity:activity:1.5.0'
     implementation 'androidx.core:core-ktx:1.8.0'
     implementation 'androidx.recyclerview:recyclerview:1.2.1'
+
+    // SSH client for Android (to test fixed-IP SSH connection to head)
+    implementation 'com.hierynomus:sshj:0.37.0'
 
 
     // Test dependencies

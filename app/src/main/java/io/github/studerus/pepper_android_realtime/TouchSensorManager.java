@@ -10,7 +10,6 @@ import com.aldebaran.qi.sdk.object.touch.TouchState;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import io.github.studerus.pepper_android_realtime.OptimizedThreadManager;
 
 /**
  * Manages all touch sensors on the Pepper robot
@@ -206,7 +205,7 @@ public class TouchSensorManager {
         try {
             // Remove listeners off the main thread to avoid NetworkOnMainThreadException
             final Map<String, TouchSensor> sensorsSnapshot = new java.util.HashMap<>(touchSensors);
-            OptimizedThreadManager.getInstance().executeNetwork(() -> {
+            io.github.studerus.pepper_android_realtime.OptimizedThreadManager.getInstance().executeNetwork(() -> {
                 for (Map.Entry<String, TouchSensor> entry : sensorsSnapshot.entrySet()) {
                     try {
                         TouchSensor sensor = entry.getValue();
