@@ -76,7 +76,10 @@ public class ApiKeyManager {
     
     // Feature availability checks
     public boolean isVisionAnalysisAvailable() {
-        return hasValidGroqKey();
+        // Vision analysis is now available either through:
+        // 1. gpt-realtime model (built-in vision) - no API key needed
+        // 2. Groq API (alternative) - requires GROQ_API_KEY
+        return true; // Always available now
     }
     
     public boolean isInternetSearchAvailable() {

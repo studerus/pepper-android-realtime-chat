@@ -1871,6 +1871,13 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     }
     
     /**
+     * Get PerceptionService for tool access
+     */
+    public PerceptionService getPerceptionService() {
+        return perceptionService;
+    }
+    
+    /**
      * Get the GestureController instance for tool access
      */
     public GestureController getGestureController() {

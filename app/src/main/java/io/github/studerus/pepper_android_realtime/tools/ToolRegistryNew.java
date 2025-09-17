@@ -32,6 +32,8 @@ import io.github.studerus.pepper_android_realtime.tools.games.TicTacToeMoveTool;
 // Vision tools
 import io.github.studerus.pepper_android_realtime.tools.vision.AnalyzeVisionTool;
 
+import io.github.studerus.pepper_android_realtime.tools.navigation.ApproachHumanTool;
+
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.util.HashMap;
@@ -83,6 +85,7 @@ public class ToolRegistryNew {
         registerTool("finish_environment_map", FinishEnvironmentMapTool::new);
         registerTool("save_current_location", SaveCurrentLocationTool::new);
         registerTool("navigate_to_location", NavigateToLocationTool::new);
+        registerTool("approach_human", ApproachHumanTool::new);
         
         // Game tools
         registerTool("start_memory_game", MemoryGameTool::new);

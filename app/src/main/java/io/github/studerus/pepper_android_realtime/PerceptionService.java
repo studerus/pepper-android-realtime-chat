@@ -580,4 +580,72 @@ public class PerceptionService {
             if (listener != null) listener.onHumansDetected(list);
         }
     }
+    
+    /**
+     * Get the recommended human to approach based on QiSDK HumanAwareness.
+     * This is needed for the ApproachHuman tool integration.
+     * 
+     * @return Human object recommended for approach, or null if none suitable
+     */
+    public Human getRecommendedHumanToApproach() {
+        if (!isInitialized() || humanAwareness == null) {
+            Log.w(TAG, "Cannot get recommended human - service not initialized");
+            return null;
+        }
+        
+        try {
+            return humanAwareness.getRecommendedHumanToApproach();
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to get recommended human to approach", e);
+            return null;
+        }
+    }
+    
+    /**
+     * Find a specific Human object by its ID (hashCode).
+     * Used by ApproachHuman tool to convert HumanInfo ID back to QiSDK Human object.
+     * 
+     * @param humanId The ID (hashCode) of the human to find
+     * @return Human object with matching ID, or null if not found
+     */
+    public Human getHumanById(int humanId) {
+        if (!isInitialized() || humanAwareness == null) {
+            Log.w(TAG, "Cannot find human by ID - service not initialized");
+            return null;
+        }
+        
+        try {
+            List<Human> detectedHumans = humanAwareness.getHumansAround();
+            for (Human human : detectedHumans) {
+                if (human.hashCode() == humanId) {
+                    return human;
+                }
+            }
+            Log.d(TAG, "Human with ID " + humanId + " not found in current detection");
+            return null;
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to find human by ID " + humanId, e);
+            return null;
+        }
+    }
+    
+    /**
+     * Get all currently detected humans as QiSDK Human objects.
+     * Provides direct access to the raw Human objects for tools that need them.
+     * 
+     * @return List of detected Human objects, empty list if none or service not ready
+     */
+    public List<Human> getDetectedHumans() {
+        if (!isInitialized() || humanAwareness == null) {
+            Log.w(TAG, "Cannot get detected humans - service not initialized");
+            return new ArrayList<>();
+        }
+        
+        try {
+            return new ArrayList<>(humanAwareness.getHumansAround());
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to get detected humans", e);
+            return new ArrayList<>();
+        }
+    }
 }

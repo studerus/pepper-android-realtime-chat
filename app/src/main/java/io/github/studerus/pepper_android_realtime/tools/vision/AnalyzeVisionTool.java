@@ -54,16 +54,8 @@ public class AnalyzeVisionTool implements Tool {
     public String execute(JSONObject args, ToolContext context) throws Exception {
         String prompt = args.optString("prompt", "");
         
-        if (!context.getApiKeyManager().isVisionAnalysisAvailable()) {
-            String setupMessage = "🔑 Vision analysis requires GROQ_API_KEY.\n" +
-                                "Get free key at: https://console.groq.com/\n" +
-                                "Add to local.properties: GROQ_API_KEY=your_key";
-            try {
-                return new JSONObject().put("error", setupMessage).toString();
-            } catch (Exception e) {
-                return "{\"error\":\"Setup failed\"}";
-            }
-        }
+        // Vision analysis now works with gpt-realtime (built-in) or Groq (optional)
+        // No longer require API key check as it's handled by VisionService internally
         
         Log.i(TAG, "Analyzing vision with prompt: " + (prompt.isEmpty() ? "(default analysis)" : prompt));
         
@@ -196,11 +188,11 @@ public class AnalyzeVisionTool implements Tool {
 
     @Override
     public boolean requiresApiKey() {
-        return true;
+        return false; // Vision now works with gpt-realtime built-in, Groq is optional
     }
 
     @Override
     public String getApiKeyType() {
-        return "Groq";
+        return null; // No specific API key required
     }
 }

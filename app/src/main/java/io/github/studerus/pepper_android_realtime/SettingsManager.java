@@ -472,18 +472,66 @@ public class SettingsManager {
 
     private List<LanguageOption> getAvailableLanguages() {
         List<LanguageOption> languages = new ArrayList<>();
+        
+        // German variants
         languages.add(new LanguageOption("German (Switzerland)", "de-CH"));
         languages.add(new LanguageOption("German (Germany)", "de-DE"));
         languages.add(new LanguageOption("German (Austria)", "de-AT"));
+        
+        // English variants
         languages.add(new LanguageOption("English (United States)", "en-US"));
         languages.add(new LanguageOption("English (United Kingdom)", "en-GB"));
         languages.add(new LanguageOption("English (Australia)", "en-AU"));
         languages.add(new LanguageOption("English (Canada)", "en-CA"));
+        
+        // French variants
         languages.add(new LanguageOption("French (Switzerland)", "fr-CH"));
         languages.add(new LanguageOption("French (France)", "fr-FR"));
         languages.add(new LanguageOption("French (Canada)", "fr-CA"));
+        
+        // Italian variants
         languages.add(new LanguageOption("Italian (Switzerland)", "it-CH"));
         languages.add(new LanguageOption("Italian (Italy)", "it-IT"));
+        
+        // Spanish variants
+        languages.add(new LanguageOption("Spanish (Spain)", "es-ES"));
+        languages.add(new LanguageOption("Spanish (Argentina)", "es-AR"));
+        languages.add(new LanguageOption("Spanish (Mexico)", "es-MX"));
+        
+        // Portuguese variants
+        languages.add(new LanguageOption("Portuguese (Brazil)", "pt-BR"));
+        languages.add(new LanguageOption("Portuguese (Portugal)", "pt-PT"));
+        
+        // Chinese variants
+        languages.add(new LanguageOption("Chinese (Mandarin, Simplified)", "zh-CN"));
+        languages.add(new LanguageOption("Chinese (Cantonese, Traditional)", "zh-HK"));
+        languages.add(new LanguageOption("Chinese (Taiwanese Mandarin)", "zh-TW"));
+        
+        // Japanese
+        languages.add(new LanguageOption("Japanese", "ja-JP"));
+        
+        // Korean
+        languages.add(new LanguageOption("Korean", "ko-KR"));
+        
+        // Russian
+        languages.add(new LanguageOption("Russian", "ru-RU"));
+        
+        // Arabic
+        languages.add(new LanguageOption("Arabic (UAE)", "ar-AE"));
+        languages.add(new LanguageOption("Arabic (Saudi Arabia)", "ar-SA"));
+        
+        // Dutch
+        languages.add(new LanguageOption("Dutch (Netherlands)", "nl-NL"));
+        
+        // Norwegian
+        languages.add(new LanguageOption("Norwegian (Bokmål)", "nb-NO"));
+        
+        // Swedish
+        languages.add(new LanguageOption("Swedish", "sv-SE"));
+        
+        // Danish
+        languages.add(new LanguageOption("Danish", "da-DK"));
+        
         return languages;
     }
 

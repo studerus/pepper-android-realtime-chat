@@ -50,6 +50,13 @@ public class ToolContext {
         return activity != null ? activity.getNavigationServiceManager() : null;
     }
     
+    /**
+     * Get PerceptionService from activity - provides access to human detection and awareness
+     */
+    public io.github.studerus.pepper_android_realtime.PerceptionService getPerceptionService() {
+        return activity != null ? activity.getPerceptionService() : null;
+    }
+    
     // Convenience methods
     public boolean isQiContextNotReady() { return qiContext == null; }
     public boolean hasUi() { return activity != null; }
