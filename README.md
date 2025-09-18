@@ -12,7 +12,7 @@ A sophisticated conversational AI application for the Pepper robot using OpenAI'
 - **👥 Human Approach** - Intelligent human detection and social interaction initiation
 - **👁️ Human Perception Dashboard** - Real-time display of detected people with emotions, attention, and distance
 - **🔍 Azure Face Analysis** - Advanced facial analysis with pose, glasses, mask detection, and image quality assessment
-- **👁️ Vision Analysis** - Camera-based image understanding and analysis
+- **👁️ Vision Analysis** - Camera-based image understanding and analysis with intelligent obstacle detection
 - **🌐 Internet Search** - Real-time web search capabilities via Tavily API
 - **🌤️ Weather Information** - Current weather and forecasts via OpenWeatherMap API
 - **🎯 Interactive Quizzes** - Dynamic quiz generation and interaction
@@ -26,6 +26,7 @@ A sophisticated conversational AI application for the Pepper robot using OpenAI'
 - **👥 Human Approach** - Automatically detect and approach people for social interaction
 - **🎯 Intelligent Location Recognition** - AI automatically suggests similar location names
 - **⚡ Dynamic Location Lists** - AI always knows available locations
+- **🔍 Intelligent Obstacle Analysis** - When movement is blocked, AI automatically uses vision to identify obstacles
 
 ### Technical Features
 - **Multi-modal AI** - Audio, text, and vision processing
@@ -165,6 +166,15 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 - **"Approach him/her"** - Intelligently approach a detected person for interaction
 - **"Come to me"** - Alternative command to approach the user
 
+#### Gaze Control
+- **"Look at [target]"** - Directs Pepper's gaze towards a specific 3D position relative to robot base
+  - *"Look at the ground in front of you"* - AI calculates coordinates (1.0, 0.0, 0.0)
+  - *"Look up at the ceiling"* - AI calculates coordinates (0.0, 0.0, 2.5)
+  - *"Look two meters to your left and one meter up"* - AI calculates coordinates (0.0, 2.0, 1.0)
+  - *"Look at the ground one meter ahead for 5 seconds"* - Duration control with auto-return
+- **Perfect for Vision Analysis** - *"What do you see one meter in front of you on the ground?"*
+  - AI automatically: 1) Looks at position 2) Captures image 3) Analyzes vision 4) Returns gaze
+
 #### Navigation & Mapping
 - **"Create a map"** - Start mapping the current environment
 - **"Move forward 2 meters"** - Guide Pepper during mapping
@@ -258,6 +268,22 @@ Robot: "Navigating to Türe..."
 - **⚡ Dynamic Updates**: AI knows new locations immediately
 - **🛡️ Error Prevention**: No "location not found" errors
 - **🗑️ Auto-Cleanup**: New maps automatically clear old locations to prevent confusion
+
+## 🔍 Intelligent Obstacle Analysis
+
+When Pepper's movement is blocked, the AI automatically analyzes what's in the way:
+
+```bash
+User: "Move forward 2 meters"
+Robot: "Something is blocking my path. Let me see what it is..."
+# AI automatically: look_at_position → analyze_vision → return gaze
+Robot: "I can see a chair blocking my path. Should I try moving around it?"
+```
+
+**Key Features:**
+- **🎯 Automatic Activation** - Triggers when movement fails due to obstacles
+- **📍 Smart Analysis** - Looks forward and captures obstacle image automatically  
+- **🔄 No Manual Commands** - User doesn't need to ask "what do you see?"
 
 ## 🎮 Tic Tac Toe Game
 
@@ -563,7 +589,8 @@ app/src/main/java/io/github/studerus/pepper_android_realtime/
 │   │   └── GetRandomJokeTool.java   # Joke database access
 │   ├── navigation/
 │   │   ├── ApproachHumanTool.java   # Human approach functionality
-│   │   ├── MovePepperTool.java      # Basic movement control
+│   │   ├── MovePepperTool.java      # Basic movement control with intelligent obstacle analysis
+│   │   ├── LookAtPositionTool.java  # 3D gaze control with duration and auto-return
 │   │   ├── NavigateToLocationTool.java # Location navigation
 │   │   └── CreateEnvironmentMapTool.java # Mapping system
 │   ├── vision/

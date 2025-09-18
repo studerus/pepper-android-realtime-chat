@@ -110,9 +110,24 @@ public class MovePepperTool implements Tool {
                     movementDesc);
                 } else {
                 String userFriendlyError = translateMovementError(error);
-                message = String.format(java.util.Locale.US,
+                
+                // Build the base error message
+                StringBuilder messageBuilder = new StringBuilder();
+                messageBuilder.append(String.format(java.util.Locale.US,
                     "[MOVEMENT FAILED] You couldn't complete the movement %s. %s Please inform the user about this problem and offer alternative solutions or ask if they want you to try a different direction.",
-                    movementDesc, userFriendlyError);
+                    movementDesc, userFriendlyError));
+                
+                // Add vision analysis suggestion for obstacle-related errors in the same message
+                boolean isObstacleError = isObstacleRelatedError(error);
+                Log.i(TAG, "Movement error: '" + error + "' -> obstacle-related: " + isObstacleError);
+                if (isObstacleError) {
+                    messageBuilder.append(String.format(java.util.Locale.US,
+                        " Use vision analysis to identify what is blocking your path - " +
+                        "look around your current position, starting with (%.2f, %.2f, %.2f) in front of you, to see what obstacles are nearby.",
+                        1.0, 0.0, 0.0)); // Always look 1m forward from current position
+                }
+                
+                message = messageBuilder.toString();
                 }
                 context.sendAsyncUpdate(message, true);
             });
@@ -176,6 +191,28 @@ public class MovePepperTool implements Tool {
             desc.append(String.format(java.util.Locale.US, "%.1f meters to the %s", Math.abs(sideways), sideways > 0 ? "left" : "right"));
         }
         return desc.toString();
+    }
+
+    /**
+     * Check if the error is related to obstacles that could benefit from vision analysis
+     */
+    private boolean isObstacleRelatedError(String error) {
+        if (error == null || error.isEmpty()) {
+            return true; // Default fallback suggests obstacles
+        }
+        
+        String lowerError = error.toLowerCase();
+        
+        // Most movement errors are obstacle-related and would benefit from vision analysis
+        return lowerError.contains("obstacle") || lowerError.contains("blocked") || 
+               lowerError.contains("collision") || lowerError.contains("bump") ||
+               lowerError.contains("unreachable") || lowerError.contains("no path") || 
+               lowerError.contains("path planning") || lowerError.contains("navigation failed") ||
+               lowerError.contains("timeout") || lowerError.contains("too long") ||
+               lowerError.contains("safety") || lowerError.contains("emergency") ||
+               lowerError.contains("goto failed") || lowerError.contains("failed to complete") ||
+               lowerError.contains("movement failed") || lowerError.contains("cannot move");
+        // Note: Cancelled/interrupted errors are NOT obstacle-related, so no vision suggestion
     }
 
     /**

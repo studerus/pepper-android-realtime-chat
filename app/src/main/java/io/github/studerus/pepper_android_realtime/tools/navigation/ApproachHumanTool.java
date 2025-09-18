@@ -132,7 +132,8 @@ public class ApproachHumanTool implements Tool {
             // Add listener for temporary unreachable state
             approachHuman.addOnHumanIsTemporarilyUnreachableListener(() -> {
                 Log.i(TAG, "Human temporarily unreachable - sending status update");
-                context.sendAsyncUpdate("[APPROACH INTERRUPTED] Pepper cannot reach the person. The path may be blocked by obstacles.", true);
+                context.sendAsyncUpdate("[APPROACH INTERRUPTED] Pepper cannot reach the person. The path may be blocked by obstacles. " +
+                    "Use vision analysis to identify what is blocking your path - look around your current position, starting with (1.0, 0.0, 0.0) in front of you, to see what obstacles are nearby.", true);
             });
 
             // Execute approach asynchronously
@@ -152,9 +153,24 @@ public class ApproachHumanTool implements Tool {
                         finalTargetDescription);
                 } else {
                     String userFriendlyError = translateApproachError(error);
-                    message = String.format(Locale.US,
+                    
+                    // Build the base error message
+                    StringBuilder messageBuilder = new StringBuilder();
+                    messageBuilder.append(String.format(Locale.US,
                         "[APPROACH FAILED] Pepper could not approach the %s. %s Please inform the user and suggest alternatives like asking the person to come closer.",
-                        finalTargetDescription, userFriendlyError);
+                        finalTargetDescription, userFriendlyError));
+                    
+                    // Add vision analysis suggestion for obstacle-related errors in the same message
+                    boolean isObstacleError = isObstacleRelatedApproachError(error);
+                    Log.i(TAG, "Approach error: '" + error + "' -> obstacle-related: " + isObstacleError);
+                    if (isObstacleError) {
+                        messageBuilder.append(String.format(Locale.US,
+                            " Use vision analysis to identify what is blocking your path - " +
+                            "look around your current position, starting with (%.2f, %.2f, %.2f) in front of you, to see what obstacles are nearby.",
+                            1.0, 0.0, 0.0)); // Always look 1m forward from current position
+                    }
+                    
+                    message = messageBuilder.toString();
                 }
                 
                 context.sendAsyncUpdate(message, true);
@@ -209,6 +225,27 @@ public class ApproachHumanTool implements Tool {
             Log.w(TAG, "Could not check charging flap status: " + e.getMessage(), e);
             return false; // Allow movement if check fails to avoid false blocking
         }
+    }
+
+    /**
+     * Check if the approach error is related to obstacles that could benefit from vision analysis
+     */
+    private boolean isObstacleRelatedApproachError(String error) {
+        if (error == null || error.isEmpty()) {
+            return true; // Default fallback suggests obstacles
+        }
+        
+        String lowerError = error.toLowerCase();
+        
+        // Approach errors that are likely obstacle-related and would benefit from vision analysis
+        return lowerError.contains("obstacle") || lowerError.contains("blocked") || 
+               lowerError.contains("collision") || lowerError.contains("bump") ||
+               lowerError.contains("unreachable") || lowerError.contains("no path") || 
+               lowerError.contains("path planning") || lowerError.contains("navigation failed") ||
+               lowerError.contains("timeout") || lowerError.contains("took too long") ||
+               lowerError.contains("safety") || lowerError.contains("emergency") ||
+               lowerError.contains("approach failed") || lowerError.contains("failed to complete");
+        // Note: Cancelled/lost/disappeared errors are NOT obstacle-related, so no vision suggestion
     }
 
     /**

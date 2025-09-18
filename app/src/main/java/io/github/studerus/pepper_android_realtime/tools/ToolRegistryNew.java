@@ -18,6 +18,7 @@ import io.github.studerus.pepper_android_realtime.tools.entertainment.PlayYouTub
 // Navigation tools
 import io.github.studerus.pepper_android_realtime.tools.navigation.MovePepperTool;
 import io.github.studerus.pepper_android_realtime.tools.navigation.TurnPepperTool;
+import io.github.studerus.pepper_android_realtime.tools.navigation.LookAtPositionTool;
 import io.github.studerus.pepper_android_realtime.tools.navigation.CreateEnvironmentMapTool;
 import io.github.studerus.pepper_android_realtime.tools.navigation.FinishEnvironmentMapTool;
 import io.github.studerus.pepper_android_realtime.tools.navigation.SaveCurrentLocationTool;
@@ -81,6 +82,7 @@ public class ToolRegistryNew {
         // Navigation tools
         registerTool("move_pepper", MovePepperTool::new);
         registerTool("turn_pepper", TurnPepperTool::new);
+        registerTool("look_at_position", LookAtPositionTool::new);
         registerTool("create_environment_map", CreateEnvironmentMapTool::new);
         registerTool("finish_environment_map", FinishEnvironmentMapTool::new);
         registerTool("save_current_location", SaveCurrentLocationTool::new);

@@ -157,9 +157,24 @@ public class NavigateToLocationTool implements Tool {
                                             Log.i(TAG, "Step 3 SUCCESS: Navigation to " + locationName + " completed.");
                                         } else {
                                             String friendlyError = translateNavigationError(error);
-                                            message = String.format(Locale.US,
+                                            
+                                            // Build the base error message
+                                            StringBuilder messageBuilder = new StringBuilder();
+                                            messageBuilder.append(String.format(Locale.US,
                                                 "[NAVIGATION FAILED] Could not reach %s. Reason: %s.",
-                                                locationName, friendlyError);
+                                                locationName, friendlyError));
+                                            
+                                            // Add vision analysis suggestion for obstacle-related errors in the same message
+                                            boolean isObstacleError = isObstacleRelatedNavigationError(error);
+                                            Log.i(TAG, "Navigation error: '" + error + "' -> obstacle-related: " + isObstacleError);
+                                            if (isObstacleError) {
+                                                messageBuilder.append(String.format(Locale.US,
+                                                    " Use vision analysis to identify what is blocking your path - " +
+                                                    "look around your current position, starting with (%.2f, %.2f, %.2f) in front of you, to see what obstacles are nearby.",
+                                                    1.0, 0.0, 0.0)); // Always look 1m forward from current position
+                                            }
+                                            
+                                            message = messageBuilder.toString();
                                             Log.e(TAG, "Step 3 FAILED: Navigation to " + locationName + " failed. Reason: " + error);
                                         }
                                         context.sendAsyncUpdate(message, true);
@@ -292,6 +307,27 @@ public class NavigateToLocationTool implements Tool {
     }
 
     // Localization is handled centrally by NavigationServiceManager
+
+    /**
+     * Check if the navigation error is related to obstacles that could benefit from vision analysis
+     */
+    private boolean isObstacleRelatedNavigationError(String error) {
+        if (error == null || error.isEmpty()) {
+            return true; // Default fallback suggests obstacles
+        }
+        
+        String lowerError = error.toLowerCase();
+        
+        // Navigation errors that are likely obstacle-related and would benefit from vision analysis
+        return lowerError.contains("obstacle") || lowerError.contains("blocked") || 
+               lowerError.contains("collision") || lowerError.contains("bump") ||
+               lowerError.contains("unreachable") || lowerError.contains("no path") || 
+               lowerError.contains("path planning") || lowerError.contains("navigation failed") ||
+               lowerError.contains("timeout") || lowerError.contains("took too long") ||
+               lowerError.contains("safety") || lowerError.contains("emergency") ||
+               lowerError.contains("goto failed") || lowerError.contains("failed to complete");
+        // Note: Cancelled/localization errors are NOT obstacle-related, so no vision suggestion
+    }
 
     /**
      * Translates technical QiSDK navigation errors into user-friendly messages
