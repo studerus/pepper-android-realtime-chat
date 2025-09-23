@@ -5,13 +5,11 @@ import android.util.Log;
 import com.aldebaran.qi.Future;
 import com.aldebaran.qi.sdk.QiContext;
 import com.aldebaran.qi.sdk.object.human.Human;
-import com.aldebaran.qi.sdk.object.power.FlapSensor;
-import com.aldebaran.qi.sdk.object.power.FlapState;
-import com.aldebaran.qi.sdk.object.power.Power;
 import com.aldebaran.qi.sdk.object.humanawareness.ApproachHuman;
 import com.aldebaran.qi.sdk.builder.ApproachHumanBuilder;
 
 import io.github.studerus.pepper_android_realtime.PerceptionService;
+import io.github.studerus.pepper_android_realtime.RobotSafetyGuard;
 import io.github.studerus.pepper_android_realtime.tools.Tool;
 import io.github.studerus.pepper_android_realtime.tools.ToolContext;
 
@@ -79,9 +77,10 @@ public class ApproachHumanTool implements Tool {
             return new JSONObject().put("error", "Robot not ready").toString();
         }
         
-        // Check if charging flap is open (prevents movement for safety)
-        if (isChargingFlapOpen(context)) {
-            return new JSONObject().put("error", "Cannot approach human while charging flap is open. Please close the charging flap first for safety.").toString();
+        RobotSafetyGuard.Result safety = RobotSafetyGuard.evaluateMovementSafety(context.getQiContext());
+        if (!safety.isOk()) {
+            String message = safety.message != null ? safety.message : "Approach blocked by safety check";
+            return new JSONObject().put("error", message).toString();
         }
 
         Log.i(TAG, "Starting human approach - target ID: " + humanId + ", speed: " + speed + " m/s");
@@ -202,29 +201,6 @@ public class ApproachHumanTool implements Tool {
     @Override
     public String getApiKeyType() {
         return null;
-    }
-
-    /**
-     * Check if the charging flap is open, which prevents movement for safety reasons
-     */
-    private boolean isChargingFlapOpen(ToolContext context) {
-        try {
-            Power power = context.getQiContext().getPower();
-            FlapSensor chargingFlap = power.getChargingFlap();
-            
-            if (chargingFlap != null) {
-                FlapState flapState = chargingFlap.getState();
-                boolean isOpen = flapState.getOpen();
-                Log.d(TAG, "Charging flap status: " + (isOpen ? "OPEN (movement blocked)" : "CLOSED (movement allowed)"));
-                return isOpen;
-            } else {
-                Log.d(TAG, "No charging flap sensor available - assuming movement is allowed");
-                return false; // Assume closed if sensor not available
-            }
-        } catch (Exception e) {
-            Log.w(TAG, "Could not check charging flap status: " + e.getMessage(), e);
-            return false; // Allow movement if check fails to avoid false blocking
-        }
     }
 
     /**

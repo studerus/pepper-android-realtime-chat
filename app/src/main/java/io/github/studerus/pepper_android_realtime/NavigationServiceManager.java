@@ -1,30 +1,18 @@
 package io.github.studerus.pepper_android_realtime;
 
 import android.content.Context;
-import android.util.Log;
-
-import com.aldebaran.qi.sdk.QiContext;
-import com.aldebaran.qi.Future;
-import com.aldebaran.qi.Promise;
-import com.aldebaran.qi.sdk.builder.ExplorationMapBuilder;
-import com.aldebaran.qi.sdk.builder.LocalizeBuilder;
-import com.aldebaran.qi.sdk.object.actuation.ExplorationMap;
-import com.aldebaran.qi.sdk.object.actuation.Localize;
-import com.aldebaran.qi.sdk.object.actuation.LocalizationStatus;
-import com.aldebaran.qi.sdk.object.holder.Holder;
-import com.aldebaran.qi.sdk.object.image.EncodedImage;
-import com.aldebaran.qi.sdk.object.actuation.MapTopGraphicalRepresentation;
-
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
-import java.util.concurrent.atomic.AtomicBoolean;
+import com.aldebaran.qi.Future;
+import com.aldebaran.qi.Promise;
+import com.aldebaran.qi.sdk.QiContext;
+import com.aldebaran.qi.sdk.object.actuation.ExplorationMap;
+import com.aldebaran.qi.sdk.object.actuation.MapTopGraphicalRepresentation;
+import com.aldebaran.qi.sdk.object.holder.Holder;
+
 
 /**
  * NavigationServiceManager coordinates robot services during navigation phases.
@@ -58,18 +46,9 @@ public class NavigationServiceManager {
     private Holder autonomousAbilitiesHolder;
     private volatile boolean autonomousAbilitiesHeld = false;
     private volatile boolean gesturesSuppressed = false;
-    private volatile boolean localizationReady = false;
-    private volatile Localize activeLocalizeAction; // Reference to the running Localize action
-    private volatile Future<Void> activeLocalizeFuture; // Future from localize.async().run()
-    private volatile boolean mapLoaded = false;
-    private volatile ExplorationMap cachedMap;
-    private volatile Bitmap cachedMapBitmap;
-    private volatile MapTopGraphicalRepresentation cachedMapGfx;
-    
-    // Concurrency control for map building
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
-    private final AtomicBoolean isMapBeingBuilt = new AtomicBoolean(false);
-    private volatile Promise<Boolean> inFlightMapLoadPromise;
+    private final NavigationMapCache mapCache;
+    private final LocalizationCoordinator localizationCoordinator;
  
     private void beginCriticalMapLoad(QiContext qiContext) {
         try {
@@ -115,7 +94,7 @@ public class NavigationServiceManager {
      */
     @SuppressWarnings("unused")
     public boolean isMapLoadingInProgress() {
-        return isMapBeingBuilt.get();
+        return mapCache.isLoading();
     }
     
     /**
@@ -160,12 +139,36 @@ public class NavigationServiceManager {
                 }
             });
         }
+
+        this.mapCache = new NavigationMapCache(mainHandler, new NavigationMapCache.CriticalSectionListener() {
+            @Override
+            public void onEnter(QiContext qiContext) {
+                beginCriticalMapLoad(qiContext);
+            }
+
+            @Override
+            public void onExit(boolean success) {
+                endCriticalMapLoad(success);
+            }
+        });
+
+        this.localizationCoordinator = new LocalizationCoordinator(
+                mainHandler,
+                this::setNavigationPhase,
+                this::notifyStatusUpdate
+        );
     }
     
     public void setListener(NavigationServiceListener listener) {
         this.listener = listener;
     }
-    
+
+    private void notifyStatusUpdate(String mapStatus, String localizationStatus) {
+        if (listener != null) {
+            listener.onNavigationStatusUpdate(mapStatus, localizationStatus);
+        }
+    }
+
     public void setDependencies(PerceptionService perceptionService, TouchSensorManager touchSensorManager, GestureController gestureController) {
         this.perceptionService = perceptionService;
         this.touchSensorManager = touchSensorManager;
@@ -263,7 +266,7 @@ public class NavigationServiceManager {
         if (listener != null) {
             listener.onNavigationStatusUpdate("🗺️ Map: Ready", "🧭 Localization: Localizing...");
         }
-        localizationReady = false;
+        localizationCoordinator.markLocalizationInProgress();
     }
     
     /**
@@ -323,14 +326,13 @@ public class NavigationServiceManager {
         
         // Update UI status based on the *current* localization state, do not assume it's ready
         if (listener != null) {
-            if (localizationReady) {
+            if (localizationCoordinator.isLocalizationReady()) {
                 listener.onNavigationStatusUpdate("🗺️ Map: Ready", "🧭 Localization: Localized");
             } else {
                 listener.onNavigationStatusUpdate("🗺️ Map: Ready", "🧭 Localization: Unknown");
             }
         }
         // DO NOT assume localization is ready after a simple movement.
-        // localizationReady = true; <-- THIS WAS THE BUG
         
         Log.i(TAG, "All services restored to normal operation");
     }
@@ -339,7 +341,7 @@ public class NavigationServiceManager {
      * Check whether localization is currently ready.
      */
     public boolean isLocalizationReady() {
-        return localizationReady;
+        return localizationCoordinator.isLocalizationReady();
     }
 
     /**
@@ -347,215 +349,21 @@ public class NavigationServiceManager {
      */
     @SuppressWarnings("BooleanMethodIsAlwaysInverted")
     public boolean isMapLoaded() {
-        return mapLoaded;
+        return mapCache.isMapLoaded();
     }
 
     /**
      * Utility: Check if a saved map file exists on disk.
      */
     public boolean isMapSavedOnDisk(Context appContext) {
-        try {
-            File mapsDir = new File(appContext.getFilesDir(), "maps");
-            File mapFile = new File(mapsDir, "default_map.map");
-            return mapFile.exists() && mapFile.length() > 0;
-        } catch (Throwable t) {
-            Log.w(TAG, "Failed checking map on disk", t);
-            return false;
-        }
+        return mapCache.isMapSavedOnDisk(appContext);
     }
 
     /**
-     * Load and cache the ExplorationMap if not already loaded. 
-     * CRITICAL: Uses complete thread separation to avoid QiSDK MainEventLoop deadlocks.
+     * Load and cache the ExplorationMap if not already loaded.
      */
     public Future<Boolean> ensureMapLoadedIfNeeded(QiContext qiContext, Context appContext, Runnable onMapLoaded) {
-        Promise<Boolean> promise = new Promise<>();
-        if (mapLoaded && cachedMap != null) {
-            promise.setValue(true);
-            return promise.getFuture();
-        }
-        if (qiContext == null || appContext == null) {
-            promise.setValue(false);
-            return promise.getFuture();
-        }
-
-        // --- ROBUST MAP LOADING WITH DEDICATED THREAD ---
-        // Prevent multiple concurrent builds of the large map object
-        if (isMapBeingBuilt.compareAndSet(false, true)) {
-            Log.i(TAG, "Starting robust map loading process...");
-            inFlightMapLoadPromise = promise;
-            // Enter critical section: pause interfering services and autonomous abilities
-            beginCriticalMapLoad(qiContext);
-            
-            // Stop any running localization first to avoid SDK contention
-            stopCurrentLocalization().thenConsume(ignored -> {
-                // STEP 0: Proactive cache reset to avoid OOM on large maps
-                resetMapCache();
-
-                // STEP 1: Load file to string on I/O thread
-                OptimizedThreadManager.getInstance().executeIO(() -> {
-                    final String mapData = loadMapFileToString(appContext);
-                    if (mapData == null) {
-                        Log.e(TAG, "Map data could not be loaded from file.");
-                        isMapBeingBuilt.set(false);
-                        // Leave critical section (failure)
-                        mainHandler.post(() -> endCriticalMapLoad(false));
-                        Promise<Boolean> p = inFlightMapLoadPromise;
-                        inFlightMapLoadPromise = null;
-                        if (p != null) p.setValue(false);
-                        return;
-                    }
-
-                    // STEP 2: Build ExplorationMap on a Qi-compatible background thread
-                    OptimizedThreadManager.getInstance().executeNetwork(() -> {
-                        try {
-                            Log.i(TAG, "Building ExplorationMap on Qi-compatible background thread...");
-                            final ExplorationMap map = ExplorationMapBuilder
-                                    .with(qiContext)
-                                    .withMapString(mapData)
-                                    .build();
-                            Log.i(TAG, "ExplorationMap built successfully.");
-
-                            // STEP 3: Extract graphics on I/O thread (heavy work off main/Qi threads)
-                            OptimizedThreadManager.getInstance().executeIO(() -> {
-                                try {
-                                    extractAndCacheMapGraphics(map);
-                                    cachedMap = map;
-                                    mapLoaded = true;
-                                    // Notify callback and leave critical section on main thread
-                                    mainHandler.post(() -> {
-                                        try { if (onMapLoaded != null) onMapLoaded.run(); } catch (Throwable t) { Log.w(TAG, "onMapLoaded callback error", t); }
-                                        endCriticalMapLoad(true);
-                                    });
-                                    Promise<Boolean> p = inFlightMapLoadPromise;
-                                    inFlightMapLoadPromise = null;
-                                    if (p != null) p.setValue(true);
-                                } catch (Exception e) {
-                                    Log.e(TAG, "Error caching map graphics after build", e);
-                                    mainHandler.post(() -> endCriticalMapLoad(false));
-                                    Promise<Boolean> p = inFlightMapLoadPromise;
-                                    inFlightMapLoadPromise = null;
-                                    if (p != null) p.setValue(false);
-                                } finally {
-                                    isMapBeingBuilt.set(false); // Release lock
-                                }
-                            });
-
-                        } catch (Exception e) {
-                            Log.e(TAG, "Failed to build ExplorationMap", e);
-                            mainHandler.post(() -> endCriticalMapLoad(false));
-                            Promise<Boolean> p = inFlightMapLoadPromise;
-                            inFlightMapLoadPromise = null;
-                            if (p != null) p.setValue(false);
-                            isMapBeingBuilt.set(false); // Release lock on failure
-                        }
-                    });
-                });
-            });
-        } else {
-            Log.w(TAG, "Map is already being built. Waiting for completion.");
-            // Return the in-flight future so callers can await completion
-            Promise<Boolean> p = inFlightMapLoadPromise;
-            if (p != null) {
-                return p.getFuture();
-            }
-            // Fallback: no known in-flight promise; fail fast to avoid hanging callers
-            Promise<Boolean> fail = new Promise<>();
-            fail.setValue(false);
-            return fail.getFuture();
-        }
-        
-        return promise.getFuture();
-    }
-
-    /**
-     * Load map file to string on I/O thread with memory optimization
-     */
-    private String loadMapFileToString(Context appContext) {
-        try {
-            File mapsDir = new File(appContext.getFilesDir(), "maps");
-            File mapFile = new File(mapsDir, "default_map.map");
-            if (!mapFile.exists() || mapFile.length() <= 0) {
-                Log.w(TAG, "No map file on disk: " + mapFile.getAbsolutePath());
-                return null;
-            }
-            
-            long fileSize = mapFile.length();
-            Log.i(TAG, "Loading map file: " + mapFile.getAbsolutePath() + " (" + fileSize + " bytes)");
-            
-            // Memory cleanup for large files
-            if (fileSize > 5_000_000L) { // Trigger for maps larger than 5MB
-                Log.i(TAG, "Large map file detected, performing pre-emptive memory cleanup");
-                System.gc(); 
-                try { Thread.sleep(100); } catch (InterruptedException ignored) { Thread.currentThread().interrupt(); }
-            }
-            
-            byte[] mapBytes = new byte[(int) fileSize];
-            int totalRead = 0;
-            try (FileInputStream fis = new FileInputStream(mapFile)) {
-                while (totalRead < mapBytes.length) {
-                    int r = fis.read(mapBytes, totalRead, mapBytes.length - totalRead);
-                    if (r == -1) break; 
-                    totalRead += r;
-                }
-            }
-            
-            String mapData = new String(mapBytes, StandardCharsets.UTF_8);
-            //noinspection UnusedAssignment
-            mapBytes = null; // Release memory immediately
-            System.gc();
-            
-            Log.i(TAG, "Map file loaded to string successfully");
-            return mapData;
-            
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to load map file to string", e);
-            return null;
-        }
-    }
-
-    /**
-     * Extract and cache map graphics (bitmap) - runs on I/O thread
-     */
-    private void extractAndCacheMapGraphics(ExplorationMap map) {
-        try {
-            // Clear previous cached data to free memory
-            if (cachedMapBitmap != null && !cachedMapBitmap.isRecycled()) {
-                cachedMapBitmap.recycle();
-            }
-            cachedMapBitmap = null;
-            cachedMapGfx = null;
-            
-            // Force garbage collection before heavy bitmap operations
-            System.gc();
-            
-            Log.i(TAG, "Extracting graphical representation from ExplorationMap");
-            cachedMapGfx = map.getTopGraphicalRepresentation();
-            EncodedImage encodedImage = cachedMapGfx.getImage();
-            ByteBuffer buffer = encodedImage.getData();
-            byte[] bitmapBytes = new byte[buffer.remaining()];
-            buffer.get(bitmapBytes);
-            
-            // Decode bitmap with memory-efficient options
-            BitmapFactory.Options options = new BitmapFactory.Options();
-            options.inPreferredConfig = Bitmap.Config.RGB_565; // Use less memory than ARGB_8888
-            cachedMapBitmap = BitmapFactory.decodeByteArray(bitmapBytes, 0, bitmapBytes.length, options);
-            
-            // Clear temporary byte array immediately
-            //noinspection UnusedAssignment
-            bitmapBytes = null;
-            System.gc();
-            
-            if (cachedMapBitmap != null) {
-                Log.i(TAG, "Successfully decoded and cached map bitmap (" + cachedMapBitmap.getWidth() + "x" + cachedMapBitmap.getHeight() + ")");
-            } else {
-                Log.e(TAG, "Bitmap decoding returned null");
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to extract graphical representation from map", e);
-            cachedMapBitmap = null;
-            cachedMapGfx = null;
-        }
+        return mapCache.ensureMapLoadedIfNeeded(qiContext, appContext, onMapLoaded, this::stopCurrentLocalization);
     }
 
     /**
@@ -563,69 +371,14 @@ public class NavigationServiceManager {
      */
     @SuppressWarnings("UnusedReturnValue")
     public Future<Boolean> ensureLocalizationIfNeeded(QiContext qiContext, Runnable onLocalized, Runnable onFailed) {
-        Promise<Boolean> promise = new Promise<>();
-        AtomicBoolean completed = new AtomicBoolean(false);
-
-        Runnable completeSuccess = () -> {
-            if (completed.compareAndSet(false, true)) {
-                try { if (onLocalized != null) onLocalized.run(); } catch (Throwable t) { Log.w(TAG, "onLocalized callback error", t); }
-                promise.setValue(true);
-            }
-        };
-        Runnable completeFailure = () -> {
-            if (completed.compareAndSet(false, true)) {
-                try { if (onFailed != null) onFailed.run(); } catch (Throwable t) { Log.w(TAG, "onFailed callback error", t); }
-                promise.setValue(false);
-            }
-        };
-        if (localizationReady) {
-            Log.i(TAG, "Localization is already confirmed. Triggering onLocalized callback directly.");
-            completeSuccess.run();
-            return promise.getFuture();
+        ExplorationMap mapForLocalization = mapCache.getCachedMap();
+        if (qiContext == null || mapForLocalization == null) {
+            Log.w(TAG, "Cannot ensure localization: qiContext or cached map is null.");
+            Promise<Boolean> failed = new Promise<>();
+            failed.setValue(false);
+            return failed.getFuture();
         }
-        if (qiContext == null || cachedMap == null) {
-            Log.w(TAG, "Cannot ensure localization: qiContext or cachedMap is null.");
-            completeFailure.run();
-            return promise.getFuture();
-        }
-        // Enter localization mode (pauses services and updates UI)
-        setNavigationPhase(NavigationPhase.LOCALIZATION_MODE);
-        try {
-            Localize localize = LocalizeBuilder.with(qiContext).withMap(cachedMap).build();
-            this.activeLocalizeAction = localize; // Store reference to the running action
-
-            localize.addOnStatusChangedListener(status -> {
-                if (status == LocalizationStatus.LOCALIZED) {
-                    localizationReady = true;
-                    if (listener != null) {
-                        listener.onNavigationStatusUpdate("🗺️ Map: Ready", "🧭 Localization: Localized");
-                    }
-                    completeSuccess.run();
-                }
-            });
-            Future<Void> fut = localize.async().run();
-            this.activeLocalizeFuture = fut; // Store the Future for cancellation
-            fut.thenConsume(res -> {
-                if (res.hasError()) {
-                    Log.e(TAG, "Localization failed", res.getError());
-                    localizationReady = false;
-                    activeLocalizeAction = null; // Clear reference on failure
-                    activeLocalizeFuture = null; // Clear Future reference on failure
-                    if (listener != null) {
-                        listener.onNavigationStatusUpdate("🗺️ Map: Ready", "🧭 Localization: Failed");
-                    }
-                    // CRITICAL FIX: Always return to normal operation after localization fails
-                    mainHandler.post(() -> setNavigationPhase(NavigationPhase.NORMAL_OPERATION));
-                    completeFailure.run();
-                }
-            });
-        } catch (Throwable t) {
-            Log.e(TAG, "Failed to start localization", t);
-            // CRITICAL FIX: Always return to normal operation if localization fails to start
-            mainHandler.post(() -> setNavigationPhase(NavigationPhase.NORMAL_OPERATION));
-            completeFailure.run();
-        }
-        return promise.getFuture();
+        return localizationCoordinator.ensureLocalizationIfNeeded(qiContext, mapForLocalization, onLocalized, onFailed);
     }
 
     /**
@@ -634,44 +387,21 @@ public class NavigationServiceManager {
      * @return a Future that is set when the cancellation is complete.
      */
     public Future<Void> stopCurrentLocalization() {
-        if (activeLocalizeAction != null && activeLocalizeFuture != null) {
-            Log.i(TAG, "Stopping existing Localize action to allow a new mapping process...");
-            localizationReady = false;
-            
-            // Request cancellation on the Future returned by localize.async().run()
-            activeLocalizeFuture.requestCancellation();
-            
-            // Clear references
-            activeLocalizeAction = null;
-            Future<Void> futureToReturn = activeLocalizeFuture;
-            activeLocalizeFuture = null;
-
-            if (listener != null) {
-                listener.onNavigationStatusUpdate(null, "🧭 Localization: Stopped");
-            }
-            
-            return futureToReturn;
-        } else {
-            Log.d(TAG, "No active Localize action to stop.");
-            // Return an immediately-resolved Future to keep API consistent
-            Promise<Void> p = new Promise<>();
-            p.setValue(null);
-            return p.getFuture();
-        }
+        return localizationCoordinator.stopCurrentLocalization();
     }
-    
+
     /**
      * Get the cached graphical map bitmap.
      */
     public Bitmap getMapBitmap() {
-        return cachedMapBitmap;
+        return mapCache.getMapBitmap();
     }
 
     /**
      * Get the cached map's graphical representation for coordinate conversion.
      */
     public MapTopGraphicalRepresentation getMapTopGraphicalRepresentation() {
-        return cachedMapGfx;
+        return mapCache.getMapTopGraphicalRepresentation();
     }
     
     /**
@@ -682,34 +412,7 @@ public class NavigationServiceManager {
      * @param onCached Optional callback executed after successful caching.
      */
     public void cacheNewMap(ExplorationMap newMap, Runnable onCached) {
-        if (newMap == null) {
-            Log.w(TAG, "Attempted to cache a null map.");
-            return;
-        }
-        
-        // Process bitmap extraction on I/O thread to avoid blocking caller
-        OptimizedThreadManager.getInstance().executeIO(() -> {
-            try {
-                extractAndCacheMapGraphics(newMap);
-                
-                // Atomic update of cached data
-                cachedMap = newMap;
-                mapLoaded = true;
-                
-                Log.i(TAG, "Successfully cached new map with thread separation");
-                
-                // Execute callback if provided
-                if (onCached != null) {
-                    try {
-                        onCached.run();
-                    } catch (Exception e) {
-                        Log.e(TAG, "Callback after caching failed", e);
-                    }
-                }
-            } catch (Exception e) {
-                Log.e(TAG, "Failed to cache new map", e);
-            }
-        });
+        mapCache.cacheNewMap(newMap, onCached);
     }
 
     /**
@@ -845,7 +548,7 @@ public class NavigationServiceManager {
             failed.setValue(new MovementResult(false, "Navigation service not available"));
             return failed.getFuture();
         }
-        if (!localizationReady) {
+        if (!localizationCoordinator.isLocalizationReady()) {
             Log.w(TAG, "Cannot navigate - localization is not ready");
             Promise<MovementResult> notReady = new Promise<>();
             notReady.setValue(new MovementResult(false, "Localization not ready"));
@@ -972,33 +675,24 @@ public class NavigationServiceManager {
      */
     public void shutdown() {
         Log.i(TAG, "NavigationServiceManager shutdown initiated");
-        
+
         // Release autonomous abilities if held
         releaseAutonomousAbilities();
-        
+
         // Return to normal operation
         if (currentPhase != NavigationPhase.NORMAL_OPERATION) {
             setNavigationPhase(NavigationPhase.NORMAL_OPERATION);
         }
-        
-        // Clean up memory-intensive cached data
-        if (cachedMapBitmap != null && !cachedMapBitmap.isRecycled()) {
-            cachedMapBitmap.recycle();
-            cachedMapBitmap = null;
-        }
-        cachedMapGfx = null;
-        cachedMap = null;
-        mapLoaded = false;
-        
-        // Clear references
+
+        // Clear map cache and other references
+        mapCache.reset();
+        localizationCoordinator.reset();
+
         listener = null;
         perceptionService = null;
         touchSensorManager = null;
         gestureController = null;
-        
-        // Force garbage collection after cleanup
-        System.gc();
-        
+
         Log.i(TAG, "NavigationServiceManager shutdown complete");
     }
 
@@ -1006,24 +700,8 @@ public class NavigationServiceManager {
      * Aggressively clear map-related caches and force GC to free memory before loading big maps.
      */
     public void resetMapCache() {
-        try {
-            Log.i(TAG, "Resetting map cache aggressively before loading new map");
-            // Release bitmap memory
-            if (cachedMapBitmap != null && !cachedMapBitmap.isRecycled()) {
-                cachedMapBitmap.recycle();
-            }
-            cachedMapBitmap = null;
-            cachedMapGfx = null;
-            cachedMap = null;
-            mapLoaded = false;
-            // Hint GC to reclaim large arrays/objects asap
-            System.gc();
-            try { Thread.sleep(50); } catch (InterruptedException ignored) { Thread.currentThread().interrupt(); }
-            System.gc();
-            Log.i(TAG, "Map cache reset completed");
-        } catch (Exception e) {
-            Log.w(TAG, "Error while resetting map cache", e);
-        }
+        Log.i(TAG, "Resetting map cache before loading new map");
+        mapCache.reset();
     }
 }
 

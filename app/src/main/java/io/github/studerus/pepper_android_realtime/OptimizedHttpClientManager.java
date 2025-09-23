@@ -1,8 +1,10 @@
 package io.github.studerus.pepper_android_realtime;
 
+import android.os.Looper;
 import android.util.Log;
 
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import okhttp3.ConnectionPool;
 import okhttp3.Dispatcher;
@@ -27,6 +29,7 @@ public class OptimizedHttpClientManager {
     private final OkHttpClient webSocketClient;
     private final OkHttpClient apiClient;
     private final OkHttpClient quickApiClient;
+    private final AtomicBoolean shutdownInitiated = new AtomicBoolean(false);
     
     private OptimizedHttpClientManager() {
         Log.i(TAG, "Initializing optimized HTTP client manager");
@@ -140,22 +143,41 @@ public class OptimizedHttpClientManager {
      * Cleanup resources - call on app shutdown
      */
     public void shutdown() {
+        if (!shutdownInitiated.compareAndSet(false, true)) {
+            Log.d(TAG, "Shutdown already in progress - ignoring duplicate request");
+            return;
+        }
+
+        synchronized (OptimizedHttpClientManager.class) {
+            if (instance == this) {
+                instance = null;
+            }
+        }
+
+        Runnable task = this::shutdownInternal;
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            Log.d(TAG, "Shutdown requested on main thread - offloading to background thread");
+            Thread shutdownThread = new Thread(task, "http-client-shutdown");
+            shutdownThread.start();
+        } else {
+            task.run();
+        }
+    }
+
+    private void shutdownInternal() {
         try {
             webSocketClient.dispatcher().executorService().shutdown();
             apiClient.dispatcher().executorService().shutdown();
             quickApiClient.dispatcher().executorService().shutdown();
-            
+
             webSocketClient.connectionPool().evictAll();
-            
+
             Log.i(TAG, "HTTP client manager shutdown completed");
         } catch (Exception e) {
             Log.w(TAG, "Error during HTTP client shutdown", e);
         } finally {
-            // CRITICAL: Reset singleton instance so it gets recreated on next app start
-            synchronized (OptimizedHttpClientManager.class) {
-                instance = null;
-                Log.i(TAG, "HTTP client manager instance reset for clean restart");
-            }
+            Log.i(TAG, "HTTP client manager instance reset for clean restart");
+            shutdownInitiated.set(false);
         }
     }
 }
