@@ -7,12 +7,19 @@ import com.microsoft.cognitiveservices.speech.ResultReason;
 import com.microsoft.cognitiveservices.speech.SpeechConfig;
 import com.microsoft.cognitiveservices.speech.SpeechRecognizer;
 import com.microsoft.cognitiveservices.speech.PropertyId;
+import com.microsoft.cognitiveservices.speech.CancellationReason;
+import com.microsoft.cognitiveservices.speech.SessionEventArgs;
+import com.microsoft.cognitiveservices.speech.SpeechRecognitionCanceledEventArgs;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 @SuppressWarnings("SpellCheckingInspection")
 public class SpeechRecognizerManager {
@@ -218,8 +225,7 @@ public class SpeechRecognizerManager {
 
     public void warmup() throws Exception {
         Log.i(TAG, "Starting warmup - waiting for recognizer initialization...");
-        
-        // Wait until recognizer is created by the initialize() async task without busy-waiting
+
         long deadline = System.currentTimeMillis() + 3000; // 3s (reduced from 5s)
         synchronized (recognizerLock) {
             while (recognizer == null) {
@@ -233,64 +239,101 @@ public class SpeechRecognizerManager {
                 }
             }
         }
-        
+
         if (recognizer == null) {
             Log.w(TAG, "Recognizer initialization timed out - this is expected on first launch");
             throw new RuntimeException("Recognizer not initialized - will retry on first use");
         }
-        
+
         Log.i(TAG, "Recognizer is ready, starting connection warmup...");
-        
-        // Real warmup: Start continuous recognition and wait for session to be ready
         Log.i(TAG, "Starting REAL warmup - establishing actual connection...");
+
+        long warmupStart = System.currentTimeMillis();
+        CountDownLatch sessionLatch = new CountDownLatch(1);
+        AtomicBoolean sessionStarted = new AtomicBoolean(false);
+        AtomicReference<String> sessionError = new AtomicReference<>(null);
+
+        recognizer.sessionStarted.addEventListener((s, e) -> {
+            sessionStarted.set(true);
+            Log.d(TAG, "Warmup session.started received after " + (System.currentTimeMillis() - warmupStart) + "ms");
+            sessionLatch.countDown();
+        });
+        recognizer.sessionStopped.addEventListener((s, e) -> {
+            if (!sessionStarted.get()) {
+                sessionError.compareAndSet(null, "Session stopped before start");
+                sessionLatch.countDown();
+            }
+        });
+        recognizer.canceled.addEventListener((s, e) -> {
+            String details = e.getErrorDetails();
+            CancellationReason reason = e.getReason();
+            if (details == null || details.isEmpty()) {
+                details = "Session canceled" + (reason != null ? " (" + reason + ")" : "");
+            }
+            sessionError.set(details);
+            sessionLatch.countDown();
+        });
+
+        boolean started = false;
         try {
-            // Start continuous recognition to establish connection
+            long startCallTs = System.currentTimeMillis();
             recognizer.startContinuousRecognitionAsync().get();
-            
-            // Wait briefly for session to stabilize
-            Thread.sleep(2000); // Give Azure time to establish session
-            
-            // Stop it immediately (this was just for connection establishment)
-            recognizer.stopContinuousRecognitionAsync().get();
-            
-            Log.i(TAG, "🎤 STT warmup completed - connection truly established and ready");
+            long startDuration = System.currentTimeMillis() - startCallTs;
+            Log.d(TAG, "startContinuousRecognitionAsync().get() finished in " + startDuration + "ms");
+            started = true;
+
+            boolean signaled = sessionLatch.await(3000, TimeUnit.MILLISECONDS);
+            Log.d(TAG, "Warmup latch await result=" + signaled + ", sessionStarted=" + sessionStarted.get() + ", elapsed=" + (System.currentTimeMillis() - warmupStart) + "ms");
+            if (!signaled) {
+                throw new RuntimeException("Warmup timed out waiting for session start");
+            }
+            if (!sessionStarted.get()) {
+                throw new RuntimeException(sessionError.get() != null ? sessionError.get() : "Session failed to start");
+            }
+
+            Log.i(TAG, "STT warmup completed in " + (System.currentTimeMillis() - warmupStart) + "ms");
             return;
-            
         } catch (Exception e) {
-            Log.w(TAG, "Real warmup failed, falling back to old method: " + e.getMessage());
-            
-            // Fallback: Attempt old warmup with retry for first-launch scenarios
-            int retriesRemaining = 3;
-            int attempt = 1;
-            while (retriesRemaining > 0) {
+            Log.w(TAG, "Real warmup failed, falling back: " + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()));
+        } finally {
+            if (started) {
                 try {
-                    attemptWarmupConnection(attempt);
-                    Log.i(TAG, "Recognizer warmup completed successfully" + (attempt > 1 ? " on retry #" + attempt : ""));
-                    return; // Success!
-                } catch (Exception fallbackE) {
-                    Log.w(TAG, "Warmup attempt #" + attempt + " failed: " + fallbackE.getMessage());
-                
-                    if (retriesRemaining > 1) { // Retry if not final attempt
-                        Log.i(TAG, "Retrying after delay... (" + retriesRemaining + " attempts remaining)");
-                        try {
-                            Thread.sleep(500); // Reduced delay from 1000ms to 500ms
-                        } catch (InterruptedException ie) {
-                            Thread.currentThread().interrupt();
-                            throw new RuntimeException("Warmup interrupted during retry delay.", ie);
-                        }
-                    } else {
-                        throw fallbackE; // Re-throw on final attempt
-                    }
+                    recognizer.stopContinuousRecognitionAsync().get();
+                } catch (Exception stopEx) {
+                    Log.w(TAG, "Warmup stop failed", stopEx);
                 }
-                retriesRemaining--;
-                attempt++;
             }
         }
-        
-        // This should never be reached, but for safety
+
+        int retriesRemaining = 3;
+        int attempt = 1;
+        while (retriesRemaining > 0) {
+            try {
+                attemptWarmupConnection(attempt);
+                Log.i(TAG, "Recognizer warmup completed successfully" + (attempt > 1 ? " on retry #" + attempt : ""));
+                return; // Success!
+            } catch (Exception fallbackE) {
+                Log.w(TAG, "Warmup attempt #" + attempt + " failed: " + fallbackE.getMessage());
+
+                if (retriesRemaining > 1) { // Retry if not final attempt
+                    Log.i(TAG, "Retrying after short delay... (" + retriesRemaining + " attempts remaining)");
+                    try {
+                        Thread.sleep(200);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new RuntimeException("Warmup interrupted during retry delay.", ie);
+                    }
+                } else {
+                    throw fallbackE; // Re-throw on final attempt
+                }
+            }
+            retriesRemaining--;
+            attempt++;
+        }
+
         throw new RuntimeException("Warmup failed after retries");
     }
-    
+
     private void attemptWarmupConnection(int attemptNumber) throws Exception {
         final Object lock = new Object();
         final Exception[] error = { null };
@@ -317,7 +360,7 @@ public class SpeechRecognizerManager {
 
         synchronized (lock) {
             try {
-                lock.wait(4000); // 4 second timeout per attempt (reduced from 8s)
+                lock.wait(2000); // 2 second timeout per attempt (event-driven retry)
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 throw new RuntimeException("Warmup interrupted during connection", e);
