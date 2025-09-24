@@ -1062,16 +1062,15 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                     Log.i(TAG, "Ignoring STT result because state=" + turnManager.getState());
                     return;
                 }
-                
+
                 if (isMuted) {
                     Log.i(TAG, "Ignoring STT result because microphone is muted");
                     return;
                 }
-                
-                runOnUiThread(() -> {
-                    addMessage(text.replaceAll("\\[Low confidence:.*?]", "").trim(), ChatMessage.Sender.USER);
-                    sendMessageToRealtimeAPI(text, true, false);
-                });
+
+                String sanitizedText = text.replaceAll("\\[Low confidence:.*?]", "").trim();
+                runOnUiThread(() -> addMessage(sanitizedText, ChatMessage.Sender.USER));
+                sendMessageToRealtimeAPI(text, true, false);
             }
 
             @Override
@@ -1242,17 +1241,37 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                                     String toolName = fc.getString("name");
                                     String callId = fc.getString("call_id");
                                     String argsString = fc.getString("arguments");
-                                    JSONObject args = new JSONObject(argsString);
+                                    final JSONObject args = new JSONObject(argsString);
 
                                     final String fToolName = toolName;
                                     final String fArgsString = args.toString();
+                                    final String fCallId = callId;
                                     runOnUiThread(() -> addFunctionCall(fToolName, fArgsString));
 
-                                    String result = toolRegistry.executeTool(toolName, args, toolContext);
-                                    final String fResult = result;
-                                    runOnUiThread(() -> updateFunctionCallResult(fResult));
-                                    sendToolResult(callId, result);
                                     expectingFinalAnswerAfterToolCall = true;
+                                    threadManager.executeNetwork(() -> {
+                                        String toolResult;
+                                        try {
+                                            toolResult = toolRegistry.executeTool(fToolName, args, toolContext);
+                                        } catch (Exception toolEx) {
+                                            Log.e(TAG, "Tool execution crashed for " + fToolName, toolEx);
+                                            try {
+                                                toolResult = new JSONObject()
+                                                        .put("error", "Tool execution failed: " + (toolEx.getMessage() != null ? toolEx.getMessage() : "Unknown error"))
+                                                        .toString();
+                                            } catch (Exception jsonEx) {
+                                                toolResult = "{\"error\":\"Tool execution failed.\"}";
+                                            }
+                                        }
+
+                                        if (toolResult == null) {
+                                            toolResult = "{\"error\":\"Tool returned no result.\"}";
+                                        }
+
+                                        final String fResult = toolResult;
+                                        runOnUiThread(() -> updateFunctionCallResult(fResult));
+                                        sendToolResult(fCallId, fResult);
+                                    });
                                 }
                             }
 
@@ -1362,6 +1381,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         }
     }
 
+
     /**
      * Unified function to send text messages to Realtime API
      * @param text Message content
@@ -1369,23 +1389,16 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
      * @param allowInterrupt Whether to interrupt current speech if needed
      */
     public void sendMessageToRealtimeAPI(String text, boolean requestResponse, boolean allowInterrupt) {
-        // Ensure this method always runs on UI thread for thread-safe UI operations
-        if (Looper.myLooper() != Looper.getMainLooper()) {
-            runOnUiThread(() -> sendMessageToRealtimeAPI(text, requestResponse, allowInterrupt));
-            return;
-        }
-        
         if (sessionManager == null || !sessionManager.isConnected()) {
             Log.e(TAG, "WebSocket is not connected. Cannot send message.");
             if (requestResponse) {
-            runOnUiThread(() -> addMessage(getString(R.string.error_not_connected), ChatMessage.Sender.ROBOT));
+                runOnUiThread(() -> addMessage(getString(R.string.error_not_connected), ChatMessage.Sender.ROBOT));
             }
             return;
         }
 
-        try {
-            // Handle interruption if requested and necessary
-            if (allowInterrupt && requestResponse && turnManager != null && turnManager.getState() == TurnManager.State.SPEAKING) {
+        if (allowInterrupt && requestResponse && turnManager != null && turnManager.getState() == TurnManager.State.SPEAKING) {
+            runOnUiThread(() -> {
                 long now = android.os.SystemClock.uptimeMillis();
                 boolean isPlaying = (audioPlayer != null && audioPlayer.isPlaying());
                 long sinceDone = now - lastAudioDoneTs;
@@ -1393,37 +1406,42 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                 if (isPlaying && sinceDone > 200) {
                     Log.d(TAG, "Triggering interrupt via FAB (cancel+truncate)");
                     fabInterrupt.performClick();
-            } else {
+                } else {
                     Log.d(TAG, "Skip interrupt (isPlaying=" + isPlaying + ", sinceDoneMs=" + sinceDone + ")");
                 }
-            }
-
-            // Step 1: Send the message via the session manager
-            boolean sentItem = sessionManager.sendUserTextMessage(text);
-            if (!sentItem) {
-                handleWebSocketSendError("message");
-                return;
-            }
-
-            // Step 2: Request response if needed
-            if (requestResponse) {
-                if (turnManager != null) {
-                    turnManager.setState(TurnManager.State.THINKING);
-                }
-                boolean sentResponse = sessionManager.requestResponse();
-                if (!sentResponse) {
-                    handleWebSocketSendError("response request");
-                }
-            }
-                                } catch (Exception e) {
-            Log.e(TAG, "Exception in sendMessageToRealtimeAPI", e);
-            if (requestResponse) {
-            runOnUiThread(() -> {
-                addMessage(getString(R.string.error_processing_message), ChatMessage.Sender.ROBOT);
-                    if (turnManager != null) turnManager.setState(TurnManager.State.IDLE);
             });
         }
-    }
+
+        if (requestResponse && turnManager != null) {
+            runOnUiThread(() -> turnManager.setState(TurnManager.State.THINKING));
+        }
+
+        threadManager.executeNetwork(() -> {
+            try {
+                boolean sentItem = sessionManager.sendUserTextMessage(text);
+                if (!sentItem) {
+                    handleWebSocketSendError("message");
+                    return;
+                }
+
+                if (requestResponse) {
+                    boolean sentResponse = sessionManager.requestResponse();
+                    if (!sentResponse) {
+                        handleWebSocketSendError("response request");
+                    }
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Exception in sendMessageToRealtimeAPI", e);
+                if (requestResponse) {
+                    runOnUiThread(() -> {
+                        addMessage(getString(R.string.error_processing_message), ChatMessage.Sender.ROBOT);
+                        if (turnManager != null) {
+                            turnManager.setState(TurnManager.State.IDLE);
+                        }
+                    });
+                }
+            }
+        });
     }
 
     
