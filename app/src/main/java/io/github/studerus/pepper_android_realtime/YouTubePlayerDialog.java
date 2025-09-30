@@ -147,7 +147,6 @@ public class YouTubePlayerDialog {
         
         // Disable problematic features for embedded systems
         webSettings.setGeolocationEnabled(false);
-        webSettings.setAppCacheEnabled(false);
         webSettings.setDatabaseEnabled(false);
 
         // Accept cookies (and third-party cookies) for YouTube playback

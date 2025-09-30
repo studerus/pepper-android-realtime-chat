@@ -38,25 +38,35 @@ A sophisticated conversational AI application for the Pepper robot using OpenAI'
 ## 🚀 Quick Start
 
 ### Requirements
-- **Target Robot**: Pepper v1.8 running NAOqi OS 2.9.5.
-- **Required IDE**: Android Studio `2021.1.1` (Chipmunk) Patch 3. Newer versions are **not** supported by the Pepper SDK plugin.
-- **Supported Android Version**: The app targets API Level 23 (Android 6.0) to 32 (Android 12L).
-- **API Keys**: For full functionality, API keys for various services are required (see "Configure API Keys" section below).
+- **Target Robot**: Pepper v1.8 running NAOqi OS 2.9.5
+- **Required IDE**: Android Studio (latest stable version recommended)
+- **Build Configuration**:
+  - Gradle: `8.13`
+  - Android Gradle Plugin: `8.13.0`
+  - CompileSdk / TargetSdk: `35`
+  - MinSdk: `23` (Android 6.0)
+  - Java Version: `17`
+- **API Keys**: For full functionality, API keys for various services are required (see "Configure API Keys" section below)
 
-### Development Constraints
-Due to the dependency on the Pepper SDK, which is only compatible with older versions of Android Studio, this project is subject to several development constraints:
-- **Outdated AndroidX Libraries**: The project cannot use the latest versions of AndroidX libraries (e.g., `AppCompat`, `Material`, `Core-KTX`) to maintain compatibility with the required Android Gradle Plugin `7.1.3`.
-- **Java Version**: The project is required to use **Java 1.8**. Newer language features are unavailable because a higher Java version would require a more recent Android Gradle Plugin, which is not compatible with the necessary version of Android Studio.
+### Modern Development Without the Plugin
+This project uses modern Android Studio versions **without** the deprecated Pepper SDK plugin. The plugin is no longer maintained and incompatible with recent Android Studio versions. Instead, we configure the project manually following the approach documented here: **[Pepper with Android Studio in 2024](https://github.com/unitedroboticsgroup-france/MyPepperApplication)**.
+
+**Key Benefits:**
+- ✅ Use latest Android Studio versions
+- ✅ Modern AndroidX libraries
+- ✅ Java 17 language features
+- ✅ Latest Gradle and build tools
+- ✅ Better IDE performance and features
 
 ### 1. Clone and Configure
 
 ```bash
 git clone https://github.com/studerus/pepper-android-realtime-chat.git
 cd pepper-android-realtime-chat
-
-# Copy configuration template
-cp local.properties.example local.properties
 ```
+
+**Create configuration file:**
+- Copy or rename `local.properties.example` to `local.properties` in the project root directory
 
 ### 2. Configure API Keys
 
@@ -82,13 +92,49 @@ OPENWEATHER_API_KEY=your_weather_key     # For weather information
 YOUTUBE_API_KEY=your_youtube_api_key     # For video playback
 ```
 
-### 3. Build and Install
+### 3. Open in Android Studio
 
+1. Open Android Studio (latest stable version)
+2. Select **"Open"** and choose the project directory
+3. Wait for Gradle sync to complete
+4. The project is now ready to build and deploy
+
+### 4. Connect to Pepper and Deploy
+
+#### Step 1: Prepare Pepper
+1. Enable **Developer Mode** on Pepper's tablet (Settings → About → Tap "Build number" 7 times)
+2. Enable **USB debugging** in Developer Options
+3. Ensure Pepper's tablet is connected to the **same WiFi network** as your computer
+
+#### Step 2: Find Pepper's IP Address
+1. On Pepper's tablet, swipe down to view **Notifications**
+2. Look for the notification showing the IP address (e.g., `192.168.1.100`)
+3. Note this IP address under "For Run/Debug Config"
+
+#### Step 3: Connect via ADB
+1. Open the **Terminal** in Android Studio (bottom toolbar)
+2. Run the following command (replace with Pepper's actual IP):
+   ```bash
+   adb connect 192.168.1.100
+   ```
+3. On Pepper's tablet, an **"Allow USB debugging?"** popup will appear
+4. **Accept** the popup (it may be hidden behind notifications)
+5. You should see: `connected to 192.168.1.100:5555`
+
+#### Step 4: Deploy from Android Studio
+1. In Android Studio's toolbar, verify that **"ARTNCORE LPT_200AR"** appears in the device dropdown
+2. Click the green **Run button** (▶️) in the toolbar
+3. Android Studio will build and install the app on Pepper
+4. The app will start automatically on Pepper's tablet
+
+**Note:** The ADB connection persists between sessions. You only need to reconnect if Pepper reboots or changes IP address.
+
+**Alternative: Manual APK Installation**
 ```bash
 # Build the APK
 ./gradlew assembleDebug
 
-# Install on device/robot
+# Install via ADB
 adb install app/build/outputs/apk/debug/app-debug.apk
 ```
 

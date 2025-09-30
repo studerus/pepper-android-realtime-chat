@@ -4,12 +4,12 @@ plugins {
 
 android {
     namespace 'io.github.studerus.pepper_android_realtime'
-    compileSdk 32
+    compileSdk 35
 
     defaultConfig {
         applicationId "io.github.studerus.pepper_android_realtime"
         minSdk 23
-        targetSdk 32
+        targetSdk 35
         versionCode 1
         versionName "1.0"
 
@@ -59,8 +59,8 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
     packagingOptions {
         exclude 'META-INF/androidx.localbroadcastmanager_localbroadcastmanager.version'
@@ -87,13 +87,13 @@ dependencies {
     // Networking
     implementation 'com.squareup.okhttp3:okhttp:4.9.3'
 
-    // Adapted AndroidX libraries (compatible with SDK 32)
-    implementation 'androidx.appcompat:appcompat:1.4.2'
-    implementation 'com.google.android.material:material:1.6.1'
+    // Modern AndroidX libraries (compatible with SDK 35)
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'com.google.android.material:material:1.12.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-    implementation 'androidx.activity:activity:1.5.0'
-    implementation 'androidx.core:core-ktx:1.8.0'
-    implementation 'androidx.recyclerview:recyclerview:1.2.1'
+    implementation 'androidx.activity:activity:1.9.0'
+    implementation 'androidx.core:core-ktx:1.13.1'
+    implementation 'androidx.recyclerview:recyclerview:1.3.2'
 
     // SSH client for Android (to test fixed-IP SSH connection to head)
     implementation 'com.hierynomus:sshj:0.37.0'
