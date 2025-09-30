@@ -129,6 +129,6 @@
     <string name="audio_input_mode_label">Audio Input</string>
     <string-array name="audio_input_modes">
         <item>Realtime API (Simple Setup)</item>
-        <item>Azure Speech (Best for Swiss German)</item>
+        <item>Azure Speech (Best for Dialects)</item>
     </string-array>
 </resources>

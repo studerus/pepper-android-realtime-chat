@@ -123,7 +123,7 @@
             android:visibility="gone"
             tools:visibility="visible">
 
-            <io.github.studerus.pepper_android_realtime.ui.MapPreviewView
+            <io.github.hrilab.pepper_realtime.ui.MapPreviewView
                 android:id="@+id/map_preview_view"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent" />

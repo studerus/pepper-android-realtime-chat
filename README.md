@@ -86,9 +86,9 @@ OPENAI_API_KEY=your_openai_api_key_here
 
 # SPEECH RECOGNITION (Optional - only needed for Azure Speech mode)
 # The app uses Realtime API for audio input by default (simple setup)
-# Switch to Azure Speech in app Settings → Audio Input for better Swiss German recognition
+# Switch to Azure Speech in app Settings → Audio Input for better dialect recognition
 AZURE_SPEECH_KEY=your_azure_speech_key_here
-AZURE_SPEECH_REGION=switzerlandnorth
+AZURE_SPEECH_REGION=your_azure_region
 
 # OPTIONAL: Additional features
 GROQ_API_KEY=your_groq_key_here          # For alternative vision analysis
@@ -158,14 +158,14 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 
 ### Optional APIs (Extended Features)
 
-#### Azure Speech Services (Optional - for Swiss German)
+#### Azure Speech Services (Optional - for Dialects)
 - **Default**: App uses Realtime API for audio input (no separate key needed)
-- **Alternative**: Azure Speech for better Swiss German recognition
+- **Alternative**: Azure Speech for better dialect recognition
 - **Setup**: 
   1. Go to [Azure Portal](https://portal.azure.com/)
   2. Create a Speech Services resource
   3. Copy your API key and region
-  4. In app: Settings → Audio Input → "Azure Speech (Best for Swiss German)"
+  4. In app: Settings → Audio Input → "Azure Speech (Best for Dialects)"
 
 #### Azure Face API (Advanced Face Analysis - Optional)
 - **Free Tier**: 30,000 transactions/month
@@ -529,20 +529,20 @@ The app supports **two speech recognition modes**, configurable in **Settings �
 - **Async Transcripts** - User speech transcripts appear after responses start
 - **Best For** - English and major languages, quick setup
 
-### 2. Azure Speech Services (Recommended for Swiss German) 🇨🇭
-- **Superior Quality** - Significantly better for Swiss German and low-resource languages
+### 2. Azure Speech Services (Recommended for Dialects)
+- **Superior Quality** - Significantly better for regional dialects and low-resource languages
 - **Confidence Scores** - Real-time feedback on transcription quality
-- **Specialized Models** - Language-specific optimization for dialects
+- **Specialized Models** - Language-specific optimization for regional variants
 - **Sync Transcripts** - User speech appears immediately in chat
 - **Requires** - `AZURE_SPEECH_KEY` in `local.properties`
-- **Best For** - Swiss German, regional dialects, production use
+- **Best For** - Regional dialects, low-resource languages, production use
 
 ### Switching Audio Modes
 1. Open app **Settings** (three-line menu icon)
 2. Select **Audio Input** dropdown
 3. Choose preferred mode:
    - **"Realtime API (Simple Setup)"** - Default, no extra keys
-   - **"Azure Speech (Best for Swiss German)"** - Requires Azure Speech key
+   - **"Azure Speech (Best for Dialects)"** - Requires Azure Speech key
 4. Close settings - change takes effect immediately
 
 ## 🎤 ASR Confidence System
@@ -566,7 +566,7 @@ The app supports **two speech recognition modes**, configurable in **Settings �
 The app provides comprehensive multilingual capabilities with intelligent language handling for both speech recognition and AI responses.
 
 ### AI Response Languages
-- **Universal Language Support** - The Realtime API can respond in any language, including Swiss German
+- **Universal Language Support** - The Realtime API can respond in any language, including regional dialects
 - **Instant Language Switching** - The AI can switch languages mid-conversation when requested by the user or specified in the system prompt
 - **Contextual Language Use** - AI automatically adapts to the user's preferred language based on conversation context
 
@@ -576,10 +576,10 @@ The app provides comprehensive multilingual capabilities with intelligent langua
 
 When using **Azure Speech mode**, the app supports **30+ languages** with superior accuracy for European languages and dialects:
 
-- **German variants**: de-CH (Swiss German), de-DE (Germany), de-AT (Austria)
+- **German variants**: de-DE (Germany), de-AT (Austria), de-CH (Switzerland)
 - **English variants**: en-US, en-GB, en-AU, en-CA
-- **French variants**: fr-CH (Swiss French), fr-FR (France), fr-CA (Canada)
-- **Italian variants**: it-CH (Swiss Italian), it-IT (Italy)
+- **French variants**: fr-FR (France), fr-CA (Canada), fr-CH (Switzerland)
+- **Italian variants**: it-IT (Italy), it-CH (Switzerland)
 - **Spanish variants**: es-ES (Spain), es-AR (Argentina), es-MX (Mexico)
 - **Portuguese variants**: pt-BR (Brazil), pt-PT (Portugal)
 - **Chinese variants**: zh-CN (Mandarin Simplified), zh-HK (Cantonese Traditional), zh-TW (Taiwanese Mandarin)
@@ -606,21 +606,21 @@ The app offers **both Realtime API and Azure Speech** to balance simplicity and 
 - Good for English and major languages
 
 **Azure Speech Mode** (Optional):
-- Superior accuracy for Swiss German and dialects
+- Superior accuracy for regional dialects and variants
 - Language-specific models optimized for regional variants
 - Confidence scoring for better error handling
 - Better for production use with non-English languages
 
 ### Usage Examples
 ```bash
-# System prompt in English, but AI can respond in Swiss German when requested
-User (English): "Please respond in Swiss German from now on"
-AI (Swiss German): "Gärn! Ab jetz schwätzen i uf Schwizerdütsch mit dir."
+# System prompt in English, but AI can respond in other languages when requested
+User (English): "Please respond in German from now on"
+AI (German): "Gerne! Ab jetzt spreche ich auf Deutsch mit dir."
 
 # User must change recognition language in settings to speak German
-User: (Changes settings to de-CH, then speaks German)
-"Erzähl mir einen Witz auf Hochdeutsch"
-AI: "Gerne! Hier ist ein Witz auf Hochdeutsch für dich..."
+User: (Changes settings to de-DE, then speaks German)
+"Erzähl mir einen Witz"
+AI: "Gerne! Hier ist ein Witz für dich..."
 ```
 
 ## 🏗️ Architecture

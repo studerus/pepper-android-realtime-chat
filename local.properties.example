@@ -12,9 +12,9 @@ OPENAI_API_KEY=your_openai_api_key_here
 
 # SPEECH RECOGNITION (Optional - only needed for Azure Speech mode)
 # The app uses Realtime API for audio input by default (simple setup)
-# Switch to Azure Speech in app Settings → Audio Input for better Swiss German recognition
+# Switch to Azure Speech in app Settings → Audio Input for better dialect recognition
 AZURE_SPEECH_KEY=your_azure_speech_key_here
-AZURE_SPEECH_REGION=switzerlandnorth
+AZURE_SPEECH_REGION=your_azure_region
 
 # Azure Face Service credentials
 AZURE_FACE_API_KEY=your_key_here
