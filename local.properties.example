@@ -2,15 +2,18 @@
 # It is used for storing sensitive information like API keys and should not be checked into version control
 # For project setup instructions, see local.properties.example
 
-# Azure OpenAI API credentials
-AZURE_OPENAI_KEY=your_key_here
-AZURE_OPENAI_ENDPOINT=your_endpoint_here
+# REALTIME API PROVIDERS (Choose one or configure both)
+# Option 1: Azure OpenAI - Realtime API
+AZURE_OPENAI_KEY=your_azure_openai_key_here
+AZURE_OPENAI_ENDPOINT=your-resource.openai.azure.com
 
-# OpenAI API credentials (optional, fallback)
-OPENAI_API_KEY=your_key_here
+# Option 2: OpenAI Direct - Latest gpt-realtime model
+OPENAI_API_KEY=your_openai_api_key_here
 
-# Azure Speech Service credentials
-AZURE_SPEECH_KEY=your_key_here
+# SPEECH RECOGNITION (Optional - only needed for Azure Speech mode)
+# The app uses Realtime API for audio input by default (simple setup)
+# Switch to Azure Speech in app Settings → Audio Input for better Swiss German recognition
+AZURE_SPEECH_KEY=your_azure_speech_key_here
 AZURE_SPEECH_REGION=switzerlandnorth
 
 # Azure Face Service credentials

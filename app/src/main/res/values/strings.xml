@@ -75,7 +75,7 @@
     <string name="vision_context_suffix">" Context: This photo was just taken by you, the robot. If a person is visible, it's likely the user you're speaking with, so address them directly as 'you'."</string>
     
     <!-- Quiz -->
-    <string name="quiz_feedback_format">Bei der Frage \'%1$s\' habe ich die Antwort \'%2$s\' gewählt.</string>
+    <string name="quiz_feedback_format">For the question \'%1$s\' I have chosen the answer \'%2$s\'.</string>
     <string name="quiz_status_presented">Quiz presented to user.</string>
     
     <!-- Tool Execution -->
@@ -124,4 +124,11 @@
     <string name="default_model">gpt-4o-realtime-preview</string>
     <string name="azure_default_model">gpt-4o-realtime-preview</string>
     <string name="openai_default_model">gpt-realtime</string>
+    
+    <!-- Audio Input Mode -->
+    <string name="audio_input_mode_label">Audio Input</string>
+    <string-array name="audio_input_modes">
+        <item>Realtime API (Simple Setup)</item>
+        <item>Azure Speech (Best for Swiss German)</item>
+    </string-array>
 </resources>

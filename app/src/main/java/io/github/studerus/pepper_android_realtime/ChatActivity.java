@@ -34,7 +34,9 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 import okhttp3.Response;
@@ -96,6 +98,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     private FloatingActionButton fabInterrupt;
     private ApiKeyManager keyManager;
     private SpeechRecognizerManager sttManager;
+    private RealtimeAudioInputManager realtimeAudioInput;
     // Optimized threading - using specialized thread pools instead of single executors
     private final OptimizedThreadManager threadManager = OptimizedThreadManager.getInstance();
 
@@ -122,6 +125,9 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     private volatile boolean isMuted = false;
     private volatile boolean sttIsRunning = false;
     private volatile boolean robotFocusAvailable = false;
+    
+    // Realtime API audio input: pending transcripts (itemId -> ChatMessage)
+    private final Map<String, ChatMessage> pendingUserTranscripts = new HashMap<>();
 
     private VisionService visionService;
 
@@ -437,6 +443,12 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         // SSH test cleanup handled automatically
         if (sttManager != null) {
             sttManager.shutdown();
+        }
+        
+        // Cleanup Realtime API audio input
+        if (realtimeAudioInput != null) {
+            realtimeAudioInput.stop();
+            realtimeAudioInput = null;
         }
         
         // Shutdown optimized thread manager
@@ -1007,6 +1019,17 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             // Clean up session-scoped images on I/O thread
             threadManager.executeIO(this::deleteSessionImages);
             
+            // Stop all audio inputs before session restart (both modes)
+            Log.i(TAG, "Stopping all audio inputs for session restart...");
+            if (realtimeAudioInput != null && realtimeAudioInput.isCapturing()) {
+                realtimeAudioInput.stop();
+                Log.i(TAG, "Stopped Realtime audio capture");
+            }
+            if (sttManager != null && sttIsRunning) {
+                threadManager.executeAudio(() -> sttManager.stop());
+                Log.i(TAG, "Stopped Azure Speech recognizer");
+            }
+            
             // Stop gesture controller and reset turn manager for clean state
             Log.i(TAG, "Stopping gesture controller for session restart...");
             gestureController.stopNow();
@@ -1058,10 +1081,34 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                     });
                     }
                 } else {
-                    Log.i(TAG, "New session started successfully. Ready to listen.");
-                    // The "Ready" message is handled by the "session.updated" event.
-                    // We can now start listening for user input.
-                    startContinuousRecognition();
+                    Log.i(TAG, "New session started successfully.");
+                    
+                    // Initialize Azure Speech if mode switched from Realtime → Azure
+                    if (!settingsManager.isUsingRealtimeAudioInput() && sttManager == null) {
+                        Log.i(TAG, "Azure Speech mode active but not initialized - setting up now...");
+                        threadManager.executeAudio(() -> {
+                            try {
+                                setupSpeechRecognizer();
+                                Log.i(TAG, "Azure Speech setup completed after session restart");
+                                runOnUiThread(() -> {
+                                    // The "Ready" message is handled by the "session.updated" event.
+                                    // We can now start listening for user input.
+                                    startContinuousRecognition();
+                                });
+                            } catch (Exception e) {
+                                Log.e(TAG, "Failed to setup Azure Speech after session restart", e);
+                                runOnUiThread(() -> {
+                                    addMessage("Failed to initialize speech recognition. Please restart the app.", ChatMessage.Sender.ROBOT);
+                                    statusTextView.setText(getString(R.string.error_connection_failed_short));
+                                });
+                            }
+                        });
+                    } else {
+                        Log.i(TAG, "Ready to listen (STT already initialized or Realtime mode active)");
+                        // The "Ready" message is handled by the "session.updated" event.
+                        // We can now start listening for user input.
+                        startContinuousRecognition();
+                    }
                 }
             });
         });
@@ -1132,23 +1179,29 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     }
     
     private void setupSpeechRecognizer() throws Exception {
-        Log.i(TAG, "Starting STT setup - ensuring manager...");
-        ensureSttManager();
+        Log.i(TAG, "Starting STT setup...");
         
-        Log.i(TAG, "Setting up other services...");
         // Setup other services
-                if (visionService == null) visionService = new VisionService(this);
+        if (visionService == null) visionService = new VisionService(this);
         setupRealtimeEventHandlerIfNeeded();
         
-        Log.i(TAG, "Configuring speech recognizer...");
-        // Configure STT with callbacks and current settings
-        configureSpeechRecognizer();
-        
-        Log.i(TAG, "Starting STT warmup...");
-        // Perform warmup
-        sttManager.warmup();
-        
-        Log.i(TAG, "Speech Recognizer setup completed");
+        // Only setup and warmup Azure Speech if that mode is selected
+        if (!settingsManager.isUsingRealtimeAudioInput()) {
+            Log.i(TAG, "Azure Speech mode active - setting up STT...");
+            ensureSttManager();
+            
+            Log.i(TAG, "Configuring speech recognizer...");
+            // Configure STT with callbacks and current settings
+            configureSpeechRecognizer();
+            
+            Log.i(TAG, "Starting STT warmup...");
+            // Perform warmup
+            sttManager.warmup();
+            
+            Log.i(TAG, "Azure Speech Recognizer setup completed");
+        } else {
+            Log.i(TAG, "Realtime API audio mode active - skipping Azure Speech warmup");
+        }
     }
 
     /**
@@ -1340,6 +1393,71 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                         });
                         failConnectionPromise("Server returned an error during setup: " + msg);
                     }
+                    
+                    // User audio input events (Realtime API audio mode)
+                    @Override public void onUserSpeechStarted(String itemId) {
+                        runOnUiThread(() -> {
+                            statusTextView.setText(getString(R.string.status_listening));
+                            Log.d(TAG, "User speech started (Realtime API): " + itemId);
+                        });
+                    }
+                    
+                    @Override public void onUserSpeechStopped(String itemId) {
+                        runOnUiThread(() -> {
+                            // Create placeholder bubble for user input
+                            ChatMessage placeholder = new ChatMessage("🎤 ...", ChatMessage.Sender.USER);
+                            placeholder.setItemId(itemId);
+                            
+                            messageList.add(placeholder);
+                            chatAdapter.notifyItemInserted(messageList.size() - 1);
+                            chatRecyclerView.smoothScrollToPosition(messageList.size() - 1);
+                            
+                            // Track for later transcript update
+                            pendingUserTranscripts.put(itemId, placeholder);
+                            
+                            Log.i(TAG, "Created placeholder for user input: " + itemId);
+                        });
+                    }
+                    
+                    @Override public void onUserItemCreated(String itemId, JSONObject item) {
+                        Log.d(TAG, "User conversation item created: " + itemId);
+                        // Item created - transcript will arrive separately
+                    }
+                    
+                    @Override public void onUserTranscriptCompleted(String itemId, String transcript) {
+                        runOnUiThread(() -> {
+                            ChatMessage placeholder = pendingUserTranscripts.remove(itemId);
+                            if (placeholder != null) {
+                                // Update placeholder with actual transcript
+                                int index = messageList.indexOf(placeholder);
+                                if (index >= 0) {
+                                    placeholder.setMessage(transcript);
+                                    chatAdapter.notifyItemChanged(index);
+                                    Log.i(TAG, "Updated user transcript for " + itemId + ": " + transcript);
+                                }
+                            } else {
+                                // No placeholder found - add directly (shouldn't happen normally)
+                                Log.w(TAG, "No placeholder found for transcript: " + itemId + ", adding directly");
+                                addMessage(transcript, ChatMessage.Sender.USER);
+                            }
+                        });
+                    }
+                    
+                    @Override public void onUserTranscriptFailed(String itemId, JSONObject error) {
+                        runOnUiThread(() -> {
+                            ChatMessage placeholder = pendingUserTranscripts.remove(itemId);
+                            if (placeholder != null) {
+                                int index = messageList.indexOf(placeholder);
+                                if (index >= 0) {
+                                    placeholder.setMessage("🎤 [Transcription failed]");
+                                    chatAdapter.notifyItemChanged(index);
+                                }
+                            }
+                            String errorMsg = error != null ? error.optString("message", "Unknown error") : "Unknown error";
+                            Log.e(TAG, "Transcription failed for " + itemId + ": " + errorMsg);
+                        });
+                    }
+                    
                     @Override public void onUnknown(String type, JSONObject raw) {
                         // Unknown message types are logged but not processed
                         Log.w(TAG, "Unknown WebSocket message type: " + type);
@@ -1352,6 +1470,12 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
      * Re-initialize STT for settings changes - direct approach
      */
     private void reinitializeSpeechRecognizerForSettings() {
+        // Only re-initialize if Azure Speech mode is active
+        if (settingsManager.isUsingRealtimeAudioInput()) {
+            Log.i(TAG, "Realtime API audio mode - no STT re-initialization needed");
+            return;
+        }
+        
         threadManager.executeAudio(() -> {
             try {
                 ensureSttManager();
@@ -1361,12 +1485,12 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                 
                 String langCode = settingsManager.getLanguage();
                 int silenceTimeout = settingsManager.getSilenceTimeout();
-                Log.i(TAG, "Speech Recognizer re-initialized for language: " + langCode + ", silence timeout: " + silenceTimeout + "ms");
+                Log.i(TAG, "Azure Speech Recognizer re-initialized for language: " + langCode + ", silence timeout: " + silenceTimeout + "ms");
 
                 runOnUiThread(() -> statusTextView.setText(getString(R.string.status_listening)));
 
             } catch (Exception ex) {
-                Log.e(TAG, "STT re-init failed", ex);
+                Log.e(TAG, "Azure Speech re-init failed", ex);
                 runOnUiThread(() -> statusTextView.setText(getString(R.string.error_updating_settings)));
             }
         });
@@ -1380,6 +1504,29 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     }
 
     private void startContinuousRecognition() {
+        if (settingsManager.isUsingRealtimeAudioInput()) {
+            // Realtime API audio mode - start audio capture
+            if (realtimeAudioInput == null) {
+                realtimeAudioInput = new RealtimeAudioInputManager(sessionManager);
+                Log.i(TAG, "Created RealtimeAudioInputManager");
+            }
+            
+            threadManager.executeAudio(() -> {
+                boolean started = realtimeAudioInput.start();
+                if (started) {
+                    Log.i(TAG, "Realtime API audio capture started (server VAD enabled)");
+                } else {
+                    Log.e(TAG, "Failed to start Realtime API audio capture");
+                    runOnUiThread(() -> {
+                        statusTextView.setText("Error: Audio capture failed");
+                        addMessage("Failed to start audio capture. Check microphone permissions.", ChatMessage.Sender.ROBOT);
+                    });
+                }
+            });
+            return;
+        }
+        
+        // Azure Speech mode
         if (sttManager == null) {
             Log.w(TAG, "Speech recognizer not initialized yet, cannot start recognition.");
             runOnUiThread(() -> statusTextView.setText(getString(R.string.status_recognizer_not_ready)));
@@ -1392,6 +1539,18 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     }
 
     private void stopContinuousRecognition() {
+        if (settingsManager.isUsingRealtimeAudioInput()) {
+            // Realtime API audio mode - stop audio capture
+            if (realtimeAudioInput != null && realtimeAudioInput.isCapturing()) {
+                threadManager.executeAudio(() -> {
+                    realtimeAudioInput.stop();
+                    Log.i(TAG, "Realtime API audio capture stopped");
+                });
+            }
+            return;
+        }
+        
+        // Azure Speech mode
         if (sttManager != null) {
             threadManager.executeAudio(() -> {
                 sttManager.stop(); // Manager handles all complexity internally

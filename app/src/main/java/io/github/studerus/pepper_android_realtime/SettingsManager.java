@@ -32,6 +32,11 @@ public class SettingsManager {
     private static final String KEY_ENABLED_TOOLS = "enabledTools";
     private static final String KEY_API_PROVIDER = "apiProvider";
     private static final String KEY_CONFIDENCE_THRESHOLD = "confidenceThreshold";
+    private static final String KEY_AUDIO_INPUT_MODE = "audioInputMode";
+    
+    // Audio input mode constants
+    public static final String MODE_REALTIME_API = "realtime_api";
+    public static final String MODE_AZURE_SPEECH = "azure_speech";
 
     private final ChatActivity activity;
     private final SharedPreferences settings;
@@ -42,6 +47,7 @@ public class SettingsManager {
     private Spinner apiProviderSpinner;
     private Spinner voiceSpinner;
     private Spinner languageSpinner;
+    private Spinner audioInputModeSpinner;
     private SeekBar temperatureSeekBar;
     private TextView temperatureValue;
     private SeekBar volumeSeekBar;
@@ -79,6 +85,7 @@ public class SettingsManager {
         apiProviderSpinner = navigationView.findViewById(R.id.api_provider_spinner);
         voiceSpinner = navigationView.findViewById(R.id.voice_spinner);
         languageSpinner = navigationView.findViewById(R.id.language_spinner);
+        audioInputModeSpinner = navigationView.findViewById(R.id.audio_input_mode_spinner);
         temperatureSeekBar = navigationView.findViewById(R.id.temperature_seekbar);
         temperatureValue = navigationView.findViewById(R.id.temperature_value);
         volumeSeekBar = navigationView.findViewById(R.id.volume_seekbar);
@@ -197,6 +204,11 @@ public class SettingsManager {
         confidenceThresholdSeekBar.setProgress(confProgress);
         confidenceThresholdValue.setText(activity.getString(R.string.confidence_threshold_format, confProgress));
 
+        // Audio Input Mode (default: Realtime API)
+        String savedInputMode = settings.getString(KEY_AUDIO_INPUT_MODE, MODE_REALTIME_API);
+        int inputModePosition = MODE_REALTIME_API.equals(savedInputMode) ? 0 : 1;
+        audioInputModeSpinner.setSelection(inputModePosition);
+
         // Setup Function Calls UI
         setupFunctionCallsUI();
     }
@@ -258,6 +270,7 @@ public class SettingsManager {
         String oldLang = settings.getString(KEY_LANGUAGE, "de-CH");
         String oldPrompt = settings.getString(KEY_SYSTEM_PROMPT, "");
         String oldProvider = settings.getString(KEY_API_PROVIDER, RealtimeApiProvider.OPENAI_DIRECT.name());
+        String oldInputMode = settings.getString(KEY_AUDIO_INPUT_MODE, MODE_REALTIME_API);
         int oldTemp = settings.getInt(KEY_TEMPERATURE, 33);
         if (oldTemp < 0 || oldTemp > 100) oldTemp = 33;
         Set<String> oldTools = getEnabledTools();
@@ -268,6 +281,7 @@ public class SettingsManager {
         String newLang = selectedLang.getCode();
         String newPrompt = systemPromptInput.getText().toString();
         String newProvider = getSelectedApiProvider();
+        String newInputMode = audioInputModeSpinner.getSelectedItemPosition() == 0 ? MODE_REALTIME_API : MODE_AZURE_SPEECH;
         int newTemp = temperatureSeekBar.getProgress();
         Set<String> newTools = getCurrentlySelectedTools();
 
@@ -277,16 +291,18 @@ public class SettingsManager {
         editor.putString(KEY_VOICE, newVoice);
         editor.putString(KEY_LANGUAGE, newLang);
         editor.putString(KEY_API_PROVIDER, newProvider);
+        editor.putString(KEY_AUDIO_INPUT_MODE, newInputMode);
         editor.putInt(KEY_TEMPERATURE, newTemp);
         editor.putStringSet(KEY_ENABLED_TOOLS, newTools);
         editor.apply();
 
         // Determine what type of change occurred and notify accordingly
-        if (!oldProvider.equals(newProvider) || !oldModel.equals(newModel) || !oldVoice.equals(newVoice)) {
-            // Provider, model or voice change requires new session
+        if (!oldProvider.equals(newProvider) || !oldModel.equals(newModel) || !oldVoice.equals(newVoice) || !oldInputMode.equals(newInputMode)) {
+            // Provider, model, voice, or audio input mode change requires new session
+            // Audio mode change needs full session restart for clean transition
             if (listener != null) listener.onSettingsChanged();
         } else if (!oldLang.equals(newLang)) {
-            // Language change requires recognizer restart
+            // Language change requires recognizer restart (only for Azure Speech mode)
             if (listener != null) listener.onRecognizerSettingsChanged();
         } else if (!oldTools.equals(newTools) || !oldPrompt.equals(newPrompt) || oldTemp != newTemp) {
             // Tools, prompt, or temperature change only requires session update
@@ -310,6 +326,14 @@ public class SettingsManager {
 
     public String getLanguage() {
         return settings.getString(KEY_LANGUAGE, "de-CH");
+    }
+    
+    public String getAudioInputMode() {
+        return settings.getString(KEY_AUDIO_INPUT_MODE, MODE_REALTIME_API);
+    }
+    
+    public boolean isUsingRealtimeAudioInput() {
+        return MODE_REALTIME_API.equals(getAudioInputMode());
     }
     
     public int getVolume() {

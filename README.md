@@ -84,7 +84,9 @@ AZURE_OPENAI_ENDPOINT=your-resource.openai.azure.com
 # Option 2: OpenAI Direct - Latest gpt-realtime model
 OPENAI_API_KEY=your_openai_api_key_here
 
-# REQUIRED: Speech Recognition
+# SPEECH RECOGNITION (Optional - only needed for Azure Speech mode)
+# The app uses Realtime API for audio input by default (simple setup)
+# Switch to Azure Speech in app Settings → Audio Input for better Swiss German recognition
 AZURE_SPEECH_KEY=your_azure_speech_key_here
 AZURE_SPEECH_REGION=switzerlandnorth
 
@@ -154,12 +156,16 @@ adb install app/build/outputs/apk/debug/app-debug.apk
    - `gpt-4o-mini-realtime-preview` (Mini preview model)
 4. Copy your API key and endpoint
 
-#### Azure Speech Services
-1. Go to [Azure Portal](https://portal.azure.com/)
-2. Create a Speech Services resource
-3. Copy your API key and region
-
 ### Optional APIs (Extended Features)
+
+#### Azure Speech Services (Optional - for Swiss German)
+- **Default**: App uses Realtime API for audio input (no separate key needed)
+- **Alternative**: Azure Speech for better Swiss German recognition
+- **Setup**: 
+  1. Go to [Azure Portal](https://portal.azure.com/)
+  2. Create a Speech Services resource
+  3. Copy your API key and region
+  4. In app: Settings → Audio Input → "Azure Speech (Best for Swiss German)"
 
 #### Azure Face API (Advanced Face Analysis - Optional)
 - **Free Tier**: 30,000 transactions/month
@@ -512,9 +518,36 @@ Certain events automatically interrupt ongoing responses to provide immediate fe
 - **State Coordination** - Turn management ensures proper microphone timing
 - **Seamless Recovery** - Smooth transition back to listening mode
 
+## 🎙️ Audio Input Modes
+
+The app supports **two speech recognition modes**, configurable in **Settings → Audio Input**:
+
+### 1. Realtime API Audio (Default) ✨
+- **Simple Setup** - No separate speech API key needed
+- **Lower Latency** - Integrated audio processing with conversation flow
+- **Server VAD** - Automatic speech detection handled by the model
+- **Async Transcripts** - User speech transcripts appear after responses start
+- **Best For** - English and major languages, quick setup
+
+### 2. Azure Speech Services (Recommended for Swiss German) 🇨🇭
+- **Superior Quality** - Significantly better for Swiss German and low-resource languages
+- **Confidence Scores** - Real-time feedback on transcription quality
+- **Specialized Models** - Language-specific optimization for dialects
+- **Sync Transcripts** - User speech appears immediately in chat
+- **Requires** - `AZURE_SPEECH_KEY` in `local.properties`
+- **Best For** - Swiss German, regional dialects, production use
+
+### Switching Audio Modes
+1. Open app **Settings** (three-line menu icon)
+2. Select **Audio Input** dropdown
+3. Choose preferred mode:
+   - **"Realtime API (Simple Setup)"** - Default, no extra keys
+   - **"Azure Speech (Best for Swiss German)"** - Requires Azure Speech key
+4. Close settings - change takes effect immediately
+
 ## 🎤 ASR Confidence System
 
-The app uses **Azure Speech Recognition** with intelligent confidence scoring to ensure accurate voice input processing.
+**Note**: Only available in **Azure Speech mode**. The app uses intelligent confidence scoring to ensure accurate voice input processing.
 
 ### How It Works
 - **Confidence Analysis** - Each recognized speech gets a confidence score (0-100%)
@@ -538,10 +571,10 @@ The app provides comprehensive multilingual capabilities with intelligent langua
 - **Contextual Language Use** - AI automatically adapts to the user's preferred language based on conversation context
 
 ### Speech Recognition Languages
-The app uses **Microsoft Azure Speech Services** for speech recognition, which provides superior accuracy for European languages and dialects:
 
-#### Supported Recognition Languages
-The app supports **30+ languages** through Microsoft Azure Speech Services:
+**Note**: Language selection applies to **Azure Speech mode only**. Realtime API mode uses server-side language detection.
+
+When using **Azure Speech mode**, the app supports **30+ languages** with superior accuracy for European languages and dialects:
 
 - **German variants**: de-CH (Swiss German), de-DE (Germany), de-AT (Austria)
 - **English variants**: en-US, en-GB, en-AU, en-CA
@@ -564,12 +597,19 @@ The app supports **30+ languages** through Microsoft Azure Speech Services:
 - **Language Mismatch Handling** - If user speaks in different language than configured, recognition accuracy will be poor
 - **Recommendation** - Change recognition language in settings before switching spoken languages
 
-### Why Azure Speech Recognition?
-While OpenAI's Realtime API can process audio directly, we chose Azure Speech Services because:
-- **Superior Dialect Accuracy** - Significantly better recognition for Swiss German and regional variants
-- **Specialized Models** - Language-specific models optimized for local accents and expressions  
-- **Confidence Scoring** - Provides reliability metrics for better conversation handling
-- **Regional Optimization** - European language variants receive better support than generic models
+### Why Two Audio Modes?
+The app offers **both Realtime API and Azure Speech** to balance simplicity and quality:
+
+**Realtime API Mode** (Default):
+- Simpler setup - works with just OpenAI key
+- Lower latency - integrated audio pipeline
+- Good for English and major languages
+
+**Azure Speech Mode** (Optional):
+- Superior accuracy for Swiss German and dialects
+- Language-specific models optimized for regional variants
+- Confidence scoring for better error handling
+- Better for production use with non-English languages
 
 ### Usage Examples
 ```bash

@@ -215,6 +215,24 @@ public class RealtimeSessionManager {
             return false;
         }
     }
+    
+    /**
+     * Send audio chunk to Realtime API input audio buffer
+     * @param base64Audio Base64-encoded PCM16 audio data
+     * @return true if sent successfully
+     */
+    public boolean sendAudioChunk(String base64Audio) {
+        try {
+            JSONObject payload = new JSONObject();
+            payload.put("type", "input_audio_buffer.append");
+            payload.put("audio", base64Audio);
+            
+            return send(payload.toString());
+        } catch (Exception e) {
+            Log.e(TAG, "Error creating audio chunk payload", e);
+            return false;
+        }
+    }
 
     public boolean send(String text) {
         if (webSocket == null) {
@@ -295,6 +313,21 @@ public class RealtimeSessionManager {
                 JSONObject turnDetection = new JSONObject();
                 turnDetection.put("type", "server_vad");
                 input.put("turn_detection", turnDetection);
+                
+                // Enable input audio transcription if using Realtime API audio mode
+                if (settingsManager.isUsingRealtimeAudioInput()) {
+                    JSONObject transcription = new JSONObject();
+                    transcription.put("model", "whisper-1");
+                    String langCode = settingsManager.getLanguage();
+                    // Convert "de-CH" to "de" (ISO-639-1)
+                    if (langCode.contains("-")) {
+                        langCode = langCode.split("-")[0];
+                    }
+                    transcription.put("language", langCode);
+                    input.put("transcription", transcription);
+                    Log.i(TAG, "Input audio transcription enabled (language: " + langCode + ")");
+                }
+                
                 audio.put("input", input);
                 
                 sessionConfig.put("audio", audio);
@@ -391,6 +424,22 @@ public class RealtimeSessionManager {
                 format.put("rate", 24000);
                 output.put("format", format);
                 audio.put("output", output);
+                
+                // Enable input audio transcription if using Realtime API audio mode
+                if (settingsManager.isUsingRealtimeAudioInput()) {
+                    JSONObject input = new JSONObject();
+                    JSONObject transcription = new JSONObject();
+                    transcription.put("model", "whisper-1");
+                    String langCode = settingsManager.getLanguage();
+                    // Convert "de-CH" to "de" (ISO-639-1)
+                    if (langCode.contains("-")) {
+                        langCode = langCode.split("-")[0];
+                    }
+                    transcription.put("language", langCode);
+                    input.put("transcription", transcription);
+                    audio.put("input", input);
+                    Log.i(TAG, "Input audio transcription enabled in session update (language: " + langCode + ")");
+                }
                 
                 sessionConfig.put("audio", audio);
                 // Note: temperature not supported in GA API

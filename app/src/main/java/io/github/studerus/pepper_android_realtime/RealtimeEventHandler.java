@@ -41,6 +41,13 @@ public class RealtimeEventHandler {
         default void onResponseCreated(@SuppressWarnings("unused") String responseId) {}
         void onError(JSONObject error);
         void onUnknown(String type, JSONObject raw);
+        
+        // User audio input events (Realtime API audio mode)
+        default void onUserSpeechStarted(String itemId) {}
+        default void onUserSpeechStopped(String itemId) {}
+        default void onUserItemCreated(String itemId, JSONObject item) {}
+        default void onUserTranscriptCompleted(String itemId, String transcript) {}
+        default void onUserTranscriptFailed(String itemId, JSONObject error) {}
     }
 
     private final Listener listener;
@@ -162,8 +169,16 @@ public class RealtimeEventHandler {
                     }
                     break;
                 case "conversation.item.created":
-                    // Item was added to conversation - log at debug level
-                    Log.d(TAG, "Conversation item created");
+                    // Item was added to conversation
+                    JSONObject createdItem = obj.optJSONObject("item");
+                    if (createdItem != null && "user".equals(createdItem.optString("role"))) {
+                        // User audio input item created
+                        String userItemId = createdItem.optString("id", "");
+                        Log.i(TAG, "User conversation item created: " + userItemId);
+                        if (listener != null) listener.onUserItemCreated(userItemId, createdItem);
+                    } else {
+                        Log.d(TAG, "Conversation item created");
+                    }
                     break;
                 case "conversation.item.truncated":
                     // Item was truncated (e.g., after interrupt) - log at debug level
@@ -229,6 +244,34 @@ public class RealtimeEventHandler {
                     // Rate limit info updated - log at debug level only
                     Log.d(TAG, "Rate limits updated");
                     break;
+                
+                // User audio input events (Realtime API audio mode)
+                case "input_audio_buffer.speech_started":
+                    String startItemId = obj.optString("item_id", "");
+                    Log.i(TAG, "User speech started (item: " + startItemId + ")");
+                    if (listener != null) listener.onUserSpeechStarted(startItemId);
+                    break;
+                
+                case "input_audio_buffer.speech_stopped":
+                    String stopItemId = obj.optString("item_id", "");
+                    Log.i(TAG, "User speech stopped (item: " + stopItemId + ")");
+                    if (listener != null) listener.onUserSpeechStopped(stopItemId);
+                    break;
+                
+                case "conversation.item.input_audio_transcription.completed":
+                    String transcriptItemId = obj.optString("item_id", "");
+                    String userTranscript = obj.optString("transcript", "");
+                    Log.i(TAG, "User transcript completed (item: " + transcriptItemId + "): " + userTranscript);
+                    if (listener != null) listener.onUserTranscriptCompleted(transcriptItemId, userTranscript);
+                    break;
+                
+                case "conversation.item.input_audio_transcription.failed":
+                    String failedItemId = obj.optString("item_id", "");
+                    JSONObject transcriptError = obj.optJSONObject("error");
+                    Log.w(TAG, "User transcript failed (item: " + failedItemId + "): " + transcriptError);
+                    if (listener != null) listener.onUserTranscriptFailed(failedItemId, transcriptError);
+                    break;
+                
                 case "error":
                     if (listener != null) listener.onError(obj.optJSONObject("error"));
                     break;

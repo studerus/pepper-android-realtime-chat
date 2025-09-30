@@ -82,6 +82,19 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
+        android:text="@string/audio_input_mode_label"
+        android:textStyle="bold" />
+
+    <Spinner
+        android:id="@+id/audio_input_mode_spinner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:entries="@array/audio_input_modes" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
         android:text="Speech Language"
         android:textStyle="bold" />
 

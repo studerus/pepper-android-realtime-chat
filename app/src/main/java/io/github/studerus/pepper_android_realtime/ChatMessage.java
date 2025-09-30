@@ -15,6 +15,7 @@ public class ChatMessage {
     private final Sender sender;
     private final Type type;
     private String imagePath; // optional
+    private String itemId; // optional, for tracking Realtime API conversation items
     
     // Function call specific fields
     private String functionName;
@@ -59,6 +60,9 @@ public class ChatMessage {
     public Type getType() { return type; }
 
     public String getImagePath() { return imagePath; }
+    
+    public String getItemId() { return itemId; }
+    public void setItemId(String itemId) { this.itemId = itemId; }
     
     public String getFunctionName() { return functionName; }
     public String getFunctionArgs() { return functionArgs; }
