@@ -58,6 +58,9 @@ This project uses modern Android Studio versions **without** the deprecated Pepp
 - ✅ Latest Gradle and build tools
 - ✅ Better IDE performance and features
 
+**Note on API 23 (Android 6.0) Compatibility:**
+Pepper v1.8 runs Android 6.0 (API Level 23). This limits some third-party libraries to older versions, as many newer releases require Android 8.0+ (API 26+) for features like `java.util.Base64` and `MethodHandle`. Despite this constraint, the project uses the latest compatible versions of all dependencies and modern development tools (Gradle 8.13, Java 17, Android Studio latest).
+
 ### 1. Clone and Configure
 
 ```bash

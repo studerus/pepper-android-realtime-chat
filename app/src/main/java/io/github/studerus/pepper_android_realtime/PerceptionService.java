@@ -22,10 +22,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import android.os.Handler;
+import android.os.Looper;
 
 /**
  * Manages perception data and services for the robot
@@ -61,7 +60,16 @@ public class PerceptionService {
     private volatile boolean triggerAzureNow = false;
 
     // Threading
-    private ScheduledExecutorService scheduler;
+    private final Handler monitoringHandler = new Handler(Looper.getMainLooper());
+    private final Runnable monitoringRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (isMonitoring) {
+                monitorOnce();
+                monitoringHandler.postDelayed(this, 1500L);
+            }
+        }
+    };
     private final Object humansCacheLock = new Object();
     private List<Human> humansCache = new ArrayList<>();
     private final Map<Integer, AzureAttrs> azureCacheById = new HashMap<>();
@@ -147,10 +155,8 @@ public class PerceptionService {
         Log.i(TAG, "Perception monitoring started");
         if (listener != null) listener.onServiceStatusChanged(true);
 
-        // Schedule lightweight polling to gather human info without busy-waiting
-        scheduler = Executors.newSingleThreadScheduledExecutor();
-        final long pollIntervalMs = 1500L;
-        scheduler.scheduleAtFixedRate(this::monitorOnce, 0L, pollIntervalMs, TimeUnit.MILLISECONDS);
+        // Start lightweight polling with Handler (Android-lifecycle-aware)
+        monitoringHandler.post(monitoringRunnable);
     }
 
     /**
@@ -160,10 +166,8 @@ public class PerceptionService {
         isMonitoring = false;
         Log.i(TAG, "Perception monitoring stopped");
         if (listener != null) listener.onServiceStatusChanged(false);
-        if (scheduler != null) {
-            scheduler.shutdownNow();
-            scheduler = null;
-        }
+        // Remove any pending callbacks
+        monitoringHandler.removeCallbacks(monitoringRunnable);
     }
 
     /**
@@ -550,10 +554,8 @@ public class PerceptionService {
         this.humanAwareness = null;
         this.actuation = null;
         this.robotFrame = null;
-        if (scheduler != null) {
-            scheduler.shutdownNow();
-            scheduler = null;
-        }
+        // Clean up monitoring handler
+        monitoringHandler.removeCallbacks(monitoringRunnable);
         Log.i(TAG, "PerceptionService shutdown");
     }
 

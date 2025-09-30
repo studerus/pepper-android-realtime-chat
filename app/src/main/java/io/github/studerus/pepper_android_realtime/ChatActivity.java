@@ -703,8 +703,8 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                         
                         runOnUiThread(() -> {
                             // Hide warmup indicator after setup
-                hideWarmupIndicator();
-                isWarmingUp = false;
+                            hideWarmupIndicator();
+                            isWarmingUp = false;
 
                             Log.i(TAG, "STT setup complete. Entering LISTENING state.");
                             if (turnManager != null) {
@@ -721,9 +721,9 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                             addMessage(getString(R.string.warmup_failed_msg), ChatMessage.Sender.ROBOT);
                             statusTextView.setText(getString(R.string.ready_sr_lazy_init));
                             
-                    // Enter LISTENING state anyway - lazy init will handle STT when needed
-                        if (turnManager != null) turnManager.setState(TurnManager.State.LISTENING);
-                    });
+                            // Enter LISTENING state anyway - lazy init will handle STT when needed
+                            if (turnManager != null) turnManager.setState(TurnManager.State.LISTENING);
+                        });
                     }
                 });
                 
