@@ -84,6 +84,10 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     private final List<ChatMessage> messageList = new ArrayList<>();
     private LinearLayout warmupIndicatorLayout;
 
+    // Robot focus timeout handler
+    private Handler focusTimeoutHandler;
+    private Runnable focusTimeoutRunnable;
+
     // Map Preview UI
     private MapPreviewView mapPreviewView;
     private FrameLayout mapPreviewContainer;
@@ -361,17 +365,20 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             Log.i(TAG, "🤖 DIAGNOSTIC: QiSDK.register() completed successfully - waiting for robot focus...");
             
             // Set a diagnostic timeout to detect if QiSDK never responds
-            new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            focusTimeoutHandler = new Handler(Looper.getMainLooper());
+            focusTimeoutRunnable = () -> {
                 if (!robotFocusAvailable) {
                     Log.e(TAG, "🤖 DIAGNOSTIC: TIMEOUT - No robot focus response after 30 seconds!");
                     Log.e(TAG, "🤖 DIAGNOSTIC: This suggests QiSDK service issues or robot state problems");
                     Log.e(TAG, "🤖 DIAGNOSTIC: Check: 1) Robot is awake, 2) Robot is enabled, 3) QiSDK service is running");
                     runOnUiThread(() -> statusTextView.setText(getString(R.string.robot_initialization_timeout)));
                 }
-            }, 30000); // 30 second timeout
+            };
+            focusTimeoutHandler.postDelayed(focusTimeoutRunnable, 30000); // 30 second timeout
             
         } catch (Exception e) {
-            Log.e(TAG, "🤖 DIAGNOSTIC: QiSDK.register() failed", e);
+            Log.e(TAG, "QiSDK registration failed", e);
+            statusTextView.setText("Error: QiSDK registration failed.");
         }
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
@@ -422,6 +429,11 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
 
     @Override
     protected void onDestroy() {
+        // Cancel any pending focus timeout callbacks to prevent leaks
+        if (focusTimeoutHandler != null) {
+            focusTimeoutHandler.removeCallbacks(focusTimeoutRunnable);
+        }
+
         // SSH test cleanup handled automatically
         if (sttManager != null) {
             sttManager.shutdown();
@@ -544,6 +556,12 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     @Override
     public void onRobotFocusGained(QiContext qiContext) {
         Log.i(TAG, "🤖 DIAGNOSTIC: onRobotFocusGained() called - robot focus acquired!");
+        
+        // Cancel the startup timeout handler, as we have successfully gained focus
+        if (focusTimeoutHandler != null) {
+            focusTimeoutHandler.removeCallbacks(focusTimeoutRunnable);
+            Log.i(TAG, "🤖 DIAGNOSTIC: Robot focus gained, cancelling startup timeout.");
+        }
         
         this.qiContext = qiContext;
         

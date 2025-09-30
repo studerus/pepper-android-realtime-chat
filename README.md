@@ -37,10 +37,16 @@ A sophisticated conversational AI application for the Pepper robot using OpenAI'
 
 ## 🚀 Quick Start
 
-### Prerequisites
-- Android device or Pepper robot
-- Android Studio or ADB for installation
-- API keys for desired features (see below)
+### Requirements
+- **Target Robot**: Pepper v1.8 running NAOqi OS 2.9.5.
+- **Required IDE**: Android Studio `2021.1.1` (Chipmunk) Patch 3. Newer versions are **not** supported by the Pepper SDK plugin.
+- **Supported Android Version**: The app targets API Level 23 (Android 6.0) to 32 (Android 12L).
+- **API Keys**: For full functionality, API keys for various services are required (see "Configure API Keys" section below).
+
+### Development Constraints
+Due to the dependency on the Pepper SDK, which is only compatible with older versions of Android Studio, this project is subject to several development constraints:
+- **Outdated AndroidX Libraries**: The project cannot use the latest versions of AndroidX libraries (e.g., `AppCompat`, `Material`, `Core-KTX`) to maintain compatibility with the required Android Gradle Plugin `7.1.3`.
+- **Java Version**: The project is required to use **Java 1.8**. Newer language features are unavailable because a higher Java version would require a more recent Android Gradle Plugin, which is not compatible with the necessary version of Android Studio.
 
 ### 1. Clone and Configure
 
@@ -257,7 +263,7 @@ The AI automatically knows all available locations and can suggest corrections:
 User: "Go to Tür"
 Robot: "I have these locations: Türe, Kitchen, Printer. Did you mean 'Türe'?"
 
-User: "Yes, Türe" 
+User: "Yes, Tür" 
 Robot: "Navigating to Türe..."
 ```
 
@@ -760,6 +766,9 @@ adb logcat | grep -E "(LocalizeAndMap|mapping|create_environment_map)"
 - Add proper error handling
 - Update documentation
 - Test with missing API keys
+
+### Maintenance Plan
+This project is actively maintained. Issues are monitored, and pull requests for bug fixes and feature enhancements are welcome and will be reviewed.
 
 ## 📄 License
 
