@@ -28,21 +28,18 @@ A sophisticated conversational AI application for the Pepper robot using OpenAI'
   - [Settings Access](#settings-access)
   - [Available Settings](#available-settings)
   - [Customizing the System Prompt](#customizing-the-system-prompt)
-- [Core Robot Features](#-core-robot-features)
-  - [Navigation Workflow](#navigation-workflow)
-  - [Map Visualization](#map-visualization)
-  - [Intelligent Obstacle Analysis](#-intelligent-obstacle-analysis)
-  - [Touch Interaction](#-touch-interaction)
+- [Core Features & System Capabilities](#-core-features--system-capabilities)
+  - [Voice Input & Language System](#-voice-input--language-system)
+  - [Interruption Handling System](#-interruption-handling-system)
+  - [Advanced Chat Interface](#-advanced-chat-interface)
   - [Human Perception Dashboard](#-human-perception-dashboard)
+  - [Touch Interaction](#-touch-interaction)
+  - [Navigation Workflow](#-navigation-workflow)
+  - [Map Visualization](#-map-visualization)
+  - [Intelligent Obstacle Analysis](#-intelligent-obstacle-analysis)
 - [Interactive Entertainment](#-interactive-entertainment)
   - [Tic Tac Toe Game](#-tic-tac-toe-game)
   - [Memory Game](#-memory-game)
-- [Advanced Features](#-advanced-features)
-  - [Advanced Chat Interface](#advanced-chat-interface)
-  - [Interruption Handling System](#-interruption-handling-system)
-  - [Audio Input Modes](#-audio-input-modes)
-  - [ASR Confidence System](#-asr-confidence-system)
-  - [Multilingual Support](#-multilingual-support)
 - [Architecture](#-architecture)
 - [Development](#-development)
 - [Troubleshooting](#-troubleshooting)
@@ -533,7 +530,280 @@ The default system prompt is optimized following OpenAI's [Realtime API Promptin
 - Capitalize important rules for emphasis
 - Add conversation flow states for complex interactions
 
-## 🤖 Core Robot Features
+## ⚙️ Core Features & System Capabilities
+
+## 🎙️ Voice Input & Language System
+
+The app provides comprehensive voice input and multilingual capabilities with two speech recognition modes and intelligent language handling.
+
+### Audio Input Modes
+
+The app supports **two speech recognition modes**, configurable in **Settings → Audio Input**:
+
+#### 1. Realtime API Audio (Default) ✨
+- **Simple Setup** - No separate speech API key needed
+- **Lower Latency** - Integrated audio processing with conversation flow
+- **Server VAD** - Automatic speech detection handled by the model
+- **Async Transcripts** - User speech transcripts appear after responses start
+- **Direct Audio Processing** - Model processes audio directly for responses
+- **Note**: The displayed transcript may not exactly match what the model understood, as transcription is generated asynchronously
+- **Best For** - English and major languages, quick setup
+
+#### 2. Azure Speech Services (Recommended for Dialects)
+- **Superior Quality** - Significantly better for regional dialects and low-resource languages
+- **Confidence Scores** - Real-time feedback on transcription quality
+- **Specialized Models** - Language-specific optimization for regional variants
+- **Sync Transcripts** - User speech appears immediately in chat
+- **Full Transparency** - The exact transcribed text is sent to the model (what you see = what the model receives)
+- **Requires** - `AZURE_SPEECH_KEY` in `local.properties`
+- **Best For** - Regional dialects, low-resource languages, production use, debugging
+
+#### Switching Audio Modes
+1. Open app **Settings** (three-line menu icon)
+2. Select **Audio Input** dropdown
+3. Choose preferred mode:
+   - **"Realtime API (Simple Setup)"** - Default, no extra keys
+   - **"Azure Speech (Best for Dialects)"** - Requires Azure Speech key
+4. Close settings - change takes effect immediately
+
+#### Why Two Audio Modes?
+The app offers **both Realtime API and Azure Speech** to balance simplicity and quality:
+
+**Realtime API Mode** (Default):
+- Simpler setup - works with just OpenAI key
+- Lower latency - integrated audio pipeline
+- Good for English and major languages
+- ⚠️ **Trade-off**: Model processes audio directly - displayed transcript may not exactly reflect what model understood
+
+**Azure Speech Mode** (Optional):
+- Superior accuracy for regional dialects and variants
+- Language-specific models optimized for regional variants
+- Confidence scoring for better error handling
+- ✅ **Full Transparency**: Exact transcribed text is sent to model - what you see is what the model receives
+- Better for production use, debugging, and non-English languages
+
+### ASR Confidence System
+
+**Note**: Only available in **Azure Speech mode**. The app uses intelligent confidence scoring to ensure accurate voice input processing.
+
+#### How It Works
+- **Confidence Analysis** - Each recognized speech gets a confidence score (0-100%)
+- **Smart Tagging** - Speech below the configured threshold gets tagged with "[Low confidence: XX%]"
+- **AI Model Awareness** - The AI can identify uncertain transcriptions and ask for clarification
+- **Adjustable Settings** - Users can customize the minimum confidence level in settings (default: 70%)
+
+#### Benefits
+- **Intelligent Clarification** - AI can ask "Did you say X?" or "Can you repeat?" when transcription is uncertain
+- **Context Awareness** - AI knows when to be more careful about interpreting unclear speech
+- **Customizable Sensitivity** - Users can adjust based on their environment and speaking style  
+- **Better Understanding** - AI can handle ambiguous transcriptions more gracefully
+
+### Multilingual Support
+
+#### AI Response Languages
+- **Universal Language Support** - The Realtime API can respond in any language, including regional dialects
+- **Instant Language Switching** - The AI can switch languages mid-conversation when requested by the user or specified in the system prompt
+- **Contextual Language Use** - AI automatically adapts to the user's preferred language based on conversation context
+
+#### Speech Recognition Languages
+
+The app supports **30+ languages** in both audio input modes:
+
+**Realtime API Mode:**
+- Language setting affects the **input audio transcription** (Whisper-based) that appears in chat
+- Does NOT affect what the model understands (model processes audio directly with automatic language detection)
+- Transcription quality improves when correct language is configured
+
+**Azure Speech Mode:**
+- Language setting is **critical** - directly affects what text is sent to the model
+- Must match the spoken language for accurate recognition
+
+**Supported languages** (both modes):
+
+- **German variants**: de-DE (Germany), de-AT (Austria), de-CH (Switzerland)
+- **English variants**: en-US, en-GB, en-AU, en-CA
+- **French variants**: fr-FR (France), fr-CA (Canada), fr-CH (Switzerland)
+- **Italian variants**: it-IT (Italy), it-CH (Switzerland)
+- **Spanish variants**: es-ES (Spain), es-AR (Argentina), es-MX (Mexico)
+- **Portuguese variants**: pt-BR (Brazil), pt-PT (Portugal)
+- **Chinese variants**: zh-CN (Mandarin Simplified), zh-HK (Cantonese Traditional), zh-TW (Taiwanese Mandarin)
+- **Asian languages**: ja-JP (Japanese), ko-KR (Korean)
+- **European languages**: nl-NL (Dutch), nb-NO (Norwegian), sv-SE (Swedish), da-DK (Danish)
+- **Other languages**: ru-RU (Russian), ar-AE/ar-SA (Arabic)
+
+#### Language Configuration
+- **Settings Control** - Recognition language can be changed in app settings
+- **Live Switching** - Language changes take effect immediately during active sessions
+- **No App Restart** - System reconfigures automatically
+
+#### Important Language Considerations
+
+**Realtime API Mode:**
+- ✅ Model understands speech via automatic language detection (no configuration required)
+- ⚙️ Language setting improves displayed **transcript quality** (Whisper-based)
+- 💡 Recommendation: Configure correct language for better transcripts, but not strictly necessary
+
+**Azure Speech Mode:**
+- ⚠️ Language setting is **critical** - must match spoken language
+- Users must speak in the configured recognition language for accurate transcription
+- If user speaks in different language than configured, recognition will fail or be very poor
+- 💡 Recommendation: Always change language setting before switching spoken languages
+
+**AI Response Language:**
+- ✅ AI can respond in any language regardless of input mode or language setting
+
+#### Usage Examples
+```bash
+# System prompt in English, but AI can respond in other languages when requested
+User (English): "Please respond in German from now on"
+AI (German): "Gerne! Ab jetzt spreche ich auf Deutsch mit dir."
+
+# User must change recognition language in settings to speak German
+User: (Changes settings to de-DE, then speaks German)
+"Erzähl mir einen Witz"
+AI: "Gerne! Hier ist ein Witz für dich..."
+```
+
+## 🎛️ Interruption Handling System
+
+Due to Pepper's hardware limitations (no echo cancellation), the app uses an intelligent microphone management system to prevent the robot from hearing itself while ensuring users can still interrupt ongoing responses.
+
+### Microphone Management
+- **Closed During Speech** - Microphone automatically closes when Pepper is speaking or processing
+- **Open During Listening** - Microphone only active when waiting for user input
+- **Hardware Constraint** - Necessary because Pepper's older hardware lacks echo cancellation
+
+### Status Bar Interruption Controls
+- **First Tap** (during robot speech) - Immediately stops current response, clears audio queue, cancels generation, AND mutes microphone ("Muted — tap to unmute" status)
+- **Second Tap** (when muted) - Unmutes and returns to listening mode
+
+### Automatic Response Interruption
+Certain events automatically interrupt ongoing responses to provide immediate feedback:
+- **Touch Events** - Physical touch triggers new contextual response
+- **Navigation Updates** - Status messages like "[MAP LOADED]" or "[NAVIGATION ERROR]"
+- **Game Events** - Memory game matches, quiz answers, etc.
+- **System Messages** - Tool execution results and status updates
+
+### Technical Features
+- **Instant Stop** - Responses halt immediately when interrupted
+- **Queue Management** - Audio buffers cleared to prevent delayed playback
+- **State Coordination** - Turn management ensures proper microphone timing
+- **Seamless Recovery** - Smooth transition back to listening mode
+
+## 💬 Advanced Chat Interface
+
+### Function Call Transparency
+The chat interface provides **complete transparency** into AI function calling with professional expandable UI elements.
+
+### Function Call Cards
+- **Expandable Design** - Each function call appears as a collapsible card in the chat
+- **Status Indicators** - Visual status with ✅ (completed) or ⏳ (pending) icons
+- **Function Icons** - Unique emoji icons for each tool (🌐 search, 🌤️ weather, 👁️ vision, etc.)
+- **Summary View** - Condensed description when collapsed
+- **Detailed View** - Full arguments and results when expanded
+
+### Interactive Elements
+- **Tap to Expand** - Click any function call card to toggle detailed view
+- **Smooth Animations** - Professional rotate animations for expand/collapse arrows  
+- **JSON Formatting** - Properly formatted and readable JSON for arguments and results
+- **Real-time Updates** - Function result appears automatically when operation completes
+
+### Transparency Benefits
+- **Debugging Aid** - See exactly what parameters were sent to each function
+- **Result Verification** - View complete API responses and tool outputs
+- **Learning Tool** - Understand how AI decides to use different functions
+- **Trust Building** - Complete visibility into AI decision-making process
+
+### Vision Photo Display
+When vision analysis is performed, photos are automatically displayed in the chat with interactive features.
+
+### Photo Integration
+- **Automatic Capture** - Photos appear immediately when vision analysis starts
+- **Thumbnail View** - Compact 220dp preview images in chat flow
+- **Quality Optimization** - Efficiently sized thumbnails for smooth scrolling
+- **Context Placement** - Photos appear exactly where vision analysis was requested
+
+### Full-Screen Viewing
+- **Tap to Expand** - Click any photo thumbnail to view in full-screen overlay
+- **High Resolution** - Full overlay displays up to 1024x1024 resolution
+- **Overlay Interface** - Clean, distraction-free viewing experience  
+- **Easy Dismissal** - Tap anywhere on overlay to return to chat
+
+### Professional Features
+- **Session Management** - Photos are cleaned up automatically when session ends
+- **Memory Optimization** - Efficient bitmap handling prevents memory leaks
+- **File Path Storage** - Photos remain accessible throughout the conversation
+- **Seamless Integration** - Photos and function calls work together in chat flow
+
+## 👁️ Human Perception Dashboard
+
+### Overview
+The Human Perception Dashboard provides real-time visualization of all detected people around Pepper, displaying comprehensive information about each person's state and engagement level.
+
+### How to Access
+- **Tap the dashboard symbol** in the status bar to toggle the dashboard overlay
+- **Dashboard appears** in the top-right corner as a floating overlay
+- **Tap close button** (×) or dashboard symbol again to hide
+
+### Displayed Information
+For each detected person, the dashboard shows:
+
+#### Basic Information
+- **Person ID** - Unique identifier for tracking
+- **Distance** - Real-time distance measurement in meters
+- **Estimated Age** - Age estimation from Pepper's perception
+- **Gender** - Gender classification
+
+#### Emotional & Engagement Data
+- **Attention State** - Whether person is looking at robot, elsewhere, or up
+- **Engagement Level** - How interested the person appears
+- **Pleasure State** - Emotional pleasure/displeasure level
+- **Excitement State** - Energy and excitement level
+- **Smile Detection** - Current smile state
+- **Basic Emotion** - Primary detected emotion
+
+#### Azure Face Analysis (when API key provided)
+- **Head Pose** - Yaw, pitch, and roll angles in degrees
+- **Glasses Detection** - No glasses, reading glasses, or sunglasses
+- **Mask Detection** - Whether person is wearing a face mask
+- **Image Quality** - Low, medium, or high quality assessment
+- **Blur Level** - Numerical blur measurement (0-1 scale)
+- **Exposure Level** - Under-exposed, good exposure, or over-exposed
+
+#### Advanced Features
+- **Live Updates** - Information refreshes every 1.5 seconds
+- **Face Pictures** - Small profile images when available
+- **Comprehensive Tracking** - Maintains data as people move around
+- **Clean Interface** - Organized table view with clear headers
+- **Intelligent Face Analysis** - Analyzes faces when new people detected or every 10 seconds
+- **Rate Limit Handling** - Graceful degradation when Azure API limits reached
+
+### Use Cases
+- **Social Interaction** - Understand who's interested in engaging
+- **Approach Decisions** - See which person to approach first
+- **Group Dynamics** - Monitor multiple people simultaneously
+- **Debugging** - Verify human detection accuracy
+- **Research** - Study human-robot interaction patterns
+
+### Technical Details
+- **QiSDK Integration** - Uses Pepper's built-in human awareness
+- **Real-time Processing** - Efficient polling system (1.5s intervals)
+- **Resource Management** - Automatically stops monitoring when hidden
+- **Thread-Safe** - Handles concurrent data updates safely
+
+## 👋 Touch Interaction
+
+Pepper responds to physical touch on various sensors. When touched, the AI receives context and can respond naturally in conversation.
+
+### Available Touch Sensors
+- **🧠 Head Touch** - Touch the top of Pepper's head
+- **🤲 Hand Touch** - Touch either left or right hand  
+- **⚡ Bumper Sensors** - Front left, front right, and back bumper sensors
+
+### Features
+- **Contextual AI Integration** - Touch events like "[User touched my head]" are sent to AI for natural responses
+- **Debounce Protection** - 500ms delay prevents multiple rapid touches
+- **Smart Pausing** - Automatically pauses during navigation/localization
 
 ## 🗺️ Navigation Workflow
 
@@ -647,77 +917,16 @@ Robot: "I can see a chair blocking my path. Should I try moving around it?"
 - **📍 Smart Analysis** - Looks forward and captures obstacle image automatically  
 - **🔄 No Manual Commands** - User doesn't need to ask "what do you see?"
 
-## 👋 Touch Interaction
-
-Pepper responds to physical touch on various sensors. When touched, the AI receives context and can respond naturally in conversation.
-
-### Available Touch Sensors
-- **🧠 Head Touch** - Touch the top of Pepper's head
-- **🤲 Hand Touch** - Touch either left or right hand  
-- **⚡ Bumper Sensors** - Front left, front right, and back bumper sensors
-
-### Features
-- **Contextual AI Integration** - Touch events like "[User touched my head]" are sent to AI for natural responses
-- **Debounce Protection** - 500ms delay prevents multiple rapid touches
-- **Smart Pausing** - Automatically pauses during navigation/localization
-
-## 👁️ Human Perception Dashboard
-
-### Overview
-The Human Perception Dashboard provides real-time visualization of all detected people around Pepper, displaying comprehensive information about each person's state and engagement level.
-
-### How to Access
-- **Tap the dashboard symbol** in the status bar to toggle the dashboard overlay
-- **Dashboard appears** in the top-right corner as a floating overlay
-- **Tap close button** (×) or dashboard symbol again to hide
-
-### Displayed Information
-For each detected person, the dashboard shows:
-
-#### Basic Information
-- **Person ID** - Unique identifier for tracking
-- **Distance** - Real-time distance measurement in meters
-- **Estimated Age** - Age estimation from Pepper's perception
-- **Gender** - Gender classification
-
-#### Emotional & Engagement Data
-- **Attention State** - Whether person is looking at robot, elsewhere, or up
-- **Engagement Level** - How interested the person appears
-- **Pleasure State** - Emotional pleasure/displeasure level
-- **Excitement State** - Energy and excitement level
-- **Smile Detection** - Current smile state
-- **Basic Emotion** - Primary detected emotion
-
-#### Azure Face Analysis (when API key provided)
-- **Head Pose** - Yaw, pitch, and roll angles in degrees
-- **Glasses Detection** - No glasses, reading glasses, or sunglasses
-- **Mask Detection** - Whether person is wearing a face mask
-- **Image Quality** - Low, medium, or high quality assessment
-- **Blur Level** - Numerical blur measurement (0-1 scale)
-- **Exposure Level** - Under-exposed, good exposure, or over-exposed
-
-#### Advanced Features
-- **Live Updates** - Information refreshes every 1.5 seconds
-- **Face Pictures** - Small profile images when available
-- **Comprehensive Tracking** - Maintains data as people move around
-- **Clean Interface** - Organized table view with clear headers
-- **Intelligent Face Analysis** - Analyzes faces when new people detected or every 10 seconds
-- **Rate Limit Handling** - Graceful degradation when Azure API limits reached
-
-### Use Cases
-- **Social Interaction** - Understand who's interested in engaging
-- **Approach Decisions** - See which person to approach first
-- **Group Dynamics** - Monitor multiple people simultaneously
-- **Debugging** - Verify human detection accuracy
-- **Research** - Study human-robot interaction patterns
-
-### Technical Details
-- **QiSDK Integration** - Uses Pepper's built-in human awareness
-- **Real-time Processing** - Efficient polling system (1.5s intervals)
-- **Resource Management** - Automatically stops monitoring when hidden
-- **Thread-Safe** - Handles concurrent data updates safely
-
 ## 🎮 Interactive Entertainment
+
+The app offers multiple interactive games and activities that can be started through voice commands or direct interaction.
+
+### 🎯 Quiz Game
+- **Voice-Activated** - Start with "Let's play a quiz" or "Start a quiz game"
+- **Dynamic Questions** - AI generates quiz questions on various topics
+- **Multiple Choice** - Interactive answer selection with visual feedback
+- **Score Tracking** - Real-time score display and progress tracking
+- **Educational & Fun** - Combines learning with entertainment
 
 ## 🎮 Tic Tac Toe Game
 
@@ -794,184 +1003,6 @@ Robot: "Starting memory game! Find matching pairs by flipping two cards."
 - **📊 Statistics**: Move counter and pairs remaining
 - **🔄 Randomization**: Different symbol combinations each game
 - **📱 Touch Interface**: Responsive card flipping animations
-
-## 🚀 Advanced Features
-
-### Advanced Chat Interface
-
-#### Function Call Transparency
-The chat interface provides **complete transparency** into AI function calling with professional expandable UI elements.
-
-#### Function Call Cards
-- **Expandable Design** - Each function call appears as a collapsible card in the chat
-- **Status Indicators** - Visual status with ✅ (completed) or ⏳ (pending) icons
-- **Function Icons** - Unique emoji icons for each tool (🌐 search, 🌤️ weather, 👁️ vision, etc.)
-- **Summary View** - Condensed description when collapsed
-- **Detailed View** - Full arguments and results when expanded
-
-#### Interactive Elements
-- **Tap to Expand** - Click any function call card to toggle detailed view
-- **Smooth Animations** - Professional rotate animations for expand/collapse arrows  
-- **JSON Formatting** - Properly formatted and readable JSON for arguments and results
-- **Real-time Updates** - Function result appears automatically when operation completes
-
-#### Transparency Benefits
-- **Debugging Aid** - See exactly what parameters were sent to each function
-- **Result Verification** - View complete API responses and tool outputs
-- **Learning Tool** - Understand how AI decides to use different functions
-- **Trust Building** - Complete visibility into AI decision-making process
-
-#### Vision Photo Display
-When vision analysis is performed, photos are automatically displayed in the chat with interactive features.
-
-#### Photo Integration
-- **Automatic Capture** - Photos appear immediately when vision analysis starts
-- **Thumbnail View** - Compact 220dp preview images in chat flow
-- **Quality Optimization** - Efficiently sized thumbnails for smooth scrolling
-- **Context Placement** - Photos appear exactly where vision analysis was requested
-
-#### Full-Screen Viewing
-- **Tap to Expand** - Click any photo thumbnail to view in full-screen overlay
-- **High Resolution** - Full overlay displays up to 1024x1024 resolution
-- **Overlay Interface** - Clean, distraction-free viewing experience  
-- **Easy Dismissal** - Tap anywhere on overlay to return to chat
-
-#### Professional Features
-- **Session Management** - Photos are cleaned up automatically when session ends
-- **Memory Optimization** - Efficient bitmap handling prevents memory leaks
-- **File Path Storage** - Photos remain accessible throughout the conversation
-- **Seamless Integration** - Photos and function calls work together in chat flow
-
-## 🎛️ Interruption Handling System
-
-Due to Pepper's hardware limitations (no echo cancellation), the app uses an intelligent microphone management system to prevent the robot from hearing itself while ensuring users can still interrupt ongoing responses.
-
-### Microphone Management
-- **Closed During Speech** - Microphone automatically closes when Pepper is speaking or processing
-- **Open During Listening** - Microphone only active when waiting for user input
-- **Hardware Constraint** - Necessary because Pepper's older hardware lacks echo cancellation
-
-### Status Bar Interruption Controls
-- **First Tap** (during robot speech) - Immediately stops current response, clears audio queue, cancels generation, AND mutes microphone ("Muted — tap to unmute" status)
-- **Second Tap** (when muted) - Unmutes and returns to listening mode
-
-### Automatic Response Interruption
-Certain events automatically interrupt ongoing responses to provide immediate feedback:
-- **Touch Events** - Physical touch triggers new contextual response
-- **Navigation Updates** - Status messages like "[MAP LOADED]" or "[NAVIGATION ERROR]"
-- **Game Events** - Memory game matches, quiz answers, etc.
-- **System Messages** - Tool execution results and status updates
-
-### Technical Features
-- **Instant Stop** - Responses halt immediately when interrupted
-- **Queue Management** - Audio buffers cleared to prevent delayed playback
-- **State Coordination** - Turn management ensures proper microphone timing
-- **Seamless Recovery** - Smooth transition back to listening mode
-
-## 🎙️ Audio Input Modes
-
-The app supports **two speech recognition modes**, configurable in **Settings → Audio Input**:
-
-### 1. Realtime API Audio (Default) ✨
-- **Simple Setup** - No separate speech API key needed
-- **Lower Latency** - Integrated audio processing with conversation flow
-- **Server VAD** - Automatic speech detection handled by the model
-- **Async Transcripts** - User speech transcripts appear after responses start
-- **Best For** - English and major languages, quick setup
-
-### 2. Azure Speech Services (Recommended for Dialects)
-- **Superior Quality** - Significantly better for regional dialects and low-resource languages
-- **Confidence Scores** - Real-time feedback on transcription quality
-- **Specialized Models** - Language-specific optimization for regional variants
-- **Sync Transcripts** - User speech appears immediately in chat
-- **Requires** - `AZURE_SPEECH_KEY` in `local.properties`
-- **Best For** - Regional dialects, low-resource languages, production use
-
-### Switching Audio Modes
-1. Open app **Settings** (three-line menu icon)
-2. Select **Audio Input** dropdown
-3. Choose preferred mode:
-   - **"Realtime API (Simple Setup)"** - Default, no extra keys
-   - **"Azure Speech (Best for Dialects)"** - Requires Azure Speech key
-4. Close settings - change takes effect immediately
-
-## 🎤 ASR Confidence System
-
-**Note**: Only available in **Azure Speech mode**. The app uses intelligent confidence scoring to ensure accurate voice input processing.
-
-### How It Works
-- **Confidence Analysis** - Each recognized speech gets a confidence score (0-100%)
-- **Smart Tagging** - Speech below the configured threshold gets tagged with "[Low confidence: XX%]"
-- **AI Model Awareness** - The AI can identify uncertain transcriptions and ask for clarification
-- **Adjustable Settings** - Users can customize the minimum confidence level in settings (default: 70%)
-
-### Benefits
-- **Intelligent Clarification** - AI can ask "Did you say X?" or "Can you repeat?" when transcription is uncertain
-- **Context Awareness** - AI knows when to be more careful about interpreting unclear speech
-- **Customizable Sensitivity** - Users can adjust based on their environment and speaking style  
-- **Better Understanding** - AI can handle ambiguous transcriptions more gracefully
-
-## 🌍 Multilingual Support
-
-The app provides comprehensive multilingual capabilities with intelligent language handling for both speech recognition and AI responses.
-
-### AI Response Languages
-- **Universal Language Support** - The Realtime API can respond in any language, including regional dialects
-- **Instant Language Switching** - The AI can switch languages mid-conversation when requested by the user or specified in the system prompt
-- **Contextual Language Use** - AI automatically adapts to the user's preferred language based on conversation context
-
-### Speech Recognition Languages
-
-**Note**: Language selection applies to **Azure Speech mode only**. Realtime API mode uses server-side language detection.
-
-When using **Azure Speech mode**, the app supports **30+ languages** with superior accuracy for European languages and dialects:
-
-- **German variants**: de-DE (Germany), de-AT (Austria), de-CH (Switzerland)
-- **English variants**: en-US, en-GB, en-AU, en-CA
-- **French variants**: fr-FR (France), fr-CA (Canada), fr-CH (Switzerland)
-- **Italian variants**: it-IT (Italy), it-CH (Switzerland)
-- **Spanish variants**: es-ES (Spain), es-AR (Argentina), es-MX (Mexico)
-- **Portuguese variants**: pt-BR (Brazil), pt-PT (Portugal)
-- **Chinese variants**: zh-CN (Mandarin Simplified), zh-HK (Cantonese Traditional), zh-TW (Taiwanese Mandarin)
-- **Asian languages**: ja-JP (Japanese), ko-KR (Korean)
-- **European languages**: nl-NL (Dutch), nb-NO (Norwegian), sv-SE (Swedish), da-DK (Danish)
-- **Other languages**: ru-RU (Russian), ar-AE/ar-SA (Arabic)
-
-#### Language Configuration
-- **Settings Control** - Recognition language can be changed in app settings
-- **Live Switching** - Language changes take effect immediately during active sessions
-- **No App Restart** - Speech recognizer reconfigures automatically
-
-### Important Language Considerations
-- **Recognition vs. Response** - Users must speak in the configured recognition language, but AI can respond in any language
-- **Language Mismatch Handling** - If user speaks in different language than configured, recognition accuracy will be poor
-- **Recommendation** - Change recognition language in settings before switching spoken languages
-
-### Why Two Audio Modes?
-The app offers **both Realtime API and Azure Speech** to balance simplicity and quality:
-
-**Realtime API Mode** (Default):
-- Simpler setup - works with just OpenAI key
-- Lower latency - integrated audio pipeline
-- Good for English and major languages
-
-**Azure Speech Mode** (Optional):
-- Superior accuracy for regional dialects and variants
-- Language-specific models optimized for regional variants
-- Confidence scoring for better error handling
-- Better for production use with non-English languages
-
-### Usage Examples
-```bash
-# System prompt in English, but AI can respond in other languages when requested
-User (English): "Please respond in German from now on"
-AI (German): "Gerne! Ab jetzt spreche ich auf Deutsch mit dir."
-
-# User must change recognition language in settings to speak German
-User: (Changes settings to de-DE, then speaks German)
-"Erzähl mir einen Witz"
-AI: "Gerne! Hier ist ein Witz für dich..."
-```
 
 ## 🏗️ Architecture
 
