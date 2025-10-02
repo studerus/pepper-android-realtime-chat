@@ -654,7 +654,8 @@ User: (Changes settings to de-DE, then speaks German)
 AI: "Gerne! Hier ist ein Witz für dich..."
 ```
 
-## 🎛️ Interruption Handling System {#interruption-handling}
+<a id="interruption-handling"></a>
+## 🎛️ Interruption Handling System
 
 Due to Pepper's hardware limitations (no echo cancellation), the app uses an intelligent microphone management system to prevent the robot from hearing itself while ensuring users can still interrupt ongoing responses.
 
@@ -680,7 +681,8 @@ Certain events automatically interrupt ongoing responses to provide immediate fe
 - **State Coordination** - Turn management ensures proper microphone timing
 - **Seamless Recovery** - Smooth transition back to listening mode
 
-## 💬 Advanced Chat Interface {#advanced-chat}
+<a id="advanced-chat"></a>
+## 💬 Advanced Chat Interface
 
 ### Function Call Transparency
 The chat interface provides **complete transparency** into AI function calling with professional expandable UI elements.
@@ -725,7 +727,8 @@ When vision analysis is performed, photos are automatically displayed in the cha
 - **File Path Storage** - Photos remain accessible throughout the conversation
 - **Seamless Integration** - Photos and function calls work together in chat flow
 
-## 👁️ Human Perception Dashboard {#human-perception}
+<a id="human-perception"></a>
+## 👁️ Human Perception Dashboard
 
 ### Overview
 The Human Perception Dashboard provides real-time visualization of all detected people around Pepper, displaying comprehensive information about each person's state and engagement level.
@@ -781,7 +784,8 @@ For each detected person, the dashboard shows:
 - **Resource Management** - Automatically stops monitoring when hidden
 - **Thread-Safe** - Handles concurrent data updates safely
 
-## 👋 Touch Interaction {#touch-interaction}
+<a id="touch-interaction"></a>
+## 👋 Touch Interaction
 
 Pepper responds to physical touch on various sensors. When touched, the AI receives context and can respond naturally in conversation.
 
@@ -795,7 +799,8 @@ Pepper responds to physical touch on various sensors. When touched, the AI recei
 - **Debounce Protection** - 500ms delay prevents multiple rapid touches
 - **Smart Pausing** - Automatically pauses during navigation/localization
 
-## 🗺️ Navigation Workflow {#navigation-workflow}
+<a id="navigation-workflow"></a>
+## 🗺️ Navigation Workflow
 
 ### Complete Setup Process
 
@@ -900,7 +905,8 @@ The app provides a **visual map preview** that shows the created environment map
 - **Dynamic Updates** - Automatically refreshes when locations are added/removed
 - **Optimized Rendering** - Efficient drawing with proper scaling and anti-aliasing
 
-## 🔍 Intelligent Obstacle Analysis {#obstacle-analysis}
+<a id="obstacle-analysis"></a>
+## 🔍 Intelligent Obstacle Analysis
 
 When Pepper's movement is blocked, the AI automatically analyzes what's in the way:
 
@@ -916,18 +922,21 @@ Robot: "I can see a chair blocking my path. Should I try moving around it?"
 - **📍 Smart Analysis** - Looks forward and captures obstacle image automatically  
 - **🔄 No Manual Commands** - User doesn't need to ask "what do you see?"
 
-## 🎮 Interactive Entertainment {#interactive-entertainment}
+<a id="interactive-entertainment"></a>
+## 🎮 Interactive Entertainment
 
 The app offers multiple interactive games and activities that can be started through voice commands or direct interaction.
 
-### 🎯 Quiz Game {#quiz-game}
+<a id="quiz-game"></a>
+### 🎯 Quiz Game
 - **Voice-Activated** - Start with "Let's play a quiz" or "Start a quiz game"
 - **Dynamic Questions** - AI generates quiz questions on various topics
 - **Multiple Choice** - Interactive answer selection with visual feedback
 - **Score Tracking** - Real-time score display and progress tracking
 - **Educational & Fun** - Combines learning with entertainment
 
-### 🎮 Tic Tac Toe Game {#tic-tac-toe}
+<a id="tic-tac-toe"></a>
+### 🎮 Tic Tac Toe Game
 
 #### How to Play
 The AI opponent provides an interactive Tic Tac Toe experience with voice commands and visual feedback.
@@ -966,7 +975,8 @@ Robot: "Great! Let's start a game of Tic Tac Toe. You are X, I am O."
 - **🎪 Auto-Close**: Game closes automatically when finished
 - **🔄 Repeatable**: Start new games anytime with voice commands
 
-### 🧠 Memory Game {#memory-game}
+<a id="memory-game"></a>
+### 🧠 Memory Game
 
 #### How to Play
 The Memory Game provides a classic card-matching experience with customizable difficulty levels.
