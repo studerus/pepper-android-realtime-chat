@@ -1180,6 +1180,52 @@ Robot: "Starting memory game! Find matching pairs by flipping two cards."
 
 ## 🛠️ Development
 
+### SDK Architecture & Extensibility
+
+This application makes extensive use of **Pepper Android SDK (QiSDK)** high-level functions for robot control, navigation, perception, and interaction. The QiSDK provides a modern, Java-based API that integrates seamlessly with Android development.
+
+#### SDK Limitations & Extension Possibilities
+
+**QiSDK Limitations:**
+- Limited to high-level abstractions (navigation, gestures, perception)
+- No direct access to low-level robot functions available in the older NAOqi SDK
+- Some advanced robot capabilities (e.g., low-level motor control, direct sensor access) are not exposed
+
+**Extension via SSH:**
+- The app performs an **SSH connection test** to the robot's head at startup
+- This SSH connection provides a path for developers to access **low-level NAOqi functions** if needed
+- Developers can extend the app with custom SSH-based commands to:
+  - Access sensors not exposed in QiSDK
+  - Implement low-level motor control
+  - Integrate custom NAOqi modules
+  - Debug and monitor system-level robot state
+
+**Development Approach:**
+- **Primary**: Use QiSDK high-level functions for all standard features (recommended for stability and maintainability)
+- **Advanced**: Use SSH/NAOqi for specialized low-level requirements when QiSDK is insufficient
+
+This hybrid approach provides both the convenience of modern Android development and the flexibility of low-level robot access when needed.
+
+### Gesture Synchronization During Speech
+
+**Challenge:**
+When using external TTS audio (Realtime API or Azure Speech), Pepper's built-in gesture generation system does not activate automatically. The robot's native TTS system typically generates synchronized gestures, but this integration is lost when streaming audio from external sources.
+
+**Solution:**
+The app implements a **gesture animation loop** that runs during speech output:
+- **Random Explanatory Gestures**: A selection of appropriate "explaining" gestures (body talk animations) are played in a continuous loop
+- **Duration-Based**: Gestures run for the entire duration of the audio playback
+- **Natural Movement**: Creates the impression of natural communication through continuous body language
+- **Non-Repetitive**: Random selection prevents robotic, repetitive patterns
+
+**Implementation:**
+- Gestures start when audio playback begins
+- Loop continues until speech output completes
+- Animation selection from Pepper's built-in gesture library
+- Synchronized with turn management to prevent overlap
+
+This approach provides natural-looking robot behavior even when using external audio sources, maintaining the illusion of integrated speech and movement.
+
 ### Building from Source
 ```bash
 # Debug build
