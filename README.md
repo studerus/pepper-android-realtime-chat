@@ -393,7 +393,7 @@ On your Android device:
 #### Groq API (Vision Analysis - Optional)  
 - **Free Tier**: 14,400 requests/day
 - **Get Key**: [console.groq.com](https://console.groq.com/)
-- **Enables**: Alternative vision analysis provider (gpt-realtime has built-in vision)
+- **Enables**: Alternative vision analysis provider (gpt-realtime has built-in vision, only required for vision analysis with gpt-4o-realtime-preview and gpt-4o-mini-realtime-preview)
 
 #### Tavily API (Internet Search)
 - **Free Tier**: 1,000 searches/month
@@ -486,7 +486,7 @@ This app sends data to third-party services when features are used:
 - **"Navigate to [location]"** - Alternative navigation command
 
 ### Settings Access
-- **Tap the menu** (⋮) in the top-right corner or **swipe from right** to access settings drawer
+- **Tap the wrench icon** (🔧) in the top-right toolbar or **swipe from right edge** to access settings drawer
 
 ### Available Settings
 - **API Provider** - Choose between OpenAI Direct and Azure OpenAI
@@ -549,38 +549,25 @@ The app supports **two speech recognition modes**, configurable in **Settings �
 - **Note**: The displayed transcript may not exactly match what the model understood, as transcription is generated asynchronously
 - **Best For** - English and major languages, quick setup
 
-#### 2. Azure Speech Services (Recommended for Dialects)
+#### 2. Azure Speech Services (Recommended for some low resource languages)
 - **Superior Quality** - Significantly better for regional dialects and low-resource languages
+- **Continuous Recognition** - For optimal latency, transcription happens while speaking (not after), with interim results displayed in status bar
 - **Confidence Scores** - Real-time feedback on transcription quality
 - **Specialized Models** - Language-specific optimization for regional variants
 - **Sync Transcripts** - User speech appears immediately in chat
 - **Full Transparency** - The exact transcribed text is sent to the model (what you see = what the model receives)
+- **Azure VAD** - Voice activity detection handled by Azure Speech Services
+- **Configurable Silence Timeout** - End-of-speech detection after silence (default: 500ms, adjustable in settings)
 - **Requires** - `AZURE_SPEECH_KEY` in `local.properties`
-- **Best For** - Regional dialects, low-resource languages, production use, debugging
+- **Best For** - Some low-resource languages, production use, debugging
 
 #### Switching Audio Modes
-1. Open app **Settings** (three-line menu icon)
+1. Open app **Settings** (tap wrench icon 🔧 in toolbar or swipe from right edge)
 2. Select **Audio Input** dropdown
 3. Choose preferred mode:
    - **"Realtime API (Simple Setup)"** - Default, no extra keys
    - **"Azure Speech (Best for Dialects)"** - Requires Azure Speech key
 4. Close settings - change takes effect immediately
-
-#### Why Two Audio Modes?
-The app offers **both Realtime API and Azure Speech** to balance simplicity and quality:
-
-**Realtime API Mode** (Default):
-- Simpler setup - works with just OpenAI key
-- Lower latency - integrated audio pipeline
-- Good for English and major languages
-- ⚠️ **Trade-off**: Model processes audio directly - displayed transcript may not exactly reflect what model understood
-
-**Azure Speech Mode** (Optional):
-- Superior accuracy for regional dialects and variants
-- Language-specific models optimized for regional variants
-- Confidence scoring for better error handling
-- ✅ **Full Transparency**: Exact transcribed text is sent to model - what you see is what the model receives
-- Better for production use, debugging, and non-English languages
 
 ### ASR Confidence System
 
@@ -840,6 +827,8 @@ User: "Finish the map"
 Robot: "Map completed and saved successfully. Ready for navigation!"
 ```
 
+**⚠️ Important**: Pepper should be at the **same position** where mapping was started when finishing the map. This ensures accurate localization.
+
 #### 5. Navigate to Saved Locations
 ```bash
 User: "Go to the printer"
@@ -867,6 +856,13 @@ Robot: "Navigating to door..."
 - **⚡ Dynamic Updates**: AI knows new locations immediately
 - **🛡️ Error Prevention**: No "location not found" errors
 - **🗑️ Auto-Cleanup**: New maps automatically clear old locations to prevent confusion
+
+### Localization Best Practices
+**⚠️ Critical for Successful Localization:**
+- When **finishing a map**: Pepper should be at the same position where mapping started
+- When **loading a saved map** (after app restart): Place Pepper at the same starting position as when the map was created
+- If Pepper is not at the starting position during localization, orientation may fail or take significantly longer
+- The starting position serves as the reference point for the entire coordinate system
 
 ### Map Visualization
 
