@@ -110,8 +110,8 @@
         <!-- Map Preview Overlay -->
         <FrameLayout
             android:id="@+id/map_preview_container"
-            android:layout_width="320dp"
-            android:layout_height="240dp"
+            android:layout_width="480dp"
+            android:layout_height="360dp"
             android:layout_below="@id/topAppBar"
             android:layout_alignParentEnd="true"
             android:layout_marginTop="8dp"

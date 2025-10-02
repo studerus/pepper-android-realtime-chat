@@ -2,6 +2,55 @@
 
 A sophisticated conversational AI application for the Pepper robot using OpenAI's Realtime API. This app enables natural voice conversations with advanced features like vision analysis, internet search, autonomous navigation, dynamic gesture control, and interactive tablet games.
 
+![Pepper Robot with Chat Interface](screenshots/IMG_20251002_141923.jpg)
+*Pepper robot engaging in natural conversation with advanced AI capabilities*
+
+## 📸 Screenshots
+
+<table>
+  <tr>
+    <td width="33%">
+      <img src="screenshots/chat-function-cards.png" alt="Chat with Function Cards" width="100%">
+      <strong>Interactive Function Cards</strong><br>
+      Expandable tool execution details with arguments and results
+    </td>
+    <td width="33%">
+      <img src="screenshots/navigation-map-overlay.png" alt="Navigation Map" width="100%">
+      <strong>Navigation Map Overlay</strong><br>
+      Real-time map preview with saved locations
+    </td>
+    <td width="33%">
+      <img src="screenshots/tic-tac-toe-dialog.png" alt="Tic-Tac-Toe Game" width="100%">
+      <strong>Interactive Games</strong><br>
+      Voice-controlled Tic-Tac-Toe with visual board
+    </td>
+  </tr>
+  <tr>
+    <td width="33%">
+      <img src="screenshots/perception-dashboard.png" alt="Human Perception Dashboard" width="100%">
+      <strong>Human Perception Dashboard</strong><br>
+      Real-time human detection with emotions and attention tracking
+    </td>
+    <td width="33%">
+      <img src="screenshots/vision-analysis.png" alt="Vision Analysis" width="100%">
+      <strong>Vision Analysis</strong><br>
+      Camera-based image understanding with obstacle detection
+    </td>
+    <td width="33%">
+      <img src="screenshots/settings-panel.png" alt="Settings Panel" width="100%">
+      <strong>Settings Panel</strong><br>
+      Flexible configuration for API providers and audio modes
+    </td>
+  </tr>
+  <tr>
+    <td colspan="3">
+      <img src="screenshots/vision-analysis2.png" alt="Vision Analysis Sequence with Gaze Control" width="100%">
+      <strong>Advanced Vision Workflow</strong><br>
+      Combined gaze control (look_at_position) and vision analysis sequence showing multi-step interaction
+    </td>
+  </tr>
+</table>
+
 ## ✨ Features
 
 ### Core Capabilities
@@ -24,6 +73,13 @@ A sophisticated conversational AI application for the Pepper robot using OpenAI'
 - **📱 Modern Tablet UI** - Clean chat interface with interactive function cards, real-time overlays, and adaptive toolbar
 
 ## 🚀 Quick Start
+
+**Setup Steps:**
+1. [Clone and Configure](#1-clone-and-configure)
+2. [Configure API Keys](#2-configure-api-keys)
+3. [Build Your Flavor](#3-build-your-flavor)
+4. [Open in Android Studio](#4-open-in-android-studio)
+5. [Connect to Pepper and Deploy](#5-connect-to-pepper-and-deploy) (Pepper) / [Install Standalone Version](#6-install-standalone-version-on-android-device) (Standalone)
 
 This project supports **two build flavors** to accommodate different use cases:
 
@@ -134,7 +190,7 @@ YOUTUBE_API_KEY=your_youtube_api_key
 3. Wait for Gradle sync to complete
 4. The project is now ready to build and deploy
 
-### 4. Connect to Pepper and Deploy
+### 5. Connect to Pepper and Deploy
 
 #### Step 1: Prepare Pepper
 1. Enable **Developer Mode** on Pepper's tablet (Settings → About → Tap "Build number" 7 times)
@@ -148,13 +204,26 @@ YOUTUBE_API_KEY=your_youtube_api_key
 
 #### Step 3: Connect via ADB
 1. Open the **Terminal** in Android Studio (bottom toolbar)
-2. Run the following command (replace with Pepper's actual IP):
+2. Connect to Pepper (replace with Pepper's actual IP):
 ```bash
    adb connect 192.168.1.100
    ```
-3. On Pepper's tablet, an **"Allow USB debugging?"** popup will appear
-4. **Accept** the popup (it may be hidden behind notifications)
-5. You should see: `connected to 192.168.1.100:5555`
+3. On Pepper's tablet, an **"Allow USB debugging?"** popup will appear - **Accept** it (may be hidden behind notifications)
+4. **Verify connection:**
+   ```bash
+   adb devices
+   # Should show: 192.168.1.100:5555    device
+   ```
+
+**⚠️ Connection Troubleshooting:**
+- **"Unable to connect"**: Check firewall settings (allow port 5555) or try enabling ADB over TCP:
+  ```bash
+  # If you have USB access first:
+  adb tcpip 5555
+  adb connect 192.168.1.100
+  ```
+- **Device not listed**: Ensure same WiFi network, check IP address, restart ADB server (`adb kill-server && adb start-server`)
+- **"Unauthorized"**: Accept the USB debugging popup on Pepper's tablet
 
 #### Step 4: Deploy from Android Studio
 1. In Android Studio's toolbar, verify that **"ARTNCORE LPT_200AR"** appears in the device dropdown
@@ -169,39 +238,49 @@ YOUTUBE_API_KEY=your_youtube_api_key
 # Build the Pepper APK
 ./gradlew assemblePepperDebug
 
-# Install via ADB
-adb install app/build/outputs/apk/pepper/debug/app-pepper-debug.apk
+# Install via ADB (APK path: app/build/outputs/apk/pepper/debug/app-pepper-debug.apk)
+adb install -r app/build/outputs/apk/pepper/debug/app-pepper-debug.apk
 ```
 
-### 5. Install Standalone Version on Android Device
+### 6. Install Standalone Version on Android Device
 
 The standalone version allows testing the conversational AI system on any Android phone or tablet without requiring Pepper hardware.
 
-#### Option 1: Via ADB (Recommended if USB works)
+#### Option 1: Via ADB (Recommended)
 ```bash
 # Build the standalone APK
 ./gradlew assembleStandaloneDebug
 
-# Connect your Android device via USB (USB debugging enabled)
+# Connect your Android device via USB (USB debugging enabled in Developer Options)
 adb devices
+# Should show your device ID followed by "device"
 
-# Install the APK
-adb install app/build/outputs/apk/standalone/debug/app-standalone-debug.apk
+# Install the APK (APK path: app/build/outputs/apk/standalone/debug/app-standalone-debug.apk)
+adb install -r app/build/outputs/apk/standalone/debug/app-standalone-debug.apk
 ```
 
-#### Option 2: Manual Transfer (No USB required)
-1. Build the APK:
-   ```bash
-   ./gradlew assembleStandaloneDebug
-   ```
-2. Copy the APK file from `app/build/outputs/apk/standalone/debug/app-standalone-debug.apk` to your Android device
-   - Via cloud storage (Google Drive, OneDrive, etc.)
-   - Via email attachment
-   - Via file transfer (when USB in file mode)
-3. On your Android device:
-   - Enable **"Install from Unknown Sources"** in Settings → Security
-   - Open the APK file in your file manager
-   - Tap **"Install"**
+**⚠️ Connection Troubleshooting:**
+- **Device not detected**: Install device drivers (manufacturer-specific), enable USB debugging
+- **"Unauthorized"**: Accept USB debugging prompt on device, check "Always allow from this computer"
+- **USB issues**: Try different USB cable/port, or use Option 2 below
+
+#### Option 2: Manual Transfer (No USB/ADB required)
+```bash
+# Build the standalone APK
+./gradlew assembleStandaloneDebug
+
+# APK location: app/build/outputs/apk/standalone/debug/app-standalone-debug.apk
+```
+
+Transfer the APK to your Android device:
+- Via cloud storage (Google Drive, OneDrive, etc.)
+- Via email attachment  
+- Via file transfer (USB in file mode)
+
+On your Android device:
+- Enable **"Install from Unknown Sources"** in Settings → Security
+- Open the APK file in your file manager
+- Tap **"Install"**
 
 #### What Works in Standalone Mode
 - ✅ Full conversational AI (Realtime API or Azure Speech)
@@ -278,6 +357,30 @@ adb install app/build/outputs/apk/standalone/debug/app-standalone-debug.apk
 - **Free Tier**: 10,000 requests/day
 - **Get Key**: [console.cloud.google.com](https://console.cloud.google.com/)
 - **Enables**: Video search and playback in popup window
+
+## 🔒 Security & Privacy
+
+### API Key Security
+**⚠️ Development vs. Production:**
+- Current implementation stores API keys in `BuildConfig` (compiled into APK) - convenient for development but **not secure for production**
+- Keys are accessible via APK decompilation
+- **For production:** Use runtime entry with `EncryptedSharedPreferences` or proxy API calls through your backend server
+
+### Data Privacy
+This app sends data to third-party services when features are used:
+- **OpenAI/Azure (Realtime API)**: Audio, messages, images, tool results
+- **Azure Speech** (optional): Audio for transcription
+- **Azure Face** (optional): Camera images for facial analysis - ⚠️ **requires GDPR/CCPA consent for biometric data**
+- **Groq/Tavily/OpenWeather/YouTube** (optional): Search queries, images, location data
+
+**To disable optional features:** Leave corresponding API keys empty in `local.properties` (or remove if already entered), or use Settings → Audio Input to switch modes.
+
+**Camera & Biometric Consent:**
+- Pepper (robot camera) / Standalone (front camera) used for vision analysis
+- Face analysis processes biometric data - **explicit user consent required** under GDPR/CCPA/BIPA
+- **To disable:** Leave `GROQ_API_KEY` and `AZURE_FACE_API_KEY` empty (or remove/revoke camera permission)
+
+**Local Storage:** Chat history and maps stored locally; clear via "New Chat" button or Android Settings → Clear Data.
 
 ## 🎯 Usage
 
@@ -737,6 +840,176 @@ The default system prompt is optimized following OpenAI's [Realtime API Promptin
 - **Graceful Degradation** - Missing keys don't break core functionality
 - **Dynamic Registration** - Only available tools are registered with AI
 - **Clean Separation** - Core and optional features are independent
+
+### System Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                          ChatActivity                                │
+│                     (Main UI & Lifecycle)                            │
+└──────────────┬──────────────────────────────────────┬───────────────┘
+               │                                       │
+               │                                       │
+       ┌───────▼────────┐                     ┌───────▼────────┐
+       │ RealtimeSession│                     │  RobotLifecycle│
+       │    Manager     │                     │     Bridge     │
+       │  (WebSocket)   │                     │   (Flavor)     │
+       └───────┬────────┘                     └───────┬────────┘
+               │                                       │
+               │                                       │
+       ┌───────▼────────┐                     ┌───────▼────────┐
+       │  RealtimeEvent │                     │ RobotController│
+       │    Handler     │◄────────────────────┤   (Flavor)     │
+       └───────┬────────┘                     └───────┬────────┘
+               │                                       │
+               │                                       │
+       ┌───────▼────────────────────────────────┐     │
+       │         ToolRegistry                   │     │
+       │  (Dynamic Tool Registration)           │     │
+       └───────┬────────────────────────────────┘     │
+               │                                       │
+               │                                       │
+       ┌───────▼────────────────────────────────┐     │
+       │         ToolContext                    │     │
+       │  (Execution Environment)               │◄────┘
+       └───────┬────────────────────────────────┘
+               │
+               │
+       ┌───────▼────────────────────────────────┐
+       │            Tool Layer                  │
+       ├────────────────────────────────────────┤
+       │  Vision  │  Movement  │  Navigation    │
+       │  Gesture │  Face API  │  Internet      │
+       │  Weather │  Games     │  ...           │
+       └────────────────────────────────────────┘
+               │
+               │
+       ┌───────▼────────────────────────────────┐
+       │      Hardware/Service Adapters         │
+       ├────────────────────────────────────────┤
+       │  Pepper: QiSDK, Robot Camera           │
+       │  Standalone: Device Camera, Stubs      │
+       └────────────────────────────────────────┘
+```
+
+**Flavor-Based Abstraction:**
+- **Pepper Flavor**: Uses QiSDK, robot sensors, navigation
+- **Standalone Flavor**: Uses device camera, simulates robot features
+
+### Voice Request Data Flow
+
+```
+1. User Speaks
+   │
+   ▼
+┌─────────────────────────────────────────────────────────────┐
+│             Audio Input Mode Selection                      │
+├─────────────────────────────┬───────────────────────────────┤
+│   Mode A: Realtime API      │   Mode B: Azure Speech STT    │
+│   (Default - Simple)        │   (Better for Dialects)       │
+└──────────┬──────────────────┴───────────┬──────────────────┘
+           │                               │
+           │ Audio Stream                  │ Audio Stream
+           ▼                               ▼
+    ┌─────────────┐                 ┌──────────────┐
+    │  Realtime   │                 │ Azure Speech │
+    │   API WS    │                 │   Service    │
+    │  (Server    │                 │    (STT)     │
+    │    VAD)     │                 └──────┬───────┘
+    └─────┬───────┘                        │
+          │                                │ Transcript
+          │ Audio + Transcript             │
+          │                                │
+          └────────────┬───────────────────┘
+                       │
+                       ▼
+              ┌────────────────┐
+              │  Realtime API  │
+              │   WebSocket    │
+              │ (Model: gpt-   │
+              │  realtime or   │
+              │  4o variants)  │
+              └────────┬───────┘
+                       │
+                       │ Response Events
+                       │
+              ┌────────▼─────────────────────────────┐
+              │    RealtimeEvent Handler             │
+              │  (Process response events)           │
+              └────┬─────────────────────┬───────────┘
+                   │                     │
+                   │                     │
+      ┌────────────▼─────────┐   ┌──────▼──────────────┐
+      │ response.audio.delta │   │ response.function_  │
+      │   (Direct Answer)    │   │  call_arguments.    │
+      │                      │   │      delta          │
+      │ No tool needed -     │   │                     │
+      │ AI responds directly │   │  (Tool Call)        │
+      └────────┬─────────────┘   └──────┬──────────────┘
+               │                        │
+               │                        ▼
+               │               ┌─────────────────┐
+               │               │  ToolRegistry   │
+               │               │   & Context     │
+               │               └────────┬────────┘
+               │                        │
+               │                        │ Execute Tool
+               │                        ▼
+               │          ┌─────────────────────────────┐
+               │          │     Tool Execution          │
+               │          ├─────────────────────────────┤
+               │          │ • Vision: Capture + Analyze │
+               │          │ • Movement: Move/Turn       │
+               │          │ • Gesture: Play Animation   │
+               │          │ • Search: Query Internet    │
+               │          │ • Navigation: Go to location│
+               │          └────────┬────────────────────┘
+               │                   │
+               │                   │ Result
+               │                   ▼
+               │          ┌─────────────────┐
+               │          │ conversation.   │
+               │          │   item.create   │
+               │          │ (Tool Output)   │
+               │          └────────┬────────┘
+               │                   │
+               │                   ▼
+               │          ┌─────────────────┐
+               │          │  Realtime API   │
+               │          │   Processes     │
+               │          │   Tool Result   │
+               │          └────────┬────────┘
+               │                   │
+               └───────────────────┘
+                       │
+                       │ response.audio.delta
+                       ▼
+         ┌─────────────────┐
+         │  Audio Player   │
+         │  (TTS Output)   │
+         └────────┬────────┘
+                  │
+                  ▼
+         ┌─────────────────┐
+         │  Synchronized   │
+         │    Gestures     │
+         │  (If available) │
+         └─────────────────┘
+                  │
+                  ▼
+              User Hears
+```
+
+**Key Flow Characteristics:**
+- **Model Flexibility**: Supports gpt-realtime (GA), gpt-4o-realtime-preview, gpt-4o-mini-realtime-preview
+- **Dual Audio Input**: Realtime API (simple) or Azure Speech (dialect quality)
+- **Server-side VAD**: Realtime API handles turn detection automatically
+- **Conditional Tool Calls**: AI decides when tools are needed (not every response uses tools)
+- **Direct Responses**: Simple queries get immediate audio responses without tool execution
+- **Streaming Function Calls**: Tool call deltas assembled in real-time when needed
+- **Synchronous Execution**: Tools run immediately, results sent back
+- **Audio Streaming**: TTS audio played as it arrives (low latency)
+- **Gesture Coordination**: Animations triggered alongside speech
 
 ## 🛠️ Development
 

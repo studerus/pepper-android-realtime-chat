@@ -24,6 +24,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.Looper;
 
 /**
@@ -59,14 +60,17 @@ public class PerceptionService {
     private volatile int lastHumansCount = 0;
     private volatile boolean triggerAzureNow = false;
 
-    // Threading
-    private final Handler monitoringHandler = new Handler(Looper.getMainLooper());
+    // Threading - use background thread for QiSDK synchronous calls
+    private HandlerThread monitoringThread;
+    private Handler monitoringHandler;
     private final Runnable monitoringRunnable = new Runnable() {
         @Override
         public void run() {
             if (isMonitoring) {
                 monitorOnce();
-                monitoringHandler.postDelayed(this, 1500L);
+                if (monitoringHandler != null) {
+                    monitoringHandler.postDelayed(this, 1500L);
+                }
             }
         }
     };
@@ -84,6 +88,10 @@ public class PerceptionService {
 
     public PerceptionService() {
         Log.d(TAG, "PerceptionService created");
+        // Initialize background thread for monitoring (QiSDK synchronous calls)
+        monitoringThread = new HandlerThread("PerceptionMonitoringThread");
+        monitoringThread.start();
+        monitoringHandler = new Handler(monitoringThread.getLooper());
     }
 
     /**
@@ -119,16 +127,22 @@ public class PerceptionService {
                 this.humanAwareness.addOnHumansAroundChangedListener(humans -> {
                     try {
                         int count = (humans == null) ? 0 : humans.size();
+                        Log.d(TAG, "OnHumansAroundChanged: " + count + " humans detected");
                         if (count != lastHumansCount) {
                             lastHumansCount = count;
                             // trigger immediately when humans appear/disappear (only if there is at least one human)
                             triggerAzureNow = count > 0;
+                            Log.i(TAG, "Human count changed to: " + count);
                         }
                         synchronized (humansCacheLock) {
                             humansCache = (humans == null) ? new ArrayList<>() : new ArrayList<>(humans);
+                            Log.d(TAG, "humansCache updated with " + humansCache.size() + " humans");
                         }
-                    } catch (Exception ignore) { }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error in OnHumansAroundChanged listener", e);
+                    }
                 });
+                Log.i(TAG, "OnHumansAroundChangedListener registered successfully");
             } catch (Exception e) {
                 Log.w(TAG, "Failed to attach OnHumansAroundChangedListener", e);
             }
@@ -172,23 +186,32 @@ public class PerceptionService {
         Log.i(TAG, "Perception monitoring stopped");
         if (listener != null) listener.onServiceStatusChanged(false);
         // Remove any pending callbacks
-        monitoringHandler.removeCallbacks(monitoringRunnable);
+        if (monitoringHandler != null) {
+            monitoringHandler.removeCallbacks(monitoringRunnable);
+        }
     }
 
     /**
      * Monitoring loop: periodically polls HumanAwareness and emits structured data
      */
     private void monitorOnce() {
-        if (!isMonitoring || humanAwareness == null) return;
+        if (!isMonitoring || humanAwareness == null) {
+            Log.d(TAG, "monitorOnce: skipped (isMonitoring=" + isMonitoring + ", humanAwareness=" + (humanAwareness != null) + ")");
+            return;
+        }
         try {
             List<Human> humansSnapshot;
             synchronized (humansCacheLock) {
                 humansSnapshot = new ArrayList<>(humansCache);
+                Log.d(TAG, "monitorOnce: humansCache.size=" + humansCache.size() + ", snapshot.size=" + humansSnapshot.size());
             }
             if (humansSnapshot.isEmpty()) {
+                Log.d(TAG, "monitorOnce: snapshot empty, sending empty list to listener");
                 if (listener != null) listener.onHumansDetected(new ArrayList<>());
                 return;
             }
+            
+            Log.d(TAG, "monitorOnce: processing " + humansSnapshot.size() + " humans");
 
             // Build base list
                     List<PerceptionData.HumanInfo> humanInfoList = new ArrayList<>();
@@ -559,8 +582,22 @@ public class PerceptionService {
         this.humanAwareness = null;
         this.actuation = null;
         this.robotFrame = null;
-        // Clean up monitoring handler
-        monitoringHandler.removeCallbacks(monitoringRunnable);
+        
+        // Clean up monitoring handler and background thread
+        if (monitoringHandler != null) {
+            monitoringHandler.removeCallbacks(monitoringRunnable);
+        }
+        if (monitoringThread != null) {
+            monitoringThread.quitSafely();
+            try {
+                monitoringThread.join(1000);
+            } catch (InterruptedException e) {
+                Log.w(TAG, "Interrupted while waiting for monitoring thread to stop", e);
+            }
+            monitoringThread = null;
+            monitoringHandler = null;
+        }
+        
         Log.i(TAG, "PerceptionService shutdown");
     }
 

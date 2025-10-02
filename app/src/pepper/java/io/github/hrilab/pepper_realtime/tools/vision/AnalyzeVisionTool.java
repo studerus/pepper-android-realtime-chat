@@ -137,7 +137,7 @@ public class AnalyzeVisionTool implements Tool {
                         context.getActivity().addImageToSessionCleanup(path);
                     }
                     // Inform about photo capture via async update
-                    context.sendAsyncUpdate("📷 Foto aufgenommen.", false);
+                    context.sendAsyncUpdate("📷 Photo captured.", false);
                 }
             });
             

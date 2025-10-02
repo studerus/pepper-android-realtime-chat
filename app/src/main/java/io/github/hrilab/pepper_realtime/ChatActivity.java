@@ -444,7 +444,11 @@ public class ChatActivity extends AppCompatActivity {
      * Update the localization status display in the navigation bar
      */
     private void updateLocalizationStatus(String status) {
-        runOnUiThread(() -> localizationStatusTextView.setText(status));
+        runOnUiThread(() -> {
+            localizationStatusTextView.setText(status);
+            // Update map preview whenever localization status changes
+            updateMapPreview();
+        });
     }
 
     @Override
@@ -2197,6 +2201,8 @@ public class ChatActivity extends AppCompatActivity {
             if (localizationStatus != null) {
                 updateLocalizationStatus(localizationStatus);
             }
+            // Update map preview after navigation status changes
+            updateMapPreview();
         });
     }
     

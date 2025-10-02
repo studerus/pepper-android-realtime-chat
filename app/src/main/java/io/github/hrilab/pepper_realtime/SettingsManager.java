@@ -177,7 +177,7 @@ public class SettingsManager {
         
         voiceSpinner.setSelection(voiceAdapter.getPosition(settings.getString(KEY_VOICE, "ash")));
 
-        String savedLangCode = settings.getString(KEY_LANGUAGE, "de-CH");
+        String savedLangCode = settings.getString(KEY_LANGUAGE, "en-US");
         for (int i = 0; i < languages.size(); i++) {
             if (languages.get(i).getCode().equals(savedLangCode)) {
                 languageSpinner.setSelection(i);
@@ -267,7 +267,7 @@ public class SettingsManager {
     public void onDrawerClosed() {
         String oldModel = settings.getString(KEY_MODEL, "gpt-realtime");
         String oldVoice = settings.getString(KEY_VOICE, "ash");
-        String oldLang = settings.getString(KEY_LANGUAGE, "de-CH");
+        String oldLang = settings.getString(KEY_LANGUAGE, "en-US");
         String oldPrompt = settings.getString(KEY_SYSTEM_PROMPT, "");
         String oldProvider = settings.getString(KEY_API_PROVIDER, RealtimeApiProvider.OPENAI_DIRECT.name());
         String oldInputMode = settings.getString(KEY_AUDIO_INPUT_MODE, MODE_REALTIME_API);
@@ -325,7 +325,7 @@ public class SettingsManager {
     }
 
     public String getLanguage() {
-        return settings.getString(KEY_LANGUAGE, "de-CH");
+        return settings.getString(KEY_LANGUAGE, "en-US");
     }
     
     public String getAudioInputMode() {
