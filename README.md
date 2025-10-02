@@ -1,4 +1,4 @@
-# Pepper Android Realtime Chat 🤖
+# Pepper Android Realtime Chat
 
 A sophisticated conversational AI application for the Pepper robot using OpenAI's Realtime API. This app enables natural voice conversations with advanced features like vision analysis, internet search, autonomous navigation, dynamic gesture control, and interactive tablet games.
 
@@ -29,17 +29,18 @@ A sophisticated conversational AI application for the Pepper robot using OpenAI'
   - [Available Settings](#available-settings)
   - [Customizing the System Prompt](#customizing-the-system-prompt)
 - [Core Features & System Capabilities](#-core-features--system-capabilities)
-  - [Voice Input & Language System](#-voice-input--language-system)
-  - [Interruption Handling System](#-interruption-handling-system)
-  - [Advanced Chat Interface](#-advanced-chat-interface)
-  - [Human Perception Dashboard](#-human-perception-dashboard)
-  - [Touch Interaction](#-touch-interaction)
-  - [Navigation Workflow](#-navigation-workflow)
-  - [Map Visualization](#-map-visualization)
-  - [Intelligent Obstacle Analysis](#-intelligent-obstacle-analysis)
-- [Interactive Entertainment](#-interactive-entertainment)
-  - [Tic Tac Toe Game](#-tic-tac-toe-game)
-  - [Memory Game](#-memory-game)
+  - [Voice Input & Language System](#voice-input--language-system)
+  - [Interruption Handling System](#interruption-handling-system)
+  - [Advanced Chat Interface](#advanced-chat-interface)
+  - [Human Perception Dashboard](#human-perception-dashboard)
+  - [Touch Interaction](#touch-interaction)
+  - [Navigation Workflow](#navigation-workflow)
+  - [Map Visualization](#map-visualization)
+  - [Intelligent Obstacle Analysis](#intelligent-obstacle-analysis)
+- [Interactive Entertainment](#interactive-entertainment)
+  - [Quiz Game](#quiz-game)
+  - [Tic Tac Toe Game](#tic-tac-toe-game)
+  - [Memory Game](#memory-game)
 - [Architecture](#-architecture)
 - [Development](#-development)
 - [Troubleshooting](#-troubleshooting)
@@ -110,6 +111,7 @@ A sophisticated conversational AI application for the Pepper robot using OpenAI'
   - **Realtime API audio streaming** - Direct audio input with native voice activity detection
   - **Azure Speech Services STT** - Streaming transcription with superior dialect recognition and confidence scores (warns AI when transcription quality is low)
 - **🤖 Pepper Robot Integration** - Synchronized gestures and expressive animations (wave, bow, applause, kisses, etc.)
+- **📱 Modern Tablet UI** - Clean chat interface with interactive function cards, real-time overlays, and adaptive toolbar
 - **👁️ Gaze Control** - Precise 3D head/eye positioning with duration control and automatic return
 - **👁️ Vision Analysis** - Camera-based image understanding and analysis with intelligent obstacle detection
 - **👋 Touch Interaction** - Responds to touches on head, hands, and bumpers with contextual AI reactions
@@ -122,7 +124,6 @@ A sophisticated conversational AI application for the Pepper robot using OpenAI'
 - **🎯 Interactive Quizzes** - Dynamic quiz generation and interaction
 - **🎮 Tic Tac Toe Game** - Play against the AI with voice commands and visual board
 - **🧠 Memory Game** - Card-matching game with multiple difficulty levels
-- **📱 Modern Tablet UI** - Clean chat interface with interactive function cards, real-time overlays, and adaptive toolbar
 
 ## 🚀 Quick Start
 
@@ -924,9 +925,9 @@ The app offers multiple interactive games and activities that can be started thr
 - **Score Tracking** - Real-time score display and progress tracking
 - **Educational & Fun** - Combines learning with entertainment
 
-## 🎮 Tic Tac Toe Game
+### 🎮 Tic Tac Toe Game
 
-### How to Play
+#### How to Play
 The AI opponent provides an interactive Tic Tac Toe experience with voice commands and visual feedback.
 
 #### Starting a Game
@@ -955,7 +956,7 @@ Robot: "Great! Let's start a game of Tic Tac Toe. You are X, I am O."
 - Game state communicated through existing WebSocket connection
 - Seamless integration with ongoing conversation
 
-### Game Features
+#### Game Features
 - **🎯 Smart AI**: Competitive gameplay with strategic moves
 - **🎨 Clean UI**: Large, clear buttons with distinct X/O markers
 - **🔊 Voice Feedback**: Natural AI commentary during gameplay
@@ -963,9 +964,9 @@ Robot: "Great! Let's start a game of Tic Tac Toe. You are X, I am O."
 - **🎪 Auto-Close**: Game closes automatically when finished
 - **🔄 Repeatable**: Start new games anytime with voice commands
 
-## 🧠 Memory Game
+### 🧠 Memory Game
 
-### How to Play
+#### How to Play
 The Memory Game provides a classic card-matching experience with customizable difficulty levels.
 
 #### Starting a Game
@@ -993,7 +994,7 @@ Robot: "Starting memory game! Find matching pairs by flipping two cards."
 4. **Complete the game** when all pairs are found
 5. **View stats** showing total moves and completion time
 
-### Memory Game Features
+#### Memory Game Features
 - **🎨 Rich Symbols**: Over 80 different emojis (animals, food, objects, etc.)
 - **⏱️ Timer**: Live timer tracks your completion time
 - **📊 Statistics**: Move counter and pairs remaining
