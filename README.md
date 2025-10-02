@@ -2,8 +2,11 @@
 
 A sophisticated conversational AI application for the Pepper robot using OpenAI's Realtime API. This app enables natural voice conversations with advanced features like vision analysis, internet search, autonomous navigation, dynamic gesture control, and interactive tablet games.
 
-![Pepper Robot with Chat Interface](screenshots/IMG_20251002_141923.jpg)
-*Pepper robot engaging in natural conversation with advanced AI capabilities*
+<p align="center">
+  <img src="screenshots/IMG_20251002_141923.jpg" alt="Pepper Robot with Chat Interface" width="50%">
+  <br>
+  <em>Pepper robot engaging in natural conversation with advanced AI capabilities</em>
+</p>
 
 ## 📸 Screenshots
 
@@ -32,21 +35,35 @@ A sophisticated conversational AI application for the Pepper robot using OpenAI'
       Real-time human detection with emotions and attention tracking
     </td>
     <td width="33%">
-      <img src="screenshots/vision-analysis.png" alt="Vision Analysis" width="100%">
-      <strong>Vision Analysis</strong><br>
-      Camera-based image understanding with obstacle detection
+      <img src="screenshots/quiz.png" alt="Quiz Game" width="100%">
+      <strong>Quiz Game</strong><br>
+      Voice-controlled quiz with multiple choice answers
     </td>
     <td width="33%">
-      <img src="screenshots/settings-panel.png" alt="Settings Panel" width="100%">
-      <strong>Settings Panel</strong><br>
-      Flexible configuration for API providers and audio modes
+      <img src="screenshots/memory-game.png" alt="Memory Game" width="100%">
+      <strong>Memory Game</strong><br>
+      Interactive memory card game on tablet
     </td>
   </tr>
   <tr>
     <td colspan="3">
-      <img src="screenshots/vision-analysis2.png" alt="Vision Analysis Sequence with Gaze Control" width="100%">
-      <strong>Advanced Vision Workflow</strong><br>
-      Combined gaze control (look_at_position) and vision analysis sequence showing multi-step interaction
+      <img src="screenshots/settings-panel.png" alt="Settings Panel" width="100%">
+      <strong>Settings Panel</strong><br>
+      Flexible configuration for API providers, audio modes, and feature toggles
+    </td>
+  </tr>
+  <tr>
+    <td colspan="3">
+      <img src="screenshots/vision-analysis.png" alt="Vision Analysis - Ceiling Detection" width="100%">
+      <strong>Vision Analysis - Step 1: Gaze Control</strong><br>
+      Robot looks at the ceiling using look_at_position tool and captures the image
+    </td>
+  </tr>
+  <tr>
+    <td colspan="3">
+      <img src="screenshots/vision-analysis2.png" alt="Vision Analysis - Detailed Description" width="100%">
+      <strong>Vision Analysis - Step 2: Image Understanding</strong><br>
+      AI analyzes the captured image and provides detailed description of the ceiling
     </td>
   </tr>
 </table>
