@@ -8,6 +8,48 @@ A sophisticated conversational AI application for the Pepper robot using OpenAI'
   <em>Pepper robot engaging in natural conversation with advanced AI capabilities</em>
 </p>
 
+## 📑 Table of Contents
+
+- [Screenshots](#-screenshots)
+- [Features](#-features)
+- [Quick Start](#-quick-start)
+  - [Requirements](#requirements)
+  - [Clone and Configure](#1-clone-and-configure)
+  - [Configure API Keys](#2-configure-api-keys)
+  - [Build Your Flavor](#3-build-your-flavor)
+  - [Open in Android Studio](#4-open-in-android-studio)
+  - [Connect to Pepper and Deploy](#5-connect-to-pepper-and-deploy)
+  - [Install Standalone Version](#6-install-standalone-version-on-android-device)
+- [API Key Setup](#-api-key-setup)
+- [Security & Privacy](#-security--privacy)
+- [Usage](#-usage)
+  - [Basic Operation](#basic-operation)
+  - [Available Voice Commands](#available-voice-commands)
+  - [Settings Access](#settings-access)
+  - [Available Settings](#available-settings)
+  - [Customizing the System Prompt](#customizing-the-system-prompt)
+- [Core Robot Features](#-core-robot-features)
+  - [Navigation Workflow](#navigation-workflow)
+  - [Map Visualization](#map-visualization)
+  - [Intelligent Obstacle Analysis](#-intelligent-obstacle-analysis)
+  - [Touch Interaction](#-touch-interaction)
+  - [Human Perception Dashboard](#-human-perception-dashboard)
+- [Interactive Entertainment](#-interactive-entertainment)
+  - [Tic Tac Toe Game](#-tic-tac-toe-game)
+  - [Memory Game](#-memory-game)
+- [Advanced Features](#-advanced-features)
+  - [Advanced Chat Interface](#advanced-chat-interface)
+  - [Interruption Handling System](#-interruption-handling-system)
+  - [Audio Input Modes](#-audio-input-modes)
+  - [ASR Confidence System](#-asr-confidence-system)
+  - [Multilingual Support](#-multilingual-support)
+- [Architecture](#-architecture)
+- [Development](#-development)
+- [Troubleshooting](#-troubleshooting)
+- [Contributing](#-contributing)
+- [License](#-license)
+- [Acknowledgments](#-acknowledgments)
+
 ## 📸 Screenshots
 
 <table>
@@ -453,6 +495,7 @@ This app sends data to third-party services when features are used:
 - **API Provider** - Choose between OpenAI Direct and Azure OpenAI
 - **Model Selection** - Select from gpt-realtime, gpt-4o-realtime-preview, or gpt-4o-mini-realtime-preview
 - **Voice Selection** - Choose from 10 available voices (alloy, ash, ballad, cedar, coral, echo, marin, sage, shimmer, verse)
+- **Audio Input Mode** - Switch between Realtime API audio streaming and Azure Speech Services STT
 - **System Prompt** - Customize the AI's personality and behavior instructions
 - **Recognition Language** - Set speech recognition language (German, English, French, Italian variants)
 - **Temperature** - Adjust AI creativity/randomness (0-100%)
@@ -467,7 +510,30 @@ You can switch between different Realtime API providers in the settings:
 - **OpenAI Direct** (Recommended): Supports all three models (`gpt-realtime`, `gpt-4o-realtime-preview`, `gpt-4o-mini-realtime-preview`) directly from OpenAI
 - **Azure OpenAI** (Enterprise): Supports all three models (`gpt-realtime`, `gpt-4o-realtime-preview`, `gpt-4o-mini-realtime-preview`) with your Azure deployment
 
-**Note**: Changing the API provider will restart the session automatically.
+**Note**: Changing the API provider, model, voice, or audio input mode will restart the session automatically.
+
+### Customizing the System Prompt
+
+The default system prompt is optimized following OpenAI's [Realtime API Prompting Guide](https://cookbook.openai.com/examples/realtime_prompting_guide). It includes:
+
+- **Structured sections** - Role, Personality, Tools, Instructions for better model understanding
+- **Sample phrases** - Consistent greetings, acknowledgments, and closings
+- **Variety rules** - Prevents repetitive responses ("I see" | "Got it" | "Understood")
+- **Tool integration** - Natural tool usage without explicit announcements
+- **Physical embodiment** - First-person perspective as the robot
+
+**To customize:**
+1. Edit the system prompt in `app/src/main/res/values/strings.xml` (search for `default_system_prompt`)
+2. Or modify it dynamically in Settings → System Prompt within the app
+3. Follow the [Realtime Prompting Guide](https://cookbook.openai.com/examples/realtime_prompting_guide) for best practices
+
+**Key tips from the guide:**
+- Use bullets over paragraphs for clarity
+- Guide with specific examples
+- Capitalize important rules for emphasis
+- Add conversation flow states for complex interactions
+
+## 🤖 Core Robot Features
 
 ## 🗺️ Navigation Workflow
 
@@ -532,6 +598,39 @@ Robot: "Navigating to door..."
 - **🛡️ Error Prevention**: No "location not found" errors
 - **🗑️ Auto-Cleanup**: New maps automatically clear old locations to prevent confusion
 
+### Map Visualization
+
+#### Map Preview Overlay
+The app provides a **visual map preview** that shows the created environment map along with all saved locations in real-time.
+
+#### How to Access
+- **Tap the navigation icon** (📍) in the top toolbar to toggle the map preview
+- **Overlay appears** in the top-right corner as a 320x240dp floating window
+- **Tap again** to hide the preview
+
+#### Visual Features
+- **Environment Map** - Shows the actual mapped room layout as generated by Pepper's sensors
+- **Saved Locations** - Displays all saved locations as **cyan-colored markers** with labels
+- **Real-time Status** - Shows current navigation state:
+  - *"No Map Available"* - No map has been created yet
+  - *"Localizing..."* - Pepper is determining its position within the map
+  - *"Map Loaded"* - Map is ready but robot not yet localized
+  - *"Map Ready - No Locations"* - Map active but no locations saved
+  - *Live view* - When localized, shows map with location markers
+
+#### Use Cases
+- **Location Overview** - See all saved locations at a glance
+- **Navigation Planning** - Visually plan which locations to navigate to
+- **Map Verification** - Confirm the mapped area covers desired spaces
+- **Location Management** - Visual feedback when saving new locations
+- **Debugging** - Verify mapping and localization status
+
+#### Technical Details
+- **Custom MapPreviewView** - Purpose-built Android custom view component
+- **QiSDK Integration** - Uses Pepper's native map bitmap generation
+- **Dynamic Updates** - Automatically refreshes when locations are added/removed
+- **Optimized Rendering** - Efficient drawing with proper scaling and anti-aliasing
+
 ## 🔍 Intelligent Obstacle Analysis
 
 When Pepper's movement is blocked, the AI automatically analyzes what's in the way:
@@ -547,6 +646,78 @@ Robot: "I can see a chair blocking my path. Should I try moving around it?"
 - **🎯 Automatic Activation** - Triggers when movement fails due to obstacles
 - **📍 Smart Analysis** - Looks forward and captures obstacle image automatically  
 - **🔄 No Manual Commands** - User doesn't need to ask "what do you see?"
+
+## 👋 Touch Interaction
+
+Pepper responds to physical touch on various sensors. When touched, the AI receives context and can respond naturally in conversation.
+
+### Available Touch Sensors
+- **🧠 Head Touch** - Touch the top of Pepper's head
+- **🤲 Hand Touch** - Touch either left or right hand  
+- **⚡ Bumper Sensors** - Front left, front right, and back bumper sensors
+
+### Features
+- **Contextual AI Integration** - Touch events like "[User touched my head]" are sent to AI for natural responses
+- **Debounce Protection** - 500ms delay prevents multiple rapid touches
+- **Smart Pausing** - Automatically pauses during navigation/localization
+
+## 👁️ Human Perception Dashboard
+
+### Overview
+The Human Perception Dashboard provides real-time visualization of all detected people around Pepper, displaying comprehensive information about each person's state and engagement level.
+
+### How to Access
+- **Tap the dashboard symbol** in the status bar to toggle the dashboard overlay
+- **Dashboard appears** in the top-right corner as a floating overlay
+- **Tap close button** (×) or dashboard symbol again to hide
+
+### Displayed Information
+For each detected person, the dashboard shows:
+
+#### Basic Information
+- **Person ID** - Unique identifier for tracking
+- **Distance** - Real-time distance measurement in meters
+- **Estimated Age** - Age estimation from Pepper's perception
+- **Gender** - Gender classification
+
+#### Emotional & Engagement Data
+- **Attention State** - Whether person is looking at robot, elsewhere, or up
+- **Engagement Level** - How interested the person appears
+- **Pleasure State** - Emotional pleasure/displeasure level
+- **Excitement State** - Energy and excitement level
+- **Smile Detection** - Current smile state
+- **Basic Emotion** - Primary detected emotion
+
+#### Azure Face Analysis (when API key provided)
+- **Head Pose** - Yaw, pitch, and roll angles in degrees
+- **Glasses Detection** - No glasses, reading glasses, or sunglasses
+- **Mask Detection** - Whether person is wearing a face mask
+- **Image Quality** - Low, medium, or high quality assessment
+- **Blur Level** - Numerical blur measurement (0-1 scale)
+- **Exposure Level** - Under-exposed, good exposure, or over-exposed
+
+#### Advanced Features
+- **Live Updates** - Information refreshes every 1.5 seconds
+- **Face Pictures** - Small profile images when available
+- **Comprehensive Tracking** - Maintains data as people move around
+- **Clean Interface** - Organized table view with clear headers
+- **Intelligent Face Analysis** - Analyzes faces when new people detected or every 10 seconds
+- **Rate Limit Handling** - Graceful degradation when Azure API limits reached
+
+### Use Cases
+- **Social Interaction** - Understand who's interested in engaging
+- **Approach Decisions** - See which person to approach first
+- **Group Dynamics** - Monitor multiple people simultaneously
+- **Debugging** - Verify human detection accuracy
+- **Research** - Study human-robot interaction patterns
+
+### Technical Details
+- **QiSDK Integration** - Uses Pepper's built-in human awareness
+- **Real-time Processing** - Efficient polling system (1.5s intervals)
+- **Resource Management** - Automatically stops monitoring when hidden
+- **Thread-Safe** - Handles concurrent data updates safely
+
+## 🎮 Interactive Entertainment
 
 ## 🎮 Tic Tac Toe Game
 
@@ -624,75 +795,52 @@ Robot: "Starting memory game! Find matching pairs by flipping two cards."
 - **🔄 Randomization**: Different symbol combinations each game
 - **📱 Touch Interface**: Responsive card flipping animations
 
-## 👁️ Human Perception Dashboard
+## 🚀 Advanced Features
 
-### Overview
-The Human Perception Dashboard provides real-time visualization of all detected people around Pepper, displaying comprehensive information about each person's state and engagement level.
+### Advanced Chat Interface
 
-### How to Access
-- **Tap the dashboard symbol** in the status bar to toggle the dashboard overlay
-- **Dashboard appears** in the top-right corner as a floating overlay
-- **Tap close button** (×) or dashboard symbol again to hide
+#### Function Call Transparency
+The chat interface provides **complete transparency** into AI function calling with professional expandable UI elements.
 
-### Displayed Information
-For each detected person, the dashboard shows:
+#### Function Call Cards
+- **Expandable Design** - Each function call appears as a collapsible card in the chat
+- **Status Indicators** - Visual status with ✅ (completed) or ⏳ (pending) icons
+- **Function Icons** - Unique emoji icons for each tool (🌐 search, 🌤️ weather, 👁️ vision, etc.)
+- **Summary View** - Condensed description when collapsed
+- **Detailed View** - Full arguments and results when expanded
 
-#### Basic Information
-- **Person ID** - Unique identifier for tracking
-- **Distance** - Real-time distance measurement in meters
-- **Estimated Age** - Age estimation from Pepper's perception
-- **Gender** - Gender classification
+#### Interactive Elements
+- **Tap to Expand** - Click any function call card to toggle detailed view
+- **Smooth Animations** - Professional rotate animations for expand/collapse arrows  
+- **JSON Formatting** - Properly formatted and readable JSON for arguments and results
+- **Real-time Updates** - Function result appears automatically when operation completes
 
-#### Emotional & Engagement Data
-- **Attention State** - Whether person is looking at robot, elsewhere, or up
-- **Engagement Level** - How interested the person appears
-- **Pleasure State** - Emotional pleasure/displeasure level
-- **Excitement State** - Energy and excitement level
-- **Smile Detection** - Current smile state
-- **Basic Emotion** - Primary detected emotion
+#### Transparency Benefits
+- **Debugging Aid** - See exactly what parameters were sent to each function
+- **Result Verification** - View complete API responses and tool outputs
+- **Learning Tool** - Understand how AI decides to use different functions
+- **Trust Building** - Complete visibility into AI decision-making process
 
-#### Azure Face Analysis (when API key provided)
-- **Head Pose** - Yaw, pitch, and roll angles in degrees
-- **Glasses Detection** - No glasses, reading glasses, or sunglasses
-- **Mask Detection** - Whether person is wearing a face mask
-- **Image Quality** - Low, medium, or high quality assessment
-- **Blur Level** - Numerical blur measurement (0-1 scale)
-- **Exposure Level** - Under-exposed, good exposure, or over-exposed
+#### Vision Photo Display
+When vision analysis is performed, photos are automatically displayed in the chat with interactive features.
 
-#### Advanced Features
-- **Live Updates** - Information refreshes every 1.5 seconds
-- **Face Pictures** - Small profile images when available
-- **Comprehensive Tracking** - Maintains data as people move around
-- **Clean Interface** - Organized table view with clear headers
-- **Intelligent Face Analysis** - Analyzes faces when new people detected or every 10 seconds
-- **Rate Limit Handling** - Graceful degradation when Azure API limits reached
+#### Photo Integration
+- **Automatic Capture** - Photos appear immediately when vision analysis starts
+- **Thumbnail View** - Compact 220dp preview images in chat flow
+- **Quality Optimization** - Efficiently sized thumbnails for smooth scrolling
+- **Context Placement** - Photos appear exactly where vision analysis was requested
 
-### Use Cases
-- **Social Interaction** - Understand who's interested in engaging
-- **Approach Decisions** - See which person to approach first
-- **Group Dynamics** - Monitor multiple people simultaneously
-- **Debugging** - Verify human detection accuracy
-- **Research** - Study human-robot interaction patterns
+#### Full-Screen Viewing
+- **Tap to Expand** - Click any photo thumbnail to view in full-screen overlay
+- **High Resolution** - Full overlay displays up to 1024x1024 resolution
+- **Overlay Interface** - Clean, distraction-free viewing experience  
+- **Easy Dismissal** - Tap anywhere on overlay to return to chat
 
-### Technical Details
-- **QiSDK Integration** - Uses Pepper's built-in human awareness
-- **Real-time Processing** - Efficient polling system (1.5s intervals)
-- **Resource Management** - Automatically stops monitoring when hidden
-- **Thread-Safe** - Handles concurrent data updates safely
-
-## 👋 Touch Interaction
-
-Pepper responds to physical touch on various sensors. When touched, the AI receives context and can respond naturally in conversation.
-
-### Available Touch Sensors
-- **🧠 Head Touch** - Touch the top of Pepper's head
-- **🤲 Hand Touch** - Touch either left or right hand  
-- **⚡ Bumper Sensors** - Front left, front right, and back bumper sensors
-
-### Features
-- **Contextual AI Integration** - Touch events like "[User touched my head]" are sent to AI for natural responses
-- **Debounce Protection** - 500ms delay prevents multiple rapid touches
-- **Smart Pausing** - Automatically pauses during navigation/localization
+#### Professional Features
+- **Session Management** - Photos are cleaned up automatically when session ends
+- **Memory Optimization** - Efficient bitmap handling prevents memory leaks
+- **File Path Storage** - Photos remain accessible throughout the conversation
+- **Seamless Integration** - Photos and function calls work together in chat flow
 
 ## 🎛️ Interruption Handling System
 
@@ -824,27 +972,6 @@ User: (Changes settings to de-DE, then speaks German)
 "Erzähl mir einen Witz"
 AI: "Gerne! Hier ist ein Witz für dich..."
 ```
-
-### Customizing the System Prompt
-
-The default system prompt is optimized following OpenAI's [Realtime API Prompting Guide](https://cookbook.openai.com/examples/realtime_prompting_guide). It includes:
-
-- **Structured sections** - Role, Personality, Tools, Instructions for better model understanding
-- **Sample phrases** - Consistent greetings, acknowledgments, and closings
-- **Variety rules** - Prevents repetitive responses ("I see" | "Got it" | "Understood")
-- **Tool integration** - Natural tool usage without explicit announcements
-- **Physical embodiment** - First-person perspective as the robot
-
-**To customize:**
-1. Edit the system prompt in `app/src/main/res/values/strings.xml` (search for `default_system_prompt`)
-2. Or modify it dynamically in Settings → System Prompt within the app
-3. Follow the [Realtime Prompting Guide](https://cookbook.openai.com/examples/realtime_prompting_guide) for best practices
-
-**Key tips from the guide:**
-- Use bullets over paragraphs for clarity
-- Guide with specific examples
-- Capitalize important rules for emphasis
-- Add conversation flow states for complex interactions
 
 ## 🏗️ Architecture
 
@@ -1207,84 +1334,6 @@ app/src/
 - This prevents navigation errors caused by incompatible coordinate systems
 - Each map creates its own coordinate system, making old locations invalid
 - Simply re-save your important locations after creating the new map
-
-## 🗺️ Map Visualization
-
-### Map Preview Overlay
-The app provides a **visual map preview** that shows the created environment map along with all saved locations in real-time.
-
-#### How to Access
-- **Tap the navigation icon** (📍) in the top toolbar to toggle the map preview
-- **Overlay appears** in the top-right corner as a 320x240dp floating window
-- **Tap again** to hide the preview
-
-#### Visual Features
-- **Environment Map** - Shows the actual mapped room layout as generated by Pepper's sensors
-- **Saved Locations** - Displays all saved locations as **cyan-colored markers** with labels
-- **Real-time Status** - Shows current navigation state:
-  - *"No Map Available"* - No map has been created yet
-  - *"Localizing..."* - Pepper is determining its position within the map
-  - *"Map Loaded"* - Map is ready but robot not yet localized
-  - *"Map Ready - No Locations"* - Map active but no locations saved
-  - *Live view* - When localized, shows map with location markers
-
-#### Use Cases
-- **Location Overview** - See all saved locations at a glance
-- **Navigation Planning** - Visually plan which locations to navigate to
-- **Map Verification** - Confirm the mapped area covers desired spaces
-- **Location Management** - Visual feedback when saving new locations
-- **Debugging** - Verify mapping and localization status
-
-#### Technical Details
-- **Custom MapPreviewView** - Purpose-built Android custom view component
-- **QiSDK Integration** - Uses Pepper's native map bitmap generation
-- **Dynamic Updates** - Automatically refreshes when locations are added/removed
-- **Optimized Rendering** - Efficient drawing with proper scaling and anti-aliasing
-
-## 💬 Advanced Chat Interface
-
-### Function Call Transparency
-The chat interface provides **complete transparency** into AI function calling with professional expandable UI elements.
-
-#### Function Call Cards
-- **Expandable Design** - Each function call appears as a collapsible card in the chat
-- **Status Indicators** - Visual status with ✅ (completed) or ⏳ (pending) icons
-- **Function Icons** - Unique emoji icons for each tool (🌐 search, 🌤️ weather, 👁️ vision, etc.)
-- **Summary View** - Condensed description when collapsed
-- **Detailed View** - Full arguments and results when expanded
-
-#### Interactive Elements
-- **Tap to Expand** - Click any function call card to toggle detailed view
-- **Smooth Animations** - Professional rotate animations for expand/collapse arrows  
-- **JSON Formatting** - Properly formatted and readable JSON for arguments and results
-- **Real-time Updates** - Function result appears automatically when operation completes
-
-#### Transparency Benefits
-- **Debugging Aid** - See exactly what parameters were sent to each function
-- **Result Verification** - View complete API responses and tool outputs
-- **Learning Tool** - Understand how AI decides to use different functions
-- **Trust Building** - Complete visibility into AI decision-making process
-
-### Vision Photo Display
-When vision analysis is performed, photos are automatically displayed in the chat with interactive features.
-
-#### Photo Integration
-- **Automatic Capture** - Photos appear immediately when vision analysis starts
-- **Thumbnail View** - Compact 220dp preview images in chat flow
-- **Quality Optimization** - Efficiently sized thumbnails for smooth scrolling
-- **Context Placement** - Photos appear exactly where vision analysis was requested
-
-#### Full-Screen Viewing
-- **Tap to Expand** - Click any photo thumbnail to view in full-screen overlay
-- **High Resolution** - Full overlay displays up to 1024x1024 resolution
-- **Overlay Interface** - Clean, distraction-free viewing experience  
-- **Easy Dismissal** - Tap anywhere on overlay to return to chat
-
-#### Professional Features
-- **Session Management** - Photos are cleaned up automatically when session ends
-- **Memory Optimization** - Efficient bitmap handling prevents memory leaks
-- **File Path Storage** - Photos remain accessible throughout the conversation
-- **Seamless Integration** - Photos and function calls work together in chat flow
 
 ### Logging
 The app provides detailed logs for debugging:
