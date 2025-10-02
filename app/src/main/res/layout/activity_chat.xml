@@ -19,10 +19,7 @@
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
             android:background="@color/purple_500"
-            android:theme="@style/ThemeOverlay.MaterialComponents.Dark.ActionBar"
-            app:title="PepperDialog"
-            app:titleCentered="true"
-            app:menu="@menu/chat_toolbar_menu" />
+            android:theme="@style/ThemeOverlay.MaterialComponents.Dark.ActionBar" />
             
         <!-- Hidden status TextViews for internal state tracking -->
         <TextView

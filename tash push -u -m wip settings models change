@@ -1,3 +1,0 @@
-[33m69de77c[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m, [m[1;31morigin/master[m[33m, [m[1;31morigin/HEAD[m[33m)[m Perception stability + Azure logs: UI debounce (1s), change-only updates, reduced face image logs; Azure REST success log; HumanAdapter log throttle; PerceptionService: maybePushUi + listener calls updated; removed unused param; SDK->REST cleanup; Lint fixes (strings formats, res-auto namespace, app:tint, escaped memory card char); GestureController cleanup; NavigationServiceManager lint fixes; FaceRecognitionService null-safety & guards
-[33mf156e12[m Refactor: Stabilize navigation, fix memory leaks and prevent deadlocks
-[33m4abd7af[m Enhance human perception dashboard with emotional analysis and face pictures

@@ -20,12 +20,6 @@ import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.aldebaran.qi.Future;
-import com.aldebaran.qi.Promise;
-import com.aldebaran.qi.sdk.QiContext;
-import com.aldebaran.qi.sdk.QiSDK;
-import com.aldebaran.qi.sdk.RobotLifecycleCallbacks;
-
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.navigation.NavigationView;
 import com.google.android.material.appbar.MaterialToolbar;
@@ -55,10 +49,15 @@ import io.github.hrilab.pepper_realtime.data.LocationProvider;
 import android.widget.FrameLayout;
 import io.github.hrilab.pepper_realtime.BuildConfig;
 
-// libqi-java imports for NAOqi head session PoC
-import com.aldebaran.qi.AnyObject;
-import com.aldebaran.qi.QiException;
-import com.aldebaran.qi.Session;
+// Robot abstraction layer
+import io.github.hrilab.pepper_realtime.robot.RobotLifecycleBridge;
+import io.github.hrilab.pepper_realtime.robot.RobotLifecycleBridgeImpl;
+import io.github.hrilab.pepper_realtime.robot.RobotController;
+
+// Note: NAOqi/SSH functionality temporarily disabled for standalone compatibility
+// import com.aldebaran.qi.AnyObject;
+// import com.aldebaran.qi.QiException;
+// import com.aldebaran.qi.Session;
 // SSHJ imports (fixed-IP SSH test to head)
 import net.schmizz.sshj.SSHClient;
 import net.schmizz.sshj.connection.channel.direct.Session.Command;
@@ -69,14 +68,17 @@ import net.schmizz.sshj.transport.kex.KeyExchange;
 import net.schmizz.sshj.common.Factory;
 
 
-public class ChatActivity extends AppCompatActivity implements RobotLifecycleCallbacks {
+public class ChatActivity extends AppCompatActivity {
 
     private static final String TAG = "ChatActivity";
 
     private static final int MICROPHONE_PERMISSION_REQUEST_CODE = 2;
     private static final int CAMERA_PERMISSION_REQUEST_CODE = 3;
 
-    private QiContext qiContext;
+    // Robot abstraction - flavor-specific implementation
+    private RobotLifecycleBridge robotLifecycleBridge;
+    private RobotController robotController;
+    private Object qiContext; // QiContext for Pepper, null for Standalone
     private DrawerLayout drawerLayout;
     private TextView statusTextView;
     private TextView mapStatusTextView;
@@ -85,6 +87,9 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     private ChatMessageAdapter chatAdapter;
     private final List<ChatMessage> messageList = new ArrayList<>();
     private LinearLayout warmupIndicatorLayout;
+
+    // Lifecycle tracking
+    private boolean wasStoppedByBackground = false;
 
     // Robot focus timeout handler
     private Handler focusTimeoutHandler;
@@ -116,8 +121,14 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     private volatile String currentResponseId = null;
     private volatile String cancelledResponseId = null;
     private volatile String lastChatBubbleResponseId = null;
-    private Promise<Void> connectionPromise;
+    private WebSocketConnectionCallback connectionCallback;
     private volatile boolean expectingFinalAnswerAfterToolCall = false;
+    
+    // Simple callback interface for WebSocket connection (Android 6.0 compatible)
+    private interface WebSocketConnectionCallback {
+        void onSuccess();
+        void onError(Throwable error);
+    }
     private final GestureController gestureController = new GestureController();
     private volatile boolean isWarmingUp = false;
     
@@ -253,9 +264,10 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             @Override public void onEnterListening() { 
                 runOnUiThread(() -> { 
                     try {
-                        // Abort if robot focus lost during callback
-                        if (qiContext == null) {
-                            Log.w(TAG, "Robot focus lost, aborting onEnterListening to prevent crashes");
+                        // Check robot readiness (Pepper: qiContext available, Standalone: always ready)
+                        if (robotController != null && robotController.isRobotHardwareAvailable() && qiContext == null) {
+                            // Only abort if we're in Pepper mode but lost robot focus
+                            Log.w(TAG, "Pepper robot focus lost, aborting onEnterListening to prevent crashes");
                             return;
                         }
                     if (!isMuted) {
@@ -310,20 +322,6 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         
         // Initialize navigation service manager
         navigationServiceManager = new NavigationServiceManager(movementController);
-        navigationServiceManager.setListener(new NavigationServiceManager.NavigationServiceListener() {
-            @Override
-            public void onNavigationPhaseChanged(NavigationServiceManager.NavigationPhase phase) {
-                Log.i(TAG, "Navigation phase changed to: " + phase);
-                // Handle phase changes if needed
-                updateMapPreview();
-            }
-            
-            @Override
-            public void onNavigationStatusUpdate(String mapStatus, String localizationStatus) {
-                updateNavigationStatus(mapStatus, localizationStatus);
-                updateMapPreview();
-            }
-        });
         
         // Create tool context with all dependencies - direct ChatActivity reference for simplicity
         toolContext = new ToolContext(this, qiContext, this, keyManager, movementController, locationProvider);
@@ -364,27 +362,43 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
 
         // Dashboard will be initialized when robot focus is gained
 
-        // Register for robot lifecycle callbacks with diagnostic logging
-        Log.i(TAG, "🤖 DIAGNOSTIC: Registering with QiSDK for robot lifecycle callbacks...");
+        // Initialize robot lifecycle bridge (flavor-specific: Pepper QiSDK or Standalone simulation)
+        robotLifecycleBridge = new RobotLifecycleBridgeImpl();
+        robotController = robotLifecycleBridge.getRobotController();
+        
+        Log.i(TAG, "🤖 Initializing robot controller: " + robotController.getModeName());
+        
+        // Register for robot lifecycle callbacks
         try {
-        QiSDK.register(this, this);
-            Log.i(TAG, "🤖 DIAGNOSTIC: QiSDK.register() completed successfully - waiting for robot focus...");
+            robotLifecycleBridge.register(this, new RobotLifecycleBridge.RobotLifecycleListener() {
+                @Override
+                public void onRobotReady(Object robotContext) {
+                    handleRobotReady(robotContext);
+                }
+                
+                @Override
+                public void onRobotFocusLost() {
+                    handleRobotFocusLost();
+                }
+            });
             
-            // Set a diagnostic timeout to detect if QiSDK never responds
+            // Set a diagnostic timeout to detect if robot never becomes ready
             focusTimeoutHandler = new Handler(Looper.getMainLooper());
             focusTimeoutRunnable = () -> {
                 if (!robotFocusAvailable) {
                     Log.e(TAG, "🤖 DIAGNOSTIC: TIMEOUT - No robot focus response after 30 seconds!");
-                    Log.e(TAG, "🤖 DIAGNOSTIC: This suggests QiSDK service issues or robot state problems");
-                    Log.e(TAG, "🤖 DIAGNOSTIC: Check: 1) Robot is awake, 2) Robot is enabled, 3) QiSDK service is running");
+                    Log.e(TAG, "🤖 DIAGNOSTIC: Mode: " + robotController.getModeName());
+                    if (robotController.isRobotHardwareAvailable()) {
+                        Log.e(TAG, "🤖 DIAGNOSTIC: Check: 1) Robot is awake, 2) Robot is enabled, 3) QiSDK service is running");
+                    }
                     runOnUiThread(() -> statusTextView.setText(getString(R.string.robot_initialization_timeout)));
                 }
             };
             focusTimeoutHandler.postDelayed(focusTimeoutRunnable, 30000); // 30 second timeout
             
         } catch (Exception e) {
-            Log.e(TAG, "QiSDK registration failed", e);
-            statusTextView.setText("Error: QiSDK registration failed.");
+            Log.e(TAG, "Robot lifecycle registration failed", e);
+            statusTextView.setText("Error: Robot initialization failed.");
         }
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
@@ -434,6 +448,130 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     }
 
     @Override
+    public void onConfigurationChanged(@NonNull android.content.res.Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        // Redraw toolbar menu when orientation changes to recalculate available space
+        invalidateOptionsMenu();
+        Log.i(TAG, "Configuration changed - orientation: " + newConfig.orientation);
+    }
+    
+    @Override
+    public boolean onPrepareOptionsMenu(Menu menu) {
+        // Programmatically set ShowAsAction flags based on orientation
+        // IF_ROOM doesn't work reliably, so we set items explicitly based on orientation
+        MenuItem settingsItem = menu.findItem(R.id.action_settings);
+        MenuItem newChatItem = menu.findItem(R.id.action_new_chat);
+        MenuItem mapItem = menu.findItem(R.id.action_navigation_status);
+        MenuItem dashboardItem = menu.findItem(R.id.action_dashboard);
+
+        // Check current orientation
+        boolean isLandscape = getResources().getConfiguration().orientation == 
+            android.content.res.Configuration.ORIENTATION_LANDSCAPE;
+
+        // High priority: Always visible
+        if (settingsItem != null) settingsItem.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
+        if (newChatItem != null) newChatItem.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
+        
+        // Lower priority: Visible only in landscape
+        if (mapItem != null) {
+            mapItem.setShowAsAction(isLandscape ? 
+                MenuItem.SHOW_AS_ACTION_ALWAYS : MenuItem.SHOW_AS_ACTION_NEVER);
+        }
+        if (dashboardItem != null) {
+            dashboardItem.setShowAsAction(isLandscape ? 
+                MenuItem.SHOW_AS_ACTION_ALWAYS : MenuItem.SHOW_AS_ACTION_NEVER);
+        }
+
+        return super.onPrepareOptionsMenu(menu);
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        
+        // When app goes to background (e.g. Home button), stop all services
+        // This mimics the behavior on Pepper when robot focus is lost
+        Log.i(TAG, "🔄 Activity stopped (background) - pausing services");
+        
+        wasStoppedByBackground = true;
+        
+        // Stop audio input to prevent background microphone usage
+        if (sttManager != null) {
+            try {
+                sttManager.stop();
+                Log.i(TAG, "Stopped STT due to background");
+            } catch (Exception e) {
+                Log.w(TAG, "Error stopping STT during background", e);
+            }
+        }
+        
+        if (realtimeAudioInput != null) {
+            try {
+                realtimeAudioInput.stop();
+                Log.i(TAG, "Stopped Realtime audio input due to background");
+            } catch (Exception e) {
+                Log.w(TAG, "Error stopping Realtime audio during background", e);
+            }
+        }
+        
+        // Stop audio playback
+        if (audioPlayer != null) {
+            try {
+                audioPlayer.interruptNow();
+                Log.i(TAG, "Stopped audio playback due to background");
+            } catch (Exception e) {
+                Log.w(TAG, "Error stopping audio playback during background", e);
+            }
+        }
+        
+        // Update UI
+        runOnUiThread(() -> {
+            if (turnManager != null) {
+                turnManager.setState(TurnManager.State.IDLE);
+            }
+            statusTextView.setText(getString(R.string.app_paused));
+        });
+    }
+    
+    @Override
+    protected void onResume() {
+        super.onResume();
+        
+        // Only restart services if we were previously stopped by background
+        if (wasStoppedByBackground && robotFocusAvailable) {
+            Log.i(TAG, "🔄 Activity resumed from background - restarting services");
+            
+            wasStoppedByBackground = false;
+            
+            // Restart services based on current audio mode
+            runOnUiThread(() -> {
+                if (turnManager != null) {
+                    turnManager.setState(TurnManager.State.LISTENING);
+                }
+                statusTextView.setText(getString(R.string.status_listening));
+            });
+            
+            // Restart audio input based on current mode
+            String currentMode = settingsManager.getAudioInputMode();
+            if (SettingsManager.MODE_AZURE_SPEECH.equals(currentMode) && sttManager != null) {
+                try {
+                    sttManager.start();
+                    Log.i(TAG, "Restarted Azure STT after resume");
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed to restart STT after resume", e);
+                }
+            } else if (SettingsManager.MODE_REALTIME_API.equals(currentMode) && realtimeAudioInput != null) {
+                try {
+                    realtimeAudioInput.start();
+                    Log.i(TAG, "Restarted Realtime audio input after resume");
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed to restart Realtime audio after resume", e);
+                }
+            }
+        }
+    }
+
+    @Override
     protected void onDestroy() {
         // Cancel any pending focus timeout callbacks to prevent leaks
         if (focusTimeoutHandler != null) {
@@ -467,7 +605,11 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         
         shutdownManagers();
         
-        QiSDK.unregister(this, this);
+        // Unregister robot lifecycle bridge
+        if (robotLifecycleBridge != null) {
+            robotLifecycleBridge.unregister(this);
+        }
+        
         super.onDestroy();
     }
     
@@ -499,16 +641,16 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     }
     
     private void failConnectionPromise(String message) {
-        if (connectionPromise != null && !connectionPromise.getFuture().isDone()) {
-            connectionPromise.setError(message);
-            connectionPromise = null;
+        if (connectionCallback != null) {
+            connectionCallback.onError(new Exception(message));
+            connectionCallback = null;
         }
     }
 
     private void completeConnectionPromise() {
-        if (connectionPromise != null && !connectionPromise.getFuture().isDone()) {
-            connectionPromise.setValue(null);
-            connectionPromise = null;
+        if (connectionCallback != null) {
+            connectionCallback.onSuccess();
+            connectionCallback = null;
         }
     }
     
@@ -565,9 +707,11 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     }
 
 
-    @Override
-    public void onRobotFocusGained(QiContext qiContext) {
-        Log.i(TAG, "🤖 DIAGNOSTIC: onRobotFocusGained() called - robot focus acquired!");
+    /**
+     * Called when robot is ready (Pepper: focus gained, Standalone: simulation initialized)
+     */
+    private void handleRobotReady(Object robotContext) {
+        Log.i(TAG, "🤖 Robot ready - Mode: " + robotController.getModeName());
         
         // Cancel the startup timeout handler, as we have successfully gained focus
         if (focusTimeoutHandler != null) {
@@ -575,7 +719,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             Log.i(TAG, "🤖 DIAGNOSTIC: Robot focus gained, cancelling startup timeout.");
         }
         
-        this.qiContext = qiContext;
+        this.qiContext = robotContext;
         
         // Set flag to indicate robot focus is available
         robotFocusAvailable = true;
@@ -609,7 +753,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         }
         
         // Setup new tool system (no heavy operations)
-        if (toolContext != null) toolContext.updateQiContext(qiContext);
+        if (toolContext != null) toolContext.updateQiContext(robotContext);
         
         // Initialize dashboard and perception service with QiContext
         if (perceptionService == null) {
@@ -645,7 +789,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         }
         touchSensorManager.setListener(new TouchSensorManager.TouchEventListener() {
             @Override
-            public void onSensorTouched(String sensorName, com.aldebaran.qi.sdk.object.touch.TouchState touchState) {
+            public void onSensorTouched(String sensorName, Object touchState) {
                 Log.i(TAG, "Touch sensor " + sensorName + " touched - sending to AI and requesting response");
                 
                 // Create human-readable touch message
@@ -660,7 +804,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             }
             
             @Override
-            public void onSensorReleased(String sensorName, com.aldebaran.qi.sdk.object.touch.TouchState touchState) {
+            public void onSensorReleased(String sensorName, Object touchState) {
                 // Touch release - no action needed
             }
         });
@@ -684,71 +828,68 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             // Show warmup indicator before starting async operations
             showWarmupIndicator();
 
-            // Test SSH connectivity to robot head
-            testFixedIpSshConnect();
+            // Note: SSH test disabled for standalone compatibility
+            // testFixedIpSshConnect();
 
             // Asynchronous initialization
-            Future<Void> connectFuture = connectWebSocket();
-            
-            // Wait for WebSocket connection first, then start STT warmup sequentially
-            Log.i(TAG, "Waiting for WebSocket connection to complete...");
-            connectFuture.thenConsume(wsFuture -> {
-                Log.i(TAG, "WebSocket Future completed - checking result...");
-                if (wsFuture.hasError()) {
-                    Log.e(TAG, "WebSocket connection failed", wsFuture.getError());
+            Log.i(TAG, "Starting WebSocket connection...");
+            connectWebSocket(new WebSocketConnectionCallback() {
+                @Override
+                public void onSuccess() {
+                    Log.i(TAG, "WebSocket connected successfully, starting STT warmup...");
+                    
+                    // Direct STT setup using SpeechRecognizerManager
+                    Log.i(TAG, "Executing STT setup on audio thread...");
+                    threadManager.executeAudio(() -> {
+                        try {
+                            setupSpeechRecognizer();
+                            
+                            runOnUiThread(() -> {
+                                // Hide warmup indicator after setup
+                                hideWarmupIndicator();
+                                isWarmingUp = false;
+
+                                Log.i(TAG, "STT setup complete. Entering LISTENING state.");
+                                if (turnManager != null) {
+                                    statusTextView.setText(getString(R.string.status_listening));
+                                    turnManager.setState(TurnManager.State.LISTENING);
+                                }
+                            });
+                            
+                        } catch (Exception e) {
+                            Log.e(TAG, "STT setup failed", e);
+                            runOnUiThread(() -> {
+                                hideWarmupIndicator();
+                                isWarmingUp = false;
+                                addMessage(getString(R.string.warmup_failed_msg), ChatMessage.Sender.ROBOT);
+                                statusTextView.setText(getString(R.string.ready_sr_lazy_init));
+                                
+                                // Enter LISTENING state anyway - lazy init will handle STT when needed
+                                if (turnManager != null) turnManager.setState(TurnManager.State.LISTENING);
+                            });
+                        }
+                    });
+                }
+                
+                @Override
+                public void onError(Throwable error) {
+                    Log.e(TAG, "WebSocket connection failed", error);
                     hideWarmupIndicator();
                     isWarmingUp = false;
                     runOnUiThread(() -> {
-                        addMessage(getString(R.string.setup_error_during, wsFuture.getError().getMessage()), ChatMessage.Sender.ROBOT);
+                        addMessage(getString(R.string.setup_error_during, error.getMessage()), ChatMessage.Sender.ROBOT);
                         statusTextView.setText(getString(R.string.error_connection_failed));
                     });
-                    return;
                 }
-                
-                Log.i(TAG, "WebSocket connected successfully, starting STT warmup...");
-                
-                // Direct STT setup using SpeechRecognizerManager
-                Log.i(TAG, "Executing STT setup on audio thread...");
-                threadManager.executeAudio(() -> {
-                    try {
-                        setupSpeechRecognizer();
-                        
-                        runOnUiThread(() -> {
-                            // Hide warmup indicator after setup
-                            hideWarmupIndicator();
-                            isWarmingUp = false;
-
-                            Log.i(TAG, "STT setup complete. Entering LISTENING state.");
-                            if (turnManager != null) {
-                                statusTextView.setText(getString(R.string.status_listening));
-                                turnManager.setState(TurnManager.State.LISTENING);
-                            }
-                        });
-                        
-                    } catch (Exception e) {
-                        Log.e(TAG, "STT setup failed", e);
-                        runOnUiThread(() -> {
-                            hideWarmupIndicator();
-                            isWarmingUp = false;
-                            addMessage(getString(R.string.warmup_failed_msg), ChatMessage.Sender.ROBOT);
-                            statusTextView.setText(getString(R.string.ready_sr_lazy_init));
-                            
-                            // Enter LISTENING state anyway - lazy init will handle STT when needed
-                            if (turnManager != null) turnManager.setState(TurnManager.State.LISTENING);
-                        });
-                    }
-                });
-                
-                // Remove the old warmupFuture.thenConsume block
-                // This block is replaced by direct STT setup above
             });
         }
     }
 
-    @Override
-    public void onRobotFocusLost() {
-        Log.w(TAG, "🤖 DIAGNOSTIC: onRobotFocusLost() called - robot focus lost!");
-        Log.w(TAG, "Robot focus lost during startup!");
+    /**
+     * Called when robot focus is lost (Pepper only)
+     */
+    private void handleRobotFocusLost() {
+        Log.w(TAG, "🤖 Robot focus lost - Mode: " + robotController.getModeName());
         
         // CRITICAL: Set focus lost flag to stop all robot operations
         robotFocusAvailable = false;
@@ -795,10 +936,13 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         });
     }
 
-    @Override
-    public void onRobotFocusRefused(String reason) {
-        Log.e(TAG, "🤖 DIAGNOSTIC: onRobotFocusRefused() called - Focus denied!");
-        Log.e(TAG, "🤖 DIAGNOSTIC: Focus refusal reason: " + reason);
+    /**
+     * Internal method to handle focus refusal (Pepper-specific debugging)
+     * Note: In standalone mode, this should never be called
+     */
+    private void handleRobotFocusRefused(String reason) {
+        Log.e(TAG, "🤖 Robot focus refused - Mode: " + robotController.getModeName());
+        Log.e(TAG, "🤖 Focus refusal reason: " + reason);
         
         // Common reasons and troubleshooting info
         if (reason != null) {
@@ -1061,26 +1205,9 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
             
             // 2. Connect to start a new session
             Log.i(TAG, "Starting new session with updated provider...");
-            Future<Void> connectFuture = connectWebSocket();
-
-            // 3. Update UI based on reconnection result
-            connectFuture.thenConsume(future -> {
-                if (future.hasError()) {
-                    Throwable error = future.getError();
-                    // Filter out harmless race condition errors from provider switching
-                    if (error instanceof com.aldebaran.qi.QiException && 
-                        error.getMessage() != null && 
-                        error.getMessage().contains("WebSocket closed before session was updated")) {
-                        Log.w(TAG, "Harmless race condition during provider switch - session will recover");
-                        // Don't show error to user, new session should be establishing
-                    } else {
-                        Log.e(TAG, "Failed to start new session", error);
-                    runOnUiThread(() -> {
-                        addMessage(getString(R.string.new_session_error), ChatMessage.Sender.ROBOT);
-                        statusTextView.setText(getString(R.string.error_connection_failed_short));
-                    });
-                    }
-                } else {
+            connectWebSocket(new WebSocketConnectionCallback() {
+                @Override
+                public void onSuccess() {
                     Log.i(TAG, "New session started successfully.");
                     
                     // Initialize Azure Speech if mode switched from Realtime → Azure
@@ -1108,6 +1235,22 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
                         // The "Ready" message is handled by the "session.updated" event.
                         // We can now start listening for user input.
                         startContinuousRecognition();
+                    }
+                }
+                
+                @Override
+                public void onError(Throwable error) {
+                    // Filter out harmless race condition errors from provider switching
+                    if (error.getMessage() != null && 
+                        error.getMessage().contains("WebSocket closed before session was updated")) {
+                        Log.w(TAG, "Harmless race condition during provider switch - session will recover");
+                        // Don't show error to user, new session should be establishing
+                    } else {
+                        Log.e(TAG, "Failed to start new session", error);
+                        runOnUiThread(() -> {
+                            addMessage(getString(R.string.new_session_error), ChatMessage.Sender.ROBOT);
+                            statusTextView.setText(getString(R.string.error_connection_failed_short));
+                        });
                     }
                 }
             });
@@ -1671,8 +1814,8 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
      */
     private void disconnectWebSocketGracefully() {
         if (sessionManager != null) {
-            // Clear any pending connection promises to prevent race conditions
-            connectionPromise = null;
+            // Clear any pending connection callbacks to prevent race conditions
+            connectionCallback = null;
             
             // Cancel any ongoing responses to prevent them from interfering
             if (hasActiveResponse && currentResponseId != null) {
@@ -1691,8 +1834,8 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
     }
 
     // Wrapper to initiate WebSocket connection via sessionManager and wait for session.updated
-    private Future<Void> connectWebSocket() {
-        connectionPromise = new Promise<>();
+    private void connectWebSocket(WebSocketConnectionCallback callback) {
+        connectionCallback = callback;
         if (sessionManager == null) {
             Log.w(TAG, "sessionManager was null in connectWebSocket - this should not happen");
             sessionManager = new RealtimeSessionManager();
@@ -1704,7 +1847,7 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         }
         if (sessionManager.isConnected()) {
             completeConnectionPromise();
-            return connectionPromise.getFuture();
+            return;
         }
         // Get current API provider and build connection parameters
         RealtimeApiProvider provider = settingsManager.getApiProvider();
@@ -1734,7 +1877,6 @@ public class ChatActivity extends AppCompatActivity implements RobotLifecycleCal
         
         Log.d(TAG, "Connecting to " + provider.getDisplayName() + " - URL: " + url);
         sessionManager.connect(url, headers);
-        return connectionPromise.getFuture();
     }
 
     private RealtimeSessionManager.Listener createSessionManagerListener() {

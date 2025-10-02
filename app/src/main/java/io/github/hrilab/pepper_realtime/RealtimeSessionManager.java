@@ -333,11 +333,36 @@ public class RealtimeSessionManager {
                 sessionConfig.put("audio", audio);
                 // Note: temperature not supported in GA API
             } else {
-                // All other combinations use direct voice and legacy parameters
+                // Preview/Mini models (Beta API) - use legacy parameters with server VAD
                 sessionConfig.put("voice", voice);
                 sessionConfig.put("temperature", temperature);
                 sessionConfig.put("output_audio_format", "pcm16");
-                sessionConfig.put("turn_detection", JSONObject.NULL);
+                
+                // Enable server VAD for Realtime API audio input
+                if (settingsManager.isUsingRealtimeAudioInput()) {
+                    JSONObject turnDetection = new JSONObject();
+                    turnDetection.put("type", "server_vad");
+                    sessionConfig.put("turn_detection", turnDetection);
+                    
+                    // Configure input audio format
+                    sessionConfig.put("input_audio_format", "pcm16");
+                    
+                    // Enable input audio transcription
+                    JSONObject inputTranscription = new JSONObject();
+                    inputTranscription.put("model", "whisper-1");
+                    String langCode = settingsManager.getLanguage();
+                    // Convert "de-CH" to "de" (ISO-639-1)
+                    if (langCode.contains("-")) {
+                        langCode = langCode.split("-")[0];
+                    }
+                    inputTranscription.put("language", langCode);
+                    sessionConfig.put("input_audio_transcription", inputTranscription);
+                    
+                    Log.i(TAG, "Beta API: Server VAD and input transcription enabled (language: " + langCode + ")");
+                } else {
+                    // Azure Speech mode - disable server VAD
+                    sessionConfig.put("turn_detection", JSONObject.NULL);
+                }
             }
             sessionConfig.put("instructions", systemPrompt);
             
@@ -444,9 +469,36 @@ public class RealtimeSessionManager {
                 sessionConfig.put("audio", audio);
                 // Note: temperature not supported in GA API
             } else {
-                // All other combinations use direct voice and legacy parameters
+                // Preview/Mini models (Beta API) - use legacy parameters with server VAD
                 sessionConfig.put("voice", voice);
                 sessionConfig.put("temperature", temperature);
+                sessionConfig.put("output_audio_format", "pcm16");
+                
+                // Enable server VAD for Realtime API audio input
+                if (settingsManager.isUsingRealtimeAudioInput()) {
+                    JSONObject turnDetection = new JSONObject();
+                    turnDetection.put("type", "server_vad");
+                    sessionConfig.put("turn_detection", turnDetection);
+                    
+                    // Configure input audio format
+                    sessionConfig.put("input_audio_format", "pcm16");
+                    
+                    // Enable input audio transcription
+                    JSONObject inputTranscription = new JSONObject();
+                    inputTranscription.put("model", "whisper-1");
+                    String langCode = settingsManager.getLanguage();
+                    // Convert "de-CH" to "de" (ISO-639-1)
+                    if (langCode.contains("-")) {
+                        langCode = langCode.split("-")[0];
+                    }
+                    inputTranscription.put("language", langCode);
+                    sessionConfig.put("input_audio_transcription", inputTranscription);
+                    
+                    Log.i(TAG, "Beta API update: Server VAD and input transcription enabled (language: " + langCode + ")");
+                } else {
+                    // Azure Speech mode - disable server VAD
+                    sessionConfig.put("turn_detection", JSONObject.NULL);
+                }
             }
             sessionConfig.put("instructions", systemPrompt);
             

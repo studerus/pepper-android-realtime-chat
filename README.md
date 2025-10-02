@@ -5,39 +5,36 @@ A sophisticated conversational AI application for the Pepper robot using OpenAI'
 ## ✨ Features
 
 ### Core Capabilities
-- **🎙️ Real-time Voice Chat** - Natural conversations using OpenAI's Realtime API with confidence-based speech recognition
+- **🎙️ Real-time Voice Chat** - Natural conversations using OpenAI's Realtime API (OpenAI Direct or Azure OpenAI for enhanced privacy) with two audio input modes:
+  - **Realtime API audio streaming** - Direct audio input with native voice activity detection
+  - **Azure Speech Services STT** - Streaming transcription with superior dialect recognition and confidence scores (warns AI when transcription quality is low)
 - **🤖 Pepper Robot Integration** - Synchronized gestures and expressive animations (wave, bow, applause, kisses, etc.)
+- **👁️ Gaze Control** - Precise 3D head/eye positioning with duration control and automatic return
+- **👁️ Vision Analysis** - Camera-based image understanding and analysis with intelligent obstacle detection
 - **👋 Touch Interaction** - Responds to touches on head, hands, and bumpers with contextual AI reactions
 - **🗺️ Navigation & Mapping** - Complete room mapping and autonomous navigation system
 - **👥 Human Approach** - Intelligent human detection and social interaction initiation
 - **👁️ Human Perception Dashboard** - Real-time display of detected people with emotions, attention, and distance
 - **🔍 Azure Face Analysis** - Advanced facial analysis with pose, glasses, mask detection, and image quality assessment
-- **👁️ Vision Analysis** - Camera-based image understanding and analysis with intelligent obstacle detection
 - **🌐 Internet Search** - Real-time web search capabilities via Tavily API
 - **🌤️ Weather Information** - Current weather and forecasts via OpenWeatherMap API
 - **🎯 Interactive Quizzes** - Dynamic quiz generation and interaction
 - **🎮 Tic Tac Toe Game** - Play against the AI with voice commands and visual board
 - **🧠 Memory Game** - Card-matching game with multiple difficulty levels
-
-### Navigation & Mapping Features
-- **🗺️ Manual Mapping** - Guide Pepper through rooms to create detailed maps
-- **📍 Location Saving** - Save named locations with high precision during mapping
-- **🧭 Autonomous Navigation** - Navigate to any saved location with voice commands
-- **👥 Human Approach** - Automatically detect and approach people for social interaction
-- **🎯 Intelligent Location Recognition** - AI automatically suggests similar location names
-- **⚡ Dynamic Location Lists** - AI always knows available locations
-- **🔍 Intelligent Obstacle Analysis** - When movement is blocked, AI automatically uses vision to identify obstacles
-
-### Technical Features
-- **Multi-modal AI** - Audio, text, and vision processing
-- **WebSocket-based** - Low-latency real-time communication
-- **Modular Architecture** - Clean separation of concerns
-- **Graceful Degradation** - Optional features work independently
-- **Dynamic Tool Registration** - Only available features are registered
+- **📱 Modern Tablet UI** - Clean chat interface with interactive function cards, real-time overlays, and adaptive toolbar
 
 ## 🚀 Quick Start
 
+This project supports **two build flavors** to accommodate different use cases:
+
+- **🤖 Pepper Flavor** - Full application with all robot features (navigation, gestures, sensors, robot camera)
+- **📱 Standalone Flavor** - Runs on any Android device for testing conversational AI without robot hardware
+
+Both flavors share the same core conversational AI system but differ in hardware integration. The standalone version uses stub implementations for robot-specific features and your device's camera instead of Pepper's camera.
+
 ### Requirements
+
+#### For Pepper Robot (Full Functionality)
 - **Target Robot**: Pepper v1.8 running NAOqi OS 2.9.5
 - **Required IDE**: Android Studio (latest stable version recommended)
 - **Build Configuration**:
@@ -47,6 +44,13 @@ A sophisticated conversational AI application for the Pepper robot using OpenAI'
   - MinSdk: `23` (Android 6.0)
   - Java Version: `17`
 - **API Keys**: For full functionality, API keys for various services are required (see "Configure API Keys" section below)
+
+#### For Standalone Mode (Testing on any Android Device)
+- **Target Device**: Any Android device running Android 6.0+ (API 23+)
+- **IDE**: Android Studio (latest stable version recommended)
+- **Build Configuration**: Same as above
+- **Purpose**: Test conversational AI, tool system, and generic features without robot hardware
+- **Limitations**: Robot-specific features (navigation, gestures, camera, sensors) are simulated with log output
 
 ### Modern Development Without the Plugin
 This project uses modern Android Studio versions **without** the deprecated Pepper SDK plugin. The plugin is no longer maintained and incompatible with recent Android Studio versions. Instead, we configure the project manually following the approach documented here: **[Pepper with Android Studio in 2024](https://github.com/unitedroboticsgroup-france/MyPepperApplication)**.
@@ -64,8 +68,8 @@ Pepper v1.8 runs Android 6.0 (API Level 23). This limits some third-party librar
 ### 1. Clone and Configure
 
 ```bash
-git clone https://github.com/studerus/pepper-android-realtime-chat.git
-cd pepper-android-realtime-chat
+git clone https://github.com/[ANONYMIZED]/pepper-realtime-conversation.git
+cd pepper-realtime-conversation
 ```
 
 **Create configuration file:**
@@ -73,31 +77,52 @@ cd pepper-android-realtime-chat
 
 ### 2. Configure API Keys
 
-Edit `local.properties` and add your API keys:
+Edit `local.properties` and add your API keys. See the **[API Key Setup](#-api-key-setup)** section below for detailed instructions on obtaining these keys.
 
 ```properties
 # REALTIME API PROVIDERS (Choose one or configure both)
-# Option 1: Azure OpenAI - Realtime API
+OPENAI_API_KEY=your_openai_api_key_here
 AZURE_OPENAI_KEY=your_azure_openai_key_here
 AZURE_OPENAI_ENDPOINT=your-resource.openai.azure.com
 
-# Option 2: OpenAI Direct - Latest gpt-realtime model
-OPENAI_API_KEY=your_openai_api_key_here
-
-# SPEECH RECOGNITION (Optional - only needed for Azure Speech mode)
-# The app uses Realtime API for audio input by default (simple setup)
-# Switch to Azure Speech in app Settings → Audio Input for better dialect recognition
+# OPTIONAL: Additional features
 AZURE_SPEECH_KEY=your_azure_speech_key_here
 AZURE_SPEECH_REGION=your_azure_region
-
-# OPTIONAL: Additional features
-GROQ_API_KEY=your_groq_key_here          # For alternative vision analysis
-TAVILY_API_KEY=your_tavily_key_here      # For internet search
-OPENWEATHER_API_KEY=your_weather_key     # For weather information
-YOUTUBE_API_KEY=your_youtube_api_key     # For video playback
+GROQ_API_KEY=your_groq_key_here
+TAVILY_API_KEY=your_tavily_key_here
+OPENWEATHER_API_KEY=your_weather_key
+YOUTUBE_API_KEY=your_youtube_api_key
 ```
 
-### 3. Open in Android Studio
+### 3. Build Your Flavor
+
+**🤖 Pepper Flavor (Default)** - Full robot functionality
+```bash
+# Build for Pepper robot
+./gradlew assemblePepperDebug
+```
+- Includes all robot-specific features (navigation, gestures, camera, sensors)
+- Requires Pepper robot hardware
+- QiSDK and related dependencies included
+
+**📱 Standalone Flavor** - Testing on any Android device
+```bash
+# Build for standalone testing
+./gradlew assembleStandaloneDebug
+```
+- Works on any Android device (phone, tablet)
+- All generic AI features functional (chat, internet search, quizzes, games, weather)
+- **Vision analysis with device camera** - uses front camera for automatic photo capture
+- Robot features simulated (movements/gestures logged only)
+- Perfect for testing conversational AI and tool system without robot hardware
+- Useful for demonstrations and development
+
+**In Android Studio:**
+- Select build flavor from: `Build` → `Select Build Variant`
+- Choose `pepperDebug` for Pepper robot
+- Choose `standaloneDebug` for testing on any device
+
+### 4. Open in Android Studio
 
 1. Open Android Studio (latest stable version)
 2. Select **"Open"** and choose the project directory
@@ -119,7 +144,7 @@ YOUTUBE_API_KEY=your_youtube_api_key     # For video playback
 #### Step 3: Connect via ADB
 1. Open the **Terminal** in Android Studio (bottom toolbar)
 2. Run the following command (replace with Pepper's actual IP):
-   ```bash
+```bash
    adb connect 192.168.1.100
    ```
 3. On Pepper's tablet, an **"Allow USB debugging?"** popup will appear
@@ -136,25 +161,81 @@ YOUTUBE_API_KEY=your_youtube_api_key     # For video playback
 
 **Alternative: Manual APK Installation**
 ```bash
-# Build the APK
-./gradlew assembleDebug
+# Build the Pepper APK
+./gradlew assemblePepperDebug
 
 # Install via ADB
-adb install app/build/outputs/apk/debug/app-debug.apk
+adb install app/build/outputs/apk/pepper/debug/app-pepper-debug.apk
 ```
+
+### 5. Install Standalone Version on Android Device
+
+The standalone version allows testing the conversational AI system on any Android phone or tablet without requiring Pepper hardware.
+
+#### Option 1: Via ADB (Recommended if USB works)
+```bash
+# Build the standalone APK
+./gradlew assembleStandaloneDebug
+
+# Connect your Android device via USB (USB debugging enabled)
+adb devices
+
+# Install the APK
+adb install app/build/outputs/apk/standalone/debug/app-standalone-debug.apk
+```
+
+#### Option 2: Manual Transfer (No USB required)
+1. Build the APK:
+   ```bash
+   ./gradlew assembleStandaloneDebug
+   ```
+2. Copy the APK file from `app/build/outputs/apk/standalone/debug/app-standalone-debug.apk` to your Android device
+   - Via cloud storage (Google Drive, OneDrive, etc.)
+   - Via email attachment
+   - Via file transfer (when USB in file mode)
+3. On your Android device:
+   - Enable **"Install from Unknown Sources"** in Settings → Security
+   - Open the APK file in your file manager
+   - Tap **"Install"**
+
+#### What Works in Standalone Mode
+- ✅ Full conversational AI (Realtime API or Azure Speech)
+- ✅ Vision analysis (uses device front camera for automatic photo capture)
+- ✅ Internet search, weather, quizzes, games
+- ✅ All generic tools and function calling
+- ⏸️ Robot movements/gestures (simulated and logged)
+- ⏸️ Navigation and mapping (simulated)
+
+**Note:** The app requires camera permission for vision analysis. Grant camera access when prompted.
 
 ## 🔑 API Key Setup
 
 ### Required APIs (Core Functionality)
 
-#### Azure OpenAI (Realtime API)
+**Choose one of the following Realtime API providers:**
+
+#### Option 1: OpenAI Direct (Recommended - Easiest Setup)
+1. Go to [platform.openai.com](https://platform.openai.com/)
+2. Create an API key
+3. That's it! The app supports all Realtime API models:
+   - `gpt-realtime` (GA model with built-in vision)
+   - `gpt-4o-realtime-preview` (Preview model)
+   - `gpt-4o-mini-realtime-preview` (Mini model - significantly lower cost)
+
+#### Option 2: Azure OpenAI (Enterprise Option with Privacy Benefits)
 1. Go to [Azure Portal](https://portal.azure.com/)
 2. Create an Azure OpenAI resource
 3. Deploy one or more of the supported models:
    - `gpt-realtime` (GA model with built-in vision)
    - `gpt-4o-realtime-preview` (Preview model)
-   - `gpt-4o-mini-realtime-preview` (Mini preview model)
+   - `gpt-4o-mini-realtime-preview` (Mini model - significantly lower cost)
 4. Copy your API key and endpoint
+
+**Privacy & Compliance Advantages:**
+- **Data Residency**: Data processed and stored within your chosen Azure region (EU/Switzerland available for GDPR compliance)
+- **No Training on Your Data**: Microsoft guarantees that customer data is not used for model training
+- **Enterprise Controls**: Role-based access control, encryption at rest and in transit, comprehensive audit logging
+- **Compliance**: Supports GDPR, HIPAA, and other regulatory frameworks
 
 ### Optional APIs (Extended Features)
 
@@ -162,9 +243,9 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 - **Default**: App uses Realtime API for audio input (no separate key needed)
 - **Alternative**: Azure Speech for better dialect recognition
 - **Setup**: 
-  1. Go to [Azure Portal](https://portal.azure.com/)
-  2. Create a Speech Services resource
-  3. Copy your API key and region
+1. Go to [Azure Portal](https://portal.azure.com/)
+2. Create a Speech Services resource
+3. Copy your API key and region
   4. In app: Settings → Audio Input → "Azure Speech (Best for Dialects)"
 
 #### Azure Face API (Advanced Face Analysis - Optional)
@@ -248,7 +329,7 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 - **Tap the menu** (⋮) in the top-right corner or **swipe from right** to access settings drawer
 
 ### Available Settings
-- **API Provider** - Choose between Azure OpenAI and OpenAI Direct
+- **API Provider** - Choose between OpenAI Direct and Azure OpenAI
 - **Model Selection** - Select from gpt-realtime, gpt-4o-realtime-preview, or gpt-4o-mini-realtime-preview
 - **Voice Selection** - Choose from 10 available voices (alloy, ash, ballad, cedar, coral, echo, marin, sage, shimmer, verse)
 - **System Prompt** - Customize the AI's personality and behavior instructions
@@ -262,8 +343,8 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 #### API Provider Selection
 You can switch between different Realtime API providers in the settings:
 
-- **Azure OpenAI**: Supports all three models (`gpt-realtime`, `gpt-4o-realtime-preview`, `gpt-4o-mini-realtime-preview`) with your Azure deployment
-- **OpenAI Direct**: Supports all three models (`gpt-realtime`, `gpt-4o-realtime-preview`, `gpt-4o-mini-realtime-preview`) directly from OpenAI
+- **OpenAI Direct** (Recommended): Supports all three models (`gpt-realtime`, `gpt-4o-realtime-preview`, `gpt-4o-mini-realtime-preview`) directly from OpenAI
+- **Azure OpenAI** (Enterprise): Supports all three models (`gpt-realtime`, `gpt-4o-realtime-preview`, `gpt-4o-mini-realtime-preview`) with your Azure deployment
 
 **Note**: Changing the API provider will restart the session automatically.
 
@@ -315,11 +396,11 @@ Robot: "Navigating to kitchen (high-precision location)..."
 The AI automatically knows all available locations and can suggest corrections:
 
 ```bash
-User: "Go to Tür"
-Robot: "I have these locations: Türe, Kitchen, Printer. Did you mean 'Türe'?"
+User: "Go to dorm"
+Robot: "I have these locations: Door, Kitchen, Printer. Did you mean 'Door'?"
 
-User: "Yes, Tür" 
-Robot: "Navigating to Türe..."
+User: "Yes, door" 
+Robot: "Navigating to door..."
 ```
 
 ### Key Features
@@ -647,55 +728,119 @@ AI: "Gerne! Hier ist ein Witz für dich..."
 
 ### Project Structure
 ```
-app/src/main/java/io/github/studerus/pepper_android_realtime/
-├── ChatActivity.java                # Main application
-├── ApiKeyManager.java               # API key management
-├── RealtimeSessionManager.java      # WebSocket handling
-├── MovementController.java          # Robot movement coordination
-├── NavigationServiceManager.java    # Navigation system management
-├── PerceptionService.java           # Human detection and awareness
-├── VisionService.java               # Camera and image analysis
-├── OptimizedAudioPlayer.java        # Real-time audio playback
-├── GestureController.java           # Robot animations and gestures
-├── SettingsManager.java             # App configuration and UI
-├── DashboardManager.java            # Human perception dashboard overlay
-├── FaceRecognitionService.java     # Azure Face API integration for advanced facial analysis
-├── TouchSensorManager.java         # Physical touch interaction management
-├── SpeechRecognizerManager.java    # Azure Speech Recognition with confidence scoring
-├── data/
-│   ├── LocationProvider.java        # Location data management
-│   └── SavedLocation.java           # Location data model
-├── managers/
-│   ├── QuizDialogManager.java       # Quiz UI management
-│   └── YouTubePlayerManager.java    # Video playback management
-├── tools/
-│   ├── entertainment/
-│   │   ├── PlayAnimationTool.java   # Pepper animation control
-│   │   └── PlayYouTubeVideoTool.java # Video search and playback
-│   ├── games/
-│   │   ├── MemoryGameTool.java      # Memory card game
-│   │   ├── MemoryGameDialog.java    # Memory game UI
-│   │   ├── TicTacToeStartTool.java  # Tic Tac Toe game initialization
-│   │   └── QuizTool.java            # Interactive quiz system
-│   ├── information/
-│   │   ├── GetDateTimeTool.java     # Date/time queries
-│   │   ├── GetWeatherTool.java      # Weather information
-│   │   ├── SearchInternetTool.java  # Web search via Tavily
-│   │   └── GetRandomJokeTool.java   # Joke database access
-│   ├── navigation/
-│   │   ├── ApproachHumanTool.java   # Human approach functionality
-│   │   ├── MovePepperTool.java      # Basic movement control with intelligent obstacle analysis
-│   │   ├── LookAtPositionTool.java  # 3D gaze control with duration and auto-return
-│   │   ├── NavigateToLocationTool.java # Location navigation
-│   │   └── CreateEnvironmentMapTool.java # Mapping system
-│   ├── vision/
-│   │   └── AnalyzeVisionTool.java   # Vision analysis (gpt-realtime/Groq)
-│   ├── Tool.java                    # Tool interface definition
-│   ├── ToolContext.java             # Shared tool dependencies
-│   └── ToolRegistryNew.java         # Dynamic tool registration
-└── ui/
-    ├── MapPreviewView.java          # Navigation map visualization
-    └── MapState.java                # Map state management
+app/src/
+├── main/java/io/github/hrilab/pepper_realtime/    # Shared code for all flavors
+│   ├── ChatActivity.java                # Main application with lifecycle management
+│   ├── ApiKeyManager.java               # API key management
+│   ├── RealtimeSessionManager.java      # WebSocket handling
+│   ├── RealtimeEventHandler.java        # Realtime API event processing
+│   ├── RealtimeAudioInputManager.java   # Audio streaming to Realtime API
+│   ├── MovementController.java          # Robot movement coordination
+│   ├── NavigationServiceManager.java    # Navigation system management
+│   ├── PerceptionService.java           # Human detection and awareness
+│   ├── VisionService.java               # Camera and image analysis
+│   ├── OptimizedAudioPlayer.java        # Real-time audio playback
+│   ├── GestureController.java           # Robot animations and gestures
+│   ├── SettingsManager.java             # App configuration and UI
+│   ├── DashboardManager.java            # Human perception dashboard overlay
+│   ├── FaceRecognitionService.java      # Azure Face API integration
+│   ├── TouchSensorManager.java          # Physical touch interaction management
+│   ├── SpeechRecognizerManager.java     # Azure Speech Recognition with confidence scoring
+│   ├── TurnManager.java                 # Conversational turn state management
+│   ├── data/
+│   │   ├── LocationProvider.java        # Location data management
+│   │   └── SavedLocation.java           # Location data model
+│   ├── managers/
+│   │   ├── QuizDialogManager.java       # Quiz UI management
+│   │   └── YouTubePlayerManager.java    # Video playback management
+│   ├── tools/
+│   │   ├── entertainment/
+│   │   │   ├── PlayAnimationTool.java   # Robot animation control
+│   │   │   └── PlayYouTubeVideoTool.java # Video search and playback
+│   │   ├── games/
+│   │   │   ├── MemoryGameTool.java      # Memory card game
+│   │   │   ├── MemoryGameDialog.java    # Memory game UI
+│   │   │   ├── TicTacToeStartTool.java  # Tic Tac Toe initialization
+│   │   │   └── QuizTool.java            # Interactive quiz system
+│   │   ├── information/
+│   │   │   ├── GetDateTimeTool.java     # Date/time queries
+│   │   │   ├── GetWeatherTool.java      # Weather information
+│   │   │   ├── SearchInternetTool.java  # Web search via Tavily
+│   │   │   └── GetRandomJokeTool.java   # Joke database access
+│   │   ├── navigation/
+│   │   │   ├── ApproachHumanTool.java   # Human approach functionality
+│   │   │   ├── MovePepperTool.java      # Movement with obstacle analysis
+│   │   │   ├── LookAtPositionTool.java  # 3D gaze control
+│   │   │   ├── NavigateToLocationTool.java # Location navigation
+│   │   │   └── CreateEnvironmentMapTool.java # Mapping system
+│   │   ├── vision/
+│   │   │   └── AnalyzeVisionTool.java   # Vision analysis (gpt-realtime/Groq)
+│   │   ├── Tool.java                    # Tool interface definition
+│   │   ├── ToolContext.java             # Shared tool dependencies
+│   │   └── ToolRegistryNew.java         # Dynamic tool registration
+│   └── ui/
+│       ├── MapPreviewView.java          # Navigation map visualization
+│       └── MapState.java                # Map state management
+│
+├── pepper/java/io/github/hrilab/pepper_realtime/    # Pepper-specific implementations
+│   ├── robot/
+│   │   ├── RobotControllerImpl.java     # Real QiContext implementation
+│   │   └── RobotLifecycleBridgeImpl.java # QiSDK lifecycle integration
+│   ├── GestureController.java           # Real Pepper animations
+│   ├── MovementController.java          # Real robot movement
+│   ├── NavigationServiceManager.java    # Real navigation system
+│   ├── NavigationMapCache.java          # Real map loading
+│   ├── LocalizationCoordinator.java     # Real localization
+│   ├── PerceptionService.java           # Real human detection
+│   ├── VisionService.java               # Pepper camera implementation
+│   ├── TouchSensorManager.java          # Real touch sensors
+│   ├── RobotSafetyGuard.java            # Real safety system
+│   ├── ui/
+│   │   └── MapPreviewView.java          # Real map preview
+│   └── tools/
+│       ├── entertainment/
+│       │   └── PlayAnimationTool.java   # Real animation control
+│       ├── navigation/
+│       │   ├── ApproachHumanTool.java   # Real human approach
+│       │   ├── MovePepperTool.java      # Real movement
+│       │   ├── TurnPepperTool.java      # Real turning
+│       │   ├── LookAtPositionTool.java  # Real gaze control
+│       │   ├── NavigateToLocationTool.java # Real navigation
+│       │   ├── CreateEnvironmentMapTool.java # Real mapping
+│       │   ├── FinishEnvironmentMapTool.java # Real map finalization
+│       │   └── SaveCurrentLocationTool.java # Real location saving
+│       └── vision/
+│           └── AnalyzeVisionTool.java   # Pepper camera vision
+│
+└── standalone/java/io/github/hrilab/pepper_realtime/   # Standalone stub implementations
+    ├── robot/
+    │   ├── RobotControllerImpl.java     # Stub (no robot hardware)
+    │   └── RobotLifecycleBridgeImpl.java # Simulated lifecycle
+    ├── GestureController.java           # Stub (logs only)
+    ├── MovementController.java          # Stub (logs only)
+    ├── NavigationServiceManager.java    # Stub (logs only)
+    ├── NavigationMapCache.java          # Stub (logs only)
+    ├── LocalizationCoordinator.java     # Stub (logs only)
+    ├── PerceptionService.java           # Stub (logs only)
+    ├── VisionService.java               # Android Camera2 API (real!)
+    ├── TouchSensorManager.java          # Stub (logs only)
+    ├── RobotSafetyGuard.java            # Stub (logs only)
+    ├── ui/
+    │   └── MapPreviewView.java          # Stub (empty preview)
+    └── tools/
+        ├── entertainment/
+        │   └── PlayAnimationTool.java   # Stub (logs only)
+        ├── navigation/
+        │   ├── ApproachHumanTool.java   # Stub (logs only)
+        │   ├── MovePepperTool.java      # Stub (logs only)
+        │   ├── TurnPepperTool.java      # Stub (logs only)
+        │   ├── LookAtPositionTool.java  # Stub (logs only)
+        │   ├── NavigateToLocationTool.java # Stub (logs only)
+        │   ├── CreateEnvironmentMapTool.java # Stub (logs only)
+        │   ├── FinishEnvironmentMapTool.java # Stub (logs only)
+        │   └── SaveCurrentLocationTool.java # Stub (logs only)
+        └── vision/
+            └── AnalyzeVisionTool.java   # Device camera vision (real!)
 ```
 
 ### Key Configuration Files
@@ -708,9 +853,9 @@ app/src/main/java/io/github/studerus/pepper_android_realtime/
 ### Common Issues
 
 #### "Not connected to server"
-- Check your Azure OpenAI API key and endpoint
+- Check your OpenAI or Azure OpenAI API key and endpoint
 - Verify internet connectivity
-- Ensure the deployment name matches your Azure setup
+- For Azure: Ensure the deployment name matches your Azure setup
 
 #### "Vision analysis not available"
 - Vision works automatically with gpt-realtime model
@@ -871,13 +1016,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Groq** - Alternative vision analysis provider
 - **Tavily** - Internet search API
 - **OpenWeatherMap** - Weather data
-
-## 📞 Support
-
-For issues and questions:
-1. Check the [troubleshooting section](#-troubleshooting)
-2. Search [existing issues](https://github.com/studerus/pepper-android-realtime-chat/issues)
-3. Create a [new issue](https://github.com/studerus/pepper-android-realtime-chat/issues/new) with details
 
 ---
 

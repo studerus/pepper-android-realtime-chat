@@ -12,7 +12,6 @@
 
     <!-- Camera feature declaration for compatibility -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
-    <uses-feature android:name="com.softbank.hardware.pepper"/>
 
     <application
         android:allowBackup="true"
@@ -25,7 +24,8 @@
         android:largeHeap="true">
         <activity
             android:name=".ChatActivity"
-            android:exported="true">
+            android:exported="true"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

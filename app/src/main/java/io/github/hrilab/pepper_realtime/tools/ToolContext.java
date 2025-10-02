@@ -1,7 +1,6 @@
 package io.github.hrilab.pepper_realtime.tools;
 
 import android.content.Context;
-import com.aldebaran.qi.sdk.QiContext;
 import io.github.hrilab.pepper_realtime.ApiKeyManager;
 import io.github.hrilab.pepper_realtime.ChatActivity;
 import io.github.hrilab.pepper_realtime.MovementController;
@@ -15,14 +14,14 @@ import io.github.hrilab.pepper_realtime.data.LocationProvider;
 public class ToolContext {
     
     private final Context appContext;
-    private QiContext qiContext; // Made non-final to allow updates
+    private Object qiContext; // QiContext for Pepper, null for Standalone
     private final ChatActivity activity;
     private final ApiKeyManager apiKeyManager;
     private final MovementController movementController;
     private final LocationProvider locationProvider;
     
     // Constructor
-    public ToolContext(Context appContext, QiContext qiContext, ChatActivity activity,
+    public ToolContext(Context appContext, Object qiContext, ChatActivity activity,
                       ApiKeyManager apiKeyManager, MovementController movementController,
                       LocationProvider locationProvider) {
         this.appContext = appContext;
@@ -35,7 +34,7 @@ public class ToolContext {
     
     // Getters
     public Context getAppContext() { return appContext; }
-    public QiContext getQiContext() { return qiContext; }
+    public Object getQiContext() { return qiContext; }
     public ChatActivity getActivity() { return activity; }
     public ApiKeyManager getApiKeyManager() { return apiKeyManager; }
     @SuppressWarnings("unused")
@@ -63,9 +62,9 @@ public class ToolContext {
     
     /**
      * Update QiContext when robot focus changes
-     * @param newQiContext New QiContext or null if focus is lost
+     * @param newQiContext New QiContext (Pepper) or null (Standalone/focus lost)
      */
-    public void updateQiContext(QiContext newQiContext) {
+    public void updateQiContext(Object newQiContext) {
         this.qiContext = newQiContext;
     }
     

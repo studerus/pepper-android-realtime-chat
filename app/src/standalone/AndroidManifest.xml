@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Standalone mode - no robot hardware required -->
+    <!-- All features work on standard Android devices -->
+</manifest>
+
+

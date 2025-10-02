@@ -52,6 +52,20 @@ android {
         }
     }
 
+    flavorDimensions "mode"
+    productFlavors {
+        pepper {
+            dimension "mode"
+            applicationIdSuffix ".pepper"
+            versionNameSuffix "-pepper"
+        }
+        standalone {
+            dimension "mode"
+            applicationIdSuffix ".standalone"
+            versionNameSuffix "-standalone"
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled false
@@ -74,12 +88,12 @@ android {
 
 dependencies {
 
-    // Pepper SDK - ONLY THIS LINE IS NEEDED
-    implementation 'com.aldebaran:qisdk:1.7.5'
-    implementation 'com.aldebaran:qisdk-design:1.7.5'
+    // Pepper SDK - ONLY FOR PEPPER FLAVOR
+    pepperImplementation 'com.aldebaran:qisdk:1.7.5'
+    pepperImplementation 'com.aldebaran:qisdk-design:1.7.5'
 
-    // libqi Java bindings for direct NAOqi session access (remote services/events)
-    implementation 'com.aldebaran:libqi-java-android:2.9.0'
+    // libqi Java bindings for direct NAOqi session access (remote services/events) - ONLY FOR PEPPER
+    pepperImplementation 'com.aldebaran:libqi-java-android:2.9.0'
 
     // Azure Speech SDK (1.38.0 is the latest version compatible with minSdk 23)
     implementation 'com.microsoft.cognitiveservices.speech:client-sdk:1.38.0'
