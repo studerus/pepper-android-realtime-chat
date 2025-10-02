@@ -46,24 +46,20 @@ A sophisticated conversational AI application for the Pepper robot using OpenAI'
     </td>
   </tr>
   <tr>
-    <td colspan="3">
+    <td width="33%">
       <img src="screenshots/settings-panel.png" alt="Settings Panel" width="100%">
       <strong>Settings Panel</strong><br>
       Flexible configuration for API providers, audio modes, and feature toggles
     </td>
-  </tr>
-  <tr>
-    <td colspan="3">
+    <td width="33%">
       <img src="screenshots/vision-analysis.png" alt="Vision Analysis - Ceiling Detection" width="100%">
-      <strong>Vision Analysis - Step 1: Gaze Control</strong><br>
-      Robot looks at the ceiling using look_at_position tool and captures the image
+      <strong>Vision Analysis - Step 1</strong><br>
+      Robot looks at ceiling using look_at_position and captures image
     </td>
-  </tr>
-  <tr>
-    <td colspan="3">
+    <td width="33%">
       <img src="screenshots/vision-analysis2.png" alt="Vision Analysis - Detailed Description" width="100%">
-      <strong>Vision Analysis - Step 2: Image Understanding</strong><br>
-      AI analyzes the captured image and provides detailed description of the ceiling
+      <strong>Vision Analysis - Step 2</strong><br>
+      AI analyzes captured image and provides detailed description
     </td>
   </tr>
 </table>
