@@ -389,7 +389,7 @@ public class ChatActivity extends AppCompatActivity {
                     Log.e(TAG, "🤖 DIAGNOSTIC: TIMEOUT - No robot focus response after 30 seconds!");
                     Log.e(TAG, "🤖 DIAGNOSTIC: Mode: " + robotController.getModeName());
                     if (robotController.isRobotHardwareAvailable()) {
-                        Log.e(TAG, "🤖 DIAGNOSTIC: Check: 1) Robot is awake, 2) Robot is enabled, 3) QiSDK service is running");
+                    Log.e(TAG, "🤖 DIAGNOSTIC: Check: 1) Robot is awake, 2) Robot is enabled, 3) QiSDK service is running");
                     }
                     runOnUiThread(() -> statusTextView.setText(getString(R.string.robot_initialization_timeout)));
                 }
@@ -840,39 +840,39 @@ public class ChatActivity extends AppCompatActivity {
             connectWebSocket(new WebSocketConnectionCallback() {
                 @Override
                 public void onSuccess() {
-                    Log.i(TAG, "WebSocket connected successfully, starting STT warmup...");
-                    
-                    // Direct STT setup using SpeechRecognizerManager
-                    Log.i(TAG, "Executing STT setup on audio thread...");
-                    threadManager.executeAudio(() -> {
-                        try {
-                            setupSpeechRecognizer();
-                            
-                            runOnUiThread(() -> {
-                                // Hide warmup indicator after setup
-                                hideWarmupIndicator();
-                                isWarmingUp = false;
+                Log.i(TAG, "WebSocket connected successfully, starting STT warmup...");
+                
+                // Direct STT setup using SpeechRecognizerManager
+                Log.i(TAG, "Executing STT setup on audio thread...");
+                threadManager.executeAudio(() -> {
+                    try {
+                        setupSpeechRecognizer();
+                        
+                        runOnUiThread(() -> {
+                            // Hide warmup indicator after setup
+                            hideWarmupIndicator();
+                            isWarmingUp = false;
 
-                                Log.i(TAG, "STT setup complete. Entering LISTENING state.");
-                                if (turnManager != null) {
-                                    statusTextView.setText(getString(R.string.status_listening));
-                                    turnManager.setState(TurnManager.State.LISTENING);
-                                }
-                            });
+                            Log.i(TAG, "STT setup complete. Entering LISTENING state.");
+                            if (turnManager != null) {
+                                statusTextView.setText(getString(R.string.status_listening));
+                                turnManager.setState(TurnManager.State.LISTENING);
+                            }
+                        });
+                        
+                    } catch (Exception e) {
+                        Log.e(TAG, "STT setup failed", e);
+                        runOnUiThread(() -> {
+                            hideWarmupIndicator();
+                            isWarmingUp = false;
+                            addMessage(getString(R.string.warmup_failed_msg), ChatMessage.Sender.ROBOT);
+                            statusTextView.setText(getString(R.string.ready_sr_lazy_init));
                             
-                        } catch (Exception e) {
-                            Log.e(TAG, "STT setup failed", e);
-                            runOnUiThread(() -> {
-                                hideWarmupIndicator();
-                                isWarmingUp = false;
-                                addMessage(getString(R.string.warmup_failed_msg), ChatMessage.Sender.ROBOT);
-                                statusTextView.setText(getString(R.string.ready_sr_lazy_init));
-                                
-                                // Enter LISTENING state anyway - lazy init will handle STT when needed
-                                if (turnManager != null) turnManager.setState(TurnManager.State.LISTENING);
-                            });
-                        }
-                    });
+                            // Enter LISTENING state anyway - lazy init will handle STT when needed
+                            if (turnManager != null) turnManager.setState(TurnManager.State.LISTENING);
+                        });
+                    }
+                });
                 }
                 
                 @Override

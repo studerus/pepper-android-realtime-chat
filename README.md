@@ -18,14 +18,14 @@ A sophisticated conversational AI application for the Pepper robot using OpenAI'
       Expandable tool execution details with arguments and results
     </td>
     <td width="33%">
+      <img src="screenshots/settings-panel.png" alt="Settings Panel" width="100%">
+      <strong>Settings Panel</strong><br>
+      Configure API providers, system prompt, language settings, audio modes, and feature toggles
+    </td>
+    <td width="33%">
       <img src="screenshots/navigation-map-overlay.png" alt="Navigation Map" width="100%">
       <strong>Navigation Map Overlay</strong><br>
       Real-time map preview with saved locations
-    </td>
-    <td width="33%">
-      <img src="screenshots/tic-tac-toe-dialog.png" alt="Tic-Tac-Toe Game" width="100%">
-      <strong>Interactive Games</strong><br>
-      Voice-controlled Tic-Tac-Toe with visual board
     </td>
   </tr>
   <tr>
@@ -33,23 +33,6 @@ A sophisticated conversational AI application for the Pepper robot using OpenAI'
       <img src="screenshots/perception-dashboard.png" alt="Human Perception Dashboard" width="100%">
       <strong>Human Perception Dashboard</strong><br>
       Real-time human detection with emotions and attention tracking
-    </td>
-    <td width="33%">
-      <img src="screenshots/quiz.png" alt="Quiz Game" width="100%">
-      <strong>Quiz Game</strong><br>
-      Voice-controlled quiz with multiple choice answers
-    </td>
-    <td width="33%">
-      <img src="screenshots/memory-game.png" alt="Memory Game" width="100%">
-      <strong>Memory Game</strong><br>
-      Interactive memory card game on tablet
-    </td>
-  </tr>
-  <tr>
-    <td width="33%">
-      <img src="screenshots/settings-panel.png" alt="Settings Panel" width="100%">
-      <strong>Settings Panel</strong><br>
-      Flexible configuration for API providers, audio modes, and feature toggles
     </td>
     <td width="33%">
       <img src="screenshots/vision-analysis.png" alt="Vision Analysis - Ceiling Detection" width="100%">
@@ -60,6 +43,23 @@ A sophisticated conversational AI application for the Pepper robot using OpenAI'
       <img src="screenshots/vision-analysis2.png" alt="Vision Analysis - Detailed Description" width="100%">
       <strong>Vision Analysis - Step 2</strong><br>
       AI analyzes captured image and provides detailed description
+    </td>
+  </tr>
+  <tr>
+    <td width="33%">
+      <img src="screenshots/tic-tac-toe-dialog.png" alt="Tic-Tac-Toe Game" width="100%">
+      <strong>Tic-Tac-Toe Game</strong><br>
+      Voice-controlled Tic-Tac-Toe with visual board
+    </td>
+    <td width="33%">
+      <img src="screenshots/quiz.png" alt="Quiz Game" width="100%">
+      <strong>Quiz Game</strong><br>
+      Voice-controlled quiz with multiple choice answers
+    </td>
+    <td width="33%">
+      <img src="screenshots/memory-game.png" alt="Memory Game" width="100%">
+      <strong>Memory Game</strong><br>
+      Interactive memory card game on tablet
     </td>
   </tr>
 </table>
