@@ -73,7 +73,12 @@ cd pepper-realtime-conversation
 ```
 
 **Create configuration file:**
-- Copy or rename `local.properties.example` to `local.properties` in the project root directory
+- Copy `local.properties.example` to `local.properties` in the project root directory
+- **Important:** If you create `local.properties` manually, you must add your Android SDK path at the top:
+  ```properties
+  sdk.dir=C\:\\Users\\YOUR_USERNAME\\AppData\\Local\\Android\\Sdk
+  ```
+  (Android Studio adds this automatically when you sync the project)
 
 ### 2. Configure API Keys
 

@@ -1,14 +1,22 @@
-# This file is automatically signed by a salt, do not edit unless you know what you are doing
-# It is used for storing sensitive information like API keys and should not be checked into version control
-# For project setup instructions, see local.properties.example
+# Copy this file to 'local.properties' and add your API keys
+# 
+# IMPORTANT: Android Studio will automatically add the 'sdk.dir' line when you open the project.
+# If you create this file manually, you MUST add the following line at the top:
+# sdk.dir=C\:\\Users\\YOUR_USERNAME\\AppData\\Local\\Android\\Sdk
+#
+# This file should NOT be checked into version control as it contains sensitive API keys
+
+# =============================================================================
+# API Keys für Pepper Android Realtime
+# =============================================================================
 
 # REALTIME API PROVIDERS (Choose one or configure both)
-# Option 1: Azure OpenAI - Realtime API
+# Option 1: OpenAI Direct - Easiest setup (Recommended)
+OPENAI_API_KEY=your_openai_api_key_here
+
+# Option 2: Azure OpenAI - Enterprise option with privacy benefits
 AZURE_OPENAI_KEY=your_azure_openai_key_here
 AZURE_OPENAI_ENDPOINT=your-resource.openai.azure.com
-
-# Option 2: OpenAI Direct - Latest gpt-realtime model
-OPENAI_API_KEY=your_openai_api_key_here
 
 # SPEECH RECOGNITION (Optional - only needed for Azure Speech mode)
 # The app uses Realtime API for audio input by default (simple setup)
