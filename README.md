@@ -709,6 +709,27 @@ User: (Changes settings to de-DE, then speaks German)
 AI: "Gerne! Hier ist ein Witz für dich..."
 ```
 
+### Customizing the System Prompt
+
+The default system prompt is optimized following OpenAI's [Realtime API Prompting Guide](https://cookbook.openai.com/examples/realtime_prompting_guide). It includes:
+
+- **Structured sections** - Role, Personality, Tools, Instructions for better model understanding
+- **Sample phrases** - Consistent greetings, acknowledgments, and closings
+- **Variety rules** - Prevents repetitive responses ("I see" | "Got it" | "Understood")
+- **Tool integration** - Natural tool usage without explicit announcements
+- **Physical embodiment** - First-person perspective as the robot
+
+**To customize:**
+1. Edit the system prompt in `app/src/main/res/values/strings.xml` (search for `default_system_prompt`)
+2. Or modify it dynamically in Settings → System Prompt within the app
+3. Follow the [Realtime Prompting Guide](https://cookbook.openai.com/examples/realtime_prompting_guide) for best practices
+
+**Key tips from the guide:**
+- Use bullets over paragraphs for clarity
+- Guide with specific examples
+- Capitalize important rules for emphasis
+- Add conversation flow states for complex interactions
+
 ## 🏗️ Architecture
 
 ### Key Features
