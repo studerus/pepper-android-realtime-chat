@@ -106,33 +106,29 @@ A sophisticated conversational AI application for the Pepper robot using OpenAI'
 
 ## ✨ Features
 
-### Core Capabilities
-- **🎙️ Real-time Voice Chat** - Natural conversations using OpenAI's Realtime API (OpenAI Direct or Azure OpenAI for enhanced privacy) with two audio input modes:
+- **Dual Build Flavors** - Two app variants for different use cases:
+  - **Pepper Flavor** - Full robot integration with QiSDK for Pepper hardware
+  - **Standalone Flavor** - Runs on any Android device for testing and development without robot hardware
+- **Real-time Voice Chat** - Natural conversations using OpenAI's Realtime API (OpenAI Direct or Azure OpenAI for enhanced privacy) with two audio input modes:
   - **Realtime API audio streaming** - Direct audio input with native voice activity detection
   - **Azure Speech Services STT** - Streaming transcription with superior dialect recognition and confidence scores (warns AI when transcription quality is low)
-- **🤖 Pepper Robot Integration** - Synchronized gestures and expressive animations (wave, bow, applause, kisses, etc.)
-- **📱 Modern Tablet UI** - Clean chat interface with interactive function cards, real-time overlays, and adaptive toolbar
-- **👁️ Gaze Control** - Precise 3D head/eye positioning with duration control and automatic return
-- **👁️ Vision Analysis** - Camera-based image understanding and analysis with intelligent obstacle detection
-- **👋 Touch Interaction** - Responds to touches on head, hands, and bumpers with contextual AI reactions
-- **🗺️ Navigation & Mapping** - Complete room mapping and autonomous navigation system
-- **👥 Human Approach** - Intelligent human detection and social interaction initiation
-- **👁️ Human Perception Dashboard** - Real-time display of detected people with emotions, attention, and distance
-- **🔍 Azure Face Analysis** - Advanced facial analysis with pose, glasses, mask detection, and image quality assessment
-- **🌐 Internet Search** - Real-time web search capabilities via Tavily API
-- **🌤️ Weather Information** - Current weather and forecasts via OpenWeatherMap API
-- **🎯 Interactive Quizzes** - Dynamic quiz generation and interaction
-- **🎮 Tic Tac Toe Game** - Play against the AI with voice commands and visual board
-- **🧠 Memory Game** - Card-matching game with multiple difficulty levels
+- **Synchronized Gestures** - Automatic body language during speech output for natural communication
+- **Expressive Animations** - Rich library of robot animations triggered by voice commands (wave, bow, applause, kisses, laugh, etc.)
+- **Modern Tablet UI** - Clean chat interface with interactive function cards, real-time overlays, and adaptive toolbar
+- **Gaze Control** - Precise 3D head/eye positioning with duration control and automatic return
+- **Vision Analysis** - Camera-based image understanding and analysis with intelligent obstacle detection
+- **Touch Interaction** - Responds to touches on head, hands, and bumpers with contextual AI reactions
+- **Navigation & Mapping** - Complete room mapping and autonomous navigation system
+- **Human Approach** - Intelligent human detection and approaching
+- **Human Perception Dashboard** - Real-time display of detected people with emotions, attention, and distance
+- **Azure Face Analysis** - Advanced facial analysis with pose, glasses, mask detection, and image quality assessment
+- **Internet Search** - Real-time web search capabilities via Tavily API
+- **Weather Information** - Current weather and forecasts via OpenWeatherMap API
+- **Interactive Quizzes** - Dynamic quiz generation and interaction
+- **Tic Tac Toe Game** - Play against the AI with voice commands and visual board
+- **Memory Game** - Card-matching game with multiple difficulty levels
 
 ## 🚀 Quick Start
-
-**Setup Steps:**
-1. [Clone and Configure](#1-clone-and-configure)
-2. [Configure API Keys](#2-configure-api-keys)
-3. [Build Your Flavor](#3-build-your-flavor)
-4. [Open in Android Studio](#4-open-in-android-studio)
-5. [Connect to Pepper and Deploy](#5-connect-to-pepper-and-deploy) (Pepper) / [Install Standalone Version](#6-install-standalone-version-on-android-device) (Standalone)
 
 This project supports **two build flavors** to accommodate different use cases:
 
@@ -162,17 +158,18 @@ Both flavors share the same core conversational AI system but differ in hardware
 - **Limitations**: Robot-specific features (navigation, gestures, camera, sensors) are simulated with log output
 
 ### Modern Development Without the Plugin
-This project uses modern Android Studio versions **without** the deprecated Pepper SDK plugin. The plugin is no longer maintained and incompatible with recent Android Studio versions. Instead, we configure the project manually following the approach documented here: **[Pepper with Android Studio in 2024](https://github.com/unitedroboticsgroup-france/MyPepperApplication)**.
-
-**Key Benefits:**
-- ✅ Use latest Android Studio versions
-- ✅ Modern AndroidX libraries
-- ✅ Java 17 language features
-- ✅ Latest Gradle and build tools
-- ✅ Better IDE performance and features
+This project uses modern Android Studio versions **without** the deprecated Pepper SDK plugin. The plugin is no longer maintained and incompatible with recent Android Studio versions. Instead, we configure the project manually following the approach documented here: **[Pepper with Android Studio in 2024](https://github.com/unitedroboticsgroup-france/MyPepperApplication)**. This enables the use of the latest Android Studio versions, modern AndroidX libraries, Java 17 language features, and the latest Gradle and build tools with improved IDE performance.
 
 **Note on API 23 (Android 6.0) Compatibility:**
 Pepper v1.8 runs Android 6.0 (API Level 23). This limits some third-party libraries to older versions, as many newer releases require Android 8.0+ (API 26+) for features like `java.util.Base64` and `MethodHandle`. Despite this constraint, the project uses the latest compatible versions of all dependencies and modern development tools (Gradle 8.13, Java 17, Android Studio latest).
+
+### Setup Steps
+
+1. [Clone and Configure](#1-clone-and-configure)
+2. [Configure API Keys](#2-configure-api-keys)
+3. [Build Your Flavor](#3-build-your-flavor)
+4. [Open in Android Studio](#4-open-in-android-studio)
+5. [Connect to Pepper and Deploy](#5-connect-to-pepper-and-deploy) (Pepper) / [Install Standalone Version](#6-install-standalone-version-on-android-device) (Standalone)
 
 ### 1. Clone and Configure
 
