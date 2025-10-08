@@ -120,7 +120,7 @@
             android:visibility="gone"
             tools:visibility="visible">
 
-            <io.github.hrilab.pepper_realtime.ui.MapPreviewView
+            <io.github.anonymous.pepper_realtime.ui.MapPreviewView
                 android:id="@+id/map_preview_view"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent" />

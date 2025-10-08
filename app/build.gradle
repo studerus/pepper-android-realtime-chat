@@ -3,11 +3,11 @@ plugins {
 }
 
 android {
-    namespace 'io.github.hrilab.pepper_realtime'
+    namespace 'io.github.anonymous.pepper_realtime'
     compileSdk 35
 
     defaultConfig {
-        applicationId "io.github.hrilab.pepper_realtime"
+        applicationId "io.github.anonymous.pepper_realtime"
         minSdk 23
         targetSdk 35
         versionCode 1

@@ -1,6 +1,6 @@
-# Pepper Android Realtime Chat
+# Pepper Realtime AI Assistant
 
-A sophisticated conversational AI application for the Pepper robot using OpenAI's Realtime API. This app enables natural voice conversations with advanced features like vision analysis, internet search, autonomous navigation, dynamic gesture control, and interactive tablet games.
+A multimodal AI system for the Pepper robot powered by OpenAI's Realtime API. It enables natural interactions through voice, touch, vision, and movement, with advanced function calling for robot control (navigation, gestures, animations), information tools (search, weather), and interactive tablet activities (quizzes, memory games, tic-tac-toe).
 
 <p align="center">
   <img src="screenshots/IMG_20251002_141923.jpg" alt="Pepper Robot with Chat Interface" width="50%">
@@ -173,6 +173,11 @@ Pepper v1.8 runs Android 6.0 (API Level 23). This limits some third-party librar
 
 ### 1. Clone and Configure
 
+**Option A: From ZIP file (Code Submission)**
+1. Extract the ZIP file to your desired location
+2. Open a terminal in the extracted project directory
+
+**Option B: From Git (when publicly available)**
 ```bash
 git clone https://github.com/[ANONYMIZED]/pepper-realtime-conversation.git
 cd pepper-realtime-conversation
@@ -1251,7 +1256,7 @@ This approach provides natural-looking robot behavior even when using external a
 ### Project Structure
 ```
 app/src/
-├── main/java/io/github/hrilab/pepper_realtime/    # Shared code for all flavors
+├── main/java/io/github/anonymous/pepper_realtime/    # Shared code for all flavors
 │   ├── ChatActivity.java                # Main application with lifecycle management
 │   ├── ApiKeyManager.java               # API key management
 │   ├── RealtimeSessionManager.java      # WebSocket handling
@@ -1304,7 +1309,7 @@ app/src/
 │       ├── MapPreviewView.java          # Navigation map visualization
 │       └── MapState.java                # Map state management
 │
-├── pepper/java/io/github/hrilab/pepper_realtime/    # Pepper-specific implementations
+├── pepper/java/io/github/anonymous/pepper_realtime/    # Pepper-specific implementations
 │   ├── robot/
 │   │   ├── RobotControllerImpl.java     # Real QiContext implementation
 │   │   └── RobotLifecycleBridgeImpl.java # QiSDK lifecycle integration
@@ -1334,7 +1339,7 @@ app/src/
 │       └── vision/
 │           └── AnalyzeVisionTool.java   # Pepper camera vision
 │
-└── standalone/java/io/github/hrilab/pepper_realtime/   # Standalone stub implementations
+└── standalone/java/io/github/anonymous/pepper_realtime/   # Standalone stub implementations
     ├── robot/
     │   ├── RobotControllerImpl.java     # Stub (no robot hardware)
     │   └── RobotLifecycleBridgeImpl.java # Simulated lifecycle
