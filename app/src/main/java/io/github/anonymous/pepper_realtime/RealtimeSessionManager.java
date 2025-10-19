@@ -310,22 +310,61 @@ public class RealtimeSessionManager {
                 
                 // Input configuration with turn detection
                 JSONObject input = new JSONObject();
-                JSONObject turnDetection = new JSONObject();
-                turnDetection.put("type", "server_vad");
-                input.put("turn_detection", turnDetection);
                 
-                // Enable input audio transcription if using Realtime API audio mode
+                // Enable input audio configuration if using Realtime API audio mode
                 if (settingsManager.isUsingRealtimeAudioInput()) {
-                    JSONObject transcription = new JSONObject();
-                    transcription.put("model", "whisper-1");
-                    String langCode = settingsManager.getLanguage();
-                    // Convert "de-CH" to "de" (ISO-639-1)
-                    if (langCode.contains("-")) {
-                        langCode = langCode.split("-")[0];
+                    // Turn Detection configuration
+                    JSONObject turnDetection = new JSONObject();
+                    String turnDetType = settingsManager.getTurnDetectionType();
+                    turnDetection.put("type", turnDetType);
+                    turnDetection.put("interrupt_response", settingsManager.getInterruptResponse());
+                    
+                    if ("server_vad".equals(turnDetType)) {
+                        turnDetection.put("threshold", settingsManager.getVadThreshold());
+                        turnDetection.put("prefix_padding_ms", settingsManager.getPrefixPadding());
+                        turnDetection.put("silence_duration_ms", settingsManager.getSilenceDuration());
                     }
-                    transcription.put("language", langCode);
+                    
+                    Integer idleTimeout = settingsManager.getIdleTimeout();
+                    if (idleTimeout != null && idleTimeout > 0) {
+                        turnDetection.put("idle_timeout_ms", idleTimeout);
+                    }
+                    
+                    input.put("turn_detection", turnDetection);
+                    
+                    // Transcription configuration
+                    JSONObject transcription = new JSONObject();
+                    transcription.put("model", settingsManager.getTranscriptionModel());
+                    String transcriptLang = settingsManager.getTranscriptionLanguage();
+                    if (transcriptLang != null && !transcriptLang.isEmpty()) {
+                        transcription.put("language", transcriptLang);
+                    }
+                    String transcriptPrompt = settingsManager.getTranscriptionPrompt();
+                    if (transcriptPrompt != null && !transcriptPrompt.isEmpty()) {
+                        transcription.put("prompt", transcriptPrompt);
+                    }
                     input.put("transcription", transcription);
-                    Log.i(TAG, "Input audio transcription enabled (language: " + langCode + ")");
+                    
+                    // Noise Reduction configuration
+                    String noiseReduction = settingsManager.getNoiseReduction();
+                    if (!"off".equals(noiseReduction)) {
+                        JSONObject noiseReductionObj = new JSONObject();
+                        noiseReductionObj.put("type", noiseReduction);
+                        input.put("noise_reduction", noiseReductionObj);
+                    } else {
+                        input.put("noise_reduction", JSONObject.NULL);
+                    }
+                    
+                    // Input format
+                    JSONObject inputFormat = new JSONObject();
+                    inputFormat.put("type", "audio/pcm");
+                    inputFormat.put("rate", 24000);
+                    input.put("format", inputFormat);
+                    
+                    Log.i(TAG, "Input audio enabled - Turn: " + turnDetType + ", Transcription: " + settingsManager.getTranscriptionModel());
+                } else {
+                    // Azure Speech mode - disable turn detection
+                    input.put("turn_detection", JSONObject.NULL);
                 }
                 
                 audio.put("input", input);
@@ -338,10 +377,25 @@ public class RealtimeSessionManager {
                 sessionConfig.put("temperature", temperature);
                 sessionConfig.put("output_audio_format", "pcm16");
                 
-                // Enable server VAD for Realtime API audio input
+                // Configure audio input for Realtime API audio mode
                 if (settingsManager.isUsingRealtimeAudioInput()) {
+                    // Turn Detection configuration
                     JSONObject turnDetection = new JSONObject();
-                    turnDetection.put("type", "server_vad");
+                    String turnDetType = settingsManager.getTurnDetectionType();
+                    turnDetection.put("type", turnDetType);
+                    turnDetection.put("interrupt_response", settingsManager.getInterruptResponse());
+                    
+                    if ("server_vad".equals(turnDetType)) {
+                        turnDetection.put("threshold", settingsManager.getVadThreshold());
+                        turnDetection.put("prefix_padding_ms", settingsManager.getPrefixPadding());
+                        turnDetection.put("silence_duration_ms", settingsManager.getSilenceDuration());
+                    }
+                    
+                    Integer idleTimeout = settingsManager.getIdleTimeout();
+                    if (idleTimeout != null && idleTimeout > 0) {
+                        turnDetection.put("idle_timeout_ms", idleTimeout);
+                    }
+                    
                     sessionConfig.put("turn_detection", turnDetection);
                     
                     // Configure input audio format
@@ -349,16 +403,18 @@ public class RealtimeSessionManager {
                     
                     // Enable input audio transcription
                     JSONObject inputTranscription = new JSONObject();
-                    inputTranscription.put("model", "whisper-1");
-                    String langCode = settingsManager.getLanguage();
-                    // Convert "de-CH" to "de" (ISO-639-1)
-                    if (langCode.contains("-")) {
-                        langCode = langCode.split("-")[0];
+                    inputTranscription.put("model", settingsManager.getTranscriptionModel());
+                    String transcriptLang = settingsManager.getTranscriptionLanguage();
+                    if (transcriptLang != null && !transcriptLang.isEmpty()) {
+                        inputTranscription.put("language", transcriptLang);
                     }
-                    inputTranscription.put("language", langCode);
+                    String transcriptPrompt = settingsManager.getTranscriptionPrompt();
+                    if (transcriptPrompt != null && !transcriptPrompt.isEmpty()) {
+                        inputTranscription.put("prompt", transcriptPrompt);
+                    }
                     sessionConfig.put("input_audio_transcription", inputTranscription);
                     
-                    Log.i(TAG, "Beta API: Server VAD and input transcription enabled (language: " + langCode + ")");
+                    Log.i(TAG, "Beta API: Turn detection=" + turnDetType + ", Transcription=" + settingsManager.getTranscriptionModel());
                 } else {
                     // Azure Speech mode - disable server VAD
                     sessionConfig.put("turn_detection", JSONObject.NULL);
@@ -450,20 +506,60 @@ public class RealtimeSessionManager {
                 output.put("format", format);
                 audio.put("output", output);
                 
-                // Enable input audio transcription if using Realtime API audio mode
+                // Enable input audio configuration if using Realtime API audio mode
                 if (settingsManager.isUsingRealtimeAudioInput()) {
                     JSONObject input = new JSONObject();
-                    JSONObject transcription = new JSONObject();
-                    transcription.put("model", "whisper-1");
-                    String langCode = settingsManager.getLanguage();
-                    // Convert "de-CH" to "de" (ISO-639-1)
-                    if (langCode.contains("-")) {
-                        langCode = langCode.split("-")[0];
+                    
+                    // Turn Detection configuration
+                    JSONObject turnDetection = new JSONObject();
+                    String turnDetType = settingsManager.getTurnDetectionType();
+                    turnDetection.put("type", turnDetType);
+                    turnDetection.put("interrupt_response", settingsManager.getInterruptResponse());
+                    
+                    if ("server_vad".equals(turnDetType)) {
+                        turnDetection.put("threshold", settingsManager.getVadThreshold());
+                        turnDetection.put("prefix_padding_ms", settingsManager.getPrefixPadding());
+                        turnDetection.put("silence_duration_ms", settingsManager.getSilenceDuration());
                     }
-                    transcription.put("language", langCode);
+                    
+                    Integer idleTimeout = settingsManager.getIdleTimeout();
+                    if (idleTimeout != null && idleTimeout > 0) {
+                        turnDetection.put("idle_timeout_ms", idleTimeout);
+                    }
+                    
+                    input.put("turn_detection", turnDetection);
+                    
+                    // Transcription configuration
+                    JSONObject transcription = new JSONObject();
+                    transcription.put("model", settingsManager.getTranscriptionModel());
+                    String transcriptLang = settingsManager.getTranscriptionLanguage();
+                    if (transcriptLang != null && !transcriptLang.isEmpty()) {
+                        transcription.put("language", transcriptLang);
+                    }
+                    String transcriptPrompt = settingsManager.getTranscriptionPrompt();
+                    if (transcriptPrompt != null && !transcriptPrompt.isEmpty()) {
+                        transcription.put("prompt", transcriptPrompt);
+                    }
                     input.put("transcription", transcription);
+                    
+                    // Noise Reduction configuration
+                    String noiseReduction = settingsManager.getNoiseReduction();
+                    if (!"off".equals(noiseReduction)) {
+                        JSONObject noiseReductionObj = new JSONObject();
+                        noiseReductionObj.put("type", noiseReduction);
+                        input.put("noise_reduction", noiseReductionObj);
+                    } else {
+                        input.put("noise_reduction", JSONObject.NULL);
+                    }
+                    
+                    // Input format
+                    JSONObject inputFormat = new JSONObject();
+                    inputFormat.put("type", "audio/pcm");
+                    inputFormat.put("rate", 24000);
+                    input.put("format", inputFormat);
+                    
                     audio.put("input", input);
-                    Log.i(TAG, "Input audio transcription enabled in session update (language: " + langCode + ")");
+                    Log.i(TAG, "Session update: Input audio - Turn: " + turnDetType + ", Transcription: " + settingsManager.getTranscriptionModel());
                 }
                 
                 sessionConfig.put("audio", audio);
@@ -474,10 +570,25 @@ public class RealtimeSessionManager {
                 sessionConfig.put("temperature", temperature);
                 sessionConfig.put("output_audio_format", "pcm16");
                 
-                // Enable server VAD for Realtime API audio input
+                // Configure audio input for Realtime API audio mode
                 if (settingsManager.isUsingRealtimeAudioInput()) {
+                    // Turn Detection configuration
                     JSONObject turnDetection = new JSONObject();
-                    turnDetection.put("type", "server_vad");
+                    String turnDetType = settingsManager.getTurnDetectionType();
+                    turnDetection.put("type", turnDetType);
+                    turnDetection.put("interrupt_response", settingsManager.getInterruptResponse());
+                    
+                    if ("server_vad".equals(turnDetType)) {
+                        turnDetection.put("threshold", settingsManager.getVadThreshold());
+                        turnDetection.put("prefix_padding_ms", settingsManager.getPrefixPadding());
+                        turnDetection.put("silence_duration_ms", settingsManager.getSilenceDuration());
+                    }
+                    
+                    Integer idleTimeout = settingsManager.getIdleTimeout();
+                    if (idleTimeout != null && idleTimeout > 0) {
+                        turnDetection.put("idle_timeout_ms", idleTimeout);
+                    }
+                    
                     sessionConfig.put("turn_detection", turnDetection);
                     
                     // Configure input audio format
@@ -485,16 +596,18 @@ public class RealtimeSessionManager {
                     
                     // Enable input audio transcription
                     JSONObject inputTranscription = new JSONObject();
-                    inputTranscription.put("model", "whisper-1");
-                    String langCode = settingsManager.getLanguage();
-                    // Convert "de-CH" to "de" (ISO-639-1)
-                    if (langCode.contains("-")) {
-                        langCode = langCode.split("-")[0];
+                    inputTranscription.put("model", settingsManager.getTranscriptionModel());
+                    String transcriptLang = settingsManager.getTranscriptionLanguage();
+                    if (transcriptLang != null && !transcriptLang.isEmpty()) {
+                        inputTranscription.put("language", transcriptLang);
                     }
-                    inputTranscription.put("language", langCode);
+                    String transcriptPrompt = settingsManager.getTranscriptionPrompt();
+                    if (transcriptPrompt != null && !transcriptPrompt.isEmpty()) {
+                        inputTranscription.put("prompt", transcriptPrompt);
+                    }
                     sessionConfig.put("input_audio_transcription", inputTranscription);
                     
-                    Log.i(TAG, "Beta API update: Server VAD and input transcription enabled (language: " + langCode + ")");
+                    Log.i(TAG, "Beta API update: Turn detection=" + turnDetType + ", Transcription=" + settingsManager.getTranscriptionModel());
                 } else {
                     // Azure Speech mode - disable server VAD
                     sessionConfig.put("turn_detection", JSONObject.NULL);

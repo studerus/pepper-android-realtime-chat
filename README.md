@@ -358,6 +358,7 @@ On your Android device:
 2. Create an API key
 3. That's it! The app supports all Realtime API models:
    - `gpt-realtime` (GA model with built-in vision)
+   - `gpt-realtime-mini` (Affordable GA model with built-in vision)
    - `gpt-4o-realtime-preview` (Preview model)
    - `gpt-4o-mini-realtime-preview` (Mini model - significantly lower cost)
 
@@ -366,6 +367,7 @@ On your Android device:
 2. Create an Azure OpenAI resource
 3. Deploy one or more of the supported models:
    - `gpt-realtime` (GA model with built-in vision)
+   - `gpt-realtime-mini` (Affordable GA model with built-in vision)
    - `gpt-4o-realtime-preview` (Preview model)
    - `gpt-4o-mini-realtime-preview` (Mini model - significantly lower cost)
 4. Copy your API key and endpoint
@@ -396,7 +398,7 @@ On your Android device:
 #### Groq API (Vision Analysis - Optional)  
 - **Free Tier**: 14,400 requests/day
 - **Get Key**: [console.groq.com](https://console.groq.com/)
-- **Enables**: Alternative vision analysis provider (gpt-realtime has built-in vision, only required for vision analysis with gpt-4o-realtime-preview and gpt-4o-mini-realtime-preview)
+- **Enables**: Alternative vision analysis provider (gpt-realtime and gpt-realtime-mini have built-in vision, only required for vision analysis with gpt-4o-realtime-preview and gpt-4o-mini-realtime-preview)
 
 #### Tavily API (Internet Search)
 - **Free Tier**: 1,000 searches/month
@@ -493,7 +495,7 @@ This app sends data to third-party services when features are used:
 
 ### Available Settings
 - **API Provider** - Choose between OpenAI Direct and Azure OpenAI
-- **Model Selection** - Select from gpt-realtime, gpt-4o-realtime-preview, or gpt-4o-mini-realtime-preview
+- **Model Selection** - Select from gpt-realtime, gpt-realtime-mini, gpt-4o-realtime-preview, or gpt-4o-mini-realtime-preview
 - **Voice Selection** - Choose from 10 available voices (alloy, ash, ballad, cedar, coral, echo, marin, sage, shimmer, verse)
 - **Audio Input Mode** - Switch between Realtime API audio streaming and Azure Speech Services STT
 - **System Prompt** - Customize the AI's personality and behavior instructions
@@ -507,8 +509,8 @@ This app sends data to third-party services when features are used:
 #### API Provider Selection
 You can switch between different Realtime API providers in the settings:
 
-- **OpenAI Direct** (Recommended): Supports all three models (`gpt-realtime`, `gpt-4o-realtime-preview`, `gpt-4o-mini-realtime-preview`) directly from OpenAI
-- **Azure OpenAI** (Enterprise): Supports all three models (`gpt-realtime`, `gpt-4o-realtime-preview`, `gpt-4o-mini-realtime-preview`) with your Azure deployment
+- **OpenAI Direct** (Recommended): Supports all four models (`gpt-realtime`, `gpt-realtime-mini`, `gpt-4o-realtime-preview`, `gpt-4o-mini-realtime-preview`) directly from OpenAI
+- **Azure OpenAI** (Enterprise): Supports all four models (`gpt-realtime`, `gpt-realtime-mini`, `gpt-4o-realtime-preview`, `gpt-4o-mini-realtime-preview`) with your Azure deployment
 
 **Note**: Changing the API provider, model, voice, or audio input mode will restart the session automatically.
 
@@ -1183,7 +1185,7 @@ Robot: "Starting memory game! Find matching pairs by flipping two cards."
 ```
 
 **Key Flow Characteristics:**
-- **Model Flexibility**: Supports gpt-realtime (GA), gpt-4o-realtime-preview, gpt-4o-mini-realtime-preview
+- **Model Flexibility**: Supports gpt-realtime (GA), gpt-realtime-mini, gpt-4o-realtime-preview, gpt-4o-mini-realtime-preview
 - **Dual Audio Input**: Realtime API (simple) or Azure Speech (dialect quality)
 - **Server-side VAD**: Realtime API handles turn detection automatically
 - **Conditional Tool Calls**: AI decides when tools are needed (not every response uses tools)

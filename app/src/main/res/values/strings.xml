@@ -132,4 +132,50 @@
         <item>Realtime API (Simple Setup)</item>
         <item>Azure Speech (Best for Dialects)</item>
     </string-array>
+    
+    <!-- Section Headers -->
+    <string name="azure_speech_settings_header">Azure Speech Settings</string>
+    <string name="realtime_api_settings_header">Realtime API Settings</string>
+    
+    <!-- Realtime API Settings -->
+    <string name="realtime_transcription_model_label">Transcription Model</string>
+    <string-array name="transcription_models">
+        <item>whisper-1</item>
+        <item>gpt-4o-mini-transcribe</item>
+        <item>gpt-4o-transcribe</item>
+        <item>gpt-4o-transcribe-diarize</item>
+    </string-array>
+    
+    <string name="realtime_transcription_language_label">Transcription Language (ISO-639-1)</string>
+    <string name="realtime_transcription_language_hint">e.g., de, en, fr</string>
+    
+    <string name="realtime_transcription_prompt_label">Transcription Prompt (Optional)</string>
+    <string name="realtime_transcription_prompt_hint">Keywords or guidance text</string>
+    
+    <string name="realtime_turn_detection_label">Turn Detection Type</string>
+    <string-array name="turn_detection_types">
+        <item>Server VAD (Volume-based)</item>
+        <item>Semantic VAD (Context-aware)</item>
+    </string-array>
+    
+    <string name="realtime_vad_threshold_label">VAD Activation Threshold</string>
+    <string name="realtime_vad_threshold_format">%.2f</string>
+    
+    <string name="realtime_prefix_padding_label">Prefix Padding</string>
+    <string name="realtime_prefix_padding_format">%d ms</string>
+    
+    <string name="realtime_silence_duration_label">Silence Duration</string>
+    <string name="realtime_silence_duration_format">%d ms</string>
+    
+    <string name="realtime_interrupt_response_label">Interrupt response when user speaks</string>
+    
+    <string name="realtime_idle_timeout_label">Idle Timeout (Optional)</string>
+    <string name="realtime_idle_timeout_hint">Leave empty to disable</string>
+    
+    <string name="realtime_noise_reduction_label">Noise Reduction</string>
+    <string-array name="noise_reduction_types">
+        <item>Off</item>
+        <item>Near Field (Headset)</item>
+        <item>Far Field (Room Mic)</item>
+    </string-array>
 </resources>

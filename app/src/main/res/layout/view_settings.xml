@@ -91,60 +91,253 @@
         android:layout_height="wrap_content"
         android:entries="@array/audio_input_modes" />
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:text="Speech Language"
-        android:textStyle="bold" />
-
-    <Spinner
-        android:id="@+id/language_spinner"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:text="Silence Timeout (ms)"
-        android:textStyle="bold" />
-
-    <TextView
-        android:id="@+id/silence_timeout_value"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal"
-        android:text="500" />
-
-    <SeekBar
-        android:id="@+id/silence_timeout_seekbar"
+    <!-- Azure Speech Settings Container -->
+    <LinearLayout
+        android:id="@+id/azure_speech_settings_container"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:max="2000"
-        android:progress="500"/>
+        android:orientation="vertical"
+        android:visibility="gone">
 
-    <!-- Confidence Threshold -->
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:text="ASR Confidence Threshold"
-        android:textStyle="bold" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/azure_speech_settings_header"
+            android:textStyle="bold"
+            android:textSize="16sp"
+            android:textColor="?android:attr/colorAccent" />
 
-    <TextView
-        android:id="@+id/confidence_threshold_value"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal"
-        android:text="70%" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Speech Language"
+            android:textStyle="bold" />
 
-    <SeekBar
-        android:id="@+id/confidence_threshold_seekbar"
+        <Spinner
+            android:id="@+id/language_spinner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Silence Timeout (ms)"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/silence_timeout_value"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:text="500" />
+
+        <SeekBar
+            android:id="@+id/silence_timeout_seekbar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="2000"
+            android:progress="500"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="ASR Confidence Threshold"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/confidence_threshold_value"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:text="70%" />
+
+        <SeekBar
+            android:id="@+id/confidence_threshold_seekbar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="100"
+            android:progress="70"/>
+
+    </LinearLayout>
+
+    <!-- Realtime API Settings Container -->
+    <LinearLayout
+        android:id="@+id/realtime_api_settings_container"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:max="100"
-        android:progress="70"/>
+        android:orientation="vertical"
+        android:visibility="visible">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/realtime_api_settings_header"
+            android:textStyle="bold"
+            android:textSize="16sp"
+            android:textColor="?android:attr/colorAccent" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/realtime_transcription_model_label"
+            android:textStyle="bold" />
+
+        <Spinner
+            android:id="@+id/transcription_model_spinner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:entries="@array/transcription_models" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/realtime_transcription_language_label"
+            android:textStyle="bold" />
+
+        <EditText
+            android:id="@+id/transcription_language_input"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/realtime_transcription_language_hint"
+            android:inputType="text"
+            android:maxLines="1" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/realtime_transcription_prompt_label"
+            android:textStyle="bold" />
+
+        <EditText
+            android:id="@+id/transcription_prompt_input"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/realtime_transcription_prompt_hint"
+            android:inputType="textMultiLine"
+            android:minLines="2" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/realtime_turn_detection_label"
+            android:textStyle="bold" />
+
+        <Spinner
+            android:id="@+id/turn_detection_type_spinner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:entries="@array/turn_detection_types" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/realtime_vad_threshold_label"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/vad_threshold_value"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:text="0.50" />
+
+        <SeekBar
+            android:id="@+id/vad_threshold_seekbar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="100"
+            android:progress="50"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/realtime_prefix_padding_label"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/prefix_padding_value"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:text="300 ms" />
+
+        <SeekBar
+            android:id="@+id/prefix_padding_seekbar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="1000"
+            android:progress="300"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/realtime_silence_duration_label"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/silence_duration_value"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:text="500 ms" />
+
+        <SeekBar
+            android:id="@+id/silence_duration_seekbar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:min="200"
+            android:max="2000"
+            android:progress="500"/>
+
+        <CheckBox
+            android:id="@+id/interrupt_response_checkbox"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/realtime_interrupt_response_label"
+            android:checked="true" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/realtime_idle_timeout_label"
+            android:textStyle="bold" />
+
+        <EditText
+            android:id="@+id/idle_timeout_input"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/realtime_idle_timeout_hint"
+            android:inputType="number"
+            android:maxLines="1" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/realtime_noise_reduction_label"
+            android:textStyle="bold" />
+
+        <Spinner
+            android:id="@+id/noise_reduction_spinner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:entries="@array/noise_reduction_types" />
+
+    </LinearLayout>
 
     <!-- App Settings -->
     <TextView
