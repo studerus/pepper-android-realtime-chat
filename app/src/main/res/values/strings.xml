@@ -158,6 +158,14 @@
         <item>Semantic VAD (Context-aware)</item>
     </string-array>
     
+    <string name="realtime_eagerness_label">Eagerness</string>
+    <string-array name="eagerness_levels">
+        <item>Auto (Medium)</item>
+        <item>Low (Max 8s)</item>
+        <item>Medium (Max 4s)</item>
+        <item>High (Max 2s)</item>
+    </string-array>
+    
     <string name="realtime_vad_threshold_label">VAD Activation Threshold</string>
     <string name="realtime_vad_threshold_format">%.2f</string>
     
@@ -167,10 +175,8 @@
     <string name="realtime_silence_duration_label">Silence Duration</string>
     <string name="realtime_silence_duration_format">%d ms</string>
     
-    <string name="realtime_interrupt_response_label">Interrupt response when user speaks</string>
-    
-    <string name="realtime_idle_timeout_label">Idle Timeout (Optional)</string>
-    <string name="realtime_idle_timeout_hint">Leave empty to disable</string>
+    <string name="realtime_idle_timeout_label">Idle Timeout (ms, Optional)</string>
+    <string name="realtime_idle_timeout_hint">Milliseconds - leave empty to disable</string>
     
     <string name="realtime_noise_reduction_label">Noise Reduction</string>
     <string-array name="noise_reduction_types">
@@ -178,4 +184,8 @@
         <item>Near Field (Headset)</item>
         <item>Far Field (Room Mic)</item>
     </string-array>
+    
+    <!-- Speed Setting -->
+    <string name="speed_label">Speech Speed</string>
+    <string name="speed_format">%.2fx</string>
 </resources>

@@ -25,6 +25,7 @@ public class SettingsManager {
     private static final String KEY_SYSTEM_PROMPT = "systemPrompt";
     private static final String KEY_MODEL = "model";
     private static final String KEY_VOICE = "voice";
+    private static final String KEY_SPEED = "speed";
     private static final String KEY_LANGUAGE = "language";
     private static final String KEY_TEMPERATURE = "temperature";
     private static final String KEY_VOLUME = "volume";
@@ -42,9 +43,9 @@ public class SettingsManager {
     private static final String KEY_VAD_THRESHOLD = "vadThreshold";
     private static final String KEY_PREFIX_PADDING = "prefixPadding";
     private static final String KEY_SILENCE_DURATION = "silenceDuration";
-    private static final String KEY_INTERRUPT_RESPONSE = "interruptResponse";
     private static final String KEY_IDLE_TIMEOUT = "idleTimeout";
     private static final String KEY_NOISE_REDUCTION = "noiseReduction";
+    private static final String KEY_EAGERNESS = "eagerness";
     
     // Audio input mode constants
     public static final String MODE_REALTIME_API = "realtime_api";
@@ -58,6 +59,8 @@ public class SettingsManager {
     private Spinner modelSpinner;
     private Spinner apiProviderSpinner;
     private Spinner voiceSpinner;
+    private SeekBar speedSeekBar;
+    private TextView speedValue;
     private Spinner languageSpinner;
     private Spinner audioInputModeSpinner;
     private SeekBar temperatureSeekBar;
@@ -73,6 +76,8 @@ public class SettingsManager {
     // Container visibility management
     private LinearLayout azureSpeechSettingsContainer;
     private LinearLayout realtimeApiSettingsContainer;
+    private LinearLayout serverVadSettingsContainer;
+    private LinearLayout semanticVadSettingsContainer;
     
     // Realtime API specific UI elements
     private Spinner transcriptionModelSpinner;
@@ -85,8 +90,8 @@ public class SettingsManager {
     private TextView prefixPaddingValue;
     private SeekBar silenceDurationSeekBar;
     private TextView silenceDurationValue;
-    private CheckBox interruptResponseCheckbox;
     private EditText idleTimeoutInput;
+    private Spinner eagernessSpinner;
     private Spinner noiseReductionSpinner;
 
     public interface SettingsListener {
@@ -115,6 +120,8 @@ public class SettingsManager {
         modelSpinner = navigationView.findViewById(R.id.model_spinner);
         apiProviderSpinner = navigationView.findViewById(R.id.api_provider_spinner);
         voiceSpinner = navigationView.findViewById(R.id.voice_spinner);
+        speedSeekBar = navigationView.findViewById(R.id.speed_seekbar);
+        speedValue = navigationView.findViewById(R.id.speed_value);
         languageSpinner = navigationView.findViewById(R.id.language_spinner);
         audioInputModeSpinner = navigationView.findViewById(R.id.audio_input_mode_spinner);
         temperatureSeekBar = navigationView.findViewById(R.id.temperature_seekbar);
@@ -130,6 +137,8 @@ public class SettingsManager {
         // Container views
         azureSpeechSettingsContainer = navigationView.findViewById(R.id.azure_speech_settings_container);
         realtimeApiSettingsContainer = navigationView.findViewById(R.id.realtime_api_settings_container);
+        serverVadSettingsContainer = navigationView.findViewById(R.id.server_vad_settings_container);
+        semanticVadSettingsContainer = navigationView.findViewById(R.id.semantic_vad_settings_container);
         
         // Realtime API specific views
         transcriptionModelSpinner = navigationView.findViewById(R.id.transcription_model_spinner);
@@ -142,8 +151,8 @@ public class SettingsManager {
         prefixPaddingValue = navigationView.findViewById(R.id.prefix_padding_value);
         silenceDurationSeekBar = navigationView.findViewById(R.id.silence_duration_seekbar);
         silenceDurationValue = navigationView.findViewById(R.id.silence_duration_value);
-        interruptResponseCheckbox = navigationView.findViewById(R.id.interrupt_response_checkbox);
         idleTimeoutInput = navigationView.findViewById(R.id.idle_timeout_input);
+        eagernessSpinner = navigationView.findViewById(R.id.eagerness_spinner);
         noiseReductionSpinner = navigationView.findViewById(R.id.noise_reduction_spinner);
     }
 
@@ -226,6 +235,12 @@ public class SettingsManager {
         }
         
         voiceSpinner.setSelection(voiceAdapter.getPosition(settings.getString(KEY_VOICE, "ash")));
+        
+        // Speed setting (0.25 to 1.5, stored as 25 to 150)
+        int speedProgress = settings.getInt(KEY_SPEED, 100); // Default: 1.0x speed
+        if (speedProgress < 25 || speedProgress > 150) speedProgress = 100;
+        speedSeekBar.setProgress(speedProgress);
+        speedValue.setText(activity.getString(R.string.speed_format, speedProgress / 100f));
 
         String savedLangCode = settings.getString(KEY_LANGUAGE, "en-US");
         for (int i = 0; i < languages.size(); i++) {
@@ -291,12 +306,17 @@ public class SettingsManager {
         silenceDurationSeekBar.setProgress(silenceDuration);
         silenceDurationValue.setText(activity.getString(R.string.realtime_silence_duration_format, silenceDuration));
         
-        interruptResponseCheckbox.setChecked(settings.getBoolean(KEY_INTERRUPT_RESPONSE, true));
-        
         int idleTimeout = settings.getInt(KEY_IDLE_TIMEOUT, 0);
         if (idleTimeout > 0) {
             idleTimeoutInput.setText(String.valueOf(idleTimeout));
         }
+        
+        String savedEagerness = settings.getString(KEY_EAGERNESS, "auto");
+        int eagernessPosition = 0;
+        if (savedEagerness.equals("low")) eagernessPosition = 1;
+        else if (savedEagerness.equals("medium")) eagernessPosition = 2;
+        else if (savedEagerness.equals("high")) eagernessPosition = 3;
+        eagernessSpinner.setSelection(eagernessPosition);
         
         String savedNoiseReduction = settings.getString(KEY_NOISE_REDUCTION, "off");
         int noiseReductionPosition = 0;
@@ -306,6 +326,9 @@ public class SettingsManager {
         
         // Set initial visibility based on audio input mode
         updateSettingsVisibility(MODE_REALTIME_API.equals(savedInputMode));
+        
+        // Set initial VAD settings visibility based on turn detection type
+        updateVadSettingsVisibility(savedTurnDetectionType.equals("server_vad"));
 
         // Setup Function Calls UI
         setupFunctionCallsUI();
@@ -320,6 +343,17 @@ public class SettingsManager {
             @Override public void onStartTrackingTouch(SeekBar seekBar) {}
             @Override public void onStopTrackingTouch(SeekBar seekBar) {
                 settings.edit().putInt(KEY_TEMPERATURE, seekBar.getProgress()).apply();
+            }
+        });
+        
+        speedSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                speedValue.setText(activity.getString(R.string.speed_format, progress / 100f));
+            }
+            @Override public void onStartTrackingTouch(SeekBar seekBar) {}
+            @Override public void onStopTrackingTouch(SeekBar seekBar) {
+                settings.edit().putInt(KEY_SPEED, seekBar.getProgress()).apply();
             }
         });
 
@@ -371,6 +405,16 @@ public class SettingsManager {
             public void onNothingSelected(android.widget.AdapterView<?> parent) {}
         });
         
+        // Turn Detection Type Spinner - Toggle VAD settings visibility
+        turnDetectionTypeSpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
+                updateVadSettingsVisibility(position == 0); // true = Server VAD, false = Semantic VAD
+            }
+            @Override
+            public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+        });
+        
         // Realtime API Settings Listeners
         vadThresholdSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
@@ -416,10 +460,21 @@ public class SettingsManager {
             realtimeApiSettingsContainer.setVisibility(View.GONE);
         }
     }
+    
+    private void updateVadSettingsVisibility(boolean isServerVad) {
+        if (isServerVad) {
+            serverVadSettingsContainer.setVisibility(View.VISIBLE);
+            semanticVadSettingsContainer.setVisibility(View.GONE);
+        } else {
+            serverVadSettingsContainer.setVisibility(View.GONE);
+            semanticVadSettingsContainer.setVisibility(View.VISIBLE);
+        }
+    }
 
     public void onDrawerClosed() {
         String oldModel = settings.getString(KEY_MODEL, "gpt-realtime");
         String oldVoice = settings.getString(KEY_VOICE, "ash");
+        int oldSpeed = settings.getInt(KEY_SPEED, 100);
         String oldLang = settings.getString(KEY_LANGUAGE, "en-US");
         String oldPrompt = settings.getString(KEY_SYSTEM_PROMPT, "");
         String oldProvider = settings.getString(KEY_API_PROVIDER, RealtimeApiProvider.OPENAI_DIRECT.name());
@@ -430,6 +485,7 @@ public class SettingsManager {
         
         String newModel = (String) modelSpinner.getSelectedItem();
         String newVoice = (String) voiceSpinner.getSelectedItem();
+        int newSpeed = speedSeekBar.getProgress();
         LanguageOption selectedLang = (LanguageOption) languageSpinner.getSelectedItem();
         String newLang = selectedLang.getCode();
         String newPrompt = systemPromptInput.getText().toString();
@@ -446,7 +502,6 @@ public class SettingsManager {
         float newVadThreshold = vadThresholdSeekBar.getProgress() / 100f;
         int newPrefixPadding = prefixPaddingSeekBar.getProgress();
         int newSilenceDuration = silenceDurationSeekBar.getProgress();
-        boolean newInterruptResponse = interruptResponseCheckbox.isChecked();
         int newIdleTimeout = 0;
         try {
             String idleTimeoutStr = idleTimeoutInput.getText().toString().trim();
@@ -456,6 +511,12 @@ public class SettingsManager {
         } catch (NumberFormatException e) {
             // Invalid input, default to 0
         }
+        String newEagerness = "auto";
+        int eagernessPos = eagernessSpinner.getSelectedItemPosition();
+        if (eagernessPos == 1) newEagerness = "low";
+        else if (eagernessPos == 2) newEagerness = "medium";
+        else if (eagernessPos == 3) newEagerness = "high";
+        
         String newNoiseReduction = "off";
         int noiseReductionPos = noiseReductionSpinner.getSelectedItemPosition();
         if (noiseReductionPos == 1) newNoiseReduction = "near_field";
@@ -467,7 +528,7 @@ public class SettingsManager {
         float oldVadThreshold = settings.getFloat(KEY_VAD_THRESHOLD, 0.5f);
         int oldPrefixPadding = settings.getInt(KEY_PREFIX_PADDING, 300);
         int oldSilenceDuration = settings.getInt(KEY_SILENCE_DURATION, 500);
-        boolean oldInterruptResponse = settings.getBoolean(KEY_INTERRUPT_RESPONSE, true);
+        String oldEagerness = settings.getString(KEY_EAGERNESS, "auto");
         String oldNoiseReduction = settings.getString(KEY_NOISE_REDUCTION, "off");
         
         boolean realtimeSettingsChanged = !oldTranscriptionModel.equals(newTranscriptionModel) ||
@@ -475,13 +536,14 @@ public class SettingsManager {
                                           oldVadThreshold != newVadThreshold ||
                                           oldPrefixPadding != newPrefixPadding ||
                                           oldSilenceDuration != newSilenceDuration ||
-                                          oldInterruptResponse != newInterruptResponse ||
+                                          !oldEagerness.equals(newEagerness) ||
                                           !oldNoiseReduction.equals(newNoiseReduction);
 
         SharedPreferences.Editor editor = settings.edit();
         editor.putString(KEY_SYSTEM_PROMPT, newPrompt);
         editor.putString(KEY_MODEL, newModel);
         editor.putString(KEY_VOICE, newVoice);
+        editor.putInt(KEY_SPEED, newSpeed);
         editor.putString(KEY_LANGUAGE, newLang);
         editor.putString(KEY_API_PROVIDER, newProvider);
         editor.putString(KEY_AUDIO_INPUT_MODE, newInputMode);
@@ -496,8 +558,8 @@ public class SettingsManager {
         editor.putFloat(KEY_VAD_THRESHOLD, newVadThreshold);
         editor.putInt(KEY_PREFIX_PADDING, newPrefixPadding);
         editor.putInt(KEY_SILENCE_DURATION, newSilenceDuration);
-        editor.putBoolean(KEY_INTERRUPT_RESPONSE, newInterruptResponse);
         editor.putInt(KEY_IDLE_TIMEOUT, newIdleTimeout);
+        editor.putString(KEY_EAGERNESS, newEagerness);
         editor.putString(KEY_NOISE_REDUCTION, newNoiseReduction);
         
         editor.apply();
@@ -513,8 +575,8 @@ public class SettingsManager {
         } else if (!oldLang.equals(newLang)) {
             // Language change requires recognizer restart (only for Azure Speech mode)
             if (listener != null) listener.onRecognizerSettingsChanged();
-        } else if (!oldTools.equals(newTools) || !oldPrompt.equals(newPrompt) || oldTemp != newTemp) {
-            // Tools, prompt, or temperature change only requires session update
+        } else if (!oldTools.equals(newTools) || !oldPrompt.equals(newPrompt) || oldTemp != newTemp || oldSpeed != newSpeed) {
+            // Tools, prompt, temperature, or speed change only requires session update
             if (listener != null) listener.onToolsChanged();
         }
     }
@@ -531,6 +593,11 @@ public class SettingsManager {
 
     public String getVoice() {
         return settings.getString(KEY_VOICE, "ash");
+    }
+    
+    public float getSpeed() {
+        int speedProgress = settings.getInt(KEY_SPEED, 100);
+        return speedProgress / 100f; // Convert 25-150 to 0.25-1.5
     }
 
     public String getLanguage() {
@@ -842,13 +909,13 @@ public class SettingsManager {
         return settings.getInt(KEY_SILENCE_DURATION, 500);
     }
     
-    public boolean getInterruptResponse() {
-        return settings.getBoolean(KEY_INTERRUPT_RESPONSE, true);
-    }
-    
     public Integer getIdleTimeout() {
         int timeout = settings.getInt(KEY_IDLE_TIMEOUT, 0);
         return timeout > 0 ? timeout : null;
+    }
+    
+    public String getEagerness() {
+        return settings.getString(KEY_EAGERNESS, "auto");
     }
     
     public String getNoiseReduction() {

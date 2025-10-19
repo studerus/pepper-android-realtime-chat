@@ -60,6 +60,28 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
+        android:text="@string/speed_label"
+        android:textStyle="bold" />
+        
+    <TextView
+        android:id="@+id/speed_value"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:text="1.00x" />
+
+    <SeekBar
+        android:id="@+id/speed_seekbar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:min="25"
+        android:max="150"
+        android:progress="100"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
         android:text="Temperature"
         android:textStyle="bold" />
         
@@ -237,92 +259,117 @@
             android:layout_height="wrap_content"
             android:entries="@array/turn_detection_types" />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="@string/realtime_vad_threshold_label"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/vad_threshold_value"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal"
-            android:text="0.50" />
-
-        <SeekBar
-            android:id="@+id/vad_threshold_seekbar"
+        <!-- Server VAD Settings Container -->
+        <LinearLayout
+            android:id="@+id/server_vad_settings_container"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:max="100"
-            android:progress="50"/>
+            android:orientation="vertical"
+            android:visibility="visible">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="@string/realtime_prefix_padding_label"
-            android:textStyle="bold" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="@string/realtime_vad_threshold_label"
+                android:textStyle="bold" />
 
-        <TextView
-            android:id="@+id/prefix_padding_value"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal"
-            android:text="300 ms" />
+            <TextView
+                android:id="@+id/vad_threshold_value"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:text="0.50" />
 
-        <SeekBar
-            android:id="@+id/prefix_padding_seekbar"
+            <SeekBar
+                android:id="@+id/vad_threshold_seekbar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="100"
+                android:progress="50"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="@string/realtime_prefix_padding_label"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/prefix_padding_value"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:text="300 ms" />
+
+            <SeekBar
+                android:id="@+id/prefix_padding_seekbar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="1000"
+                android:progress="300"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="@string/realtime_silence_duration_label"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/silence_duration_value"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:text="500 ms" />
+
+            <SeekBar
+                android:id="@+id/silence_duration_seekbar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:min="200"
+                android:max="2000"
+                android:progress="500"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="@string/realtime_idle_timeout_label"
+                android:textStyle="bold" />
+
+            <EditText
+                android:id="@+id/idle_timeout_input"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/realtime_idle_timeout_hint"
+                android:inputType="number"
+                android:maxLines="1" />
+
+        </LinearLayout>
+
+        <!-- Semantic VAD Settings Container -->
+        <LinearLayout
+            android:id="@+id/semantic_vad_settings_container"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:max="1000"
-            android:progress="300"/>
+            android:orientation="vertical"
+            android:visibility="gone">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="@string/realtime_silence_duration_label"
-            android:textStyle="bold" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="@string/realtime_eagerness_label"
+                android:textStyle="bold" />
 
-        <TextView
-            android:id="@+id/silence_duration_value"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal"
-            android:text="500 ms" />
+            <Spinner
+                android:id="@+id/eagerness_spinner"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:entries="@array/eagerness_levels" />
 
-        <SeekBar
-            android:id="@+id/silence_duration_seekbar"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:min="200"
-            android:max="2000"
-            android:progress="500"/>
-
-        <CheckBox
-            android:id="@+id/interrupt_response_checkbox"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="@string/realtime_interrupt_response_label"
-            android:checked="true" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="@string/realtime_idle_timeout_label"
-            android:textStyle="bold" />
-
-        <EditText
-            android:id="@+id/idle_timeout_input"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="@string/realtime_idle_timeout_hint"
-            android:inputType="number"
-            android:maxLines="1" />
+        </LinearLayout>
 
         <TextView
             android:layout_width="wrap_content"

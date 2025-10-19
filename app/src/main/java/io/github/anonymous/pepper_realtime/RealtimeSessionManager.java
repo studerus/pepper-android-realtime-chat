@@ -280,6 +280,7 @@ public class RealtimeSessionManager {
         
         try {
             String voice = settingsManager.getVoice();
+            float speed = settingsManager.getSpeed();
             String model = settingsManager.getModel();
             float temperature = settingsManager.getTemperature();
             String systemPrompt = settingsManager.getSystemPrompt();
@@ -302,6 +303,7 @@ public class RealtimeSessionManager {
                 // Output configuration
                 JSONObject output = new JSONObject();
                 output.put("voice", voice);
+                output.put("speed", speed);
                 JSONObject format = new JSONObject();
                 format.put("type", "audio/pcm");
                 format.put("rate", 24000);
@@ -317,17 +319,22 @@ public class RealtimeSessionManager {
                     JSONObject turnDetection = new JSONObject();
                     String turnDetType = settingsManager.getTurnDetectionType();
                     turnDetection.put("type", turnDetType);
-                    turnDetection.put("interrupt_response", settingsManager.getInterruptResponse());
+                    turnDetection.put("create_response", true);
+                    turnDetection.put("interrupt_response", true);
                     
                     if ("server_vad".equals(turnDetType)) {
                         turnDetection.put("threshold", settingsManager.getVadThreshold());
                         turnDetection.put("prefix_padding_ms", settingsManager.getPrefixPadding());
                         turnDetection.put("silence_duration_ms", settingsManager.getSilenceDuration());
-                    }
-                    
-                    Integer idleTimeout = settingsManager.getIdleTimeout();
-                    if (idleTimeout != null && idleTimeout > 0) {
-                        turnDetection.put("idle_timeout_ms", idleTimeout);
+                        
+                        // Idle timeout only supported for server_vad
+                        Integer idleTimeout = settingsManager.getIdleTimeout();
+                        if (idleTimeout != null && idleTimeout > 0) {
+                            turnDetection.put("idle_timeout_ms", idleTimeout);
+                        }
+                    } else if ("semantic_vad".equals(turnDetType)) {
+                        String eagerness = settingsManager.getEagerness();
+                        turnDetection.put("eagerness", eagerness);
                     }
                     
                     input.put("turn_detection", turnDetection);
@@ -374,6 +381,7 @@ public class RealtimeSessionManager {
             } else {
                 // Preview/Mini models (Beta API) - use legacy parameters with server VAD
                 sessionConfig.put("voice", voice);
+                sessionConfig.put("speed", speed);
                 sessionConfig.put("temperature", temperature);
                 sessionConfig.put("output_audio_format", "pcm16");
                 
@@ -383,7 +391,8 @@ public class RealtimeSessionManager {
                     JSONObject turnDetection = new JSONObject();
                     String turnDetType = settingsManager.getTurnDetectionType();
                     turnDetection.put("type", turnDetType);
-                    turnDetection.put("interrupt_response", settingsManager.getInterruptResponse());
+                    turnDetection.put("create_response", true);
+                    turnDetection.put("interrupt_response", true);
                     
                     if ("server_vad".equals(turnDetType)) {
                         turnDetection.put("threshold", settingsManager.getVadThreshold());
@@ -469,6 +478,7 @@ public class RealtimeSessionManager {
         
         try {
             String voice = settingsManager.getVoice();
+            float speed = settingsManager.getSpeed();
             String model = settingsManager.getModel();
             float temperature = settingsManager.getTemperature();
             String systemPrompt = settingsManager.getSystemPrompt();
@@ -500,6 +510,7 @@ public class RealtimeSessionManager {
                 // Output configuration
                 JSONObject output = new JSONObject();
                 output.put("voice", voice);
+                output.put("speed", speed);
                 JSONObject format = new JSONObject();
                 format.put("type", "audio/pcm");
                 format.put("rate", 24000);
@@ -514,17 +525,22 @@ public class RealtimeSessionManager {
                     JSONObject turnDetection = new JSONObject();
                     String turnDetType = settingsManager.getTurnDetectionType();
                     turnDetection.put("type", turnDetType);
-                    turnDetection.put("interrupt_response", settingsManager.getInterruptResponse());
+                    turnDetection.put("create_response", true);
+                    turnDetection.put("interrupt_response", true);
                     
                     if ("server_vad".equals(turnDetType)) {
                         turnDetection.put("threshold", settingsManager.getVadThreshold());
                         turnDetection.put("prefix_padding_ms", settingsManager.getPrefixPadding());
                         turnDetection.put("silence_duration_ms", settingsManager.getSilenceDuration());
-                    }
-                    
-                    Integer idleTimeout = settingsManager.getIdleTimeout();
-                    if (idleTimeout != null && idleTimeout > 0) {
-                        turnDetection.put("idle_timeout_ms", idleTimeout);
+                        
+                        // Idle timeout only supported for server_vad
+                        Integer idleTimeout = settingsManager.getIdleTimeout();
+                        if (idleTimeout != null && idleTimeout > 0) {
+                            turnDetection.put("idle_timeout_ms", idleTimeout);
+                        }
+                    } else if ("semantic_vad".equals(turnDetType)) {
+                        String eagerness = settingsManager.getEagerness();
+                        turnDetection.put("eagerness", eagerness);
                     }
                     
                     input.put("turn_detection", turnDetection);
@@ -567,6 +583,7 @@ public class RealtimeSessionManager {
             } else {
                 // Preview/Mini models (Beta API) - use legacy parameters with server VAD
                 sessionConfig.put("voice", voice);
+                sessionConfig.put("speed", speed);
                 sessionConfig.put("temperature", temperature);
                 sessionConfig.put("output_audio_format", "pcm16");
                 
@@ -576,7 +593,8 @@ public class RealtimeSessionManager {
                     JSONObject turnDetection = new JSONObject();
                     String turnDetType = settingsManager.getTurnDetectionType();
                     turnDetection.put("type", turnDetType);
-                    turnDetection.put("interrupt_response", settingsManager.getInterruptResponse());
+                    turnDetection.put("create_response", true);
+                    turnDetection.put("interrupt_response", true);
                     
                     if ("server_vad".equals(turnDetType)) {
                         turnDetection.put("threshold", settingsManager.getVadThreshold());
