@@ -139,6 +139,9 @@ public class ChatActivity extends AppCompatActivity {
     
     // Realtime API audio input: pending transcripts (itemId -> ChatMessage)
     private final Map<String, ChatMessage> pendingUserTranscripts = new HashMap<>();
+    
+    // Timing tracking for STT warmup
+    private volatile long sttWarmupStartTime = 0L;
 
     private VisionService visionService;
 
@@ -844,24 +847,30 @@ public class ChatActivity extends AppCompatActivity {
                 
                 // Direct STT setup using SpeechRecognizerManager
                 Log.i(TAG, "Executing STT setup on audio thread...");
+                sttWarmupStartTime = System.currentTimeMillis(); // Start timing
                 threadManager.executeAudio(() -> {
                     try {
                         setupSpeechRecognizer();
                         
-                        runOnUiThread(() -> {
-                            // Hide warmup indicator after setup
-                            hideWarmupIndicator();
-                            isWarmingUp = false;
-
-                            Log.i(TAG, "STT setup complete. Entering LISTENING state.");
-                            if (turnManager != null) {
+                        // If Realtime API audio mode is active, transition to LISTENING immediately
+                        // (onReady() callback is only for Azure Speech mode)
+                        if (settingsManager.isUsingRealtimeAudioInput()) {
+                            Log.i(TAG, "✅ Realtime API audio mode - transitioning to LISTENING immediately");
+                            runOnUiThread(() -> {
+                                hideWarmupIndicator();
+                                isWarmingUp = false;
                                 statusTextView.setText(getString(R.string.status_listening));
-                                turnManager.setState(TurnManager.State.LISTENING);
-                            }
-                        });
+                                if (turnManager != null) {
+                                    turnManager.setState(TurnManager.State.LISTENING);
+                                }
+                            });
+                        } else {
+                            // Azure Speech mode: transition happens in onReady() callback after warmup
+                            Log.i(TAG, "⏳ Azure Speech mode - waiting for warmup completion and onReady() callback...");
+                        }
                         
                     } catch (Exception e) {
-                        Log.e(TAG, "STT setup failed", e);
+                        Log.e(TAG, "❌ STT setup failed with exception: " + e.getClass().getSimpleName() + " - " + e.getMessage(), e);
                         runOnUiThread(() -> {
                             hideWarmupIndicator();
                             isWarmingUp = false;
@@ -1315,6 +1324,24 @@ public class ChatActivity extends AppCompatActivity {
             public void onStopped() {
                 sttIsRunning = false;
             }
+
+            @Override
+            public void onReady() {
+                long totalWarmupTime = System.currentTimeMillis() - sttWarmupStartTime;
+                Log.i(TAG, "✅ Speech Recognizer is fully warmed up and ready (total time: " + totalWarmupTime + "ms)");
+                runOnUiThread(() -> {
+                    // Hide warmup indicator
+                    hideWarmupIndicator();
+                    isWarmingUp = false;
+
+                    // Now transition to LISTENING state - recognizer is ready
+                    Log.i(TAG, "STT ready - entering LISTENING state");
+                    if (turnManager != null) {
+                        statusTextView.setText(getString(R.string.status_listening));
+                        turnManager.setState(TurnManager.State.LISTENING);
+                    }
+                });
+            }
         });
         
         // Configure with current settings
@@ -1337,15 +1364,12 @@ public class ChatActivity extends AppCompatActivity {
             Log.i(TAG, "Azure Speech mode active - setting up STT...");
             ensureSttManager();
             
-            Log.i(TAG, "Configuring speech recognizer...");
+            Log.i(TAG, "Configuring speech recognizer (this will also perform warmup)...");
             // Configure STT with callbacks and current settings
+            // Note: configure() now automatically performs initialization AND warmup asynchronously
             configureSpeechRecognizer();
             
-            Log.i(TAG, "Starting STT warmup...");
-            // Perform warmup
-            sttManager.warmup();
-            
-            Log.i(TAG, "Azure Speech Recognizer setup completed");
+            Log.i(TAG, "Azure Speech Recognizer setup initiated (warmup in progress, will notify via onReady() callback)");
         } else {
             Log.i(TAG, "Realtime API audio mode active - skipping Azure Speech warmup");
         }

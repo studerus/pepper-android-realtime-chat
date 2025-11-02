@@ -98,7 +98,7 @@ public class ToolRegistryNew {
         // Vision tools
         registerTool("analyze_vision", AnalyzeVisionTool::new);
         
-        Log.i(TAG, "Registered " + toolFactories.size() + " tools across all categories");
+        Log.d(TAG, "Registered " + toolFactories.size() + " tools across all categories");
     }
     
     /**
@@ -163,13 +163,13 @@ public class ToolRegistryNew {
                 }
                 
                 tools.put(toolDefinition);
-                Log.d(TAG, "Registered tool: " + toolName);
+                // Log.d(TAG, "Registered tool: " + toolName); // Reduced verbosity
             } catch (Exception e) {
                 Log.e(TAG, "Failed to get definition for tool: " + toolName, e);
             }
         }
         
-        Log.i(TAG, "Built tools definition with " + tools.length() + " tools");
+        Log.d(TAG, "Built tools definition with " + tools.length() + " tools");
         return tools;
     }
     
@@ -178,8 +178,6 @@ public class ToolRegistryNew {
      */
     private void enhanceNavigationToolDescription(JSONObject toolDefinition, ToolContext context) {
         try {
-            Log.d(TAG, "Enhancing navigation tool description...");
-
             // Logic from getAvailableLocations is now inlined here
             if (context == null || context.getLocationProvider() == null) {
                 Log.w(TAG, "LocationProvider not available via ToolContext. Cannot enhance description.");
@@ -190,13 +188,12 @@ public class ToolRegistryNew {
             for (SavedLocation loc : savedLocations) {
                 availableLocations.add(loc.name);
             }
-            Log.i(TAG, "Fetched " + availableLocations.size() + " locations from LocationProvider for tool definition.");
 
             String baseDescription = "Navigate Pepper to a previously saved location. Use this when the user wants to go to a specific named place.";
             
             if (availableLocations.isEmpty()) {
                 toolDefinition.put("description", baseDescription + " Currently no saved locations available - user needs to save locations first. Additional locations saved during this session can also be used.");
-                Log.i(TAG, "Enhanced navigation tool - no locations available, but session locations can be added");
+                Log.d(TAG, "Enhanced navigation tool - no locations available");
             } else {
                 StringBuilder sb = new StringBuilder();
                 for (int i = 0; i < availableLocations.size(); i++) {
@@ -206,7 +203,7 @@ public class ToolRegistryNew {
                 String locationsText = sb.toString();
                 toolDefinition.put("description", baseDescription + " Available saved locations: " + locationsText + ". Additional locations saved during this session can also be used.");
                 
-                Log.i(TAG, "Enhanced navigation tool with " + availableLocations.size() + " saved locations: " + locationsText + " (plus any locations saved during session)");
+                Log.d(TAG, "Enhanced navigation tool with " + availableLocations.size() + " saved locations");
             }
         } catch (Exception e) {
             Log.e(TAG, "Failed to enhance navigation tool description", e);

@@ -656,10 +656,15 @@ public class RealtimeSessionManager {
      */
     private void logToolsDebug(JSONArray toolsArray, String context) {
         try {
-            Log.i(TAG, context + " tools: " + toolsArray.length() + " tools");
-            for (int i = 0; i < toolsArray.length(); i++) {
+            Log.d(TAG, context + " tools: " + toolsArray.length() + " tools");
+            // Reduced verbosity - only log first 3 tools
+            int logLimit = Math.min(3, toolsArray.length());
+            for (int i = 0; i < logLimit; i++) {
                 JSONObject tool = toolsArray.getJSONObject(i);
                 Log.d(TAG, "  " + context + " tool " + i + ": " + tool.optString("name"));
+            }
+            if (toolsArray.length() > logLimit) {
+                Log.d(TAG, "  ... and " + (toolsArray.length() - logLimit) + " more tools");
             }
         } catch (Exception e) {
             Log.w(TAG, "Error logging tools debug info", e);
