@@ -117,9 +117,10 @@ public class LookAtPositionTool implements Tool {
             return new JSONObject().put("error", "Robot not ready").toString();
         }
         
-        // Check if charging flap is open (safety check)
-        if (isChargingFlapOpen(context)) {
-            return new JSONObject().put("error", "Cannot perform look action while charging flap is open. Please close the charging flap first for safety.").toString();
+        // Check if charging flap is open - only required for whole_body movement (HEAD_AND_BASE)
+        // With head_only (HEAD_ONLY), the base is not used so the flap can remain open
+        if ("whole_body".equals(movementPolicy) && isChargingFlapOpen(context)) {
+            return new JSONObject().put("error", "Cannot perform whole body look action while charging flap is open. Please close the charging flap first for safety, or use 'head_only' movement policy.").toString();
         }
         
         Log.i(TAG, String.format(Locale.US, "Starting LookAt: position(%.2f, %.2f, %.2f) with policy: %s, duration: %.1fs", 
@@ -144,11 +145,17 @@ public class LookAtPositionTool implements Tool {
             FreeFrame targetFrame = mapping.makeFreeFrame();
             targetFrame.update(robotFrame, transform, 0L);
             
-            // Create LookAt action
-            // Note: Policy setting might be done differently or not available in all QiSDK versions
+            // Create LookAt action with movement policy
             LookAt lookAt = LookAtBuilder.with(qiContext)
                 .withFrame(targetFrame.frame())
                 .build();
+            
+            // Set movement policy based on parameter
+            if ("whole_body".equals(movementPolicy)) {
+                lookAt.setPolicy(com.aldebaran.qi.sdk.object.actuation.LookAtMovementPolicy.HEAD_AND_BASE);
+            } else {
+                lookAt.setPolicy(com.aldebaran.qi.sdk.object.actuation.LookAtMovementPolicy.HEAD_ONLY);
+            }
             
             // Create latch to wait for LookAt to START (not complete)
             CountDownLatch startedLatch = new CountDownLatch(1);
