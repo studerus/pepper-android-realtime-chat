@@ -32,3 +32,7 @@ AZURE_FACE_ENDPOINT=your_endpoint_here
 GROQ_API_KEY=your_key_here
 TAVILY_API_KEY=your_key_here
 OPENWEATHER_API_KEY=your_key_here
+YOUTUBE_API_KEY=your_key_here
+
+# Pepper Robot SSH credentials (Optional - only needed for direct robot communication)
+PEPPER_SSH_PASSWORD=your_pepper_ssh_password_here
