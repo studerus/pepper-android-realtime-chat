@@ -117,7 +117,8 @@ public class ChatActivity extends AppCompatActivity {
     private volatile long lastAudioDoneTs = 0L; // monotonic timestamp of last audio completion
     
     // Game dialogs - TicTacToe moved to TicTacToeGameManager
-    private volatile boolean hasActiveResponse = false;
+    private volatile boolean isResponseGenerating = false;  // API is generating response
+    private volatile boolean isAudioPlaying = false;        // Local audio playback active
     private volatile String currentResponseId = null;
     private volatile String cancelledResponseId = null;
     private volatile String lastChatBubbleResponseId = null;
@@ -220,7 +221,7 @@ public class ChatActivity extends AppCompatActivity {
                 
                 if (currentState == TurnManager.State.SPEAKING) {
                     // Robot is speaking -> interrupt and mute
-                    if (hasActiveResponse || (audioPlayer != null && audioPlayer.isPlaying())) {
+                    if (isResponseGenerating || isAudioPlaying || (audioPlayer != null && audioPlayer.isPlaying())) {
                         Log.i(TAG, "Interrupting and muting...");
                         interruptAndMute();
                     }
@@ -346,15 +347,19 @@ public class ChatActivity extends AppCompatActivity {
                 turnManager.setState(TurnManager.State.SPEAKING);
             }
             @Override public void onPlaybackFinished() {
+                // Playback queue is now empty - update state
+                isAudioPlaying = false;
+                
                 // Avoid reopening the mic if a follow-up response is pending or already streaming
                 lastAudioDoneTs = android.os.SystemClock.uptimeMillis();
                 try {
                     boolean playing = (audioPlayer != null && audioPlayer.isPlaying());
                     Log.d(TAG, "🚨 DIAGNOSTIC: onPlaybackFinished: playing=" + playing + 
-                            ", hasActiveResponse=" + hasActiveResponse + 
+                            ", isResponseGenerating=" + isResponseGenerating + 
+                            ", isAudioPlaying=" + isAudioPlaying + 
                             ", lastAudioDoneTs=" + lastAudioDoneTs);
                 } catch (Exception ignored) {}
-                if (!expectingFinalAnswerAfterToolCall && !hasActiveResponse) {
+                if (!expectingFinalAnswerAfterToolCall && !isResponseGenerating) {
                     turnManager.setState(TurnManager.State.LISTENING);
                 } else {
                     // Keep THINKING until the next response's audio starts
@@ -1198,7 +1203,8 @@ public class ChatActivity extends AppCompatActivity {
             }
             
             // Clear response tracking variables for clean state
-            hasActiveResponse = false;
+            isResponseGenerating = false;
+            isAudioPlaying = false;
             currentResponseId = null;
             cancelledResponseId = null;
             lastChatBubbleResponseId = null;
@@ -1317,7 +1323,20 @@ public class ChatActivity extends AppCompatActivity {
             @Override
             public void onStarted() {
                 sttIsRunning = true;
-                runOnUiThread(() -> statusTextView.setText(getString(R.string.status_listening)));
+                runOnUiThread(() -> {
+                    Log.i(TAG, "✅ STT is now actively listening - entering LISTENING state");
+                    
+                    // Hide warmup indicator NOW - recognition is truly active
+                    hideWarmupIndicator();
+                    isWarmingUp = false;
+                    
+                    statusTextView.setText(getString(R.string.status_listening));
+                    
+                    // Now that recognition is ACTUALLY running, transition to LISTENING state
+                    if (turnManager != null) {
+                        turnManager.setState(TurnManager.State.LISTENING);
+                    }
+                });
             }
 
             @Override
@@ -1329,16 +1348,19 @@ public class ChatActivity extends AppCompatActivity {
             public void onReady() {
                 long totalWarmupTime = System.currentTimeMillis() - sttWarmupStartTime;
                 Log.i(TAG, "✅ Speech Recognizer is fully warmed up and ready (total time: " + totalWarmupTime + "ms)");
+                
+                // Start continuous recognition immediately (but keep warmup indicator visible)
+                // The indicator will be hidden in onStarted() callback when recognition is truly active
+                Log.i(TAG, "STT warmup complete - starting continuous recognition (warmup indicator stays visible)...");
+                
                 runOnUiThread(() -> {
-                    // Hide warmup indicator
-                    hideWarmupIndicator();
-                    isWarmingUp = false;
-
-                    // Now transition to LISTENING state - recognizer is ready
-                    Log.i(TAG, "STT ready - entering LISTENING state");
-                    if (turnManager != null) {
-                        statusTextView.setText(getString(R.string.status_listening));
-                        turnManager.setState(TurnManager.State.LISTENING);
+                    try {
+                        startContinuousRecognition();
+                    } catch (Exception e) {
+                        Log.e(TAG, "Failed to start recognition after warmup", e);
+                        hideWarmupIndicator();
+                        isWarmingUp = false;
+                        statusTextView.setText(getString(R.string.status_recognizer_not_ready));
                     }
                 });
             }
@@ -1444,15 +1466,17 @@ public class ChatActivity extends AppCompatActivity {
                             }
                         }
                         
-                hasActiveResponse = true;
+                        isAudioPlaying = true;  // Audio chunks are being played
                         audioPlayer.addChunk(pcm16);
                         audioPlayer.startIfNeeded();
                     }
                     @Override public void onAudioDone() {
                         audioPlayer.markResponseDone();
-                hasActiveResponse = false;
+                        // Note: Audio might still be in queue, isAudioPlaying will be set to false
+                        // when audioPlayer actually finishes playing all chunks
                     }
                     @Override public void onResponseDone(JSONObject response) {
+                        isResponseGenerating = false;  // API finished generating
                         Log.i(TAG, "Full response received. Processing final output.");
                         try {
                             JSONArray outputArray = response.optJSONArray("output");
@@ -1551,6 +1575,7 @@ public class ChatActivity extends AppCompatActivity {
                     }
                     @Override public void onResponseCreated(String responseId) {
                         try {
+                            isResponseGenerating = true;  // API started generating
                             Log.d(TAG, "New response created with ID: " + responseId);
                         } catch (Exception ignored) {}
                     }
@@ -1773,14 +1798,35 @@ public class ChatActivity extends AppCompatActivity {
                 }
 
                 if (requestResponse) {
+                    // Check if response is still being generated - interrupt if needed
+                    if (isResponseGenerating) {
+                        Log.i(TAG, "Response still generating - interrupting before new request");
+                        interruptSpeech();  // This will cancel + clear audio
+                        // Small delay to ensure cancel is processed by API
+                        try { Thread.sleep(50); } catch (InterruptedException ignored) {}
+                    }
+                    // Check if audio is still playing (without active generation)
+                    else if (isAudioPlaying && allowInterrupt) {
+                        Log.i(TAG, "Audio still playing - clearing queue before new request");
+                        if (audioPlayer != null) {
+                            audioPlayer.interruptNow();
+                            isAudioPlaying = false;
+                        }
+                    }
+                    
+                    // Set optimistically BEFORE sending to prevent race conditions
+                    isResponseGenerating = true;
+                    
                     boolean sentResponse = sessionManager.requestResponse();
                     if (!sentResponse) {
+                        isResponseGenerating = false;  // Reset on send error
                         handleWebSocketSendError("response request");
                     }
                 }
             } catch (Exception e) {
                 Log.e(TAG, "Exception in sendMessageToRealtimeAPI", e);
                 if (requestResponse) {
+                    isResponseGenerating = false;  // Reset on exception
                     runOnUiThread(() -> {
                         addMessage(getString(R.string.error_processing_message), ChatMessage.Sender.ROBOT);
                         if (turnManager != null) {
@@ -1810,9 +1856,13 @@ public class ChatActivity extends AppCompatActivity {
                 return;
             }
  
+            // Set optimistically BEFORE sending to prevent race conditions
+            isResponseGenerating = true;
+            
             // After sending the tool result, we must ask for a new response
             boolean sentToolResponse = sessionManager.requestResponse();
             if (!sentToolResponse) {
+                isResponseGenerating = false;  // Reset on send error
                 handleWebSocketSendError("tool response request");
                 return;
             }
@@ -1825,6 +1875,7 @@ public class ChatActivity extends AppCompatActivity {
  
         } catch (Exception e) {
             Log.e(TAG, "Error sending tool result", e);
+            isResponseGenerating = false;  // Reset on exception
         }
     }
 
@@ -1846,10 +1897,11 @@ public class ChatActivity extends AppCompatActivity {
             connectionCallback = null;
             
             // Cancel any ongoing responses to prevent them from interfering
-            if (hasActiveResponse && currentResponseId != null) {
+            if ((isResponseGenerating || isAudioPlaying) && currentResponseId != null) {
                 Log.d(TAG, "Cancelling active response before provider switch: " + currentResponseId);
                 cancelledResponseId = currentResponseId;
-                hasActiveResponse = false;
+                isResponseGenerating = false;
+                isAudioPlaying = false;
                 currentResponseId = null;
             }
             
@@ -2101,32 +2153,38 @@ public class ChatActivity extends AppCompatActivity {
         try {
             if (sessionManager == null || !sessionManager.isConnected()) return;
             
-            Log.d(TAG, "🚨 DIAGNOSTIC: interruptSpeech called: hasActiveResponse=" + hasActiveResponse);
+            Log.d(TAG, "🚨 Interrupt: isResponseGenerating=" + isResponseGenerating + 
+                       ", isAudioPlaying=" + isAudioPlaying);
             
-                // 1) Cancel further generation first (send only if there is an active response)
-                if (hasActiveResponse) {
-                    JSONObject cancel = new JSONObject();
-                    cancel.put("type", "response.cancel");
-                    sessionManager.send(cancel.toString());
-                    // mark the current response as cancelled to ignore trailing chunks
-                    cancelledResponseId = currentResponseId;
-                }
+            // 1) Cancel API response generation if still in progress
+            if (isResponseGenerating) {
+                JSONObject cancel = new JSONObject();
+                cancel.put("type", "response.cancel");
+                sessionManager.send(cancel.toString());
+                cancelledResponseId = currentResponseId;
+                isResponseGenerating = false;  // Mark as cancelled
+                Log.d(TAG, "Sent response.cancel for active generation");
+            }
 
-                // 2) Truncate current assistant item if we have its id
-                if (lastAssistantItemId != null) {
-                    int playedMs = audioPlayer != null ? Math.max(0, audioPlayer.getEstimatedPlaybackPositionMs()) : 0;
-                Log.d(TAG, "🚨 DIAGNOSTIC: sending truncate for item=" + lastAssistantItemId + ", audio_end_ms=" + playedMs);
-                    JSONObject truncate = new JSONObject();
-                    truncate.put("type", "conversation.item.truncate");
-                    truncate.put("item_id", lastAssistantItemId);
-                    truncate.put("content_index", 0);
-                    truncate.put("audio_end_ms", playedMs);
-                    sessionManager.send(truncate.toString());
-                }
+            // 2) Truncate current assistant item if we have its id
+            if (lastAssistantItemId != null) {
+                int playedMs = audioPlayer != null ? Math.max(0, audioPlayer.getEstimatedPlaybackPositionMs()) : 0;
+                Log.d(TAG, "Sending truncate for item=" + lastAssistantItemId + ", audio_end_ms=" + playedMs);
+                JSONObject truncate = new JSONObject();
+                truncate.put("type", "conversation.item.truncate");
+                truncate.put("item_id", lastAssistantItemId);
+                truncate.put("content_index", 0);
+                truncate.put("audio_end_ms", playedMs);
+                sessionManager.send(truncate.toString());
+            }
 
-                // 3) Stop local audio and gestures
-                if (audioPlayer != null) audioPlayer.interruptNow();
-                gestureController.stopNow();
+            // 3) Always stop local audio and gestures (whether generating or just playing)
+            if (audioPlayer != null) {
+                audioPlayer.interruptNow();
+                isAudioPlaying = false;  // Audio queue cleared
+            }
+            gestureController.stopNow();
+            
         } catch (Exception e) {
             Log.e(TAG, "Error during interruptSpeech", e);
         }

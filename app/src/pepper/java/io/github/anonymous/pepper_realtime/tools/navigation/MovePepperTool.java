@@ -131,14 +131,17 @@ public class MovePepperTool implements Tool {
                 context.sendAsyncUpdate(message, true);
             });
         
-        // Return immediate confirmation
+        // Return immediate confirmation - emphasize that movement is NOT completed yet
         JSONObject result = new JSONObject();
         result.put("status", "Movement started");
         result.put("distance_forward", distanceForward);
         result.put("distance_sideways", distanceSideways);
         result.put("speed", speed);
         result.put("message", String.format(java.util.Locale.US, 
-            "Movement started. Pepper is now moving %s.", buildMovementDescription(distanceForward, distanceSideways)));
+            "IMPORTANT: Movement has JUST STARTED and is currently in progress. Pepper is moving %s but has NOT YET arrived at the destination. " +
+            "Do NOT tell the user you have completed the movement or arrived yet. You will receive a separate [MOVEMENT COMPLETED] update " +
+            "when the movement is actually finished. Until then, you can acknowledge that the movement has started.", 
+            buildMovementDescription(distanceForward, distanceSideways)));
         return result.toString();
     }
 

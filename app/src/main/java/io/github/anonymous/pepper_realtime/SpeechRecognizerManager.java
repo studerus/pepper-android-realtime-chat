@@ -7,19 +7,12 @@ import com.microsoft.cognitiveservices.speech.ResultReason;
 import com.microsoft.cognitiveservices.speech.SpeechConfig;
 import com.microsoft.cognitiveservices.speech.SpeechRecognizer;
 import com.microsoft.cognitiveservices.speech.PropertyId;
-import com.microsoft.cognitiveservices.speech.CancellationReason;
-import com.microsoft.cognitiveservices.speech.SessionEventArgs;
-import com.microsoft.cognitiveservices.speech.SpeechRecognitionCanceledEventArgs;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 
 @SuppressWarnings("SpellCheckingInspection")
 public class SpeechRecognizerManager {
@@ -44,6 +37,9 @@ public class SpeechRecognizerManager {
     private ActivityCallbacks activityCallbacks;
     private final Object recognizerLock = new Object();
     private volatile boolean isRunning = false;
+    private volatile boolean connectionEstablished = false;
+    private volatile boolean sessionActive = false;
+    private volatile boolean readySignaled = false;
     
     // Configuration for current session
     private String currentApiKey;
@@ -64,16 +60,15 @@ public class SpeechRecognizerManager {
         this.currentSilenceTimeout = silenceTimeoutMs;
         this.confidenceThreshold = confidenceThreshold;
         
-        initializeAndWarmup();
+        initializeRecognizer();
     }
     
     /**
-     * Initialize recognizer and perform warmup - all in one async operation
+     * Initialize recognizer - simple and clean
      */
-    private void initializeAndWarmup() {
-        Log.i(TAG, "🎬 initializeAndWarmup() called, submitting task to executor...");
+    private void initializeRecognizer() {
+        Log.i(TAG, "🔧 Initializing recognizer...");
         executor.submit(() -> {
-            Log.i(TAG, "🔧 Executor task started - beginning recognizer initialization...");
             try {
                 SpeechConfig cfg = SpeechConfig.fromSubscription(currentApiKey, currentRegion);
                 cfg.setSpeechRecognitionLanguage(currentLanguage);
@@ -92,6 +87,32 @@ public class SpeechRecognizerManager {
                 // Give Azure Speech SDK time to fully initialize internally
                 Thread.sleep(500);
 
+                // Register connection event listener - this tells us when truly ready
+                Connection connection = Connection.fromRecognizer(recognizer);
+                connection.connected.addEventListener((s, e) -> {
+                    Log.i(TAG, "🌐 Connection established - recognizer ready");
+                    connectionEstablished = true;
+                    signalReadyIfNeeded("connection", false);
+                });
+                connection.disconnected.addEventListener((s, e) -> {
+                    Log.w(TAG, "⚠️ Connection lost");
+                    connectionEstablished = false;
+                    sessionActive = false;
+                    readySignaled = false;
+                });
+
+                recognizer.sessionStarted.addEventListener((s, e) -> {
+                    Log.i(TAG, "🎙️ sessionStarted event received");
+                    sessionActive = true;
+                    signalReadyIfNeeded("sessionStarted", false);
+                });
+                recognizer.sessionStopped.addEventListener((s, e) -> {
+                    Log.i(TAG, "🛑 sessionStopped event received");
+                    sessionActive = false;
+                    readySignaled = false;
+                });
+
+                // Register recognition event listeners
                 recognizer.recognizing.addEventListener((s, e) -> {
                     if (activityCallbacks != null && e != null) {
                         try { 
@@ -113,17 +134,19 @@ public class SpeechRecognizerManager {
                         if (activityCallbacks != null) activityCallbacks.onError(ex.getMessage());
                     }
                 });
+                
+                try {
+                    connection.openConnection(true);
+                    Log.i(TAG, "Proactively opened recognizer connection after initialization");
+                } catch (Exception openEx) {
+                    Log.w(TAG, "Unable to proactively open recognizer connection after init", openEx);
+                }
+                
                 Log.i(TAG, "✅ Recognizer initialized for " + currentLanguage + ", silence=" + currentSilenceTimeout + "ms");
                 
-                // Now perform warmup in the same thread
-                Log.i(TAG, "📞 About to call performWarmup()...");
-                try {
-                    performWarmup();
-                    Log.i(TAG, "✅ performWarmup() completed successfully");
-                } catch (Exception warmupEx) {
-                    Log.e(TAG, "❌ performWarmup() threw exception: " + warmupEx.getMessage(), warmupEx);
-                    // Even if warmup fails, notify ready so app doesn't hang
-                    notifyReady();
+                // Notify that recognizer is ready - warmup will happen on first use
+                if (activityCallbacks != null) {
+                    activityCallbacks.onReady();
                 }
                 
             } catch (Exception ex) {
@@ -147,10 +170,28 @@ public class SpeechRecognizerManager {
         executor.submit(() -> {
             try {
                 if (recognizer != null) {
+                    isRunning = true; // Set BEFORE starting, so connection.connected listener can fire onStarted()
+                    connectionEstablished = false; // Reset flag
+                    sessionActive = false;
+                    readySignaled = false;
                     recognizer.startContinuousRecognitionAsync().get();
-                    isRunning = true;
-                    if (activityCallbacks != null) activityCallbacks.onStarted();
-                    Log.i(TAG, "Continuous recognition started");
+                    Log.i(TAG, "Continuous recognition started (waiting for connection established event)");
+                    
+                    // Fallback timer: If connection event doesn't fire within 10 seconds, call onStarted() anyway
+                    Thread fallbackThread = new Thread(() -> {
+                        try {
+                            Thread.sleep(10000); // Wait 10 seconds
+                            if (isRunning && !readySignaled) {
+                                Log.w(TAG, "⚠️ Connection still pending after 10s - awaiting Azure events");
+                            }
+                        } catch (InterruptedException ignored) {
+                            // Thread was interrupted because connection was established
+                        }
+                    });
+                    fallbackThread.setDaemon(true);
+                    fallbackThread.start();
+                    // NOTE: onStarted() will be called by the connection.connected event listener
+                    // when the connection to Azure Speech is truly established
                 } else {
                     handleStartFailure(new IllegalStateException("Recognizer not initialized"));
                 }
@@ -182,11 +223,17 @@ public class SpeechRecognizerManager {
                 if (recognizer != null) {
                     recognizer.stopContinuousRecognitionAsync(); // do not block on get()
                     isRunning = false;
+                    sessionActive = false;
+                    connectionEstablished = false;
+                    readySignaled = false;
                     if (activityCallbacks != null) activityCallbacks.onStopped();
                     Log.i(TAG, "Continuous recognition stop requested (async)");
                 }
             } catch (Exception ex) {
                 isRunning = false; // Reset flag even on error
+                sessionActive = false;
+                connectionEstablished = false;
+                readySignaled = false;
                 Log.e(TAG, "Error stopping speech recognizer (ignored)", ex);
             }
         });
@@ -211,6 +258,30 @@ public class SpeechRecognizerManager {
                 Thread.sleep(1000);
                 
                 // CRITICAL: Register event listeners for the new recognizer instance
+                Connection connection = Connection.fromRecognizer(recognizer);
+                connection.connected.addEventListener((s, e) -> {
+                    Log.i(TAG, "🌐 Recognizer connection established (lazy init)");
+                    connectionEstablished = true;
+                    signalReadyIfNeeded("lazy-connection", false);
+                });
+                connection.disconnected.addEventListener((s, e) -> {
+                    Log.w(TAG, "⚠️ Recognizer connection lost (lazy init)");
+                    connectionEstablished = false;
+                    sessionActive = false;
+                    readySignaled = false;
+                });
+
+                recognizer.sessionStarted.addEventListener((s, e) -> {
+                    Log.i(TAG, "🎙️ sessionStarted (lazy init)");
+                    sessionActive = true;
+                    signalReadyIfNeeded("lazy-session", false);
+                });
+                recognizer.sessionStopped.addEventListener((s, e) -> {
+                    Log.i(TAG, "🛑 sessionStopped (lazy init)");
+                    sessionActive = false;
+                    readySignaled = false;
+                });
+                
                 recognizer.recognizing.addEventListener((s, e) -> {
                     if (activityCallbacks != null && e != null) {
                         try { 
@@ -234,10 +305,24 @@ public class SpeechRecognizerManager {
                 });
                 
                 if (recognizer != null) {
-                    recognizer.startContinuousRecognitionAsync().get();
                     isRunning = true;
-                    if (activityCallbacks != null) activityCallbacks.onStarted();
-                    Log.i(TAG, "Lazy speech initialization successful");
+                    connectionEstablished = false;
+                    sessionActive = false;
+                    readySignaled = false;
+                    recognizer.startContinuousRecognitionAsync().get();
+                    Log.i(TAG, "Lazy speech initialization successful (waiting for connection/session)");
+                    Thread fallbackThread = new Thread(() -> {
+                        try {
+                            Thread.sleep(10000);
+                            if (isRunning && !readySignaled) {
+                                Log.w(TAG, "⚠️ Lazy init: connection still pending after 10s - awaiting Azure events");
+                            }
+                        } catch (InterruptedException ignored) {
+                        }
+                    });
+                    fallbackThread.setDaemon(true);
+                    fallbackThread.start();
+                    // onStarted() will be called by session/connection event
                     return;
                 }
             } catch (Exception retryEx) {
@@ -248,6 +333,27 @@ public class SpeechRecognizerManager {
         if (activityCallbacks != null) {
             activityCallbacks.onError("Speech recognition failed to start: " + ex.getMessage());
         }
+    }
+    
+    private void signalReadyIfNeeded(String source, boolean force) {
+        if (!isRunning || readySignaled) {
+            return;
+        }
+        if (!force && (!connectionEstablished || !sessionActive)) {
+            Log.i(TAG, "⏳ Waiting for full readiness (" + source + ") "
+                    + "connection=" + connectionEstablished + ", sessionActive=" + sessionActive);
+            return;
+        }
+        
+        if (activityCallbacks != null) {
+            readySignaled = true;
+            Log.i(TAG, "🟢 Recognizer ready (" + source + ")");
+            activityCallbacks.onStarted();
+        }
+    }
+    
+    private void signalReadyIfNeeded(String source) {
+        signalReadyIfNeeded(source, false);
     }
     
     /**
@@ -273,169 +379,6 @@ public class SpeechRecognizerManager {
         );
     }
 
-    /**
-     * Perform warmup - called from initializeAndWarmup() after recognizer is initialized
-     * This method runs in the executor thread, so recognizer is guaranteed to be non-null
-     */
-    private void performWarmup() {
-        Log.i(TAG, "⏳ Starting connection-based warmup...");
-        
-        int retriesRemaining = 3;
-        int attempt = 1;
-        while (retriesRemaining > 0) {
-            try {
-                attemptWarmupConnection(attempt);
-                Log.i(TAG, "✅ Recognizer warmup completed successfully" + (attempt > 1 ? " on retry #" + attempt : ""));
-                
-                // Inline notifyReady() call
-                Log.i(TAG, "🔔 Notifying activity that recognizer is ready...");
-                if (activityCallbacks != null) {
-                    activityCallbacks.onReady();
-                } else {
-                    Log.w(TAG, "⚠️ activityCallbacks is NULL - cannot notify ready");
-                }
-                return; // Success!
-                
-            } catch (Exception fallbackE) {
-                Log.w(TAG, "⚠️ Warmup attempt #" + attempt + " failed: " + fallbackE.getMessage(), fallbackE);
-
-                if (retriesRemaining > 1) {
-                    Log.i(TAG, "🔄 Retrying after short delay... (" + retriesRemaining + " attempts remaining)");
-                    try {
-                        Thread.sleep(200);
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                        Log.e(TAG, "❌ Warmup interrupted during retry delay", ie);
-                        // Notify ready anyway so app doesn't hang
-                        if (activityCallbacks != null) activityCallbacks.onReady();
-                        return;
-                    }
-                } else {
-                    Log.w(TAG, "⚠️ All warmup attempts failed - notifying ready anyway");
-                    // Notify ready even if warmup failed, so app doesn't hang
-                    if (activityCallbacks != null) activityCallbacks.onReady();
-                    return;
-                }
-            }
-            retriesRemaining--;
-            attempt++;
-        }
-    }
-    
-    // OLD session-based warmup code - now disabled
-    private void warmupSessionBased_DISABLED() throws Exception {
-        long warmupStart = System.currentTimeMillis();
-        CountDownLatch sessionLatch = new CountDownLatch(1);
-        AtomicBoolean sessionStarted = new AtomicBoolean(false);
-        AtomicReference<String> sessionError = new AtomicReference<>(null);
-
-        Log.d(TAG, "Adding sessionStarted event listener...");
-        recognizer.sessionStarted.addEventListener((s, e) -> {
-            sessionStarted.set(true);
-            Log.d(TAG, "🎯 Warmup session.started received after " + (System.currentTimeMillis() - warmupStart) + "ms");
-            sessionLatch.countDown();
-        });
-        recognizer.sessionStopped.addEventListener((s, e) -> {
-            if (!sessionStarted.get()) {
-                sessionError.compareAndSet(null, "Session stopped before start");
-                sessionLatch.countDown();
-            }
-        });
-        recognizer.canceled.addEventListener((s, e) -> {
-            String details = e.getErrorDetails();
-            CancellationReason reason = e.getReason();
-            if (details == null || details.isEmpty()) {
-                details = "Session canceled" + (reason != null ? " (" + reason + ")" : "");
-            }
-            sessionError.set(details);
-            sessionLatch.countDown();
-        });
-
-        boolean started = false;
-        try {
-            Log.d(TAG, "📞 Calling startContinuousRecognitionAsync()...");
-            long startCallTs = System.currentTimeMillis();
-            recognizer.startContinuousRecognitionAsync().get();
-            long startDuration = System.currentTimeMillis() - startCallTs;
-            Log.d(TAG, "✅ startContinuousRecognitionAsync().get() finished in " + startDuration + "ms");
-            started = true;
-
-            Log.d(TAG, "⏳ Waiting for sessionStarted event (max 3000ms)...");
-            boolean signaled = sessionLatch.await(3000, TimeUnit.MILLISECONDS);
-            Log.d(TAG, "⏰ Warmup latch await result=" + signaled + ", sessionStarted=" + sessionStarted.get() + ", elapsed=" + (System.currentTimeMillis() - warmupStart) + "ms");
-            if (!signaled) {
-                throw new RuntimeException("Warmup timed out waiting for session start");
-            }
-            if (!sessionStarted.get()) {
-                throw new RuntimeException(sessionError.get() != null ? sessionError.get() : "Session failed to start");
-            }
-
-            Log.i(TAG, "✅ STT warmup (session-based) completed in " + (System.currentTimeMillis() - warmupStart) + "ms - calling notifyReady()");
-            notifyReady();
-            return;
-        } catch (Exception e) {
-            Log.w(TAG, "⚠️ Real warmup (session-based) failed, falling back to connection-based warmup: " + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()), e);
-        } finally {
-            if (started) {
-                try {
-                    recognizer.stopContinuousRecognitionAsync().get();
-                } catch (Exception stopEx) {
-                    Log.w(TAG, "Warmup stop failed", stopEx);
-                }
-            }
-        }
-    }
-
-    private void attemptWarmupConnection(int attemptNumber) throws Exception {
-        final Object lock = new Object();
-        final Exception[] error = { null };
-
-        Connection connection = Connection.fromRecognizer(recognizer);
-
-        connection.connected.addEventListener((s, e) -> {
-            Log.i(TAG, "Recognizer connection established (attempt #" + attemptNumber + ")");
-            synchronized (lock) {
-                lock.notify();
-            }
-        });
-
-        connection.disconnected.addEventListener((s, e) -> {
-            Log.e(TAG, "Recognizer connection failed - disconnected (attempt #" + attemptNumber + ")");
-            error[0] = new RuntimeException("Recognizer disconnected during warmup");
-            synchronized (lock) {
-                lock.notify();
-            }
-        });
-
-        Log.i(TAG, "Opening recognizer connection (attempt #" + attemptNumber + ")...");
-        connection.openConnection(true);
-
-        synchronized (lock) {
-            try {
-                lock.wait(2000); // 2 second timeout per attempt (event-driven retry)
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new RuntimeException("Warmup interrupted during connection", e);
-            }
-        }
-
-        if (error[0] != null) {
-            throw error[0];
-        }
-        
-        // Verify recognizer is truly ready
-        try {
-            if (recognizer.getProperties() != null) {
-                Log.i(TAG, "Recognizer verification passed");
-            }
-        } catch (Exception e) {
-            Log.w(TAG, "Recognizer properties check failed", e);
-            throw new RuntimeException("Recognizer not fully ready: " + e.getMessage(), e);
-        }
-    }
-    
-    
-
     public void shutdown() {
         try {
             if (recognizer != null) {
@@ -445,24 +388,6 @@ public class SpeechRecognizerManager {
             }
         } catch (Exception ignored) {}
         executor.shutdown();
-    }
-    
-    /**
-     * Notify activity that recognizer is fully ready
-     */
-    private void notifyReady() {
-        Log.i(TAG, "🔔 notifyReady() called, activityCallbacks=" + (activityCallbacks != null ? "present" : "NULL"));
-        if (activityCallbacks != null) {
-            try {
-                Log.i(TAG, "🔔 Calling activityCallbacks.onReady()...");
-                activityCallbacks.onReady();
-                Log.i(TAG, "🔔 activityCallbacks.onReady() returned successfully");
-            } catch (Exception e) {
-                Log.e(TAG, "❌ Error notifying ready callback: " + e.getMessage(), e);
-            }
-        } else {
-            Log.w(TAG, "⚠️ Cannot notify ready - activityCallbacks is NULL!");
-        }
     }
     
     /**
