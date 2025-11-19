@@ -1,8 +1,8 @@
 package io.github.anonymous.pepper_realtime.service;
 
-import io.github.anonymous.pepper_realtime.ChatActivity;
-import io.github.anonymous.pepper_realtime.manager.OptimizedThreadManager;
-import io.github.anonymous.pepper_realtime.network.OptimizedHttpClientManager;
+import io.github.anonymous.pepper_realtime.ui.ChatActivity;
+import io.github.anonymous.pepper_realtime.manager.ThreadManager;
+import io.github.anonymous.pepper_realtime.network.HttpClientManager;
 import io.github.anonymous.pepper_realtime.network.RealtimeApiProvider;
 import io.github.anonymous.pepper_realtime.network.RealtimeSessionManager;
 
@@ -50,7 +50,7 @@ public class VisionService {
     private final Context context;
     private final ChatActivity activityRef;
     private final OkHttpClient http;
-    private final OptimizedThreadManager threadManager;
+    private final ThreadManager threadManager;
 
     private QiContext qiContext;
     private Future<TakePicture> takePictureAction;
@@ -60,9 +60,9 @@ public class VisionService {
         this.context = context.getApplicationContext();
         this.activityRef = (context instanceof ChatActivity) ? (ChatActivity) context : null;
         // Use optimized shared API client for better performance and connection reuse
-        this.http = OptimizedHttpClientManager.getInstance().getApiClient();
+        this.http = HttpClientManager.getInstance().getApiClient();
         // Use optimized thread manager for computation tasks
-        this.threadManager = OptimizedThreadManager.getInstance();
+        this.threadManager = ThreadManager.getInstance();
     }
     
     /**

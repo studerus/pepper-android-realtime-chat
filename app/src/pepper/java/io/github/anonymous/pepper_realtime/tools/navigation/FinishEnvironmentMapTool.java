@@ -8,7 +8,7 @@ import com.aldebaran.qi.sdk.object.actuation.LocalizeAndMap;
 import java.nio.charset.StandardCharsets;
 import io.github.anonymous.pepper_realtime.tools.Tool;
 import io.github.anonymous.pepper_realtime.tools.ToolContext;
-import io.github.anonymous.pepper_realtime.manager.OptimizedThreadManager;
+import io.github.anonymous.pepper_realtime.manager.ThreadManager;
 import io.github.anonymous.pepper_realtime.manager.NavigationServiceManager;
 
 import org.json.JSONObject;
@@ -69,7 +69,7 @@ public class FinishEnvironmentMapTool implements Tool {
             ACTIVE_MAP_NAME), false);
         
         // Implement mapping finalization on background I/O thread
-        OptimizedThreadManager.getInstance().executeIO(() -> {
+        ThreadManager.getInstance().executeIO(() -> {
             try {
                 // 1) Get current mapping action and its future
                 LocalizeAndMap lam = CreateEnvironmentMapTool.getCurrentLocalizeAndMap();

@@ -21,9 +21,9 @@ import okhttp3.Protocol;
  * - Connection keep-alive and reuse
  * - Reduced resource allocation and improved latency
  */
-public class OptimizedHttpClientManager {
+public class HttpClientManager {
     private static final String TAG = "OptimizedHttpClient";
-    private static volatile OptimizedHttpClientManager instance;
+    private static volatile HttpClientManager instance;
     
     // Shared clients for different use cases
     private final OkHttpClient webSocketClient;
@@ -31,7 +31,7 @@ public class OptimizedHttpClientManager {
     private final OkHttpClient quickApiClient;
     private final AtomicBoolean shutdownInitiated = new AtomicBoolean(false);
     
-    private OptimizedHttpClientManager() {
+    private HttpClientManager() {
         Log.i(TAG, "Initializing optimized HTTP client manager");
         
         // Shared connection pool for maximum efficiency
@@ -97,11 +97,11 @@ public class OptimizedHttpClientManager {
     /**
      * Get singleton instance with lazy initialization
      */
-    public static OptimizedHttpClientManager getInstance() {
+    public static HttpClientManager getInstance() {
         if (instance == null) {
-            synchronized (OptimizedHttpClientManager.class) {
+            synchronized (HttpClientManager.class) {
                 if (instance == null) {
-                    instance = new OptimizedHttpClientManager();
+                    instance = new HttpClientManager();
                 }
             }
         }
@@ -148,7 +148,7 @@ public class OptimizedHttpClientManager {
             return;
         }
 
-        synchronized (OptimizedHttpClientManager.class) {
+        synchronized (HttpClientManager.class) {
             if (instance == this) {
                 instance = null;
             }

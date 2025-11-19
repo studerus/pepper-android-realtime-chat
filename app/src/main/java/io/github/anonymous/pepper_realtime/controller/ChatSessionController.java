@@ -5,12 +5,12 @@ import okhttp3.Response;
 import java.util.List;
 import java.util.Map;
 
-import io.github.anonymous.pepper_realtime.ChatActivity;
+import io.github.anonymous.pepper_realtime.ui.ChatActivity;
 import io.github.anonymous.pepper_realtime.controller.GestureController;
 import io.github.anonymous.pepper_realtime.R;
 import io.github.anonymous.pepper_realtime.network.RealtimeEventHandler;
 import io.github.anonymous.pepper_realtime.manager.ApiKeyManager;
-import io.github.anonymous.pepper_realtime.manager.OptimizedThreadManager;
+import io.github.anonymous.pepper_realtime.manager.ThreadManager;
 import io.github.anonymous.pepper_realtime.manager.SettingsManager;
 import io.github.anonymous.pepper_realtime.manager.TurnManager;
 import io.github.anonymous.pepper_realtime.network.RealtimeApiProvider;
@@ -26,7 +26,7 @@ public class ChatSessionController {
     private final SettingsManager settingsManager;
     private final ApiKeyManager keyManager;
     private final AudioInputController audioInputController;
-    private final OptimizedThreadManager threadManager;
+    private final ThreadManager threadManager;
     private final GestureController gestureController;
     private final ChatInterruptController interruptController;
     private final TurnManager turnManager;
@@ -38,7 +38,7 @@ public class ChatSessionController {
                                SettingsManager settingsManager,
                                ApiKeyManager keyManager,
                                AudioInputController audioInputController,
-                               OptimizedThreadManager threadManager,
+                               ThreadManager threadManager,
                                GestureController gestureController,
                                ChatInterruptController interruptController,
                                TurnManager turnManager,

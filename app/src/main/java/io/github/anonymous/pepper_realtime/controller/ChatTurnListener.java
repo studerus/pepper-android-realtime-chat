@@ -6,7 +6,7 @@ import android.widget.TextView;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
-import io.github.anonymous.pepper_realtime.ChatActivity;
+import io.github.anonymous.pepper_realtime.ui.ChatActivity;
 import io.github.anonymous.pepper_realtime.controller.GestureController;
 import io.github.anonymous.pepper_realtime.R;
 import io.github.anonymous.pepper_realtime.manager.TurnManager;

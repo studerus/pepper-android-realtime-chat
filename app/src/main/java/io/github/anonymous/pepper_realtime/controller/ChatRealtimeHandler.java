@@ -10,33 +10,33 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-import io.github.anonymous.pepper_realtime.manager.OptimizedThreadManager;
+import io.github.anonymous.pepper_realtime.manager.ThreadManager;
 import io.github.anonymous.pepper_realtime.manager.TurnManager;
-import io.github.anonymous.pepper_realtime.manager.OptimizedAudioPlayer;
+import io.github.anonymous.pepper_realtime.manager.AudioPlayer;
 import io.github.anonymous.pepper_realtime.network.RealtimeEventHandler;
-import io.github.anonymous.pepper_realtime.ChatActivity;
+import io.github.anonymous.pepper_realtime.ui.ChatActivity;
 import io.github.anonymous.pepper_realtime.R;
 import io.github.anonymous.pepper_realtime.tools.ToolContext;
-import io.github.anonymous.pepper_realtime.tools.ToolRegistryNew;
+import io.github.anonymous.pepper_realtime.tools.ToolRegistry;
 import io.github.anonymous.pepper_realtime.ui.ChatMessage;
 
 public class ChatRealtimeHandler implements RealtimeEventHandler.Listener {
     private static final String TAG = "ChatRealtimeHandler";
 
     private final ChatActivity activity;
-    private final OptimizedAudioPlayer audioPlayer;
+    private final AudioPlayer audioPlayer;
     private final TurnManager turnManager;
     private final TextView statusTextView;
-    private final OptimizedThreadManager threadManager;
-    private final ToolRegistryNew toolRegistry;
+    private final ThreadManager threadManager;
+    private final ToolRegistry toolRegistry;
     private final ToolContext toolContext;
 
     public ChatRealtimeHandler(ChatActivity activity, 
-                             OptimizedAudioPlayer audioPlayer, 
+                             AudioPlayer audioPlayer, 
                              TurnManager turnManager, 
                              TextView statusTextView,
-                             OptimizedThreadManager threadManager,
-                             ToolRegistryNew toolRegistry,
+                             ThreadManager threadManager,
+                             ToolRegistry toolRegistry,
                              ToolContext toolContext) {
         this.activity = activity;
         this.audioPlayer = audioPlayer;

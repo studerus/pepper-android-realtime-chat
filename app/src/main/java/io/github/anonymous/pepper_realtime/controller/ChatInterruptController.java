@@ -3,23 +3,23 @@ package io.github.anonymous.pepper_realtime.controller;
 import android.util.Log;
 import org.json.JSONObject;
 
-import io.github.anonymous.pepper_realtime.ChatActivity;
+import io.github.anonymous.pepper_realtime.ui.ChatActivity;
 import io.github.anonymous.pepper_realtime.controller.GestureController;
-import io.github.anonymous.pepper_realtime.manager.OptimizedAudioPlayer;
+import io.github.anonymous.pepper_realtime.manager.AudioPlayer;
 import io.github.anonymous.pepper_realtime.network.RealtimeSessionManager;
 
 public class ChatInterruptController {
     private static final String TAG = "ChatInterruptController";
 
     private final RealtimeSessionManager sessionManager;
-    private final OptimizedAudioPlayer audioPlayer;
+    private final AudioPlayer audioPlayer;
     private final GestureController gestureController;
     private final AudioInputController audioInputController;
     private final ChatActivity activity; // For access to volatile flags
 
     public ChatInterruptController(ChatActivity activity,
                                  RealtimeSessionManager sessionManager,
-                                 OptimizedAudioPlayer audioPlayer,
+                                 AudioPlayer audioPlayer,
                                  GestureController gestureController,
                                  AudioInputController audioInputController) {
         this.activity = activity;

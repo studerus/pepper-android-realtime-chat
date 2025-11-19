@@ -5,7 +5,7 @@ import android.os.Looper;
 import android.util.Log;
 import android.view.View;
 
-import io.github.anonymous.pepper_realtime.ChatActivity;
+import io.github.anonymous.pepper_realtime.ui.ChatActivity;
 import io.github.anonymous.pepper_realtime.R;
 import io.github.anonymous.pepper_realtime.robot.RobotController;
 import io.github.anonymous.pepper_realtime.robot.RobotLifecycleBridge;

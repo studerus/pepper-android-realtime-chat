@@ -20,7 +20,7 @@ import org.json.JSONObject;
 import io.github.anonymous.pepper_realtime.network.RealtimeEventHandler;
 import io.github.anonymous.pepper_realtime.manager.ApiKeyManager;
 import io.github.anonymous.pepper_realtime.manager.SettingsManager;
-import io.github.anonymous.pepper_realtime.tools.ToolRegistryNew;
+import io.github.anonymous.pepper_realtime.tools.ToolRegistry;
 import io.github.anonymous.pepper_realtime.tools.ToolContext;
 
 public class RealtimeSessionManager {
@@ -48,14 +48,14 @@ public class RealtimeSessionManager {
     private SessionConfigCallback sessionConfigCallback;
     
     // Session configuration dependencies
-    private ToolRegistryNew toolRegistry;
+    private ToolRegistry toolRegistry;
     private ToolContext toolContext;
     private SettingsManager settingsManager;
     private ApiKeyManager keyManager;
 
     public RealtimeSessionManager() {
         // Use optimized shared WebSocket client for better performance
-        this.client = OptimizedHttpClientManager.getInstance().getWebSocketClient();
+        this.client = HttpClientManager.getInstance().getWebSocketClient();
     }
 
     public void setListener(Listener listener) {
@@ -69,7 +69,7 @@ public class RealtimeSessionManager {
     /**
      * Set dependencies for session configuration
      */
-    public void setSessionDependencies(ToolRegistryNew toolRegistry, ToolContext toolContext, 
+    public void setSessionDependencies(ToolRegistry toolRegistry, ToolContext toolContext, 
                                       SettingsManager settingsManager, ApiKeyManager keyManager) {
         this.toolRegistry = toolRegistry;
         this.toolContext = toolContext;
@@ -285,168 +285,10 @@ public class RealtimeSessionManager {
         }
         
         try {
-            String voice = settingsManager.getVoice();
-            float speed = settingsManager.getSpeed();
-            String model = settingsManager.getModel();
-            float temperature = settingsManager.getTemperature();
-            String systemPrompt = settingsManager.getSystemPrompt();
-            Set<String> enabledTools = settingsManager.getEnabledTools();
-            
-            Log.i(TAG, "Initial session configuration - Model: " + model + ", Enabled tools: " + enabledTools);
-            
-            JSONObject payload = new JSONObject();
-            payload.put("type", "session.update");
-            
-            JSONObject sessionConfig = new JSONObject();
-            
-            // For OpenAI Direct with gpt-realtime, use GA API structure
-            if ("gpt-realtime".equals(model) && settingsManager.getApiProvider() == RealtimeApiProvider.OPENAI_DIRECT) {
-                sessionConfig.put("type", "realtime");
-                
-                // GA API uses structured audio configuration
-                JSONObject audio = new JSONObject();
-                
-                // Output configuration
-                JSONObject output = new JSONObject();
-                output.put("voice", voice);
-                output.put("speed", speed);
-                JSONObject format = new JSONObject();
-                format.put("type", "audio/pcm");
-                format.put("rate", 24000);
-                output.put("format", format);
-                audio.put("output", output);
-                
-                // Input configuration with turn detection
-                JSONObject input = new JSONObject();
-                
-                // Enable input audio configuration if using Realtime API audio mode
-                if (settingsManager.isUsingRealtimeAudioInput()) {
-                    // Turn Detection configuration
-                    JSONObject turnDetection = new JSONObject();
-                    String turnDetType = settingsManager.getTurnDetectionType();
-                    turnDetection.put("type", turnDetType);
-                    turnDetection.put("create_response", true);
-                    turnDetection.put("interrupt_response", true);
-                    
-                    if ("server_vad".equals(turnDetType)) {
-                        turnDetection.put("threshold", settingsManager.getVadThreshold());
-                        turnDetection.put("prefix_padding_ms", settingsManager.getPrefixPadding());
-                        turnDetection.put("silence_duration_ms", settingsManager.getSilenceDuration());
-                        
-                        // Idle timeout only supported for server_vad
-                        Integer idleTimeout = settingsManager.getIdleTimeout();
-                        if (idleTimeout != null && idleTimeout > 0) {
-                            turnDetection.put("idle_timeout_ms", idleTimeout);
-                        }
-                    } else if ("semantic_vad".equals(turnDetType)) {
-                        String eagerness = settingsManager.getEagerness();
-                        turnDetection.put("eagerness", eagerness);
-                    }
-                    
-                    input.put("turn_detection", turnDetection);
-                    
-                    // Transcription configuration
-                    JSONObject transcription = new JSONObject();
-                    transcription.put("model", settingsManager.getTranscriptionModel());
-                    String transcriptLang = settingsManager.getTranscriptionLanguage();
-                    if (transcriptLang != null && !transcriptLang.isEmpty()) {
-                        transcription.put("language", transcriptLang);
-                    }
-                    String transcriptPrompt = settingsManager.getTranscriptionPrompt();
-                    if (transcriptPrompt != null && !transcriptPrompt.isEmpty()) {
-                        transcription.put("prompt", transcriptPrompt);
-                    }
-                    input.put("transcription", transcription);
-                    
-                    // Noise Reduction configuration
-                    String noiseReduction = settingsManager.getNoiseReduction();
-                    if (!"off".equals(noiseReduction)) {
-                        JSONObject noiseReductionObj = new JSONObject();
-                        noiseReductionObj.put("type", noiseReduction);
-                        input.put("noise_reduction", noiseReductionObj);
-                    } else {
-                        input.put("noise_reduction", JSONObject.NULL);
-                    }
-                    
-                    // Input format
-                    JSONObject inputFormat = new JSONObject();
-                    inputFormat.put("type", "audio/pcm");
-                    inputFormat.put("rate", 24000);
-                    input.put("format", inputFormat);
-                    
-                    Log.i(TAG, "Input audio enabled - Turn: " + turnDetType + ", Transcription: " + settingsManager.getTranscriptionModel());
-                } else {
-                    // Azure Speech mode - disable turn detection
-                    input.put("turn_detection", JSONObject.NULL);
-                }
-                
-                audio.put("input", input);
-                
-                sessionConfig.put("audio", audio);
-                // Note: temperature not supported in GA API
-            } else {
-                // Preview/Mini models (Beta API) - use legacy parameters with server VAD
-                sessionConfig.put("voice", voice);
-                sessionConfig.put("speed", speed);
-                sessionConfig.put("temperature", temperature);
-                sessionConfig.put("output_audio_format", "pcm16");
-                
-                // Configure audio input for Realtime API audio mode
-                if (settingsManager.isUsingRealtimeAudioInput()) {
-                    // Turn Detection configuration
-                    JSONObject turnDetection = new JSONObject();
-                    String turnDetType = settingsManager.getTurnDetectionType();
-                    turnDetection.put("type", turnDetType);
-                    turnDetection.put("create_response", true);
-                    turnDetection.put("interrupt_response", true);
-                    
-                    if ("server_vad".equals(turnDetType)) {
-                        turnDetection.put("threshold", settingsManager.getVadThreshold());
-                        turnDetection.put("prefix_padding_ms", settingsManager.getPrefixPadding());
-                        turnDetection.put("silence_duration_ms", settingsManager.getSilenceDuration());
-                    }
-                    
-                    Integer idleTimeout = settingsManager.getIdleTimeout();
-                    if (idleTimeout != null && idleTimeout > 0) {
-                        turnDetection.put("idle_timeout_ms", idleTimeout);
-                    }
-                    
-                    sessionConfig.put("turn_detection", turnDetection);
-                    
-                    // Configure input audio format
-                    sessionConfig.put("input_audio_format", "pcm16");
-                    
-                    // Enable input audio transcription
-                    JSONObject inputTranscription = new JSONObject();
-                    inputTranscription.put("model", settingsManager.getTranscriptionModel());
-                    String transcriptLang = settingsManager.getTranscriptionLanguage();
-                    if (transcriptLang != null && !transcriptLang.isEmpty()) {
-                        inputTranscription.put("language", transcriptLang);
-                    }
-                    String transcriptPrompt = settingsManager.getTranscriptionPrompt();
-                    if (transcriptPrompt != null && !transcriptPrompt.isEmpty()) {
-                        inputTranscription.put("prompt", transcriptPrompt);
-                    }
-                    sessionConfig.put("input_audio_transcription", inputTranscription);
-                    
-                    Log.i(TAG, "Beta API: Turn detection=" + turnDetType + ", Transcription=" + settingsManager.getTranscriptionModel());
-                } else {
-                    // Azure Speech mode - disable server VAD
-                    sessionConfig.put("turn_detection", JSONObject.NULL);
-                }
-            }
-            sessionConfig.put("instructions", systemPrompt);
-            
-            JSONArray toolsArray = toolRegistry.buildToolsDefinitionForAzure(toolContext, enabledTools);
-            sessionConfig.put("tools", toolsArray);
-            
-            payload.put("session", sessionConfig);
-            
+            JSONObject payload = createSessionUpdatePayload("Initial session");
             boolean sent = send(payload.toString());
+            
             if (sent) {
-                Log.d(TAG, "Sent initial session.update with " + toolsArray.length() + " tools");
-                logToolsDebug(toolsArray, "Initial session");
-                
                 if (sessionConfigCallback != null) {
                     sessionConfigCallback.onSessionConfigured(true, null);
                 }
@@ -483,178 +325,193 @@ public class RealtimeSessionManager {
         }
         
         try {
-            String voice = settingsManager.getVoice();
-            float speed = settingsManager.getSpeed();
-            String model = settingsManager.getModel();
-            float temperature = settingsManager.getTemperature();
-            String systemPrompt = settingsManager.getSystemPrompt();
-            Set<String> enabledTools = settingsManager.getEnabledTools();
-            
-            Log.i(TAG, "Session update - Model: " + model + ", Enabled tools: " + enabledTools);
-            
             // Debug YouTube API key availability
+            Set<String> enabledTools = settingsManager.getEnabledTools();
             if (keyManager != null && enabledTools.contains("play_youtube_video")) {
                 boolean hasYouTubeKey = keyManager.isYouTubeAvailable();
-                Log.i(TAG, "YouTube tool enabled - API key available: " + hasYouTubeKey);
                 if (!hasYouTubeKey) {
                     Log.w(TAG, "YouTube tool enabled but no API key found!");
                 }
             }
             
-            JSONObject payload = new JSONObject();
-            payload.put("type", "session.update");
-            
-            JSONObject sessionConfig = new JSONObject();
-            
-            // For OpenAI Direct with gpt-realtime, use GA API structure
-            if ("gpt-realtime".equals(model) && settingsManager.getApiProvider() == RealtimeApiProvider.OPENAI_DIRECT) {
-                sessionConfig.put("type", "realtime");
-                
-                // GA API uses structured audio configuration
-                JSONObject audio = new JSONObject();
-                
-                // Output configuration
-                JSONObject output = new JSONObject();
-                output.put("voice", voice);
-                output.put("speed", speed);
-                JSONObject format = new JSONObject();
-                format.put("type", "audio/pcm");
-                format.put("rate", 24000);
-                output.put("format", format);
-                audio.put("output", output);
-                
-                // Enable input audio configuration if using Realtime API audio mode
-                if (settingsManager.isUsingRealtimeAudioInput()) {
-                    JSONObject input = new JSONObject();
-                    
-                    // Turn Detection configuration
-                    JSONObject turnDetection = new JSONObject();
-                    String turnDetType = settingsManager.getTurnDetectionType();
-                    turnDetection.put("type", turnDetType);
-                    turnDetection.put("create_response", true);
-                    turnDetection.put("interrupt_response", true);
-                    
-                    if ("server_vad".equals(turnDetType)) {
-                        turnDetection.put("threshold", settingsManager.getVadThreshold());
-                        turnDetection.put("prefix_padding_ms", settingsManager.getPrefixPadding());
-                        turnDetection.put("silence_duration_ms", settingsManager.getSilenceDuration());
-                        
-                        // Idle timeout only supported for server_vad
-                        Integer idleTimeout = settingsManager.getIdleTimeout();
-                        if (idleTimeout != null && idleTimeout > 0) {
-                            turnDetection.put("idle_timeout_ms", idleTimeout);
-                        }
-                    } else if ("semantic_vad".equals(turnDetType)) {
-                        String eagerness = settingsManager.getEagerness();
-                        turnDetection.put("eagerness", eagerness);
-                    }
-                    
-                    input.put("turn_detection", turnDetection);
-                    
-                    // Transcription configuration
-                    JSONObject transcription = new JSONObject();
-                    transcription.put("model", settingsManager.getTranscriptionModel());
-                    String transcriptLang = settingsManager.getTranscriptionLanguage();
-                    if (transcriptLang != null && !transcriptLang.isEmpty()) {
-                        transcription.put("language", transcriptLang);
-                    }
-                    String transcriptPrompt = settingsManager.getTranscriptionPrompt();
-                    if (transcriptPrompt != null && !transcriptPrompt.isEmpty()) {
-                        transcription.put("prompt", transcriptPrompt);
-                    }
-                    input.put("transcription", transcription);
-                    
-                    // Noise Reduction configuration
-                    String noiseReduction = settingsManager.getNoiseReduction();
-                    if (!"off".equals(noiseReduction)) {
-                        JSONObject noiseReductionObj = new JSONObject();
-                        noiseReductionObj.put("type", noiseReduction);
-                        input.put("noise_reduction", noiseReductionObj);
-                    } else {
-                        input.put("noise_reduction", JSONObject.NULL);
-                    }
-                    
-                    // Input format
-                    JSONObject inputFormat = new JSONObject();
-                    inputFormat.put("type", "audio/pcm");
-                    inputFormat.put("rate", 24000);
-                    input.put("format", inputFormat);
-                    
-                    audio.put("input", input);
-                    Log.i(TAG, "Session update: Input audio - Turn: " + turnDetType + ", Transcription: " + settingsManager.getTranscriptionModel());
-                }
-                
-                sessionConfig.put("audio", audio);
-                // Note: temperature not supported in GA API
-            } else {
-                // Preview/Mini models (Beta API) - use legacy parameters with server VAD
-                sessionConfig.put("voice", voice);
-                sessionConfig.put("speed", speed);
-                sessionConfig.put("temperature", temperature);
-                sessionConfig.put("output_audio_format", "pcm16");
-                
-                // Configure audio input for Realtime API audio mode
-                if (settingsManager.isUsingRealtimeAudioInput()) {
-                    // Turn Detection configuration
-                    JSONObject turnDetection = new JSONObject();
-                    String turnDetType = settingsManager.getTurnDetectionType();
-                    turnDetection.put("type", turnDetType);
-                    turnDetection.put("create_response", true);
-                    turnDetection.put("interrupt_response", true);
-                    
-                    if ("server_vad".equals(turnDetType)) {
-                        turnDetection.put("threshold", settingsManager.getVadThreshold());
-                        turnDetection.put("prefix_padding_ms", settingsManager.getPrefixPadding());
-                        turnDetection.put("silence_duration_ms", settingsManager.getSilenceDuration());
-                    }
-                    
-                    Integer idleTimeout = settingsManager.getIdleTimeout();
-                    if (idleTimeout != null && idleTimeout > 0) {
-                        turnDetection.put("idle_timeout_ms", idleTimeout);
-                    }
-                    
-                    sessionConfig.put("turn_detection", turnDetection);
-                    
-                    // Configure input audio format
-                    sessionConfig.put("input_audio_format", "pcm16");
-                    
-                    // Enable input audio transcription
-                    JSONObject inputTranscription = new JSONObject();
-                    inputTranscription.put("model", settingsManager.getTranscriptionModel());
-                    String transcriptLang = settingsManager.getTranscriptionLanguage();
-                    if (transcriptLang != null && !transcriptLang.isEmpty()) {
-                        inputTranscription.put("language", transcriptLang);
-                    }
-                    String transcriptPrompt = settingsManager.getTranscriptionPrompt();
-                    if (transcriptPrompt != null && !transcriptPrompt.isEmpty()) {
-                        inputTranscription.put("prompt", transcriptPrompt);
-                    }
-                    sessionConfig.put("input_audio_transcription", inputTranscription);
-                    
-                    Log.i(TAG, "Beta API update: Turn detection=" + turnDetType + ", Transcription=" + settingsManager.getTranscriptionModel());
-                } else {
-                    // Azure Speech mode - disable server VAD
-                    sessionConfig.put("turn_detection", JSONObject.NULL);
-                }
-            }
-            sessionConfig.put("instructions", systemPrompt);
-            
-            JSONArray toolsArray = toolRegistry.buildToolsDefinitionForAzure(toolContext, enabledTools);
-            sessionConfig.put("tools", toolsArray);
-            
-            payload.put("session", sessionConfig);
-            
+            JSONObject payload = createSessionUpdatePayload("Session update");
             boolean sent = send(payload.toString());
-            if (sent) {
-                Log.d(TAG, "Sent session.update with " + toolsArray.length() + " tools");
-                logToolsDebug(toolsArray, "Session update");
-            } else {
+            
+            if (!sent) {
                 Log.e(TAG, "Failed to send session update");
             }
             
         } catch (Exception e) {
             Log.e(TAG, "Error updating session config", e);
         }
+    }
+
+    /**
+     * Creates the session.update payload based on current settings.
+     * Eliminates duplication between initial config and updates.
+     */
+    private JSONObject createSessionUpdatePayload(String contextLog) throws Exception {
+        String voice = settingsManager.getVoice();
+        float speed = settingsManager.getSpeed();
+        String model = settingsManager.getModel();
+        float temperature = settingsManager.getTemperature();
+        String systemPrompt = settingsManager.getSystemPrompt();
+        Set<String> enabledTools = settingsManager.getEnabledTools();
+        
+        Log.i(TAG, contextLog + " - Model: " + model + ", Enabled tools: " + enabledTools);
+        
+        JSONObject payload = new JSONObject();
+        payload.put("type", "session.update");
+        
+        JSONObject sessionConfig = new JSONObject();
+        
+        // For OpenAI Direct with gpt-realtime, use GA API structure
+        if ("gpt-realtime".equals(model) && settingsManager.getApiProvider() == RealtimeApiProvider.OPENAI_DIRECT) {
+            sessionConfig.put("type", "realtime");
+            
+            // GA API uses structured audio configuration
+            JSONObject audio = new JSONObject();
+            
+            // Output configuration
+            JSONObject output = new JSONObject();
+            output.put("voice", voice);
+            output.put("speed", speed);
+            JSONObject format = new JSONObject();
+            format.put("type", "audio/pcm");
+            format.put("rate", 24000);
+            output.put("format", format);
+            audio.put("output", output);
+            
+            // Input configuration with turn detection
+            JSONObject input = new JSONObject();
+            
+            // Enable input audio configuration if using Realtime API audio mode
+            if (settingsManager.isUsingRealtimeAudioInput()) {
+                // Turn Detection configuration
+                JSONObject turnDetection = new JSONObject();
+                String turnDetType = settingsManager.getTurnDetectionType();
+                turnDetection.put("type", turnDetType);
+                turnDetection.put("create_response", true);
+                turnDetection.put("interrupt_response", true);
+                
+                if ("server_vad".equals(turnDetType)) {
+                    turnDetection.put("threshold", settingsManager.getVadThreshold());
+                    turnDetection.put("prefix_padding_ms", settingsManager.getPrefixPadding());
+                    turnDetection.put("silence_duration_ms", settingsManager.getSilenceDuration());
+                    
+                    // Idle timeout only supported for server_vad
+                    Integer idleTimeout = settingsManager.getIdleTimeout();
+                    if (idleTimeout != null && idleTimeout > 0) {
+                        turnDetection.put("idle_timeout_ms", idleTimeout);
+                    }
+                } else if ("semantic_vad".equals(turnDetType)) {
+                    String eagerness = settingsManager.getEagerness();
+                    turnDetection.put("eagerness", eagerness);
+                }
+                
+                input.put("turn_detection", turnDetection);
+                
+                // Transcription configuration
+                JSONObject transcription = new JSONObject();
+                transcription.put("model", settingsManager.getTranscriptionModel());
+                String transcriptLang = settingsManager.getTranscriptionLanguage();
+                if (transcriptLang != null && !transcriptLang.isEmpty()) {
+                    transcription.put("language", transcriptLang);
+                }
+                String transcriptPrompt = settingsManager.getTranscriptionPrompt();
+                if (transcriptPrompt != null && !transcriptPrompt.isEmpty()) {
+                    transcription.put("prompt", transcriptPrompt);
+                }
+                input.put("transcription", transcription);
+                
+                // Noise Reduction configuration
+                String noiseReduction = settingsManager.getNoiseReduction();
+                if (!"off".equals(noiseReduction)) {
+                    JSONObject noiseReductionObj = new JSONObject();
+                    noiseReductionObj.put("type", noiseReduction);
+                    input.put("noise_reduction", noiseReductionObj);
+                } else {
+                    input.put("noise_reduction", JSONObject.NULL);
+                }
+                
+                // Input format
+                JSONObject inputFormat = new JSONObject();
+                inputFormat.put("type", "audio/pcm");
+                inputFormat.put("rate", 24000);
+                input.put("format", inputFormat);
+                
+                Log.i(TAG, "Input audio enabled - Turn: " + turnDetType + ", Transcription: " + settingsManager.getTranscriptionModel());
+            } else {
+                // Azure Speech mode - disable turn detection
+                input.put("turn_detection", JSONObject.NULL);
+            }
+            
+            audio.put("input", input);
+            
+            sessionConfig.put("audio", audio);
+            // Note: temperature not supported in GA API
+        } else {
+            // Preview/Mini models (Beta API) - use legacy parameters with server VAD
+            sessionConfig.put("voice", voice);
+            sessionConfig.put("speed", speed);
+            sessionConfig.put("temperature", temperature);
+            sessionConfig.put("output_audio_format", "pcm16");
+            
+            // Configure audio input for Realtime API audio mode
+            if (settingsManager.isUsingRealtimeAudioInput()) {
+                // Turn Detection configuration
+                JSONObject turnDetection = new JSONObject();
+                String turnDetType = settingsManager.getTurnDetectionType();
+                turnDetection.put("type", turnDetType);
+                turnDetection.put("create_response", true);
+                turnDetection.put("interrupt_response", true);
+                
+                if ("server_vad".equals(turnDetType)) {
+                    turnDetection.put("threshold", settingsManager.getVadThreshold());
+                    turnDetection.put("prefix_padding_ms", settingsManager.getPrefixPadding());
+                    turnDetection.put("silence_duration_ms", settingsManager.getSilenceDuration());
+                }
+                
+                Integer idleTimeout = settingsManager.getIdleTimeout();
+                if (idleTimeout != null && idleTimeout > 0) {
+                    turnDetection.put("idle_timeout_ms", idleTimeout);
+                }
+                
+                sessionConfig.put("turn_detection", turnDetection);
+                
+                // Configure input audio format
+                sessionConfig.put("input_audio_format", "pcm16");
+                
+                // Enable input audio transcription
+                JSONObject inputTranscription = new JSONObject();
+                inputTranscription.put("model", settingsManager.getTranscriptionModel());
+                String transcriptLang = settingsManager.getTranscriptionLanguage();
+                if (transcriptLang != null && !transcriptLang.isEmpty()) {
+                    inputTranscription.put("language", transcriptLang);
+                }
+                String transcriptPrompt = settingsManager.getTranscriptionPrompt();
+                if (transcriptPrompt != null && !transcriptPrompt.isEmpty()) {
+                    inputTranscription.put("prompt", transcriptPrompt);
+                }
+                sessionConfig.put("input_audio_transcription", inputTranscription);
+                
+                Log.i(TAG, "Beta API: Turn detection=" + turnDetType + ", Transcription=" + settingsManager.getTranscriptionModel());
+            } else {
+                // Azure Speech mode - disable server VAD
+                sessionConfig.put("turn_detection", JSONObject.NULL);
+            }
+        }
+        sessionConfig.put("instructions", systemPrompt);
+        
+        JSONArray toolsArray = toolRegistry.buildToolsDefinitionForAzure(toolContext, enabledTools);
+        sessionConfig.put("tools", toolsArray);
+        
+        payload.put("session", sessionConfig);
+        
+        Log.d(TAG, contextLog + " payload built with " + toolsArray.length() + " tools");
+        logToolsDebug(toolsArray, contextLog);
+        
+        return payload;
     }
     
     /**

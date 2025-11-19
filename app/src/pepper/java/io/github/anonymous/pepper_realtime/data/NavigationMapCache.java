@@ -14,7 +14,7 @@ import com.aldebaran.qi.sdk.object.actuation.ExplorationMap;
 import com.aldebaran.qi.sdk.object.actuation.MapTopGraphicalRepresentation;
 import com.aldebaran.qi.sdk.object.image.EncodedImage;
 
-import io.github.anonymous.pepper_realtime.manager.OptimizedThreadManager;
+import io.github.anonymous.pepper_realtime.manager.ThreadManager;
 
 import java.io.BufferedInputStream;
 import java.io.ByteArrayOutputStream;
@@ -142,7 +142,7 @@ public final class NavigationMapCache {
             return;
         }
 
-        OptimizedThreadManager.getInstance().executeIO(() -> {
+        ThreadManager.getInstance().executeIO(() -> {
             boolean success = cacheMapGraphics(newMap);
             if (success) {
                 cachedMap.set(newMap);
@@ -172,7 +172,7 @@ public final class NavigationMapCache {
     private void loadMapInternal(QiContext qiContext, Context appContext, Runnable onMapLoaded) {
         reset();
 
-        OptimizedThreadManager.getInstance().executeIO(() -> {
+        ThreadManager.getInstance().executeIO(() -> {
             final String mapData = loadMapFileToString(appContext);
             if (mapData == null) {
                 Log.e(TAG, "Map data could not be loaded from file.");
@@ -180,13 +180,13 @@ public final class NavigationMapCache {
                 return;
             }
 
-            OptimizedThreadManager.getInstance().executeNetwork(() -> {
+            ThreadManager.getInstance().executeNetwork(() -> {
                 try {
                     final ExplorationMap map = ExplorationMapBuilder
                             .with(qiContext)
                             .withMapString(mapData)
                             .build();
-                    OptimizedThreadManager.getInstance().executeIO(() -> {
+                    ThreadManager.getInstance().executeIO(() -> {
                         boolean success = cacheMapGraphics(map);
                         Runnable mainThreadWork = null;
                         if (success) {

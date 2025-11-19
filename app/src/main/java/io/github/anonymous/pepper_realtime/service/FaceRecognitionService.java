@@ -19,8 +19,8 @@ import okhttp3.Response;
 import okhttp3.ResponseBody;
 
 import io.github.anonymous.pepper_realtime.BuildConfig;
-import io.github.anonymous.pepper_realtime.manager.OptimizedThreadManager;
-import io.github.anonymous.pepper_realtime.network.OptimizedHttpClientManager;
+import io.github.anonymous.pepper_realtime.manager.ThreadManager;
+import io.github.anonymous.pepper_realtime.network.HttpClientManager;
 
 @SuppressWarnings({"SpellCheckingInspection", "ConstantConditions"})
 public class FaceRecognitionService {
@@ -58,7 +58,7 @@ public class FaceRecognitionService {
     private final OkHttpClient http;
 
     public FaceRecognitionService() {
-        this.http = OptimizedHttpClientManager.getInstance().getApiClient();
+        this.http = HttpClientManager.getInstance().getApiClient();
     }
 
     public boolean isConfigured() {
@@ -72,7 +72,7 @@ public class FaceRecognitionService {
             if (callback != null) callback.onResult(Collections.emptyList());
             return;
         }
-        OptimizedThreadManager.getInstance().executeNetwork(() -> {
+        ThreadManager.getInstance().executeNetwork(() -> {
             try {
                 // Downscale to reduce bandwidth/load
                 Bitmap scaled = image;

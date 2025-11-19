@@ -25,13 +25,13 @@ import java.util.concurrent.locks.LockSupport;
  * - Reduced memory allocations and copying
  * - LockSupport.parkNanos() for precise timing instead of Thread.sleep()
  */
-public class OptimizedAudioPlayer {
+public class AudioPlayer {
     public interface Listener {
         void onPlaybackStarted();
         void onPlaybackFinished();
     }
 
-    private static final String TAG = "OptimizedAudioPlayer";
+    private static final String TAG = "AudioPlayer";
     
     // Performance-optimized buffer using bounded queue for O(1) operations
     // Increased to 150 to handle GA API's larger/more frequent audio chunks (~6-7 seconds of audio at 24kHz)
@@ -61,7 +61,7 @@ public class OptimizedAudioPlayer {
     private volatile int responseStartFrames = 0;
     private Thread playThread = null;
 
-    public OptimizedAudioPlayer() { 
+    public AudioPlayer() { 
         initializeAudioTrack(); 
     }
 

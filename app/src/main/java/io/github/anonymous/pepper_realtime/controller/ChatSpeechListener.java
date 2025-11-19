@@ -3,7 +3,7 @@ package io.github.anonymous.pepper_realtime.controller;
 import android.util.Log;
 import android.widget.TextView;
 
-import io.github.anonymous.pepper_realtime.ChatActivity;
+import io.github.anonymous.pepper_realtime.ui.ChatActivity;
 import io.github.anonymous.pepper_realtime.R;
 import io.github.anonymous.pepper_realtime.manager.SpeechRecognizerManager;
 import io.github.anonymous.pepper_realtime.manager.TurnManager;

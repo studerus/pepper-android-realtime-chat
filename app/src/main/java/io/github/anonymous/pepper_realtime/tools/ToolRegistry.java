@@ -46,9 +46,9 @@ import io.github.anonymous.pepper_realtime.data.SavedLocation;
  * New tool registry using factory pattern.
  * Manages tool instances, definitions, and availability.
  */
-public class ToolRegistryNew {
+public class ToolRegistry {
     
-    private static final String TAG = "ToolRegistryNew";
+    private static final String TAG = "ToolRegistry";
     
     // Factory for creating tool instances
     private final Map<String, ToolFactory> toolFactories = new HashMap<>();
@@ -61,7 +61,7 @@ public class ToolRegistryNew {
         Tool createTool();
     }
     
-    public ToolRegistryNew() {
+    public ToolRegistry() {
         registerAllTools();
     }
     

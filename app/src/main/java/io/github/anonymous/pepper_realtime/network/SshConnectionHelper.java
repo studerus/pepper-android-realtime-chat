@@ -12,12 +12,12 @@ import java.util.concurrent.TimeUnit;
 import java.io.InputStream;
 
 import io.github.anonymous.pepper_realtime.BuildConfig;
-import io.github.anonymous.pepper_realtime.manager.OptimizedThreadManager;
+import io.github.anonymous.pepper_realtime.manager.ThreadManager;
 
 public class SshConnectionHelper {
     private static final String TAG = "SshConnectionHelper";
 
-    public static void testFixedIpSshConnect(OptimizedThreadManager threadManager) {
+    public static void testFixedIpSshConnect(ThreadManager threadManager) {
         threadManager.executeNetwork(() -> {
             String host = "198.18.0.1"; // Known working IP
             SSHClient ssh = null;

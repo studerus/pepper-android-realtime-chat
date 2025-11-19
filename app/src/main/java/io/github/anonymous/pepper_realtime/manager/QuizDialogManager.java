@@ -14,7 +14,7 @@ import android.widget.TextView;
 
 import androidx.core.content.ContextCompat;
 
-import io.github.anonymous.pepper_realtime.ChatActivity;
+import io.github.anonymous.pepper_realtime.ui.ChatActivity;
 import io.github.anonymous.pepper_realtime.R;
 
 import java.util.ArrayList;

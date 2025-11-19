@@ -36,9 +36,9 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 
-import io.github.anonymous.pepper_realtime.ChatActivity;
-import io.github.anonymous.pepper_realtime.manager.OptimizedThreadManager;
-import io.github.anonymous.pepper_realtime.network.OptimizedHttpClientManager;
+import io.github.anonymous.pepper_realtime.ui.ChatActivity;
+import io.github.anonymous.pepper_realtime.manager.ThreadManager;
+import io.github.anonymous.pepper_realtime.network.HttpClientManager;
 import io.github.anonymous.pepper_realtime.network.RealtimeApiProvider;
 import io.github.anonymous.pepper_realtime.network.RealtimeSessionManager;
 
@@ -53,7 +53,7 @@ public class VisionService {
     private final Context context;
     private final ChatActivity activityRef;
     private final OkHttpClient http;
-    private final OptimizedThreadManager threadManager;
+    private final ThreadManager threadManager;
 
     private volatile boolean working = false;
     private CameraDevice cameraDevice;
@@ -65,8 +65,8 @@ public class VisionService {
     public VisionService(Context context) {
         this.context = context.getApplicationContext();
         this.activityRef = (context instanceof ChatActivity) ? (ChatActivity) context : null;
-        this.http = OptimizedHttpClientManager.getInstance().getApiClient();
-        this.threadManager = OptimizedThreadManager.getInstance();
+        this.http = HttpClientManager.getInstance().getApiClient();
+        this.threadManager = ThreadManager.getInstance();
         Log.d(TAG, "VisionService created (using Android camera)");
     }
 

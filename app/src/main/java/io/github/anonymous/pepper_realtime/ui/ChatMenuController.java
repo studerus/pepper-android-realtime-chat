@@ -11,7 +11,7 @@ import androidx.drawerlayout.widget.DrawerLayout;
 
 import com.google.android.material.navigation.NavigationView;
 
-import io.github.anonymous.pepper_realtime.ChatActivity;
+import io.github.anonymous.pepper_realtime.ui.ChatActivity;
 import io.github.anonymous.pepper_realtime.R;
 import io.github.anonymous.pepper_realtime.manager.DashboardManager;
 import io.github.anonymous.pepper_realtime.manager.SettingsManager;

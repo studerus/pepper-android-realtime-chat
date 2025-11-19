@@ -19,9 +19,9 @@ import java.util.concurrent.atomic.AtomicInteger;
  * - Proper thread naming and priority assignment
  * - Efficient resource utilization with optimal pool sizes
  */
-public class OptimizedThreadManager {
-    private static final String TAG = "OptimizedThreadManager";
-    private static volatile OptimizedThreadManager instance;
+public class ThreadManager {
+    private static final String TAG = "ThreadManager";
+    private static volatile ThreadManager instance;
     
     // Specialized thread pools for different task categories
     private final ExecutorService networkExecutor;      // WebSocket, API calls
@@ -30,7 +30,7 @@ public class OptimizedThreadManager {
     private final ExecutorService ioExecutor;          // File operations, cleanup
     private final ExecutorService realtimeExecutor;    // High-priority real-time tasks
     
-    private OptimizedThreadManager() {
+    private ThreadManager() {
         Log.i(TAG, "Initializing optimized thread manager");
         
         // Network Thread Pool - optimized for I/O bound operations
@@ -105,11 +105,11 @@ public class OptimizedThreadManager {
     /**
      * Get singleton instance with lazy initialization
      */
-    public static OptimizedThreadManager getInstance() {
+    public static ThreadManager getInstance() {
         if (instance == null) {
-            synchronized (OptimizedThreadManager.class) {
+            synchronized (ThreadManager.class) {
                 if (instance == null) {
-                    instance = new OptimizedThreadManager();
+                    instance = new ThreadManager();
                 }
             }
         }
@@ -212,7 +212,7 @@ public class OptimizedThreadManager {
             Log.i(TAG, "Thread manager shutdown completed");
         } finally {
             // CRITICAL: Reset singleton instance so it gets recreated on next app start
-            synchronized (OptimizedThreadManager.class) {
+            synchronized (ThreadManager.class) {
                 instance = null;
                 Log.i(TAG, "Thread manager instance reset for clean restart");
             }

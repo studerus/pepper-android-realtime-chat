@@ -19,7 +19,7 @@ import com.aldebaran.qi.sdk.object.camera.TakePicture;
 
 import io.github.anonymous.pepper_realtime.service.FaceRecognitionService;
 import io.github.anonymous.pepper_realtime.data.PerceptionData;
-import io.github.anonymous.pepper_realtime.manager.OptimizedThreadManager;
+import io.github.anonymous.pepper_realtime.manager.ThreadManager;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -250,7 +250,7 @@ public class PerceptionService {
                 // Decouple Qi action start from this scheduler thread
                 final List<Human> finalHumansSnapshot = humansSnapshot;
                 final List<PerceptionData.HumanInfo> finalHumanInfoList = humanInfoList;
-                OptimizedThreadManager.getInstance().executeRealtime(() -> takePictureAndAnalyze(finalHumansSnapshot, finalHumanInfoList));
+                ThreadManager.getInstance().executeRealtime(() -> takePictureAndAnalyze(finalHumansSnapshot, finalHumanInfoList));
             } else {
                 maybePushUi(humanInfoList);
             }

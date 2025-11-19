@@ -1,7 +1,7 @@
 package io.github.anonymous.pepper_realtime.tools.information;
 
 import android.util.Log;
-import io.github.anonymous.pepper_realtime.network.OptimizedHttpClientManager;
+import io.github.anonymous.pepper_realtime.network.HttpClientManager;
 import io.github.anonymous.pepper_realtime.tools.Tool;
 import io.github.anonymous.pepper_realtime.tools.ToolContext;
 
@@ -67,7 +67,7 @@ public class SearchInternetTool implements Tool {
         String apiKey = context.getApiKeyManager().getTavilyApiKey();
 
         // Use optimized shared client for better performance and connection reuse
-        OkHttpClient client = OptimizedHttpClientManager.getInstance().getQuickApiClient();
+        OkHttpClient client = HttpClientManager.getInstance().getQuickApiClient();
 
         JSONObject payload = new JSONObject();
         payload.put("api_key", apiKey);

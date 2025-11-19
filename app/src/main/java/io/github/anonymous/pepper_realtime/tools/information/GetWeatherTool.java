@@ -1,6 +1,6 @@
 package io.github.anonymous.pepper_realtime.tools.information;
 
-import io.github.anonymous.pepper_realtime.network.OptimizedHttpClientManager;
+import io.github.anonymous.pepper_realtime.network.HttpClientManager;
 import io.github.anonymous.pepper_realtime.tools.Tool;
 import io.github.anonymous.pepper_realtime.tools.ToolContext;
 
@@ -67,7 +67,7 @@ public class GetWeatherTool implements Tool {
         String apiKey = context.getApiKeyManager().getOpenWeatherApiKey();
 
         // Use optimized shared client for better performance and connection reuse
-        OkHttpClient client = OptimizedHttpClientManager.getInstance().getQuickApiClient();
+        OkHttpClient client = HttpClientManager.getInstance().getQuickApiClient();
 
         String locationQueryParam = "q=" + java.net.URLEncoder.encode(location, "UTF-8");
         String locationInputForName = location;

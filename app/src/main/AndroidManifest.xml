@@ -23,7 +23,7 @@
         android:theme="@style/Theme.Pepper_test2"
         android:largeHeap="true">
         <activity
-            android:name=".ChatActivity"
+            android:name=".ui.ChatActivity"
             android:exported="true"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden">
             <intent-filter>

@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.Set;
 import org.json.JSONObject;
 
-import io.github.anonymous.pepper_realtime.ChatActivity;
+import io.github.anonymous.pepper_realtime.ui.ChatActivity;
 import io.github.anonymous.pepper_realtime.R;
 import io.github.anonymous.pepper_realtime.network.RealtimeApiProvider;
 
@@ -666,7 +666,7 @@ public class SettingsManager {
     private Set<String> getDefaultEnabledTools() {
         // By default, all tools should be enabled
         // Get all tools from new registry
-        io.github.anonymous.pepper_realtime.tools.ToolRegistryNew registry = new io.github.anonymous.pepper_realtime.tools.ToolRegistryNew();
+        io.github.anonymous.pepper_realtime.tools.ToolRegistry registry = new io.github.anonymous.pepper_realtime.tools.ToolRegistry();
         return new HashSet<>(registry.getAllToolNames());
     }
 
@@ -679,7 +679,7 @@ public class SettingsManager {
         Set<String> enabledTools = getEnabledTools();
         
         // Get tool info from new registry
-        io.github.anonymous.pepper_realtime.tools.ToolRegistryNew registry = new io.github.anonymous.pepper_realtime.tools.ToolRegistryNew();
+        io.github.anonymous.pepper_realtime.tools.ToolRegistry registry = new io.github.anonymous.pepper_realtime.tools.ToolRegistry();
         for (String toolId : registry.getAllToolNames()) {
             View toolItemView = activity.getLayoutInflater().inflate(R.layout.item_tool_setting, functionCallsContainer, false);
             

@@ -1,0 +1,210 @@
+package io.github.anonymous.pepper_realtime.manager;
+
+import android.util.Log;
+import android.view.View;
+import android.widget.TextView;
+import android.widget.FrameLayout;
+import android.widget.LinearLayout;
+import androidx.drawerlayout.widget.DrawerLayout;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+import com.google.android.material.appbar.MaterialToolbar;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.android.material.navigation.NavigationView;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+import io.github.anonymous.pepper_realtime.ui.ChatActivity;
+import io.github.anonymous.pepper_realtime.R;
+import io.github.anonymous.pepper_realtime.controller.AudioInputController;
+import io.github.anonymous.pepper_realtime.controller.ChatInterruptController;
+import io.github.anonymous.pepper_realtime.controller.ChatRealtimeHandler;
+import io.github.anonymous.pepper_realtime.controller.ChatSessionController;
+import io.github.anonymous.pepper_realtime.controller.ChatSpeechListener;
+import io.github.anonymous.pepper_realtime.controller.ChatTurnListener;
+import io.github.anonymous.pepper_realtime.controller.GestureController;
+import io.github.anonymous.pepper_realtime.controller.MovementController;
+import io.github.anonymous.pepper_realtime.controller.RobotFocusManager;
+import io.github.anonymous.pepper_realtime.data.LocationProvider;
+import io.github.anonymous.pepper_realtime.network.RealtimeEventHandler;
+import io.github.anonymous.pepper_realtime.network.RealtimeSessionManager;
+import io.github.anonymous.pepper_realtime.service.PerceptionService;
+import io.github.anonymous.pepper_realtime.service.VisionService;
+import io.github.anonymous.pepper_realtime.tools.ToolContext;
+import io.github.anonymous.pepper_realtime.tools.ToolRegistry;
+import io.github.anonymous.pepper_realtime.ui.ChatMenuController;
+import io.github.anonymous.pepper_realtime.ui.ChatMessage;
+import io.github.anonymous.pepper_realtime.ui.ChatMessageAdapter;
+import io.github.anonymous.pepper_realtime.ui.ChatUiHelper;
+import io.github.anonymous.pepper_realtime.ui.MapPreviewView;
+import io.github.anonymous.pepper_realtime.ui.MapUiManager;
+
+public class AppContainer {
+
+    private static final String TAG = "AppContainer";
+
+    // Dependencies
+    public final ApiKeyManager keyManager;
+    public final MapUiManager mapUiManager;
+    public final ChatMessageAdapter chatAdapter;
+    public final RealtimeSessionManager sessionManager;
+    public final SettingsManager settingsManager;
+    public final AudioInputController audioInputController;
+    public final ChatMenuController chatMenuController;
+    public final RobotFocusManager robotFocusManager;
+    public final AudioPlayer audioPlayer;
+    public final TurnManager turnManager;
+    public final ChatInterruptController interruptController;
+    public final NavigationServiceManager navigationServiceManager;
+    public final DashboardManager dashboardManager;
+    public final PerceptionService perceptionService;
+    public final VisionService visionService;
+    public final TouchSensorManager touchSensorManager;
+    public final ThreadManager threadManager;
+    public final GestureController gestureController;
+    public final ToolRegistry toolRegistry;
+    public final ToolContext toolContext;
+    public final ChatSessionController sessionController;
+    public final ChatUiHelper uiHelper;
+    public final LocationProvider locationProvider;
+    public final RealtimeEventHandler eventHandler;
+
+    public AppContainer(ChatActivity activity, 
+                        List<ChatMessage> messageList, 
+                        Map<String, ChatMessage> pendingUserTranscripts) {
+        
+        Log.i(TAG, "Initializing AppContainer...");
+
+        this.keyManager = new ApiKeyManager(activity);
+
+        // Initialize Map UI Manager
+        TextView mapStatusTextView = activity.findViewById(R.id.mapStatusTextView);
+        TextView localizationStatusTextView = activity.findViewById(R.id.localizationStatusTextView);
+        FrameLayout mapPreviewContainer = activity.findViewById(R.id.map_preview_container);
+        MapPreviewView mapPreviewView = activity.findViewById(R.id.map_preview_view);
+        this.locationProvider = new LocationProvider();
+        MaterialToolbar topAppBar = activity.findViewById(R.id.topAppBar);
+        DrawerLayout drawerLayout = activity.findViewById(R.id.drawer_layout);
+
+        this.mapUiManager = new MapUiManager(activity, mapStatusTextView, localizationStatusTextView, 
+                                      mapPreviewContainer, mapPreviewView, drawerLayout, topAppBar);
+
+        // Initialize RecyclerView Adapter
+        this.chatAdapter = new ChatMessageAdapter(messageList);
+        RecyclerView chatRecyclerView = activity.findViewById(R.id.chatRecyclerView);
+        LinearLayoutManager layoutManager = new LinearLayoutManager(activity);
+        chatRecyclerView.setLayoutManager(layoutManager);
+        chatRecyclerView.setAdapter(chatAdapter);
+
+        // Initialize Session Manager
+        this.sessionManager = new RealtimeSessionManager();
+        // Note: Listener and config callback must be set by Activity
+
+        // Initialize Settings Manager
+        NavigationView navigationView = activity.findViewById(R.id.navigation_view);
+        this.settingsManager = new SettingsManager(activity, navigationView);
+        // Note: Listener must be set by Activity
+
+        // Initialize ThreadManager & GestureController
+        this.threadManager = ThreadManager.getInstance();
+        this.gestureController = new GestureController();
+
+        // Initialize Controllers
+        TextView statusTextView = activity.findViewById(R.id.statusTextView);
+        FloatingActionButton fabInterrupt = activity.findViewById(R.id.fab_interrupt);
+        
+        this.audioInputController = new AudioInputController(activity, settingsManager, keyManager, 
+                sessionManager, threadManager, statusTextView, fabInterrupt);
+        
+        // Dashboard & Perception
+        this.perceptionService = new PerceptionService();
+        View dashboardOverlay = activity.findViewById(R.id.dashboard_overlay);
+        if (dashboardOverlay != null) {
+            this.dashboardManager = new DashboardManager(activity, dashboardOverlay);
+            this.dashboardManager.initialize(perceptionService);
+        } else {
+            this.dashboardManager = null;
+        }
+
+        this.chatMenuController = new ChatMenuController(activity, drawerLayout, mapUiManager, 
+                dashboardManager, settingsManager); 
+        this.chatMenuController.setupSettingsMenu();
+
+        this.robotFocusManager = new RobotFocusManager(activity);
+        // Note: Listener must be set by Activity
+
+        // Initialize Core Logic
+        this.audioPlayer = new AudioPlayer();
+        this.turnManager = new TurnManager(new ChatTurnListener(activity, statusTextView, fabInterrupt, gestureController));
+        
+        // Initialize Interrupt Controller
+        this.interruptController = new ChatInterruptController(activity, sessionManager, audioPlayer, 
+                                                        gestureController, audioInputController);
+        
+        // Initialize Tool System
+        MovementController movementController = new MovementController();
+        this.navigationServiceManager = new NavigationServiceManager(movementController);
+        this.toolContext = new ToolContext(activity, null, activity, keyManager, movementController, locationProvider);
+        this.toolRegistry = new ToolRegistry();
+
+        // Initialize Services
+        this.visionService = new VisionService(activity);
+        this.touchSensorManager = new TouchSensorManager();
+
+        // Initialize Session Controller
+        this.eventHandler = new RealtimeEventHandler(
+            new ChatRealtimeHandler(activity, audioPlayer, turnManager, statusTextView, threadManager, toolRegistry, toolContext)
+        );
+        // Note: AudioInputController listener needs to be set using this event handler logic or similar
+        // In ChatActivity it was: audioInputController.setSpeechListener(new ChatSpeechListener(...));
+        // We can set it here if we have all dependencies.
+        this.audioInputController.setSpeechListener(new ChatSpeechListener(activity, turnManager, statusTextView, audioInputController.getSttWarmupStartTime()));
+        
+        this.sessionController = new ChatSessionController(activity, sessionManager, settingsManager, keyManager,
+                audioInputController, threadManager, gestureController, interruptController, turnManager,
+                chatMenuController, eventHandler);
+                
+        // Initialize UI Helper
+        this.uiHelper = new ChatUiHelper(activity, messageList, chatAdapter, chatRecyclerView, statusTextView, 
+                                  pendingUserTranscripts, audioInputController, sessionController, turnManager);
+        
+        // Set session dependencies
+        this.sessionManager.setSessionDependencies(toolRegistry, toolContext, settingsManager, keyManager);
+        
+        Log.i(TAG, "AppContainer initialized.");
+    }
+    
+    public void shutdown() {
+        audioInputController.shutdown();
+        threadManager.shutdown();
+        
+        if (audioPlayer != null) audioPlayer.setListener(null);
+        if (sessionManager != null) sessionManager.setListener(null);
+        if (settingsManager != null) settingsManager.setListener(null);
+        if (toolContext != null) toolContext.updateQiContext(null);
+        
+        if (perceptionService != null) {
+            perceptionService.shutdown();
+        }
+        if (dashboardManager != null) {
+            dashboardManager.shutdown();
+        }
+        if (touchSensorManager != null) {
+            touchSensorManager.shutdown();
+        }
+        if (navigationServiceManager != null) {
+            navigationServiceManager.shutdown();
+        }
+        if (chatMenuController != null) {
+            // cleanup if needed
+        }
+        sessionController.disconnectWebSocket();
+        if (audioPlayer != null) audioPlayer.release();
+        try { gestureController.shutdown(); } catch (Exception ignored) {}
+        
+        robotFocusManager.unregister();
+    }
+}
+

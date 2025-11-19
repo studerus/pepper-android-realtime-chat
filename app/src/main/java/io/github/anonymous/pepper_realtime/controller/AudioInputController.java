@@ -6,10 +6,10 @@ import android.widget.TextView;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
-import io.github.anonymous.pepper_realtime.ChatActivity;
+import io.github.anonymous.pepper_realtime.ui.ChatActivity;
 import io.github.anonymous.pepper_realtime.R;
 import io.github.anonymous.pepper_realtime.manager.ApiKeyManager;
-import io.github.anonymous.pepper_realtime.manager.OptimizedThreadManager;
+import io.github.anonymous.pepper_realtime.manager.ThreadManager;
 import io.github.anonymous.pepper_realtime.manager.RealtimeAudioInputManager;
 import io.github.anonymous.pepper_realtime.manager.SettingsManager;
 import io.github.anonymous.pepper_realtime.manager.SpeechRecognizerManager;
@@ -23,7 +23,7 @@ public class AudioInputController {
     private final SettingsManager settingsManager;
     private final ApiKeyManager keyManager;
     private final RealtimeSessionManager sessionManager;
-    private final OptimizedThreadManager threadManager;
+    private final ThreadManager threadManager;
     
     // UI components for status updates
     private final TextView statusTextView;
@@ -43,7 +43,7 @@ public class AudioInputController {
                               SettingsManager settingsManager,
                               ApiKeyManager keyManager,
                               RealtimeSessionManager sessionManager,
-                              OptimizedThreadManager threadManager,
+                              ThreadManager threadManager,
                               TextView statusTextView,
                               FloatingActionButton fabInterrupt) {
         this.activity = activity;

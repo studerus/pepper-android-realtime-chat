@@ -14,7 +14,7 @@ import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
 
-import io.github.anonymous.pepper_realtime.network.OptimizedHttpClientManager;
+import io.github.anonymous.pepper_realtime.network.HttpClientManager;
 
 public class YouTubeSearchService {
     private static final String TAG = "YouTubeSearchService";
@@ -55,7 +55,7 @@ public class YouTubeSearchService {
     
     public YouTubeSearchService(String apiKey) {
         this.apiKey = apiKey;
-        this.httpClient = OptimizedHttpClientManager.getInstance().getQuickApiClient();
+        this.httpClient = HttpClientManager.getInstance().getQuickApiClient();
     }
     
     /**
