@@ -1259,7 +1259,6 @@ This approach provides natural-looking robot behavior even when using external a
 ```
 app/src/
 ├── main/java/io/github/anonymous/pepper_realtime/    # Shared code for all flavors
-│   ├── ChatActivity.java                # Main application with lifecycle management
 │   ├── controller/                      # Application logic controllers
 │   │   ├── AudioInputController.java    # Audio input & STT management
 │   │   ├── ChatInterruptController.java # Interruption logic
@@ -1270,17 +1269,18 @@ app/src/
 │   │   └── RobotFocusManager.java       # Robot lifecycle focus management
 │   ├── manager/                         # Application managers
 │   │   ├── ApiKeyManager.java           # API key management
+│   │   ├── AppContainer.java            # Dependency Injection container
+│   │   ├── AudioPlayer.java             # Audio playback engine
 │   │   ├── DashboardManager.java        # Perception dashboard overlay
-│   │   ├── OptimizedAudioPlayer.java    # Audio playback engine
-│   │   ├── OptimizedThreadManager.java  # Thread pooling & execution
 │   │   ├── QuizDialogManager.java       # Quiz UI management
 │   │   ├── RealtimeAudioInputManager.java # Audio input for Realtime API
 │   │   ├── SettingsManager.java         # App settings & preferences
 │   │   ├── SpeechRecognizerManager.java # Azure Speech integration
+│   │   ├── ThreadManager.java           # Thread pooling & execution
 │   │   ├── TurnManager.java             # Conversation turn state machine
 │   │   └── YouTubePlayerManager.java    # YouTube playback management
 │   ├── network/                         # Network & API communication
-│   │   ├── OptimizedHttpClientManager.java # Shared HTTP client
+│   │   ├── HttpClientManager.java       # Shared HTTP client
 │   │   ├── RealtimeApiProvider.java     # API provider definitions
 │   │   ├── RealtimeEventHandler.java    # WebSocket event parsing
 │   │   ├── RealtimeSessionManager.java  # WebSocket connection handling
@@ -1297,6 +1297,7 @@ app/src/
 │   │   ├── PerceptionData.java          # Human perception data models
 │   │   └── SavedLocation.java           # Location data structure
 │   ├── ui/                              # UI Components and Helpers
+│   │   ├── ChatActivity.java            # Main application with lifecycle management
 │   │   ├── ChatMenuController.java      # Menu handling
 │   │   ├── ChatMessage.java             # Message model
 │   │   ├── ChatMessageAdapter.java      # RecyclerView adapter
@@ -1305,7 +1306,7 @@ app/src/
 │   │   └── YouTubePlayerDialog.java     # YouTube player UI
 │   └── tools/                           # Tool implementations (shared logic)
 │       ├── ToolContext.java             # Shared tool context
-│       ├── ToolRegistryNew.java         # Tool registration system
+│       ├── ToolRegistry.java            # Tool registration system
 │       └── [categories]/...             # Tools organized by category
 │
 ├── pepper/java/io/github/anonymous/pepper_realtime/    # Pepper-specific implementations
