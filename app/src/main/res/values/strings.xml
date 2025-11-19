@@ -7,55 +7,33 @@
     <string name="status_ready">Ready.</string>
     <string name="app_paused">App paused</string>
     <string name="status_speaking_tap_to_interrupt">Speaking — tap to interrupt: </string>
-    <string name="status_analyzing_vision">Analyzing vision…</string>
     <string name="status_updating_recognizer">Updating recognizer…</string>
     <string name="status_starting_new_session">Starting new session…</string>
     <string name="status_recognizer_not_ready">Recognizer not ready.</string>
     <string name="status_warming_up">Warming up recognizer...</string>
-    <string name="status_starting_navigation_init">Preparing navigation…</string>
-    <string name="status_loading_map">Loading map…</string>
-    <string name="status_localizing">Localizing…</string>
-    <string name="status_navigation_ready">Navigation ready.</string>
     <string name="status_please_wait">Please wait...</string>
     <string name="status_muted_tap_to_unmute">Muted — tap to unmute</string>
     
     <!-- Navigation Status Messages -->
     <string name="nav_map_none">🗺️ Map: none</string>
     <string name="nav_map_saved">🗺️ Map: Saved</string>
-    <string name="nav_map_loading">🗺️ Map: Loading…</string>
-    <string name="nav_map_loading_size">🗺️ Map: Loading… (%1$dMB)</string>
-    <string name="nav_map_ready">🗺️ Map: Ready</string>
-    <string name="nav_map_creating">🗺️ Map: Creating…</string>
-    <string name="nav_map_error">🗺️ Map: Error</string>
-    
-    <string name="nav_localization_waiting">🧭 Localization: Waiting</string>
     <string name="nav_localization_not_running">🧭 Localization: Not running</string>
-    <string name="nav_localization_starting">🧭 Localization: Starting…</string>
-    <string name="nav_localization_running">🧭 Localization: Running</string>
     <string name="nav_localization_stopped">🧭 Localization: Stopped</string>
-    <string name="nav_localization_error">🧭 Localization: Error</string>
     
     <!-- Error Messages -->
     <string name="error_microphone_permission_denied">Microphone permission denied.</string>
     <string name="error_connection_failed">Connection failed. Please restart.</string>
     <string name="error_updating_settings">Error updating settings.</string>
     <string name="error_connection_failed_short">Connection Failed</string>
-    <string name="error_starting_listener">Error starting listener: %s</string>
     <string name="error_not_connected">Error: Not connected to the server.</string>
     <string name="error_generic">Error: %s</string>
-    <string name="error_image_load_failed">Image could not be loaded.</string>
     <string name="status_listening_partial">Listening: %s</string>
     
     <!-- Chat Messages -->
     <string name="new_session_error">Error: Could not start a new session.</string>
-    <string name="function_call_prefix">Function Call: %1$s\nArguments: %2$s</string>
-    <string name="function_result_prefix">Function Result:\n%s</string>
-    <string name="function_result_error_prefix">Function Result Error:\n%s</string>
     <string name="server_error_prefix">Server Error: %s</string>
-    <string name="error_code_prefix">Error: %s</string>
     
     <!-- Setup Messages -->
-    <string name="setup_initial_complete">Initial Setup complete. Starting recognition now.</string>
     <string name="setup_error_during">Error during setup: %s</string>
     <string name="robot_initialization_timeout">Robot initialization timeout - check robot status</string>
     <string name="robot_focus_lost_message">Robot focus lost - app will continue without robot features</string>
@@ -125,27 +103,13 @@ Closings: \"Happy to help!\" | \"Anything else?\" | \"I\'m here if you need me\"
     <string name="volume_format">%d%%</string>
     <string name="silence_timeout_format">%dms</string>
     <string name="confidence_threshold_format">%d%%</string>
-    <string name="confidence_threshold_label">ASR Confidence Threshold</string>
     
     <!-- Vision Analysis -->
     <string name="vision_context_suffix">" Context: This photo was just taken by you, the robot. If a person is visible, it's likely the user you're speaking with, so address them directly as 'you'."</string>
     
     <!-- Quiz -->
     <string name="quiz_feedback_format">For the question \'%1$s\' I have chosen the answer \'%2$s\'.</string>
-    <string name="quiz_status_presented">Quiz presented to user.</string>
     
-    <!-- Tool Execution -->
-    <string name="tool_error_unknown">Unknown tool: %s</string>
-    <string name="tool_error_execution_failed">execution failed</string>
-    
-    <!-- Log Messages -->
-    <string name="log_session_configured">Session configured successfully.</string>
-    <string name="log_full_response_received">Full response received. Processing final output.</string>
-    <string name="log_audio_stream_complete">Audio stream complete signaled by server.</string>
-    <string name="log_response_done_no_output">Response.done with no output. Finishing turn.</string>
-    <string name="log_new_session_started">New session started successfully. Ready to listen.</string>
-    <string name="log_websocket_closed">WebSocket connection closed.</string>
-
     <!-- Content Descriptions -->
     <string name="interrupt_button_description">Interrupt assistant</string>
     
@@ -176,9 +140,6 @@ Closings: \"Happy to help!\" | \"Anything else?\" | \"I\'m here if you need me\"
     <string name="ttt_close_button">✕</string>
     
     <!-- SettingsManager Strings -->
-    <string name="tool_prefix">Tool: %s</string>
-    <string name="default_model">gpt-4o-realtime-preview</string>
-    <string name="azure_default_model">gpt-4o-realtime-preview</string>
     <string name="openai_default_model">gpt-realtime</string>
     
     <!-- Audio Input Mode -->

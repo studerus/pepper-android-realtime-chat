@@ -173,7 +173,10 @@ public class SettingsManager {
                         convertView = activity.getLayoutInflater().inflate(android.R.layout.simple_spinner_item, parent, false);
                     }
                     TextView textView = (TextView) convertView;
-                    textView.setText(getItem(position).getDisplayName());
+                    RealtimeApiProvider item = getItem(position);
+                    if (item != null) {
+                        textView.setText(item.getDisplayName());
+                    }
                     return convertView;
                 }
                 
@@ -183,8 +186,10 @@ public class SettingsManager {
                         convertView = activity.getLayoutInflater().inflate(android.R.layout.simple_spinner_dropdown_item, parent, false);
                     }
                     TextView textView = (TextView) convertView;
-                    RealtimeApiProvider provider = getItem(position);
-                    textView.setText(provider.getDisplayName());
+                    RealtimeApiProvider item = getItem(position);
+                    if (item != null) {
+                        textView.setText(item.getDisplayName());
+                    }
                     return convertView;
                 }
             };

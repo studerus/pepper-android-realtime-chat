@@ -184,6 +184,7 @@ public class RealtimeAudioInputManager {
                     
                     // Brief pause before retry
                     try {
+                        // Sleep to avoid tight loop on persistent errors
                         Thread.sleep(50);
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();

@@ -20,35 +20,26 @@ public class SshConnectionHelper {
     public static void testFixedIpSshConnect(ThreadManager threadManager) {
         threadManager.executeNetwork(() -> {
             String host = "198.18.0.1"; // Known working IP
-            SSHClient ssh = null;
-            try {
+            
+            try (SSHClient ssh = new SSHClient(createConfig())) {
                 Log.i(TAG, "[SSH-TEST] Connecting to " + host);
-                // Configure SSH to avoid Curve25519/X25519 which is missing on older Android crypto providers
-                Config config = new DefaultConfig();
-                java.util.List<Factory.Named<KeyExchange>> kex = new java.util.ArrayList<>(config.getKeyExchangeFactories());
-                java.util.Iterator<Factory.Named<KeyExchange>> it = kex.iterator();
-                while (it.hasNext()) {
-                    Factory.Named<KeyExchange> f = it.next();
-                    String name = f.getName();
-                    if (name != null && name.toLowerCase().contains("curve25519")) {
-                        it.remove();
-                    }
-                }
-                config.setKeyExchangeFactories(kex);
-                ssh = new SSHClient(config);
+                
                 ssh.setConnectTimeout(3000);
                 ssh.setTimeout(5000);
                 ssh.addHostKeyVerifier(new PromiscuousVerifier());
                 ssh.connect(host, 22);
+                
                 String password = BuildConfig.PEPPER_SSH_PASSWORD != null ? BuildConfig.PEPPER_SSH_PASSWORD : "";
                 if (password.isEmpty()) {
                     Log.w(TAG, "[SSH-TEST] PEPPER_SSH_PASSWORD empty - please set in local.properties");
                 }
                 ssh.authPassword("nao", password);
+                
                 try (net.schmizz.sshj.connection.channel.direct.Session sess = ssh.startSession()) {
                     Command cmd = sess.exec("echo ok");
                     cmd.join(5, TimeUnit.SECONDS);
                     Integer exitStatus = cmd.getExitStatus();
+                    
                     if (exitStatus == null) {
                         Log.w(TAG, "[SSH-TEST] Command timeout");
                     } else {
@@ -66,10 +57,23 @@ public class SshConnectionHelper {
                 }
             } catch (Exception e) {
                 Log.w(TAG, "[SSH-TEST] Failed: " + e.getClass().getSimpleName() + " - " + e.getMessage());
-            } finally {
-                try { if (ssh != null) ssh.disconnect(); } catch (Exception ignore) {}
             }
         });
     }
+    
+    private static Config createConfig() {
+        // Configure SSH to avoid Curve25519/X25519 which is missing on older Android crypto providers
+        Config config = new DefaultConfig();
+        java.util.List<Factory.Named<KeyExchange>> kex = new java.util.ArrayList<>(config.getKeyExchangeFactories());
+        java.util.Iterator<Factory.Named<KeyExchange>> it = kex.iterator();
+        while (it.hasNext()) {
+            Factory.Named<KeyExchange> f = it.next();
+            String name = f.getName();
+            if (name != null && name.toLowerCase().contains("curve25519")) {
+                it.remove();
+            }
+        }
+        config.setKeyExchangeFactories(kex);
+        return config;
+    }
 }
-
