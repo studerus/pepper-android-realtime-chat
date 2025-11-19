@@ -1260,116 +1260,94 @@ This approach provides natural-looking robot behavior even when using external a
 app/src/
 ├── main/java/io/github/anonymous/pepper_realtime/    # Shared code for all flavors
 │   ├── ChatActivity.java                # Main application with lifecycle management
-│   ├── ApiKeyManager.java               # API key management
-│   ├── RealtimeSessionManager.java      # WebSocket handling
-│   ├── RealtimeEventHandler.java        # Realtime API event processing
-│   ├── RealtimeAudioInputManager.java   # Audio streaming to Realtime API
-│   ├── MovementController.java          # Robot movement coordination
-│   ├── NavigationServiceManager.java    # Navigation system management
-│   ├── PerceptionService.java           # Human detection and awareness
-│   ├── VisionService.java               # Camera and image analysis
-│   ├── OptimizedAudioPlayer.java        # Real-time audio playback
-│   ├── GestureController.java           # Robot animations and gestures
-│   ├── SettingsManager.java             # App configuration and UI
-│   ├── DashboardManager.java            # Human perception dashboard overlay
-│   ├── FaceRecognitionService.java      # Azure Face API integration
-│   ├── TouchSensorManager.java          # Physical touch interaction management
-│   ├── SpeechRecognizerManager.java     # Azure Speech Recognition with confidence scoring
-│   ├── TurnManager.java                 # Conversational turn state management
-│   ├── data/
-│   │   ├── LocationProvider.java        # Location data management
-│   │   └── SavedLocation.java           # Location data model
-│   ├── managers/
+│   ├── controller/                      # Application logic controllers
+│   │   ├── AudioInputController.java    # Audio input & STT management
+│   │   ├── ChatInterruptController.java # Interruption logic
+│   │   ├── ChatRealtimeHandler.java     # WebSocket event bridging
+│   │   ├── ChatSessionController.java   # Session management
+│   │   ├── ChatSpeechListener.java      # Speech recognition callbacks
+│   │   ├── ChatTurnListener.java        # Turn state management
+│   │   └── RobotFocusManager.java       # Robot lifecycle focus management
+│   ├── manager/                         # Application managers
+│   │   ├── ApiKeyManager.java           # API key management
+│   │   ├── DashboardManager.java        # Perception dashboard overlay
+│   │   ├── OptimizedAudioPlayer.java    # Audio playback engine
+│   │   ├── OptimizedThreadManager.java  # Thread pooling & execution
 │   │   ├── QuizDialogManager.java       # Quiz UI management
-│   │   └── YouTubePlayerManager.java    # Video playback management
-│   ├── tools/
-│   │   ├── entertainment/
-│   │   │   ├── PlayAnimationTool.java   # Robot animation control
-│   │   │   └── PlayYouTubeVideoTool.java # Video search and playback
-│   │   ├── games/
-│   │   │   ├── MemoryGameTool.java      # Memory card game
-│   │   │   ├── MemoryGameDialog.java    # Memory game UI
-│   │   │   ├── TicTacToeStartTool.java  # Tic Tac Toe initialization
-│   │   │   └── QuizTool.java            # Interactive quiz system
-│   │   ├── information/
-│   │   │   ├── GetDateTimeTool.java     # Date/time queries
-│   │   │   ├── GetWeatherTool.java      # Weather information
-│   │   │   ├── SearchInternetTool.java  # Web search via Tavily
-│   │   │   └── GetRandomJokeTool.java   # Joke database access
-│   │   ├── navigation/
-│   │   │   ├── ApproachHumanTool.java   # Human approach functionality
-│   │   │   ├── MovePepperTool.java      # Movement with obstacle analysis
-│   │   │   ├── LookAtPositionTool.java  # 3D gaze control
-│   │   │   ├── NavigateToLocationTool.java # Location navigation
-│   │   │   └── CreateEnvironmentMapTool.java # Mapping system
-│   │   ├── vision/
-│   │   │   └── AnalyzeVisionTool.java   # Vision analysis (gpt-realtime/Groq)
-│   │   ├── Tool.java                    # Tool interface definition
-│   │   ├── ToolContext.java             # Shared tool dependencies
-│   │   └── ToolRegistryNew.java         # Dynamic tool registration
-│   └── ui/
-│       ├── MapPreviewView.java          # Navigation map visualization
-│       └── MapState.java                # Map state management
+│   │   ├── RealtimeAudioInputManager.java # Audio input for Realtime API
+│   │   ├── SettingsManager.java         # App settings & preferences
+│   │   ├── SpeechRecognizerManager.java # Azure Speech integration
+│   │   ├── TurnManager.java             # Conversation turn state machine
+│   │   └── YouTubePlayerManager.java    # YouTube playback management
+│   ├── network/                         # Network & API communication
+│   │   ├── OptimizedHttpClientManager.java # Shared HTTP client
+│   │   ├── RealtimeApiProvider.java     # API provider definitions
+│   │   ├── RealtimeEventHandler.java    # WebSocket event parsing
+│   │   ├── RealtimeSessionManager.java  # WebSocket connection handling
+│   │   └── SshConnectionHelper.java     # SSH utilities
+│   ├── service/                         # Background services (shared)
+│   │   ├── FaceRecognitionService.java  # Azure Face API client
+│   │   └── YouTubeSearchService.java    # YouTube Data API client
+│   ├── robot/                           # Robot abstraction interfaces
+│   │   ├── RobotController.java         # Interface for robot control
+│   │   └── RobotLifecycleBridge.java    # Interface for lifecycle events
+│   ├── data/                            # Data models and providers
+│   │   ├── BasicEmotion.java            # Emotion definitions
+│   │   ├── LocationProvider.java        # Map location management
+│   │   ├── PerceptionData.java          # Human perception data models
+│   │   └── SavedLocation.java           # Location data structure
+│   ├── ui/                              # UI Components and Helpers
+│   │   ├── ChatMenuController.java      # Menu handling
+│   │   ├── ChatMessage.java             # Message model
+│   │   ├── ChatMessageAdapter.java      # RecyclerView adapter
+│   │   ├── ChatUiHelper.java            # UI update helpers
+│   │   ├── MapUiManager.java            # Map UI management
+│   │   └── YouTubePlayerDialog.java     # YouTube player UI
+│   └── tools/                           # Tool implementations (shared logic)
+│       ├── ToolContext.java             # Shared tool context
+│       ├── ToolRegistryNew.java         # Tool registration system
+│       └── [categories]/...             # Tools organized by category
 │
 ├── pepper/java/io/github/anonymous/pepper_realtime/    # Pepper-specific implementations
+│   ├── controller/
+│   │   ├── GestureController.java       # Real Pepper animations
+│   │   └── MovementController.java      # Real robot movement
+│   ├── manager/
+│   │   ├── NavigationServiceManager.java # Real navigation system
+│   │   ├── LocalizationCoordinator.java  # Real localization logic
+│   │   └── TouchSensorManager.java       # Real touch sensor handling
+│   ├── service/
+│   │   ├── PerceptionService.java       # Real human detection (QiSDK)
+│   │   └── VisionService.java           # Pepper head camera implementation
 │   ├── robot/
 │   │   ├── RobotControllerImpl.java     # Real QiContext implementation
-│   │   └── RobotLifecycleBridgeImpl.java # QiSDK lifecycle integration
-│   ├── GestureController.java           # Real Pepper animations
-│   ├── MovementController.java          # Real robot movement
-│   ├── NavigationServiceManager.java    # Real navigation system
-│   ├── NavigationMapCache.java          # Real map loading
-│   ├── LocalizationCoordinator.java     # Real localization
-│   ├── PerceptionService.java           # Real human detection
-│   ├── VisionService.java               # Pepper camera implementation
-│   ├── TouchSensorManager.java          # Real touch sensors
-│   ├── RobotSafetyGuard.java            # Real safety system
+│   │   ├── RobotLifecycleBridgeImpl.java # QiSDK lifecycle integration
+│   │   └── RobotSafetyGuard.java        # Movement safety checks
+│   ├── data/
+│   │   └── NavigationMapCache.java      # Real map data caching
 │   ├── ui/
-│   │   └── MapPreviewView.java          # Real map preview
-│   └── tools/
-│       ├── entertainment/
-│       │   └── PlayAnimationTool.java   # Real animation control
-│       ├── navigation/
-│       │   ├── ApproachHumanTool.java   # Real human approach
-│       │   ├── MovePepperTool.java      # Real movement
-│       │   ├── TurnPepperTool.java      # Real turning
-│       │   ├── LookAtPositionTool.java  # Real gaze control
-│       │   ├── NavigateToLocationTool.java # Real navigation
-│       │   ├── CreateEnvironmentMapTool.java # Real mapping
-│       │   ├── FinishEnvironmentMapTool.java # Real map finalization
-│       │   └── SaveCurrentLocationTool.java # Real location saving
-│       └── vision/
-│           └── AnalyzeVisionTool.java   # Pepper camera vision
+│   │   └── MapPreviewView.java          # Real map visualization view
+│   └── tools/                           # Flavor-specific tool overrides
 │
 └── standalone/java/io/github/anonymous/pepper_realtime/   # Standalone stub implementations
+    ├── controller/
+    │   ├── GestureController.java       # Stub (log only)
+    │   └── MovementController.java      # Stub (log only)
+    ├── manager/
+    │   ├── NavigationServiceManager.java # Stub (simulated navigation)
+    │   ├── LocalizationCoordinator.java  # Stub (simulated localization)
+    │   └── TouchSensorManager.java       # Stub (log only)
+    ├── service/
+    │   ├── PerceptionService.java       # Stub (simulated detection)
+    │   └── VisionService.java           # Android Camera2 API implementation
     ├── robot/
-    │   ├── RobotControllerImpl.java     # Stub (no robot hardware)
-    │   └── RobotLifecycleBridgeImpl.java # Simulated lifecycle
-    ├── GestureController.java           # Stub (logs only)
-    ├── MovementController.java          # Stub (logs only)
-    ├── NavigationServiceManager.java    # Stub (logs only)
-    ├── NavigationMapCache.java          # Stub (logs only)
-    ├── LocalizationCoordinator.java     # Stub (logs only)
-    ├── PerceptionService.java           # Stub (logs only)
-    ├── VisionService.java               # Android Camera2 API (real!)
-    ├── TouchSensorManager.java          # Stub (logs only)
-    ├── RobotSafetyGuard.java            # Stub (logs only)
-    ├── ui/
-    │   └── MapPreviewView.java          # Stub (empty preview)
-    └── tools/
-        ├── entertainment/
-        │   └── PlayAnimationTool.java   # Stub (logs only)
-        ├── navigation/
-        │   ├── ApproachHumanTool.java   # Stub (logs only)
-        │   ├── MovePepperTool.java      # Stub (logs only)
-        │   ├── TurnPepperTool.java      # Stub (logs only)
-        │   ├── LookAtPositionTool.java  # Stub (logs only)
-        │   ├── NavigateToLocationTool.java # Stub (logs only)
-        │   ├── CreateEnvironmentMapTool.java # Stub (logs only)
-        │   ├── FinishEnvironmentMapTool.java # Stub (logs only)
-        │   └── SaveCurrentLocationTool.java # Stub (logs only)
-        └── vision/
-            └── AnalyzeVisionTool.java   # Device camera vision (real!)
+    │   ├── RobotControllerImpl.java     # Stub implementation
+    │   ├── RobotLifecycleBridgeImpl.java # Simulated lifecycle
+    │   └── RobotSafetyGuard.java        # Stub implementation
+    ├── data/
+    │   └── NavigationMapCache.java      # Stub (no map data)
+    └── ui/
+        └── MapPreviewView.java          # Stub (empty view)
 ```
 
 ### Key Configuration Files

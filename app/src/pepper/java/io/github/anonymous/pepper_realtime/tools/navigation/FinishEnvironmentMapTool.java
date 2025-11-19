@@ -8,8 +8,8 @@ import com.aldebaran.qi.sdk.object.actuation.LocalizeAndMap;
 import java.nio.charset.StandardCharsets;
 import io.github.anonymous.pepper_realtime.tools.Tool;
 import io.github.anonymous.pepper_realtime.tools.ToolContext;
-import io.github.anonymous.pepper_realtime.OptimizedThreadManager;
-import io.github.anonymous.pepper_realtime.NavigationServiceManager;
+import io.github.anonymous.pepper_realtime.manager.OptimizedThreadManager;
+import io.github.anonymous.pepper_realtime.manager.NavigationServiceManager;
 
 import org.json.JSONObject;
 

@@ -1,7 +1,7 @@
 package io.github.anonymous.pepper_realtime.tools.games;
 
 import io.github.anonymous.pepper_realtime.R;
-import io.github.anonymous.pepper_realtime.DynamicGridSpacingItemDecoration;
+import io.github.anonymous.pepper_realtime.ui.DynamicGridSpacingItemDecoration;
 
 import android.app.AlertDialog;
 import android.content.Context;

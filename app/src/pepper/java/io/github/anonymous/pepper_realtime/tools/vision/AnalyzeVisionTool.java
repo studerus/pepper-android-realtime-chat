@@ -5,7 +5,7 @@ import android.util.Log;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 import io.github.anonymous.pepper_realtime.R;
-import io.github.anonymous.pepper_realtime.VisionService;
+import io.github.anonymous.pepper_realtime.service.VisionService;
 import io.github.anonymous.pepper_realtime.tools.Tool;
 import io.github.anonymous.pepper_realtime.tools.ToolContext;
 

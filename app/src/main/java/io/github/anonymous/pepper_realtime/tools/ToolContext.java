@@ -1,10 +1,11 @@
 package io.github.anonymous.pepper_realtime.tools;
 
 import android.content.Context;
-import io.github.anonymous.pepper_realtime.ApiKeyManager;
+import io.github.anonymous.pepper_realtime.manager.ApiKeyManager;
 import io.github.anonymous.pepper_realtime.ChatActivity;
-import io.github.anonymous.pepper_realtime.MovementController;
-import io.github.anonymous.pepper_realtime.NavigationServiceManager;
+import io.github.anonymous.pepper_realtime.controller.MovementController;
+import io.github.anonymous.pepper_realtime.manager.NavigationServiceManager;
+import io.github.anonymous.pepper_realtime.service.PerceptionService;
 import io.github.anonymous.pepper_realtime.data.LocationProvider;
 
 /**
@@ -52,7 +53,7 @@ public class ToolContext {
     /**
      * Get PerceptionService from activity - provides access to human detection and awareness
      */
-    public io.github.anonymous.pepper_realtime.PerceptionService getPerceptionService() {
+    public PerceptionService getPerceptionService() {
         return activity != null ? activity.getPerceptionService() : null;
     }
     

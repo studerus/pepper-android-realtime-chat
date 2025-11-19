@@ -8,8 +8,8 @@ import com.aldebaran.qi.sdk.object.human.Human;
 import com.aldebaran.qi.sdk.object.humanawareness.ApproachHuman;
 import com.aldebaran.qi.sdk.builder.ApproachHumanBuilder;
 
-import io.github.anonymous.pepper_realtime.PerceptionService;
-import io.github.anonymous.pepper_realtime.RobotSafetyGuard;
+import io.github.anonymous.pepper_realtime.service.PerceptionService;
+import io.github.anonymous.pepper_realtime.robot.RobotSafetyGuard;
 import io.github.anonymous.pepper_realtime.tools.Tool;
 import io.github.anonymous.pepper_realtime.tools.ToolContext;
 

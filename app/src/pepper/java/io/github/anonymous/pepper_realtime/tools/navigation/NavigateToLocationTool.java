@@ -5,8 +5,8 @@ import android.util.Log;
 import com.aldebaran.qi.Future;
 import com.aldebaran.qi.sdk.QiContext;
 
-import io.github.anonymous.pepper_realtime.NavigationServiceManager;
-import io.github.anonymous.pepper_realtime.RobotSafetyGuard;
+import io.github.anonymous.pepper_realtime.manager.NavigationServiceManager;
+import io.github.anonymous.pepper_realtime.robot.RobotSafetyGuard;
 import io.github.anonymous.pepper_realtime.data.SavedLocation;
 import io.github.anonymous.pepper_realtime.tools.Tool;
 import io.github.anonymous.pepper_realtime.tools.ToolContext;

@@ -8,7 +8,7 @@ import com.aldebaran.qi.sdk.object.actuation.LocalizeAndMap;
 import com.aldebaran.qi.sdk.object.power.FlapSensor;
 import com.aldebaran.qi.sdk.object.power.FlapState;
 import com.aldebaran.qi.sdk.object.power.Power;
-import io.github.anonymous.pepper_realtime.NavigationServiceManager;
+import io.github.anonymous.pepper_realtime.manager.NavigationServiceManager;
 import io.github.anonymous.pepper_realtime.tools.Tool;
 import io.github.anonymous.pepper_realtime.tools.ToolContext;
 

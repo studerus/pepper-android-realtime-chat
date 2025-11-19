@@ -31,7 +31,7 @@
             android:layout_height="40dp"
             android:text="@string/memory_close_button"
             android:textSize="20sp"
-            style="@style/Widget.Material3.Button.TextButton"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
             android:layout_marginStart="8dp" />
 
     </LinearLayout>

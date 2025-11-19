@@ -1,6 +1,6 @@
 package io.github.anonymous.pepper_realtime.tools.information;
 
-import io.github.anonymous.pepper_realtime.OptimizedHttpClientManager;
+import io.github.anonymous.pepper_realtime.network.OptimizedHttpClientManager;
 import io.github.anonymous.pepper_realtime.tools.Tool;
 import io.github.anonymous.pepper_realtime.tools.ToolContext;
 

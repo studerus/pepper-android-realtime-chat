@@ -1,7 +1,7 @@
 package io.github.anonymous.pepper_realtime.tools.entertainment;
 
 import android.util.Log;
-import io.github.anonymous.pepper_realtime.YouTubeSearchService;
+import io.github.anonymous.pepper_realtime.service.YouTubeSearchService;
 import io.github.anonymous.pepper_realtime.tools.Tool;
 import io.github.anonymous.pepper_realtime.tools.ToolContext;
 
@@ -77,9 +77,9 @@ public class PlayYouTubeVideoTool implements Tool {
             
             // Show video player via manager on main thread
             if (context.hasUi()) {
-                context.getActivity().runOnUiThread(() -> io.github.anonymous.pepper_realtime.managers.YouTubePlayerManager.showYouTubePlayerDialog(
+                context.getActivity().runOnUiThread(() -> io.github.anonymous.pepper_realtime.manager.YouTubePlayerManager.showYouTubePlayerDialog(
                         context.getActivity(), video,
-                        new io.github.anonymous.pepper_realtime.managers.YouTubePlayerManager.YouTubePlayerCallback() {
+                        new io.github.anonymous.pepper_realtime.manager.YouTubePlayerManager.YouTubePlayerCallback() {
                             @Override
                             public void onPlayerOpened() {
                                 context.sendAsyncUpdate("🎵 YouTube video started - microphone muted", false);

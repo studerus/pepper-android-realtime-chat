@@ -74,9 +74,9 @@ public class QuizTool implements Tool {
         
         if (context.hasUi()) {
             // Execute UI operation on main thread
-            context.getActivity().runOnUiThread(() -> io.github.anonymous.pepper_realtime.managers.QuizDialogManager.showQuizDialog(
+            context.getActivity().runOnUiThread(() -> io.github.anonymous.pepper_realtime.manager.QuizDialogManager.showQuizDialog(
                     context.getActivity(), question, opts, correct,
-                    new io.github.anonymous.pepper_realtime.managers.QuizDialogManager.QuizDialogCallback() {
+                    new io.github.anonymous.pepper_realtime.manager.QuizDialogManager.QuizDialogCallback() {
                         @Override
                         public void onQuizAnswered(String question, String selectedOption) {
                             String feedbackMessage = context.getActivity().getString(R.string.quiz_feedback_format, question, selectedOption);
