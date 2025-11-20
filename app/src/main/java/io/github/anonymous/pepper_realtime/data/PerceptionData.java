@@ -101,7 +101,7 @@ public class PerceptionData {
             }
             
             if (!"Unknown".equals(gender)) {
-                if (!demo.isEmpty()) demo.append(", ");
+                if (demo.length() > 0) demo.append(", ");
                 if ("MALE".equalsIgnoreCase(gender)) {
                     demo.append("♂️");
                 } else if ("FEMALE".equalsIgnoreCase(gender)) {
@@ -111,7 +111,7 @@ public class PerceptionData {
                 }
             }
             
-            return !demo.isEmpty() ? demo.toString() : "Unknown";
+            return demo.length() > 0 ? demo.toString() : "Unknown";
         }
         
         /**

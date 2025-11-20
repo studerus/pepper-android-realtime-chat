@@ -133,7 +133,11 @@ public class ChatRealtimeHandler implements RealtimeEventHandler.Listener {
             JSONArray outputArray = response.optJSONArray("output");
 
             if (outputArray == null || outputArray.length() == 0) {
-                Log.i(TAG, "Response.done with no output. Finishing turn.");
+                Log.i(TAG, "Response.done with no output. Finishing turn and returning to LISTENING.");
+                // Ensure we return to LISTENING state even with empty responses
+                if (turnManager != null && !audioPlayer.isPlaying()) {
+                    turnManager.setState(TurnManager.State.LISTENING);
+                }
                 return;
             }
 

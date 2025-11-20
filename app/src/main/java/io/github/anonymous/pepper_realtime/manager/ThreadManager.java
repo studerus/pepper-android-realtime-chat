@@ -98,7 +98,7 @@ public class ThreadManager {
             TimeUnit.SECONDS,
             new LinkedBlockingQueue<>(50), // Bounded queue to prevent memory issues
             factory,
-            new ThreadPoolExecutor.CallerRunsPolicy() // Backpressure handling
+            new ThreadPoolExecutor.DiscardOldestPolicy() // Drop oldest task instead of running on caller thread
         );
     }
     

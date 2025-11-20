@@ -216,7 +216,7 @@ public class AudioPlayer {
 
     private void initializeAudioTrack() {
         try {
-            int internalBufferMs = 300; // Increased for GA API compatibility (was 200ms)
+            int internalBufferMs = 200; // Reduced for lower latency (was 300ms for GA API compatibility)
             int channelConfig = AudioFormat.CHANNEL_OUT_MONO;
             int audioFormat = AudioFormat.ENCODING_PCM_16BIT;
             int minBuf = AudioTrack.getMinBufferSize(sampleRateHz, channelConfig, audioFormat);

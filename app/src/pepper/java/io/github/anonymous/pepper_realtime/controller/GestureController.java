@@ -17,10 +17,13 @@ public class GestureController {
     public interface IntSupplier { Integer get(); }
 
     private static final String TAG = "GestureController";
-    private static final int NEXT_DELAY_MS = 350;
+    private static final int BASE_DELAY_MS = 350;
+    private static final int MAX_DELAY_MS = 2000; // Max backoff delay
     private ExecutorService gestureExecutor;
     private volatile boolean running = false;
     private volatile Future<Void> currentRunFuture = null;
+    private int consecutiveFailures = 0;
+    private static final int LOG_FAILURE_THRESHOLD = 3; // Only log after 3 consecutive failures
     
     public GestureController() {
         gestureExecutor = Executors.newSingleThreadExecutor();
@@ -42,6 +45,10 @@ public class GestureController {
             Log.i(TAG, "Recreating gesture executor (was terminated/shutdown)");
             gestureExecutor = Executors.newSingleThreadExecutor();
         }
+        
+        // Reset failure counter when starting new gesture session (e.g., new speech output)
+        // This prevents accumulated backoff delays from affecting new speech sessions
+        consecutiveFailures = 0;
         
         running = true;
         Log.i(TAG, "GestureController starting with qiContext: " + (qiContext != null));
@@ -95,18 +102,27 @@ public class GestureController {
                         }
                         Animate animate = animateFuture.getValue();
                         currentRunFuture = animate.async().run();
-                        Log.d(TAG, "Animation started, awaiting completion (non-blocking)");
+                        Log.d(TAG, "Animation started, awaiting completion");
                         currentRunFuture.thenConsume(runFuture -> {
                             try {
                                 if (runFuture.isSuccess()) {
+                                    consecutiveFailures = 0; // Reset counter on success
                                     Log.d(TAG, "Animation completed successfully");
                                 } else if (runFuture.isCancelled()) {
-                                    Log.w(TAG, "Animation cancelled");
+                                    consecutiveFailures = 0; // Reset on cancel (intentional)
+                                    Log.d(TAG, "Animation cancelled");
                                 } else if (runFuture.hasError()) {
-                                    Log.w(TAG, "Animation failed", runFuture.getError());
+                                    consecutiveFailures++;
+                                    // Only log after threshold to reduce noise
+                                    if (consecutiveFailures >= LOG_FAILURE_THRESHOLD) {
+                                        Log.w(TAG, "Animation failed " + consecutiveFailures + " times in a row (resources busy)", runFuture.getError());
+                                    } else {
+                                        Log.d(TAG, "Animation failed (resources busy, attempt " + consecutiveFailures + ")");
+                                    }
                                 }
                             } finally {
                                 currentRunFuture = null;
+                                // Wait AFTER animation completes, then schedule next
                                 scheduleNextAfterDelay(qiContext, keepRunning, nextResId);
                             }
                         });
@@ -117,7 +133,14 @@ public class GestureController {
     private void scheduleNextAfterDelay(QiContext qiContext, BoolSupplier keepRunning, IntSupplier nextResId) {
         gestureExecutor.submit(() -> {
             try {
-                Thread.sleep(NEXT_DELAY_MS);
+                // Exponential backoff: wait longer after repeated failures
+                int delayMs = BASE_DELAY_MS;
+                if (consecutiveFailures > 0) {
+                    // 350ms, 700ms, 1400ms, 2000ms (capped)
+                    delayMs = Math.min(MAX_DELAY_MS, BASE_DELAY_MS * (1 << consecutiveFailures));
+                    Log.d(TAG, "Backing off " + delayMs + "ms after " + consecutiveFailures + " failures");
+                }
+                Thread.sleep(delayMs);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
@@ -132,6 +155,7 @@ public class GestureController {
 
     public void stopNow() {
         running = false;
+        consecutiveFailures = 0; // Reset failure counter when stopping
         try {
             Future<Void> f = currentRunFuture;
             if (f != null && !f.isDone()) {
