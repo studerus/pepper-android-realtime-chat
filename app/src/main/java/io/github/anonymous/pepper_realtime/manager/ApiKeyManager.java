@@ -61,10 +61,6 @@ public class ApiKeyManager {
     }
     
     // Validation methods
-    public boolean hasValidGroqKey() {
-        return isValidKey(getGroqApiKey());
-    }
-    
     public boolean hasValidTavilyKey() {
         return isValidKey(getTavilyApiKey());
     }
@@ -100,22 +96,25 @@ public class ApiKeyManager {
     // Error messages for missing keys
     
     public String getSearchSetupMessage() {
-        return "🔑 Internet search requires TAVILY_API_KEY.\n" +
-               "Get free key at: https://tavily.com/\n" +
-               "Add to local.properties: TAVILY_API_KEY=your_key";
+        return """
+                🔑 Internet search requires TAVILY_API_KEY.
+                Get free key at: https://tavily.com/
+                Add to local.properties: TAVILY_API_KEY=your_key""";
     }
     
     public String getWeatherSetupMessage() {
-        return "🔑 Weather requires OPENWEATHER_API_KEY.\n" +
-               "Get free key at: https://openweathermap.org/api\n" +
-               "Add to local.properties: OPENWEATHER_API_KEY=your_key";
+        return """
+                🔑 Weather requires OPENWEATHER_API_KEY.
+                Get free key at: https://openweathermap.org/api
+                Add to local.properties: OPENWEATHER_API_KEY=your_key""";
     }
     
     public String getYouTubeSetupMessage() {
-        return "🔑 YouTube video requires YOUTUBE_API_KEY.\n" +
-               "Get free key at: https://console.developers.google.com/\n" +
-               "Enable YouTube Data API v3\n" +
-               "Add to local.properties: YOUTUBE_API_KEY=your_key";
+        return """
+                🔑 YouTube video requires YOUTUBE_API_KEY.
+                Get free key at: https://console.developers.google.com/
+                Enable YouTube Data API v3
+                Add to local.properties: YOUTUBE_API_KEY=your_key""";
     }
     
     // Helper methods

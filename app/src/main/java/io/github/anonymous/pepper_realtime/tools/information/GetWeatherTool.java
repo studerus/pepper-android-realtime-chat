@@ -11,6 +11,7 @@ import okhttp3.Response;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.nio.charset.StandardCharsets;
 import java.text.DateFormat;
 import java.util.Date;
 import java.util.Locale;
@@ -69,7 +70,7 @@ public class GetWeatherTool implements Tool {
         // Use optimized shared client for better performance and connection reuse
         OkHttpClient client = HttpClientManager.getInstance().getQuickApiClient();
 
-        String locationQueryParam = "q=" + java.net.URLEncoder.encode(location, "UTF-8");
+        String locationQueryParam = "q=" + java.net.URLEncoder.encode(location, StandardCharsets.UTF_8);
         String locationInputForName = location;
         String lower = location.toLowerCase();
         if (lower.contains("baden")) {

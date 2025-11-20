@@ -1,0 +1,122 @@
+<problems>
+<problem>
+  <file>file://$PROJECT_DIR$/README.md</file>
+  <line>6</line>
+  <module>pepper_android_realtime</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/README.md" />
+  <problem_class id="CheckImageSize" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Mismatched image size</problem_class>
+  <description>Original image width is 3072</description>
+  <highlighted_element>&quot;50%&quot;</highlighted_element>
+  <language>HTML</language>
+  <offset>94</offset>
+  <length>5</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/README.md</file>
+  <line>56</line>
+  <module>pepper_android_realtime</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/README.md" />
+  <problem_class id="CheckImageSize" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Mismatched image size</problem_class>
+  <description>Original image width is 1280</description>
+  <highlighted_element>&quot;100%&quot;</highlighted_element>
+  <language>HTML</language>
+  <offset>90</offset>
+  <length>6</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/README.md</file>
+  <line>61</line>
+  <module>pepper_android_realtime</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/README.md" />
+  <problem_class id="CheckImageSize" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Mismatched image size</problem_class>
+  <description>Original image width is 1280</description>
+  <highlighted_element>&quot;100%&quot;</highlighted_element>
+  <language>HTML</language>
+  <offset>75</offset>
+  <length>6</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/README.md</file>
+  <line>66</line>
+  <module>pepper_android_realtime</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/README.md" />
+  <problem_class id="CheckImageSize" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Mismatched image size</problem_class>
+  <description>Original image width is 1280</description>
+  <highlighted_element>&quot;100%&quot;</highlighted_element>
+  <language>HTML</language>
+  <offset>83</offset>
+  <length>6</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/README.md</file>
+  <line>73</line>
+  <module>pepper_android_realtime</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/README.md" />
+  <problem_class id="CheckImageSize" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Mismatched image size</problem_class>
+  <description>Original image width is 1280</description>
+  <highlighted_element>&quot;100%&quot;</highlighted_element>
+  <language>HTML</language>
+  <offset>93</offset>
+  <length>6</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/README.md</file>
+  <line>78</line>
+  <module>pepper_android_realtime</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/README.md" />
+  <problem_class id="CheckImageSize" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Mismatched image size</problem_class>
+  <description>Original image width is 1280</description>
+  <highlighted_element>&quot;100%&quot;</highlighted_element>
+  <language>HTML</language>
+  <offset>97</offset>
+  <length>6</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/README.md</file>
+  <line>83</line>
+  <module>pepper_android_realtime</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/README.md" />
+  <problem_class id="CheckImageSize" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Mismatched image size</problem_class>
+  <description>Original image width is 1280</description>
+  <highlighted_element>&quot;100%&quot;</highlighted_element>
+  <language>HTML</language>
+  <offset>101</offset>
+  <length>6</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/README.md</file>
+  <line>90</line>
+  <module>pepper_android_realtime</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/README.md" />
+  <problem_class id="CheckImageSize" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Mismatched image size</problem_class>
+  <description>Original image width is 1280</description>
+  <highlighted_element>&quot;100%&quot;</highlighted_element>
+  <language>HTML</language>
+  <offset>81</offset>
+  <length>6</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/README.md</file>
+  <line>95</line>
+  <module>pepper_android_realtime</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/README.md" />
+  <problem_class id="CheckImageSize" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Mismatched image size</problem_class>
+  <description>Original image width is 1280</description>
+  <highlighted_element>&quot;100%&quot;</highlighted_element>
+  <language>HTML</language>
+  <offset>60</offset>
+  <length>6</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/README.md</file>
+  <line>100</line>
+  <module>pepper_android_realtime</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/README.md" />
+  <problem_class id="CheckImageSize" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Mismatched image size</problem_class>
+  <description>Original image width is 1280</description>
+  <highlighted_element>&quot;100%&quot;</highlighted_element>
+  <language>HTML</language>
+  <offset>69</offset>
+  <length>6</length>
+</problem>
+</problems>

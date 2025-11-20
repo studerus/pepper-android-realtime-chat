@@ -1,0 +1,15 @@
+<problems>
+<problem>
+  <file>file://$PROJECT_DIR$/app/src/main/res/layout/item_human_detection.xml</file>
+  <line>132</line>
+  <module>pepper_android_realtime.app.main</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/app/src/main/res/layout/item_human_detection.xml" />
+  <problem_class id="AndroidLintRtlSymmetry" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Padding and margin symmetry</problem_class>
+  <hints />
+  <description>&lt;html&gt;When you define &lt;code&gt;paddingStart&lt;/code&gt; you should probably also define &lt;code&gt;paddingEnd&lt;/code&gt; for right-to-left symmetry&lt;/html&gt;</description>
+  <highlighted_element>android:paddingStart</highlighted_element>
+  <language>XML</language>
+  <offset>12</offset>
+  <length>20</length>
+</problem>
+</problems>

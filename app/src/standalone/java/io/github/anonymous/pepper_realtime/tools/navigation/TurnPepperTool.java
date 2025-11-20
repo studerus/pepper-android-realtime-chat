@@ -68,7 +68,7 @@ public class TurnPepperTool implements Tool {
         
         return new JSONObject()
             .put("success", true)
-            .put("message", String.format("Would turn %s by %.0f degrees", direction, degrees))
+            .put("message", String.format(java.util.Locale.US, "Would turn %s by %.0f degrees", direction, degrees))
             .toString();
     }
     

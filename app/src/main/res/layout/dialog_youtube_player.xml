@@ -2,8 +2,7 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="@android:color/black">
+    android:orientation="vertical">
 
     <!-- Header with video info and close button -->
     <LinearLayout
@@ -24,7 +23,7 @@
                 android:id="@+id/youtube_video_title"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Loading video..."
+                android:text="@string/youtube_loading"
                 android:textColor="@android:color/white"
                 android:textSize="16sp"
                 android:textStyle="bold"
@@ -49,7 +48,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="16dp"
-            android:text="Close Video"
+            android:text="@string/youtube_close"
             android:textColor="@android:color/white"
             android:backgroundTint="@color/purple_500"
             android:textSize="14sp"

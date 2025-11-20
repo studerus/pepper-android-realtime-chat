@@ -1,0 +1,26 @@
+<problems>
+<problem>
+  <file>file://$PROJECT_DIR$/README.md</file>
+  <line>468</line>
+  <module>pepper_android_realtime</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/README.md" />
+  <problem_class id="MarkdownUnresolvedLinkLabel" severity="WARNING" attribute_key="INFO_ATTRIBUTES">Unresolved link label</problem_class>
+  <description>Cannot resolve link label [direction]</description>
+  <highlighted_element>[direction]</highlighted_element>
+  <language>Markdown</language>
+  <offset>21</offset>
+  <length>11</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/README.md</file>
+  <line>472</line>
+  <module>pepper_android_realtime</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/README.md" />
+  <problem_class id="MarkdownUnresolvedLinkLabel" severity="WARNING" attribute_key="INFO_ATTRIBUTES">Unresolved link label</problem_class>
+  <description>Cannot resolve link label [degrees]</description>
+  <highlighted_element>[degrees]</highlighted_element>
+  <language>Markdown</language>
+  <offset>22</offset>
+  <length>9</length>
+</problem>
+</problems>

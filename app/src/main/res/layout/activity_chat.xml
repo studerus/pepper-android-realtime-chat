@@ -26,14 +26,14 @@
             android:id="@+id/mapStatusTextView"
             android:layout_width="0dp"
             android:layout_height="0dp"
-            android:text="🗺️ Map: None"
+            android:text="@string/map_status_none"
             android:visibility="gone" />
             
         <TextView
             android:id="@+id/localizationStatusTextView"
             android:layout_width="0dp"
             android:layout_height="0dp"
-            android:text="🧭 Localization: Waiting"
+            android:text="@string/localization_waiting"
             android:visibility="gone" />
 
         <androidx.recyclerview.widget.RecyclerView
@@ -52,7 +52,7 @@
             android:background="#DDDDDD"
             android:gravity="center"
             android:padding="16dp"
-            android:text="Initializing..."
+            android:text="@string/initializing"
             android:textColor="@android:color/black"
             android:textSize="24sp" />
 
@@ -144,6 +144,7 @@
                 android:layout_centerInParent="true"
                 android:layout_margin="32dp"
                 android:adjustViewBounds="true"
+                android:contentDescription="@string/human_face_description"
                 android:scaleType="centerInside" />
                 
             <TextView
@@ -153,7 +154,7 @@
                 android:layout_alignParentTop="true"
                 android:layout_alignParentEnd="true"
                 android:layout_margin="16dp"
-                android:text="✕ Tap to close"
+                android:text="@string/close_tap"
                 android:textColor="@android:color/white"
                 android:textSize="16sp"
                 android:padding="8dp"

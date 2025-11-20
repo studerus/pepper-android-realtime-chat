@@ -1,0 +1,14 @@
+<problems>
+<problem>
+  <file>file://$PROJECT_DIR$/app/build.gradle</file>
+  <line>22</line>
+  <module>pepper_android_realtime.app</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/app/build.gradle" />
+  <problem_class id="GroovyUnusedCatchParameter" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Unused 'catch' parameter</problem_class>
+  <description>Unused catch parameter 'e' #loc</description>
+  <highlighted_element>e</highlighted_element>
+  <language>Groovy</language>
+  <offset>27</offset>
+  <length>1</length>
+</problem>
+</problems>

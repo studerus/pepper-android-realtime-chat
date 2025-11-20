@@ -55,7 +55,6 @@ public class ChatActivity extends AppCompatActivity {
     private static final int CAMERA_PERMISSION_REQUEST_CODE = 3;
 
     // UI Components
-    private DrawerLayout drawerLayout;
     private TextView statusTextView;
     private LinearLayout warmupIndicatorLayout;
     private FloatingActionButton fabInterrupt;
@@ -94,7 +93,6 @@ public class ChatActivity extends AppCompatActivity {
         setContentView(R.layout.activity_chat);
 
         // Initialize UI references
-        drawerLayout = findViewById(R.id.drawer_layout);
         statusTextView = findViewById(R.id.statusTextView);
         warmupIndicatorLayout = findViewById(R.id.warmup_indicator_layout);
         fabInterrupt = findViewById(R.id.fab_interrupt);
@@ -199,10 +197,6 @@ public class ChatActivity extends AppCompatActivity {
             @Override
             public void onRobotInitializationFailed(String error) {
                 runOnUiThread(() -> statusTextView.setText(error));
-            }
-            @Override
-            public void onRobotFocusRefused(String reason) {
-                runOnUiThread(() -> statusTextView.setText(getString(R.string.robot_focus_refused_message, reason)));
             }
         });
     }
@@ -350,7 +344,7 @@ public class ChatActivity extends AppCompatActivity {
                 statusTextView.setText(getString(R.string.status_listening));
             });
             
-            appContainer.audioInputController.handleResume(wasStoppedByBackground);
+            appContainer.audioInputController.handleResume();
         }
     }
 
@@ -359,10 +353,6 @@ public class ChatActivity extends AppCompatActivity {
         appContainer.shutdown();
         deleteSessionImages();
         super.onDestroy();
-    }
-    
-    private void shutdownManagers() {
-        // Now handled by appContainer.shutdown()
     }
     
     // Package-private methods for Controllers/Helpers access
@@ -380,10 +370,6 @@ public class ChatActivity extends AppCompatActivity {
         }
     }
     
-    private void cleanupServices() {
-        // Now handled by appContainer.shutdown()
-    }
-
     private void handleRobotReady(Object robotContext) {
         if (appContainer.locationProvider != null) {
             appContainer.locationProvider.refreshLocations(this);
@@ -562,7 +548,7 @@ public class ChatActivity extends AppCompatActivity {
                 if (!sentItem) {
                     Log.e(TAG, "Failed to send message - WebSocket connection broken");
                     runOnUiThread(() -> {
-                        addMessage("Connection lost during message. Please restart the app.", ChatMessage.Sender.ROBOT);
+                        addMessage(getString(R.string.error_connection_lost_message), ChatMessage.Sender.ROBOT);
                         if (appContainer.turnManager != null) appContainer.turnManager.setState(TurnManager.State.IDLE);
                     });
                     return;
@@ -585,7 +571,7 @@ public class ChatActivity extends AppCompatActivity {
                     if (!sentResponse) {
                         isResponseGenerating = false;
                         Log.e(TAG, "Failed to send response request");
-                        runOnUiThread(() -> addMessage("Connection lost during response request.", ChatMessage.Sender.ROBOT));
+                        runOnUiThread(() -> addMessage(getString(R.string.error_connection_lost_response), ChatMessage.Sender.ROBOT));
                     }
                 }
             } catch (Exception e) {
@@ -626,11 +612,6 @@ public class ChatActivity extends AppCompatActivity {
         }
     }
 
-    private void releaseAudioTrack() {
-        if (appContainer.audioPlayer != null) appContainer.audioPlayer.release();
-        try { appContainer.gestureController.shutdown(); } catch (Exception ignored) {}
-    }
-
     public void startExplainGesturesLoop() {
         if (appContainer.robotFocusManager.getQiContext() == null) return;
         if (appContainer.navigationServiceManager != null && appContainer.navigationServiceManager.areGesturesSuppressed()) return;
@@ -666,8 +647,15 @@ public class ChatActivity extends AppCompatActivity {
         synchronized (sessionImagePaths) {
             for (String p : sessionImagePaths) {
                 try {
-                    if (p != null) new java.io.File(p).delete();
-                } catch (Exception ignored) {}
+                    if (p != null) {
+                        boolean deleted = new java.io.File(p).delete();
+                        if (!deleted) {
+                            Log.w(TAG, "Failed to delete session image: " + p);
+                        }
+                    }
+                } catch (Exception e) {
+                    Log.w(TAG, "Error deleting session image: " + p, e);
+                }
             }
             sessionImagePaths.clear();
         }

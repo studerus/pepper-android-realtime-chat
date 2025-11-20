@@ -28,10 +28,7 @@ public class ChatSessionController {
     private final AudioInputController audioInputController;
     private final ThreadManager threadManager;
     private final GestureController gestureController;
-    private final ChatInterruptController interruptController;
     private final TurnManager turnManager;
-    private final ChatMenuController chatMenuController;
-    private final RealtimeEventHandler eventHandler;
     
     public ChatSessionController(ChatActivity activity,
                                RealtimeSessionManager sessionManager,
@@ -40,10 +37,7 @@ public class ChatSessionController {
                                AudioInputController audioInputController,
                                ThreadManager threadManager,
                                GestureController gestureController,
-                               ChatInterruptController interruptController,
-                               TurnManager turnManager,
-                               ChatMenuController chatMenuController,
-                               RealtimeEventHandler eventHandler) {
+                               TurnManager turnManager) {
         this.activity = activity;
         this.sessionManager = sessionManager;
         this.settingsManager = settingsManager;
@@ -51,10 +45,7 @@ public class ChatSessionController {
         this.audioInputController = audioInputController;
         this.threadManager = threadManager;
         this.gestureController = gestureController;
-        this.interruptController = interruptController;
         this.turnManager = turnManager;
-        this.chatMenuController = chatMenuController;
-        this.eventHandler = eventHandler;
     }
 
     public void startNewSession() {
@@ -94,7 +85,7 @@ public class ChatSessionController {
                         threadManager.executeAudio(() -> {
                             try {
                                 audioInputController.setupSpeechRecognizer();
-                                activity.runOnUiThread(() -> audioInputController.startContinuousRecognition());
+                                activity.runOnUiThread(audioInputController::startContinuousRecognition);
                             } catch (Exception e) {
                                 Log.e(TAG, "Failed to setup Azure Speech after session restart", e);
                             }

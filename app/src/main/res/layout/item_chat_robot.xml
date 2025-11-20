@@ -32,6 +32,7 @@
         android:maxWidth="220dp"
         android:maxHeight="220dp"
         android:scaleType="fitCenter"
+        android:contentDescription="@string/human_face_description"
         android:layout_marginTop="6dp"
         android:visibility="gone"/>
 

@@ -71,7 +71,7 @@ public class MovePepperTool implements Tool {
         
         return new JSONObject()
             .put("success", true)
-            .put("message", String.format("Would move forward %.2fm, sideways %.2fm at speed %.2fm/s", 
+            .put("message", String.format(java.util.Locale.US, "Would move forward %.2fm, sideways %.2fm at speed %.2fm/s", 
                 distanceForward, distanceSideways, speed))
             .toString();
     }

@@ -19,7 +19,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="📍 Navigation Status"
+            android:text="@string/navigation_status_title"
             android:textSize="16sp"
             android:textStyle="bold"
             android:textColor="@android:color/black"
@@ -35,7 +35,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="🗺️ Map:"
+                android:text="@string/map_label"
                 android:textSize="14sp"
                 android:textColor="@android:color/black"
                 android:layout_marginEnd="8dp" />
@@ -45,7 +45,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="None"
+                android:text="@string/map_none"
                 android:textSize="14sp"
                 android:textColor="@android:color/black"
                 android:fontFamily="monospace" />
@@ -61,7 +61,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="🧭 Localization:"
+                android:text="@string/localization_label"
                 android:textSize="14sp"
                 android:textColor="@android:color/black"
                 android:layout_marginEnd="8dp" />
@@ -71,7 +71,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Waiting"
+                android:text="@string/waiting"
                 android:textSize="14sp"
                 android:textColor="@android:color/black"
                 android:fontFamily="monospace" />

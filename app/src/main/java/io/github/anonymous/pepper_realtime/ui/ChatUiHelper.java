@@ -23,28 +23,19 @@ public class ChatUiHelper {
     private final RecyclerView chatRecyclerView;
     private final TextView statusTextView;
     private final Map<String, ChatMessage> pendingUserTranscripts;
-    private final AudioInputController audioInputController;
-    private final ChatSessionController sessionController;
-    private final TurnManager turnManager;
 
     public ChatUiHelper(Activity activity,
                       List<ChatMessage> messageList,
                       ChatMessageAdapter chatAdapter,
                       RecyclerView chatRecyclerView,
                       TextView statusTextView,
-                      Map<String, ChatMessage> pendingUserTranscripts,
-                      AudioInputController audioInputController,
-                      ChatSessionController sessionController,
-                      TurnManager turnManager) {
+                      Map<String, ChatMessage> pendingUserTranscripts) {
         this.activity = activity;
         this.messageList = messageList;
         this.chatAdapter = chatAdapter;
         this.chatRecyclerView = chatRecyclerView;
         this.statusTextView = statusTextView;
         this.pendingUserTranscripts = pendingUserTranscripts;
-        this.audioInputController = audioInputController;
-        this.sessionController = sessionController;
-        this.turnManager = turnManager;
     }
 
     public void addMessage(String text, ChatMessage.Sender sender) {

@@ -6,6 +6,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 
 import androidx.annotation.NonNull;
 
@@ -23,19 +24,9 @@ public class YouTubeSearchService {
     private final String apiKey;
     private final OkHttpClient httpClient;
     
-    public static class YouTubeVideo {
-        private final String videoId;
-        private final String title;
-        private final String channelTitle;
-        private final String thumbnailUrl;
+    public record YouTubeVideo(String videoId, String title, String channelTitle, String thumbnailUrl) {
         
-        public YouTubeVideo(String videoId, String title, String channelTitle, String thumbnailUrl) {
-            this.videoId = videoId;
-            this.title = title;
-            this.channelTitle = channelTitle;
-            this.thumbnailUrl = thumbnailUrl;
-        }
-        
+        // Legacy getters for compatibility if needed (or we can update usages)
         public String getVideoId() { return videoId; }
         public String getTitle() { return title; }
         public String getChannelTitle() { return channelTitle; }
@@ -80,7 +71,7 @@ public class YouTubeSearchService {
                 "?part=snippet" +
                 "&type=video" +
                 "&maxResults=" + maxResults +
-                "&q=" + java.net.URLEncoder.encode(query, "UTF-8") +
+                "&q=" + java.net.URLEncoder.encode(query, StandardCharsets.UTF_8) +
                 "&key=" + apiKey;
         
         // Make API request

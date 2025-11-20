@@ -1,0 +1,14 @@
+<problems>
+<problem>
+  <file>file://$PROJECT_DIR$/README.md</file>
+  <line>1439</line>
+  <module>pepper_android_realtime</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/README.md" />
+  <problem_class id="MarkdownUnresolvedFileReference" severity="WARNING" attribute_key="INFO_ATTRIBUTES">Unresolved file references</problem_class>
+  <description>Cannot resolve file 'LICENSE'</description>
+  <highlighted_element>LICENSE</highlighted_element>
+  <language>Markdown</language>
+  <offset>67</offset>
+  <length>7</length>
+</problem>
+</problems>

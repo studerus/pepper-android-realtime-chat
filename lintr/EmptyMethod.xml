@@ -1,0 +1,50 @@
+<problems>
+<problem>
+  <file>file://$PROJECT_DIR$/app/src/main/java/io/github/anonymous/pepper_realtime/network/RealtimeSessionManager.java</file>
+  <line>30</line>
+  <module>pepper_android_realtime.app.main</module>
+  <package>io.github.anonymous.pepper_realtime.network</package>
+  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.network.RealtimeSessionManager.Listener void onBinaryMessage(okio.ByteString bytes)" />
+  <problem_class id="EmptyMethod" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Empty method</problem_class>
+  <hints>
+    <hint value="true" />
+  </hints>
+  <description>All implementations of this method are empty</description>
+  <highlighted_element>onBinaryMessage</highlighted_element>
+  <language>JAVA</language>
+  <offset>13</offset>
+  <length>15</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/manager/TouchSensorManager.java</file>
+  <line>14</line>
+  <module>pepper_android_realtime.app.main</module>
+  <package>io.github.anonymous.pepper_realtime.manager</package>
+  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.manager.TouchSensorManager.TouchEventListener void onSensorReleased(java.lang.String sensorName, java.lang.Object touchState)" />
+  <problem_class id="EmptyMethod" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Empty method</problem_class>
+  <hints>
+    <hint value="true" />
+  </hints>
+  <description>All implementations of this method are empty</description>
+  <highlighted_element>onSensorReleased</highlighted_element>
+  <language>JAVA</language>
+  <offset>13</offset>
+  <length>16</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/manager/TouchSensorManager.java</file>
+  <line>27</line>
+  <module>pepper_android_realtime.app.main</module>
+  <package>io.github.anonymous.pepper_realtime.manager</package>
+  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.manager.TouchSensorManager void setListener(io.github.anonymous.pepper_realtime.manager.TouchSensorManager.TouchEventListener listener)" />
+  <problem_class id="EmptyMethod" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Empty method</problem_class>
+  <hints>
+    <hint value="false" />
+  </hints>
+  <description>The method is empty</description>
+  <highlighted_element>setListener</highlighted_element>
+  <language>JAVA</language>
+  <offset>16</offset>
+  <length>11</length>
+</problem>
+</problems>

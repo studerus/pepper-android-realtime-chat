@@ -236,36 +236,35 @@ public class YouTubePlayerDialog {
         webView.setBackgroundColor(android.graphics.Color.BLACK);
         
         // Load YouTube via IFrame API to improve autoplay compatibility
-        String html = "" +
-                "<!DOCTYPE html>" +
-                "<html><head><meta name='viewport' content='width=device-width, initial-scale=1, maximum-scale=1'>" +
-                "<style>html,body,#player{margin:0;padding:0;background:#000;height:100%;width:100%;overflow:hidden}</style>" +
-                "</head><body>" +
-                "<div id='player'></div>" +
-                "<script>" +
-                "  window.onerror = function(msg, url, line, col, error){" +
-                "    console.log('window.onerror: '+msg+' @'+url+':'+line); return false; };" +
-                "  window.addEventListener('message', function(e){ try{ console.log('postMessage: '+JSON.stringify(e.data)); }catch(err){} });" +
-                "  var player;" +
-                "  function onYouTubeIframeAPIReady(){" +
-                "    player = new YT.Player('player', {" +
-                "      host: 'https://www.youtube-nocookie.com'," +
-                "      videoId: '" + videoId + "'," +
-                "      playerVars: {" +
-                "        autoplay: 1, playsinline: 1, rel: 0, modestbranding: 1, fs: 0, mute: 1, origin: 'https://www.youtube.com'" +
-                "      }," +
-                "      events: {" +
-                "        onReady: function(e){ try { Android.onReady(); e.target.mute(); e.target.playVideo(); console.log('YT ready'); } catch(err){ console.log('onReady error: '+err); } }," +
-                "        onStateChange: function(e){ try { Android.onState(''+e.data); console.log('YT state: '+e.data); } catch(err){} }," +
-                "        onError: function(e){ try { Android.onError(''+e.data); console.log('YT error: '+e.data); } catch(err){} }" +
-                "      }" +
-                "    });" +
-                "  }" +
-                // Fallback: if not playing within 4s, redirect to m.youtube
-                "  setTimeout(function(){ try { var s = (player && player.getPlayerState) ? player.getPlayerState() : -2; if (s !== 1) { console.log('Fallback redirect to m.youtube'); location.replace('https://m.youtube.com/watch?v=" + videoId + "&autoplay=1'); } } catch(err) { console.log('fallback error: '+err); } }, 4000);" +
-                "</script>" +
-                "<script src='https://www.youtube.com/iframe_api'></script>" +
-                "</body></html>";
+        String html = """
+                <!DOCTYPE html>
+                <html><head><meta name='viewport' content='width=device-width, initial-scale=1, maximum-scale=1'>
+                <style>html,body,#player{margin:0;padding:0;background:#000;height:100%%;width:100%%;overflow:hidden}</style>
+                </head><body>
+                <div id='player'></div>
+                <script>
+                  window.onerror = function(msg, url, line, col, error){
+                    console.log('window.onerror: '+msg+' @'+url+':'+line); return false; };
+                  window.addEventListener('message', function(e){ try{ console.log('postMessage: '+JSON.stringify(e.data)); }catch(err){} });
+                  var player;
+                  function onYouTubeIframeAPIReady(){
+                    player = new YT.Player('player', {
+                      host: 'https://www.youtube-nocookie.com',
+                      videoId: '%s',
+                      playerVars: {
+                        autoplay: 1, playsinline: 1, rel: 0, modestbranding: 1, fs: 0, mute: 1, origin: 'https://www.youtube.com'
+                      },
+                      events: {
+                        onReady: function(e){ try { Android.onReady(); e.target.mute(); e.target.playVideo(); console.log('YT ready'); } catch(err){ console.log('onReady error: '+err); } },
+                        onStateChange: function(e){ try { Android.onState(''+e.data); console.log('YT state: '+e.data); } catch(err){} },
+                        onError: function(e){ try { Android.onError(''+e.data); console.log('YT error: '+e.data); } catch(err){} }
+                      }
+                    });
+                  }
+                  setTimeout(function(){ try { var s = (player && player.getPlayerState) ? player.getPlayerState() : -2; if (s !== 1) { console.log('Fallback redirect to m.youtube'); location.replace('https://m.youtube.com/watch?v=%s&autoplay=1'); } } catch(err) { console.log('fallback error: '+err); } }, 4000);
+                </script>
+                <script src='https://www.youtube.com/iframe_api'></script>
+                </body></html>""".formatted(videoId, videoId);
         webView.loadDataWithBaseURL("https://www.youtube.com", html, "text/html", "UTF-8", null);
     }
 

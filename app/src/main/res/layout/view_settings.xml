@@ -9,22 +9,23 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="System Prompt"
+        android:text="@string/system_prompt_label"
         android:textStyle="bold" />
 
     <EditText
         android:id="@+id/system_prompt_input"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="e.g., You are a helpful assistant."
+        android:hint="@string/system_prompt_hint"
         android:inputType="textMultiLine"
+        android:autofillHints=""
         android:minLines="3" />
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
-        android:text="Model"
+        android:text="@string/model_label"
         android:textStyle="bold" />
 
     <Spinner
@@ -36,7 +37,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
-        android:text="API Provider"
+        android:text="@string/api_provider_label"
         android:textStyle="bold" />
 
     <Spinner
@@ -48,7 +49,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
-        android:text="Voice"
+        android:text="@string/voice_label"
         android:textStyle="bold" />
 
     <Spinner
@@ -68,7 +69,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center_horizontal"
-        android:text="1.00x" />
+        android:text="@string/speed_display" />
 
     <SeekBar
         android:id="@+id/speed_seekbar"
@@ -82,7 +83,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
-        android:text="Temperature"
+        android:text="@string/temperature_label"
         android:textStyle="bold" />
         
     <TextView
@@ -90,7 +91,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center_horizontal"
-        android:text="1.0" />
+        android:text="@string/temperature_display" />
 
     <SeekBar
         android:id="@+id/temperature_seekbar"
@@ -134,7 +135,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="Speech Language"
+            android:text="@string/speech_language_label"
             android:textStyle="bold" />
 
         <Spinner
@@ -146,7 +147,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:text="Silence Timeout (ms)"
+            android:text="@string/silence_timeout_label"
             android:textStyle="bold" />
 
         <TextView
@@ -154,7 +155,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal"
-            android:text="500" />
+            android:text="@string/silence_timeout_display" />
 
         <SeekBar
             android:id="@+id/silence_timeout_seekbar"
@@ -167,7 +168,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:text="ASR Confidence Threshold"
+            android:text="@string/asr_confidence_label"
             android:textStyle="bold" />
 
         <TextView
@@ -175,7 +176,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal"
-            android:text="70%" />
+            android:text="@string/asr_confidence_display" />
 
         <SeekBar
             android:id="@+id/confidence_threshold_seekbar"
@@ -229,6 +230,7 @@
             android:layout_height="wrap_content"
             android:hint="@string/realtime_transcription_language_hint"
             android:inputType="text"
+            android:autofillHints=""
             android:maxLines="1" />
 
         <TextView
@@ -244,6 +246,7 @@
             android:layout_height="wrap_content"
             android:hint="@string/realtime_transcription_prompt_hint"
             android:inputType="textMultiLine"
+            android:autofillHints=""
             android:minLines="2" />
 
         <TextView
@@ -279,7 +282,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center_horizontal"
-                android:text="0.50" />
+                android:text="@string/vad_threshold_display" />
 
             <SeekBar
                 android:id="@+id/vad_threshold_seekbar"
@@ -300,7 +303,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center_horizontal"
-                android:text="300 ms" />
+                android:text="@string/prefix_padding_display" />
 
             <SeekBar
                 android:id="@+id/prefix_padding_seekbar"
@@ -321,7 +324,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center_horizontal"
-                android:text="500 ms" />
+                android:text="@string/silence_duration_display" />
 
             <SeekBar
                 android:id="@+id/silence_duration_seekbar"
@@ -344,6 +347,7 @@
                 android:layout_height="wrap_content"
                 android:hint="@string/realtime_idle_timeout_hint"
                 android:inputType="number"
+                android:autofillHints=""
                 android:maxLines="1" />
 
         </LinearLayout>
@@ -391,7 +395,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
-        android:text="Volume"
+        android:text="@string/volume_label"
         android:textStyle="bold" />
 
     <TextView
@@ -399,7 +403,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center_horizontal"
-        android:text="100%" />
+        android:text="@string/volume_display" />
 
     <SeekBar
         android:id="@+id/volume_seekbar"
@@ -413,7 +417,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="24dp"
-        android:text="Function Calls"
+        android:text="@string/function_calls_label"
         android:textStyle="bold"
         android:textSize="16sp" />
 
@@ -421,7 +425,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
-        android:text="Select which tools the AI can use during conversations"
+        android:text="@string/function_calls_description"
         android:textSize="12sp"
         android:textColor="@android:color/darker_gray" />
 

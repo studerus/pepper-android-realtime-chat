@@ -1,0 +1,14 @@
+<problems>
+<problem>
+  <file>file://$PROJECT_DIR$/app/src/main/res/layout/dialog_memory_game.xml</file>
+  <line>3</line>
+  <module>pepper_android_realtime.app.main</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/app/src/main/res/layout/dialog_memory_game.xml" />
+  <problem_class id="XmlUnusedNamespaceDeclaration" severity="WARNING" attribute_key="NOT_USED_ELEMENT_ATTRIBUTES">Unused schema declaration</problem_class>
+  <description>Namespace declaration is never used</description>
+  <highlighted_element>xmlns:app=&quot;http://schemas.android.com/apk/res-auto&quot;</highlighted_element>
+  <language>XML</language>
+  <offset>4</offset>
+  <length>51</length>
+</problem>
+</problems>

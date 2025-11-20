@@ -1,0 +1,28 @@
+<problems>
+<problem>
+  <file>file://$PROJECT_DIR$/app/src/main/java/io/github/anonymous/pepper_realtime/manager/SettingsManager.java</file>
+  <line>171</line>
+  <module>pepper_android_realtime.app.main</module>
+  <package>io.github.anonymous.pepper_realtime.manager</package>
+  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.manager.SettingsManager$1 android.view.View getView(int position, android.view.View convertView, android.view.ViewGroup parent)" />
+  <problem_class id="NullableProblems" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">@NotNull/@Nullable problems</problem_class>
+  <description>Not annotated method overrides method annotated with @NonNull</description>
+  <highlighted_element>getView</highlighted_element>
+  <language>JAVA</language>
+  <offset>28</offset>
+  <length>7</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/app/src/main/java/io/github/anonymous/pepper_realtime/manager/SettingsManager.java</file>
+  <line>171</line>
+  <module>pepper_android_realtime.app.main</module>
+  <package>io.github.anonymous.pepper_realtime.manager</package>
+  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.manager.SettingsManager$1 android.view.View getView(int position, android.view.View convertView, android.view.ViewGroup parent)" />
+  <problem_class id="NullableProblems" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">@NotNull/@Nullable problems</problem_class>
+  <description>Not annotated parameter overrides @NonNull parameter</description>
+  <highlighted_element>parent</highlighted_element>
+  <language>JAVA</language>
+  <offset>91</offset>
+  <length>6</length>
+</problem>
+</problems>

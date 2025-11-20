@@ -163,12 +163,11 @@ public class AppContainer {
         this.audioInputController.setSpeechListener(new ChatSpeechListener(activity, turnManager, statusTextView, audioInputController.getSttWarmupStartTime()));
         
         this.sessionController = new ChatSessionController(activity, sessionManager, settingsManager, keyManager,
-                audioInputController, threadManager, gestureController, interruptController, turnManager,
-                chatMenuController, eventHandler);
+                audioInputController, threadManager, gestureController, turnManager);
                 
         // Initialize UI Helper
         this.uiHelper = new ChatUiHelper(activity, messageList, chatAdapter, chatRecyclerView, statusTextView, 
-                                  pendingUserTranscripts, audioInputController, sessionController, turnManager);
+                                  pendingUserTranscripts);
         
         // Set session dependencies
         this.sessionManager.setSessionDependencies(toolRegistry, toolContext, settingsManager, keyManager);
@@ -197,9 +196,7 @@ public class AppContainer {
         if (navigationServiceManager != null) {
             navigationServiceManager.shutdown();
         }
-        if (chatMenuController != null) {
-            // cleanup if needed
-        }
+        // chatMenuController cleanup not needed
         sessionController.disconnectWebSocket();
         if (audioPlayer != null) audioPlayer.release();
         try { gestureController.shutdown(); } catch (Exception ignored) {}

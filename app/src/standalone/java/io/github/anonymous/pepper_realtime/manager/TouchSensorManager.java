@@ -14,8 +14,6 @@ public class TouchSensorManager {
         void onSensorReleased(String sensorName, Object touchState);
     }
 
-    private TouchEventListener listener;
-
     /**
      * Simulates initializing touch sensors
      */
@@ -27,7 +25,7 @@ public class TouchSensorManager {
      * Sets the touch event listener
      */
     public void setListener(TouchEventListener listener) {
-        this.listener = listener;
+        // Listener not used in standalone simulation
     }
 
     /**

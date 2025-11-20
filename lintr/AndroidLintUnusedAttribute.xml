@@ -1,0 +1,28 @@
+<problems>
+<problem>
+  <file>file://$PROJECT_DIR$/app/src/main/res/layout/view_settings.xml</file>
+  <line>78</line>
+  <module>pepper_android_realtime.app.main</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/app/src/main/res/layout/view_settings.xml" />
+  <problem_class id="AndroidLintUnusedAttribute" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Attribute unused on older versions</problem_class>
+  <hints />
+  <description>&lt;html&gt;Attribute &lt;code&gt;min&lt;/code&gt; is only used in API level 26 and higher (current min is 23)&lt;/html&gt;</description>
+  <highlighted_element>android:min=&quot;25&quot;</highlighted_element>
+  <language>XML</language>
+  <offset>8</offset>
+  <length>16</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/app/src/main/res/layout/view_settings.xml</file>
+  <line>333</line>
+  <module>pepper_android_realtime.app.main</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/app/src/main/res/layout/view_settings.xml" />
+  <problem_class id="AndroidLintUnusedAttribute" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Attribute unused on older versions</problem_class>
+  <hints />
+  <description>&lt;html&gt;Attribute &lt;code&gt;min&lt;/code&gt; is only used in API level 26 and higher (current min is 23)&lt;/html&gt;</description>
+  <highlighted_element>android:min=&quot;200&quot;</highlighted_element>
+  <language>XML</language>
+  <offset>16</offset>
+  <length>17</length>
+</problem>
+</problems>

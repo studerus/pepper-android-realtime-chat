@@ -64,7 +64,7 @@ public class FaceRecognitionService {
     public boolean isConfigured() {
         final String endpoint = BuildConfig.AZURE_FACE_ENDPOINT;
         final String key = BuildConfig.AZURE_FACE_API_KEY;
-        return endpoint != null && endpoint.length() > 0 && key != null && key.length() > 0;
+        return endpoint != null && !endpoint.isEmpty() && key != null && !key.isEmpty();
     }
 
     public void detectFacesAsync(Bitmap image, FaceCallback callback) {

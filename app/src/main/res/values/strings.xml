@@ -10,8 +10,8 @@
     <string name="status_updating_recognizer">Updating recognizer…</string>
     <string name="status_starting_new_session">Starting new session…</string>
     <string name="status_recognizer_not_ready">Recognizer not ready.</string>
-    <string name="status_warming_up">Warming up recognizer...</string>
-    <string name="status_please_wait">Please wait...</string>
+    <string name="status_warming_up">Warming up recognizer…</string>
+    <string name="status_please_wait">Please wait…</string>
     <string name="status_muted_tap_to_unmute">Muted — tap to unmute</string>
     
     <!-- Navigation Status Messages -->
@@ -22,6 +22,10 @@
     
     <!-- Error Messages -->
     <string name="error_microphone_permission_denied">Microphone permission denied.</string>
+    <string name="error_audio_capture_failed">Error: Audio capture failed</string>
+    <string name="error_audio_capture_permissions">Failed to start audio capture. Check microphone permissions.</string>
+    <string name="error_connection_lost_message">Connection lost during message. Please restart the app.</string>
+    <string name="error_connection_lost_response">Connection lost during response request.</string>
     <string name="error_connection_failed">Connection failed. Please restart.</string>
     <string name="error_updating_settings">Error updating settings.</string>
     <string name="error_connection_failed_short">Connection Failed</string>
@@ -37,7 +41,6 @@
     <string name="setup_error_during">Error during setup: %s</string>
     <string name="robot_initialization_timeout">Robot initialization timeout - check robot status</string>
     <string name="robot_focus_lost_message">Robot focus lost - app will continue without robot features</string>
-    <string name="robot_focus_refused_message">Robot focus refused: %s</string>
     <string name="error_processing_message">Error processing your message. Please try again or restart the app if the problem persists.</string>
     
     <!-- System Prompt Default -->
@@ -130,17 +133,18 @@ Closings: \"Happy to help!\" | \"Anything else?\" | \"I\'m here if you need me\"
     <string name="popup_localization_status_prefix">🧭 Localization: </string>
     
     <!-- Tic Tac Toe Game -->
-    <string name="ttt_game_title">🎮 Tic Tac Toe</string>
     <string name="ttt_your_turn">Your turn! (You are X)</string>
-    <string name="ttt_ai_thinking">AI is thinking...</string>
+    <string name="ttt_ai_thinking">AI is thinking…</string>
     <string name="ttt_you_won">🎉 You won! Great job!</string>
     <string name="ttt_ai_won">🤖 AI wins! Good game!</string>
     <string name="ttt_draw">🤝 It\'s a draw! Well played!</string>
-    <string name="ttt_new_game">🔄 New Game</string>
-    <string name="ttt_close_button">✕</string>
     
     <!-- SettingsManager Strings -->
     <string name="openai_default_model">gpt-realtime</string>
+    
+    <!-- Tool Settings -->
+    <string name="tool_not_available">Tool not available</string>
+    <string name="tool_description_error">Error loading description</string>
     
     <!-- Audio Input Mode -->
     <string name="audio_input_mode_label">Audio Input</string>
@@ -204,4 +208,83 @@ Closings: \"Happy to help!\" | \"Anything else?\" | \"I\'m here if you need me\"
     <!-- Speed Setting -->
     <string name="speed_label">Speech Speed</string>
     <string name="speed_format">%.2fx</string>
+    
+    <!-- Layout Hardcoded Strings -->
+    <string name="map_status_none">🗺️ Map: None</string>
+    <string name="localization_waiting">🧭 Localization: Waiting</string>
+    <string name="initializing">Initializing…</string>
+    <string name="close_tap">✕ Tap to close</string>
+    <string name="menu_settings">Settings</string>
+    <string name="menu_new_chat">New Chat</string>
+    <string name="menu_navigation_status">Navigation Status</string>
+    <string name="menu_perception_dashboard">Perception Dashboard</string>
+    <string name="quiz_question_placeholder">Question text will go here.</string>
+    <string name="quiz_option_1">Option 1</string>
+    <string name="quiz_option_2">Option 2</string>
+    <string name="quiz_option_3">Option 3</string>
+    <string name="quiz_option_4">Option 4</string>
+    <string name="tictactoe_title">🎮 Tic Tac Toe</string>
+    <string name="close_symbol">✕</string>
+    <string name="youtube_loading">Loading video…</string>
+    <string name="youtube_close">Close Video</string>
+    <string name="function_call_icon">🔧</string>
+    <string name="function_arguments_label">Arguments:</string>
+    <string name="function_result_label">Result:</string>
+    <string name="perception_dashboard_title">👁️ Human Perception Dashboard</string>
+    <string name="close_dashboard">Close Dashboard</string>
+    <string name="zero">0</string>
+    <string name="no_humans_detected">No humans detected</string>
+    <string name="last_update_never">Last update: Never</string>
+    <string name="settings_header_title">PepperDialog Settings</string>
+    <string name="system_prompt_label">System Prompt</string>
+    <string name="system_prompt_hint">e.g., You are a helpful assistant.</string>
+    <string name="model_label">Model</string>
+    <string name="api_provider_label">API Provider</string>
+    <string name="voice_label">Voice</string>
+    <string name="speed_display">1.00x</string>
+    <string name="temperature_label">Temperature</string>
+    <string name="temperature_display">1.0</string>
+    <string name="speech_language_label">Speech Language</string>
+    <string name="silence_timeout_label">Silence Timeout (ms)</string>
+    <string name="silence_timeout_display">500</string>
+    <string name="asr_confidence_label">ASR Confidence Threshold</string>
+    <string name="asr_confidence_display">70%</string>
+    <string name="vad_threshold_display">0.50</string>
+    <string name="prefix_padding_display">300 ms</string>
+    <string name="silence_duration_display">500 ms</string>
+    <string name="volume_label">Volume</string>
+    <string name="volume_display">100%</string>
+    <string name="function_calls_label">Function Calls</string>
+    <string name="function_calls_description">Select which tools the AI can use during conversations</string>
+    <string name="tool_name_placeholder">Tool Name</string>
+    <string name="expand_description">Expand description</string>
+    <string name="tool_description_placeholder">Tool description will appear here</string>
+    <string name="navigation_status_title">📍 Navigation Status</string>
+    <string name="map_label">🗺️ Map:</string>
+    <string name="map_none">None</string>
+    <string name="localization_label">🧭 Localization:</string>
+    <string name="waiting">Waiting</string>
+    <string name="human_face_description">Human face picture</string>
+    <string name="demographics_placeholder">25y, ♂️</string>
+    <string name="distance_placeholder">1.2m</string>
+    <string name="emotion_joyful">😊 Joyful</string>
+    <string name="pleasure_positive">😊 Positive</string>
+    <string name="excitement_excited">⚡ Excited</string>
+    <string name="smile_genuine">😊 Genuine</string>
+    <string name="attention_focused">Focused</string>
+    <string name="engagement_engaged">Engaged</string>
+    <string name="azure_label">🤖 Azure:</string>
+    <string name="pose_na">Pose: N/A</string>
+    <string name="glasses_na">Glasses: N/A</string>
+    <string name="mask_na">Mask: N/A</string>
+    <string name="quality_na">Quality: N/A</string>
+    <string name="picture_label">Picture</string>
+    <string name="demographics_label">Demographics</string>
+    <string name="distance_label">Distance</string>
+    <string name="emotion_label">Emotion</string>
+    <string name="pleasure_label">Pleasure</string>
+    <string name="excitement_label">Excitement</string>
+    <string name="smile_label">Smile</string>
+    <string name="attention_label">Attention</string>
+    <string name="engagement_label">Engagement</string>
 </resources>

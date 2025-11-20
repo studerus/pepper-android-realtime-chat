@@ -41,11 +41,11 @@ public class ChatMessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
         ChatMessage message = messages.get(position);
         if (message.getType() == ChatMessage.Type.FUNCTION_CALL) {
             return VIEW_TYPE_FUNCTION_CALL;
-        } else if (message.getSender() == ChatMessage.Sender.USER) {
-            return VIEW_TYPE_USER;
-        } else {
-            return VIEW_TYPE_ROBOT;
         }
+        if (message.getSender() == ChatMessage.Sender.USER) {
+            return VIEW_TYPE_USER;
+        }
+        return VIEW_TYPE_ROBOT;
     }
 
     @NonNull
@@ -53,27 +53,29 @@ public class ChatMessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
     public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         LayoutInflater inflater = LayoutInflater.from(parent.getContext());
         
-        switch (viewType) {
-            case VIEW_TYPE_FUNCTION_CALL:
+        return switch (viewType) {
+            case VIEW_TYPE_FUNCTION_CALL -> {
                 View functionView = inflater.inflate(R.layout.item_function_call, parent, false);
-                return new FunctionCallViewHolder(functionView, this);
-            case VIEW_TYPE_USER:
+                yield new FunctionCallViewHolder(functionView, this);
+            }
+            case VIEW_TYPE_USER -> {
                 View userView = inflater.inflate(R.layout.item_chat_user, parent, false);
-                return new MessageViewHolder(userView);
-            default:
+                yield new MessageViewHolder(userView);
+            }
+            default -> {
                 View robotView = inflater.inflate(R.layout.item_chat_robot, parent, false);
-                return new MessageViewHolder(robotView);
-        }
+                yield new MessageViewHolder(robotView);
+            }
+        };
     }
 
     @Override
     public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
         ChatMessage message = messages.get(position);
         
-        if (holder instanceof FunctionCallViewHolder) {
-            ((FunctionCallViewHolder) holder).bind(message);
-        } else if (holder instanceof MessageViewHolder) {
-            MessageViewHolder messageHolder = (MessageViewHolder) holder;
+        if (holder instanceof FunctionCallViewHolder functionHolder) {
+            functionHolder.bind(message);
+        } else if (holder instanceof MessageViewHolder messageHolder) {
             String text = message.getMessage();
             messageHolder.messageTextView.setText(text);
 
@@ -177,8 +179,8 @@ public class ChatMessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
     public int getItemCount() { return messages.size(); }
 
     static class MessageViewHolder extends RecyclerView.ViewHolder {
-        TextView messageTextView;
-        ImageView messageImageView;
+        final TextView messageTextView;
+        final ImageView messageImageView;
 
         public MessageViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -279,49 +281,44 @@ public class ChatMessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
         }
         
         private String getFunctionIcon(String functionName) {
-            switch (functionName) {
-                case "search_internet": return "🌐";
-                case "get_weather": return "🌤️";
-                case "analyze_vision": return "👁️";
-                case "play_animation": return "🤖";
-                case "get_current_datetime": return "🕐";
-                case "get_random_joke": return "😄";
-                case "present_quiz_question": return "❓";
-                case "start_memory_game": return "🧠";
-                default: return "🔧";
-            }
+            return switch (functionName) {
+                case "search_internet" -> "🌐";
+                case "get_weather" -> "🌤️";
+                case "analyze_vision" -> "👁️";
+                case "play_animation" -> "🤖";
+                case "get_current_datetime" -> "🕐";
+                case "get_random_joke" -> "😄";
+                case "present_quiz_question" -> "❓";
+                case "start_memory_game" -> "🧠";
+                default -> "🔧";
+            };
         }
         
         private String getFunctionDisplayName(String functionName) {
-            switch (functionName) {
-                case "search_internet": return "Internet Search";
-                case "get_weather": return "Weather";
-                case "analyze_vision": return "Vision Analysis";
-                case "play_animation": return "Animation";
-                case "get_current_datetime": return "Date/Time";
-                case "get_random_joke": return "Random Joke";
-                case "present_quiz_question": return "Quiz Question";
-                case "start_memory_game": return "Memory Game";
-                default: return functionName.replace("_", " ");
-            }
+            return switch (functionName) {
+                case "search_internet" -> "Internet Search";
+                case "get_weather" -> "Weather";
+                case "analyze_vision" -> "Vision Analysis";
+                case "play_animation" -> "Animation";
+                case "get_current_datetime" -> "Date/Time";
+                case "get_random_joke" -> "Random Joke";
+                case "present_quiz_question" -> "Quiz Question";
+                case "start_memory_game" -> "Memory Game";
+                default -> functionName.replace("_", " ");
+            };
         }
         
         private String generateSummary(ChatMessage message) {
             String functionName = message.getFunctionName();
             boolean hasResult = message.getFunctionResult() != null;
             
-            switch (functionName) {
-                case "search_internet":
-                    return hasResult ? "Internet search completed" : "Searching internet...";
-                case "get_weather":
-                    return hasResult ? "Weather information retrieved" : "Getting weather...";
-                case "analyze_vision":
-                    return hasResult ? "Image analysis completed" : "Analyzing image...";
-                case "play_animation":
-                    return hasResult ? "Animation played" : "Playing animation...";
-                default:
-                    return hasResult ? "Function completed" : "Function executing...";
-            }
+            return switch (functionName) {
+                case "search_internet" -> hasResult ? "Internet search completed" : "Searching internet...";
+                case "get_weather" -> hasResult ? "Weather information retrieved" : "Getting weather...";
+                case "analyze_vision" -> hasResult ? "Image analysis completed" : "Analyzing image...";
+                case "play_animation" -> hasResult ? "Animation played" : "Playing animation...";
+                default -> hasResult ? "Function completed" : "Function executing...";
+            };
         }
         
         private String formatJson(String json) {

@@ -207,7 +207,7 @@ public class VisionService {
             captureBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
             captureBuilder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH);
 
-            cameraDevice.createCaptureSession(Arrays.asList(imageReader.getSurface()),
+            cameraDevice.createCaptureSession(java.util.Collections.singletonList(imageReader.getSurface()),
                 new CameraCaptureSession.StateCallback() {
                     @Override
                     public void onConfigured(@NonNull CameraCaptureSession session) {
@@ -297,21 +297,13 @@ public class VisionService {
             
             // Front camera requires rotation correction
             // Most Android devices have front camera at 270° sensor orientation
-            int rotationDegrees = 0;
-            switch (rotation) {
-                case android.view.Surface.ROTATION_0:   // Portrait
-                    rotationDegrees = 270; // Rotate 270° to correct
-                    break;
-                case android.view.Surface.ROTATION_90:  // Landscape (right)
-                    rotationDegrees = 0;   // No rotation needed
-                    break;
-                case android.view.Surface.ROTATION_180: // Portrait (upside down)
-                    rotationDegrees = 90;  // Rotate 90°
-                    break;
-                case android.view.Surface.ROTATION_270: // Landscape (left)
-                    rotationDegrees = 180; // Rotate 180°
-                    break;
-            }
+            int rotationDegrees = switch (rotation) {
+                case android.view.Surface.ROTATION_0 -> 270;   // Portrait: Rotate 270° to correct
+                case android.view.Surface.ROTATION_90 -> 0;    // Landscape (right): No rotation needed
+                case android.view.Surface.ROTATION_180 -> 90;  // Portrait (upside down): Rotate 90°
+                case android.view.Surface.ROTATION_270 -> 180; // Landscape (left): Rotate 180°
+                default -> 0;
+            };
             
             if (rotationDegrees == 0) {
                 return bitmap; // No rotation needed

@@ -1,0 +1,58 @@
+<problems>
+<problem>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/tools/navigation/ApproachHumanTool.java</file>
+  <line>58</line>
+  <module>pepper_android_realtime.app.main</module>
+  <package>io.github.anonymous.pepper_realtime.tools.navigation</package>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/tools/navigation/ApproachHumanTool.java" />
+  <problem_class id="AndroidLintDefaultLocale" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Implied default locale in case conversion</problem_class>
+  <hints />
+  <description>&lt;html&gt;Implicitly using the default locale is a common source of bugs: Use &lt;code&gt;String.format(Locale, ...)&lt;/code&gt; instead&lt;/html&gt;</description>
+  <highlighted_element>String.format(&quot;Would approach nearest human to %.1fm distance&quot;, distance)</highlighted_element>
+  <language>JAVA</language>
+  <offset>28</offset>
+  <length>73</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/tools/navigation/LookAtPositionTool.java</file>
+  <line>57</line>
+  <module>pepper_android_realtime.app.main</module>
+  <package>io.github.anonymous.pepper_realtime.tools.navigation</package>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/tools/navigation/LookAtPositionTool.java" />
+  <problem_class id="AndroidLintDefaultLocale" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Implied default locale in case conversion</problem_class>
+  <hints />
+  <description>&lt;html&gt;Implicitly using the default locale is a common source of bugs: Use &lt;code&gt;String.format(Locale, ...)&lt;/code&gt; instead&lt;/html&gt;</description>
+  <highlighted_element>String.format(&quot;Would look at position (%.2f, %.2f, %.2f)&quot;, x, y, z)</highlighted_element>
+  <language>JAVA</language>
+  <offset>28</offset>
+  <length>67</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/tools/navigation/MovePepperTool.java</file>
+  <line>74</line>
+  <module>pepper_android_realtime.app.main</module>
+  <package>io.github.anonymous.pepper_realtime.tools.navigation</package>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/tools/navigation/MovePepperTool.java" />
+  <problem_class id="AndroidLintDefaultLocale" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Implied default locale in case conversion</problem_class>
+  <hints />
+  <description>&lt;html&gt;Implicitly using the default locale is a common source of bugs: Use &lt;code&gt;String.format(Locale, ...)&lt;/code&gt; instead&lt;/html&gt;</description>
+  <highlighted_element>String.format(&quot;Would move forward %.2fm, sideways %.2fm at speed %.2fm/s&quot;, distance...</highlighted_element>
+  <language>JAVA</language>
+  <offset>28</offset>
+  <length>133</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/tools/navigation/TurnPepperTool.java</file>
+  <line>71</line>
+  <module>pepper_android_realtime.app.main</module>
+  <package>io.github.anonymous.pepper_realtime.tools.navigation</package>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/tools/navigation/TurnPepperTool.java" />
+  <problem_class id="AndroidLintDefaultLocale" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Implied default locale in case conversion</problem_class>
+  <hints />
+  <description>&lt;html&gt;Implicitly using the default locale is a common source of bugs: Use &lt;code&gt;String.format(Locale, ...)&lt;/code&gt; instead&lt;/html&gt;</description>
+  <highlighted_element>String.format(&quot;Would turn %s by %.0f degrees&quot;, direction, degrees)</highlighted_element>
+  <language>JAVA</language>
+  <offset>28</offset>
+  <length>66</length>
+</problem>
+</problems>

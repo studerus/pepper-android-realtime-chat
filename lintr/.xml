@@ -1,0 +1,223 @@
+<problems>
+<problem>
+  <file>file://$PROJECT_DIR$/app/src/main/java/io/github/anonymous/pepper_realtime/network/SshConnectionHelper.java</file>
+  <line>17</line>
+  <module>pepper_android_realtime.app.main</module>
+  <package>io.github.anonymous.pepper_realtime.network</package>
+  <entry_point TYPE="class" FQNAME="io.github.anonymous.pepper_realtime.network.SshConnectionHelper" />
+  <language>JAVA</language>
+  <offset>13</offset>
+  <length>19</length>
+  <highlighted_element>SshConnectionHelper</highlighted_element>
+  <problem_class id="" severity="WARNING" attribute_key="NOT_USED_ELEMENT_ATTRIBUTES">unused declaration</problem_class>
+  <hints>
+    <hint value="comment" />
+    <hint value="delete" />
+  </hints>
+  <description>Class is never used.</description>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/app/src/main/java/io/github/anonymous/pepper_realtime/service/FaceRecognitionService.java</file>
+  <line>26</line>
+  <module>pepper_android_realtime.app.main</module>
+  <package>io.github.anonymous.pepper_realtime.service</package>
+  <entry_point TYPE="class" FQNAME="io.github.anonymous.pepper_realtime.service.FaceRecognitionService" />
+  <language>JAVA</language>
+  <offset>13</offset>
+  <length>22</length>
+  <highlighted_element>FaceRecognitionService</highlighted_element>
+  <problem_class id="" severity="WARNING" attribute_key="NOT_USED_ELEMENT_ATTRIBUTES">unused declaration</problem_class>
+  <hints>
+    <hint value="comment" />
+    <hint value="delete" />
+  </hints>
+  <description>Class is not instantiated.</description>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/app/src/main/java/io/github/anonymous/pepper_realtime/service/FaceRecognitionService.java</file>
+  <line>60</line>
+  <module>pepper_android_realtime.app.main</module>
+  <package>io.github.anonymous.pepper_realtime.service</package>
+  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.service.FaceRecognitionService FaceRecognitionService()" />
+  <language>JAVA</language>
+  <offset>11</offset>
+  <length>22</length>
+  <highlighted_element>FaceRecognitionService</highlighted_element>
+  <problem_class id="" severity="WARNING" attribute_key="NOT_USED_ELEMENT_ATTRIBUTES">unused declaration</problem_class>
+  <hints>
+    <hint value="comment" />
+    <hint value="delete" />
+  </hints>
+  <description>Constructor is never used.</description>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/app/src/main/java/io/github/anonymous/pepper_realtime/ui/ChatActivity.java</file>
+  <line>50</line>
+  <module>pepper_android_realtime.app.main</module>
+  <package>io.github.anonymous.pepper_realtime.ui</package>
+  <entry_point TYPE="class" FQNAME="io.github.anonymous.pepper_realtime.ui.ChatActivity" />
+  <language>JAVA</language>
+  <offset>13</offset>
+  <length>12</length>
+  <highlighted_element>ChatActivity</highlighted_element>
+  <problem_class id="" severity="WARNING" attribute_key="NOT_USED_ELEMENT_ATTRIBUTES">unused declaration</problem_class>
+  <hints>
+    <hint value="comment" />
+    <hint value="delete" />
+  </hints>
+  <description>Class is not instantiated.</description>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/data/NavigationMapCache.java</file>
+  <line>9</line>
+  <module>pepper_android_realtime.app.main</module>
+  <package>io.github.anonymous.pepper_realtime.data</package>
+  <entry_point TYPE="class" FQNAME="io.github.anonymous.pepper_realtime.data.NavigationMapCache" />
+  <language>JAVA</language>
+  <offset>13</offset>
+  <length>18</length>
+  <highlighted_element>NavigationMapCache</highlighted_element>
+  <problem_class id="" severity="WARNING" attribute_key="NOT_USED_ELEMENT_ATTRIBUTES">unused declaration</problem_class>
+  <hints>
+    <hint value="comment" />
+    <hint value="delete" />
+  </hints>
+  <description>Class is not instantiated.</description>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/data/NavigationMapCache.java</file>
+  <line>12</line>
+  <module>pepper_android_realtime.app.main</module>
+  <package>io.github.anonymous.pepper_realtime.data</package>
+  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.data.NavigationMapCache NavigationMapCache(java.lang.Object robotContext)" />
+  <language>JAVA</language>
+  <offset>11</offset>
+  <length>18</length>
+  <highlighted_element>NavigationMapCache</highlighted_element>
+  <problem_class id="" severity="WARNING" attribute_key="NOT_USED_ELEMENT_ATTRIBUTES">unused declaration</problem_class>
+  <hints>
+    <hint value="comment" />
+    <hint value="delete" />
+  </hints>
+  <description>Constructor is never used.</description>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/manager/LocalizationCoordinator.java</file>
+  <line>10</line>
+  <module>pepper_android_realtime.app.main</module>
+  <package>io.github.anonymous.pepper_realtime.manager</package>
+  <entry_point TYPE="class" FQNAME="io.github.anonymous.pepper_realtime.manager.LocalizationCoordinator" />
+  <language>JAVA</language>
+  <offset>13</offset>
+  <length>23</length>
+  <highlighted_element>LocalizationCoordinator</highlighted_element>
+  <problem_class id="" severity="WARNING" attribute_key="NOT_USED_ELEMENT_ATTRIBUTES">unused declaration</problem_class>
+  <hints>
+    <hint value="comment" />
+    <hint value="delete" />
+  </hints>
+  <description>Class is not instantiated.</description>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/manager/LocalizationCoordinator.java</file>
+  <line>18</line>
+  <module>pepper_android_realtime.app.main</module>
+  <package>io.github.anonymous.pepper_realtime.manager</package>
+  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.manager.LocalizationCoordinator LocalizationCoordinator(java.lang.Object robotContext, io.github.anonymous.pepper_realtime.manager.LocalizationCoordinator.LocalizationListener listener)" />
+  <language>JAVA</language>
+  <offset>11</offset>
+  <length>23</length>
+  <highlighted_element>LocalizationCoordinator</highlighted_element>
+  <problem_class id="" severity="WARNING" attribute_key="NOT_USED_ELEMENT_ATTRIBUTES">unused declaration</problem_class>
+  <hints>
+    <hint value="comment" />
+    <hint value="delete" />
+  </hints>
+  <description>Constructor is never used.</description>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/robot/RobotSafetyGuard.java</file>
+  <line>9</line>
+  <module>pepper_android_realtime.app.main</module>
+  <package>io.github.anonymous.pepper_realtime.robot</package>
+  <entry_point TYPE="class" FQNAME="io.github.anonymous.pepper_realtime.robot.RobotSafetyGuard" />
+  <language>JAVA</language>
+  <offset>13</offset>
+  <length>16</length>
+  <highlighted_element>RobotSafetyGuard</highlighted_element>
+  <problem_class id="" severity="WARNING" attribute_key="NOT_USED_ELEMENT_ATTRIBUTES">unused declaration</problem_class>
+  <hints>
+    <hint value="comment" />
+    <hint value="delete" />
+  </hints>
+  <description>Class is not instantiated.</description>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/ui/MapPreviewView.java</file>
+  <line>12</line>
+  <module>pepper_android_realtime.app.main</module>
+  <package>io.github.anonymous.pepper_realtime.ui</package>
+  <entry_point TYPE="class" FQNAME="io.github.anonymous.pepper_realtime.ui.MapPreviewView" />
+  <language>JAVA</language>
+  <offset>13</offset>
+  <length>14</length>
+  <highlighted_element>MapPreviewView</highlighted_element>
+  <problem_class id="" severity="WARNING" attribute_key="NOT_USED_ELEMENT_ATTRIBUTES">unused declaration</problem_class>
+  <hints>
+    <hint value="comment" />
+    <hint value="delete" />
+  </hints>
+  <description>Class is not instantiated.</description>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/ui/MapPreviewView.java</file>
+  <line>15</line>
+  <module>pepper_android_realtime.app.main</module>
+  <package>io.github.anonymous.pepper_realtime.ui</package>
+  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.ui.MapPreviewView MapPreviewView(android.content.Context context)" />
+  <language>JAVA</language>
+  <offset>11</offset>
+  <length>14</length>
+  <highlighted_element>MapPreviewView</highlighted_element>
+  <problem_class id="" severity="WARNING" attribute_key="NOT_USED_ELEMENT_ATTRIBUTES">unused declaration</problem_class>
+  <hints>
+    <hint value="comment" />
+    <hint value="delete" />
+  </hints>
+  <description>Constructor is never used.</description>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/ui/MapPreviewView.java</file>
+  <line>19</line>
+  <module>pepper_android_realtime.app.main</module>
+  <package>io.github.anonymous.pepper_realtime.ui</package>
+  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.ui.MapPreviewView MapPreviewView(android.content.Context context, android.util.AttributeSet attrs)" />
+  <language>JAVA</language>
+  <offset>11</offset>
+  <length>14</length>
+  <highlighted_element>MapPreviewView</highlighted_element>
+  <problem_class id="" severity="WARNING" attribute_key="NOT_USED_ELEMENT_ATTRIBUTES">unused declaration</problem_class>
+  <hints>
+    <hint value="comment" />
+    <hint value="delete" />
+  </hints>
+  <description>Constructor is never used.</description>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/ui/MapPreviewView.java</file>
+  <line>23</line>
+  <module>pepper_android_realtime.app.main</module>
+  <package>io.github.anonymous.pepper_realtime.ui</package>
+  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.ui.MapPreviewView MapPreviewView(android.content.Context context, android.util.AttributeSet attrs, int defStyleAttr)" />
+  <language>JAVA</language>
+  <offset>11</offset>
+  <length>14</length>
+  <highlighted_element>MapPreviewView</highlighted_element>
+  <problem_class id="" severity="WARNING" attribute_key="NOT_USED_ELEMENT_ATTRIBUTES">unused declaration</problem_class>
+  <hints>
+    <hint value="comment" />
+    <hint value="delete" />
+  </hints>
+  <description>Constructor is never used.</description>
+</problem>
+</problems>

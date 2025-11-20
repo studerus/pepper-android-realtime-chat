@@ -1,0 +1,15 @@
+<problems>
+<problem>
+  <file>file://$PROJECT_DIR$/app/build.gradle</file>
+  <line>99</line>
+  <module>pepper_android_realtime.app</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/app/build.gradle" />
+  <problem_class id="AndroidLintAligned16KB" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Native library dependency not 16 KB aligned</problem_class>
+  <hints />
+  <description>&lt;html&gt;The native library &lt;code&gt;arm64-v8a/libMicrosoft.CognitiveServices.Speech.core.so&lt;/code&gt; (from &lt;code&gt;com.microsoft.cognitiveservices.speech:client-sdk:1.38.0&lt;/code&gt;) is not 16 KB aligned&lt;/html&gt;</description>
+  <highlighted_element>'com.microsoft.cognitiveservices.speech:client-sdk:1.38.0'</highlighted_element>
+  <language>Groovy</language>
+  <offset>19</offset>
+  <length>58</length>
+</problem>
+</problems>

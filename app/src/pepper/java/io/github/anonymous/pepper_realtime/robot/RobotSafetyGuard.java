@@ -67,7 +67,7 @@ public final class RobotSafetyGuard {
                 FlapSensor flapSensor = power.getChargingFlap();
                 if (flapSensor != null) {
                     FlapState flapState = flapSensor.getState();
-                    if (flapState != null && Boolean.TRUE.equals(flapState.getOpen())) {
+                    if (flapState != null && flapState.getOpen()) {
                         Log.d(TAG, "Charging flap is open - movement blocked");
                         return Result.flapOpen();
                     }

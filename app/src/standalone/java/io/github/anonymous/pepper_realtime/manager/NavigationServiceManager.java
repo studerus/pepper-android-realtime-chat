@@ -14,12 +14,8 @@ import io.github.anonymous.pepper_realtime.service.PerceptionService;
 public class NavigationServiceManager {
     private static final String TAG = "NavigationServiceManager[STUB]";
 
-    private final Context context;
-    private final MovementController movementController;
-
     public NavigationServiceManager(MovementController movementController) {
-        this.movementController = movementController;
-        this.context = null; // No context needed in standalone mode
+        // context and movementController are not used in standalone mode
         Log.d(TAG, "🤖 [SIMULATED] NavigationServiceManager created");
     }
 

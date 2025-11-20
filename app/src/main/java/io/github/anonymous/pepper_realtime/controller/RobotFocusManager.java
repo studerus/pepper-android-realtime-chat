@@ -29,7 +29,6 @@ public class RobotFocusManager {
         void onRobotReady(Object robotContext);
         void onRobotFocusLost();
         void onRobotInitializationFailed(String error);
-        void onRobotFocusRefused(String reason);
     }
 
     public RobotFocusManager(ChatActivity activity) {

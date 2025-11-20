@@ -13,6 +13,7 @@
         android:gravity="center_vertical"
         android:background="?android:attr/selectableItemBackground"
         android:clickable="true"
+        android:focusable="true"
         android:padding="8dp">
 
         <CheckBox
@@ -33,7 +34,7 @@
                 android:layout_height="wrap_content"
                 android:textSize="14sp"
                 android:textColor="@android:color/black"
-                android:text="Tool Name" />
+                android:text="@string/tool_name_placeholder" />
 
             <TextView
                 android:id="@+id/tool_api_key_status"
@@ -51,7 +52,7 @@
             android:layout_width="24dp"
             android:layout_height="24dp"
             android:src="@drawable/ic_expand_more"
-            android:contentDescription="Expand description" />
+            android:contentDescription="@string/expand_description" />
 
     </LinearLayout>
 
@@ -73,7 +74,7 @@
             android:textSize="12sp"
             android:textColor="@android:color/darker_gray"
             android:lineSpacingExtra="2dp"
-            android:text="Tool description will appear here" />
+            android:text="@string/tool_description_placeholder" />
 
     </LinearLayout>
 

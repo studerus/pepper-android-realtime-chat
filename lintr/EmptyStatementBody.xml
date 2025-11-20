@@ -1,0 +1,15 @@
+<problems>
+<problem>
+  <file>file://$PROJECT_DIR$/app/src/main/java/io/github/anonymous/pepper_realtime/manager/AppContainer.java</file>
+  <line>199</line>
+  <module>pepper_android_realtime.app.main</module>
+  <package>io.github.anonymous.pepper_realtime.manager</package>
+  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.manager.AppContainer void shutdown()" />
+  <problem_class id="EmptyStatementBody" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Statement with empty body</problem_class>
+  <description>&lt;code&gt;if&lt;/code&gt; statement has empty body #loc</description>
+  <highlighted_element>if</highlighted_element>
+  <language>JAVA</language>
+  <offset>8</offset>
+  <length>2</length>
+</problem>
+</problems>

@@ -1,0 +1,41 @@
+<problems>
+<problem>
+  <file>file://$PROJECT_DIR$/app/src/main/java/io/github/anonymous/pepper_realtime/controller/ChatRealtimeHandler.java</file>
+  <line>81</line>
+  <module>pepper_android_realtime.app.main</module>
+  <package>io.github.anonymous.pepper_realtime.controller</package>
+  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.controller.ChatRealtimeHandler void onAudioTranscriptDelta(java.lang.String delta, java.lang.String responseId)" />
+  <problem_class id="SizeReplaceableByIsEmpty" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">'size() == 0' can be replaced with 'isEmpty()'</problem_class>
+  <description>&lt;code&gt;current.length() == 0&lt;/code&gt; can be replaced with 'current.isEmpty()' #loc</description>
+  <highlighted_element>current.length() == 0</highlighted_element>
+  <language>JAVA</language>
+  <offset>35</offset>
+  <length>21</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/app/src/main/java/io/github/anonymous/pepper_realtime/service/FaceRecognitionService.java</file>
+  <line>67</line>
+  <module>pepper_android_realtime.app.main</module>
+  <package>io.github.anonymous.pepper_realtime.service</package>
+  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.service.FaceRecognitionService boolean isConfigured()" />
+  <problem_class id="SizeReplaceableByIsEmpty" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">'size() == 0' can be replaced with 'isEmpty()'</problem_class>
+  <description>&lt;code&gt;endpoint.length() &gt; 0&lt;/code&gt; can be replaced with '!endpoint.isEmpty()' #loc</description>
+  <highlighted_element>endpoint.length() &gt; 0</highlighted_element>
+  <language>JAVA</language>
+  <offset>35</offset>
+  <length>21</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/app/src/main/java/io/github/anonymous/pepper_realtime/service/FaceRecognitionService.java</file>
+  <line>67</line>
+  <module>pepper_android_realtime.app.main</module>
+  <package>io.github.anonymous.pepper_realtime.service</package>
+  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.service.FaceRecognitionService boolean isConfigured()" />
+  <problem_class id="SizeReplaceableByIsEmpty" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">'size() == 0' can be replaced with 'isEmpty()'</problem_class>
+  <description>&lt;code&gt;key.length() &gt; 0&lt;/code&gt; can be replaced with '!key.isEmpty()' #loc</description>
+  <highlighted_element>key.length() &gt; 0</highlighted_element>
+  <language>JAVA</language>
+  <offset>75</offset>
+  <length>16</length>
+</problem>
+</problems>

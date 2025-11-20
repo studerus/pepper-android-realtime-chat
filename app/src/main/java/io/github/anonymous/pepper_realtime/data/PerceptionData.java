@@ -10,6 +10,7 @@ public class PerceptionData {
     /**
      * Information about a detected human
      */
+    @SuppressWarnings("unused") // Fields populated by PerceptionService, some reserved for UI
     public static class HumanInfo {
         public int id;
         public int estimatedAge = -1;
@@ -24,12 +25,9 @@ public class PerceptionData {
         public Bitmap facePicture = null; // Face picture from QiSDK
 
         // --- Data from Azure Face API (generic REST fields) ---
-        @SuppressWarnings("unused") // Reserved for Phase 2 (Identify) implementation
-        public String recognizedName = null; // Will be used after approval
-        @SuppressWarnings("unused") // Reserved for Phase 2 (Identify) implementation
-        public Integer estimatedAgeAzure = null; // Will be used after approval
-        @SuppressWarnings("unused") // Reserved for Phase 2 (Identify) implementation
-        public String primaryEmotion = null; // Will be used after approval
+        public String recognizedName = null; // Reserved for Phase 2 (Identify)
+        public Integer estimatedAgeAzure = null; // Reserved for Phase 2
+        public String primaryEmotion = null; // Reserved for Phase 2
         
         // Attributes available now (generic)
         public Double azureYawDeg = null;
@@ -96,14 +94,14 @@ public class PerceptionData {
          * Get age and gender summary
          */
         public String getDemographics() {
-            StringBuilder demo = new StringBuilder();
+            final StringBuilder demo = new StringBuilder();
             
             if (estimatedAge > 0) {
                 demo.append(estimatedAge).append("y");
             }
             
             if (!"Unknown".equals(gender)) {
-                if (demo.length() > 0) demo.append(", ");
+                if (!demo.isEmpty()) demo.append(", ");
                 if ("MALE".equalsIgnoreCase(gender)) {
                     demo.append("♂️");
                 } else if ("FEMALE".equalsIgnoreCase(gender)) {
@@ -113,7 +111,7 @@ public class PerceptionData {
                 }
             }
             
-            return demo.length() > 0 ? demo.toString() : "Unknown";
+            return !demo.isEmpty() ? demo.toString() : "Unknown";
         }
         
         /**
@@ -196,17 +194,17 @@ public class PerceptionData {
         /**
          * Capitalize first letter of each word
          */
-        private String capitalize(String input) {
+        private String capitalize(final String input) {
             if (input == null || input.isEmpty()) {
                 return input;
             }
             
-            String[] words = input.toLowerCase().split("\\s+");
-            StringBuilder result = new StringBuilder();
+            final String[] words = input.toLowerCase().split("\\s+");
+            final StringBuilder result = new StringBuilder();
             
             for (int i = 0; i < words.length; i++) {
                 if (i > 0) result.append(" ");
-                if (words[i].length() > 0) {
+                if (!words[i].isEmpty()) {
                     result.append(Character.toUpperCase(words[i].charAt(0)));
                     if (words[i].length() > 1) {
                         result.append(words[i].substring(1));

@@ -113,8 +113,8 @@ public class AudioInputController {
                 } else {
                     Log.e(TAG, "Failed to start Realtime API audio capture");
                     activity.runOnUiThread(() -> {
-                        statusTextView.setText("Error: Audio capture failed");
-                        activity.addMessage("Failed to start audio capture. Check microphone permissions.", ChatMessage.Sender.ROBOT);
+                        statusTextView.setText(activity.getString(R.string.error_audio_capture_failed));
+                        activity.addMessage(activity.getString(R.string.error_audio_capture_permissions), ChatMessage.Sender.ROBOT);
                     });
                 }
             });
@@ -166,7 +166,7 @@ public class AudioInputController {
         }
     }
 
-    public void handleResume(boolean wasStoppedByBackground) {
+    public void handleResume() {
         String currentMode = settingsManager.getAudioInputMode();
         if (SettingsManager.MODE_AZURE_SPEECH.equals(currentMode) && sttManager != null) {
             try {

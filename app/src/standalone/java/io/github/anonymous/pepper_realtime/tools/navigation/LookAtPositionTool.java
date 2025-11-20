@@ -54,7 +54,7 @@ public class LookAtPositionTool implements Tool {
         
         return new JSONObject()
             .put("success", true)
-            .put("message", String.format("Would look at position (%.2f, %.2f, %.2f)", x, y, z))
+            .put("message", String.format(java.util.Locale.US, "Would look at position (%.2f, %.2f, %.2f)", x, y, z))
             .toString();
     }
     

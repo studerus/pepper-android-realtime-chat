@@ -31,15 +31,11 @@ public enum RealtimeApiProvider {
      */
     public String getWebSocketUrl(String azureEndpoint, String model) {
         String actualModel = (model != null && !model.isEmpty()) ? model : modelName;
-        switch (this) {
-            case AZURE_OPENAI:
-                return String.format("wss://%s/openai/realtime?api-version=2024-10-01-preview&deployment=%s", 
+        return switch (this) {
+            case AZURE_OPENAI -> String.format("wss://%s/openai/realtime?api-version=2024-10-01-preview&deployment=%s", 
                                     azureEndpoint, actualModel);
-            case OPENAI_DIRECT:
-                return String.format("wss://api.openai.com/v1/realtime?model=%s", actualModel);
-            default:
-                throw new IllegalStateException("Unknown provider: " + this);
-        }
+            case OPENAI_DIRECT -> String.format("wss://api.openai.com/v1/realtime?model=%s", actualModel);
+        };
     }
     
     
@@ -58,14 +54,10 @@ public enum RealtimeApiProvider {
      * @return Authorization header value
      */
     public String getAuthorizationHeader(String azureKey, String openaiKey) {
-        switch (this) {
-            case AZURE_OPENAI:
-                return azureKey;
-            case OPENAI_DIRECT:
-                return "Bearer " + openaiKey;
-            default:
-                throw new IllegalStateException("Unknown provider: " + this);
-        }
+        return switch (this) {
+            case AZURE_OPENAI -> azureKey;
+            case OPENAI_DIRECT -> "Bearer " + openaiKey;
+        };
     }
     
     /**

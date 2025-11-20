@@ -55,7 +55,7 @@ public class ApproachHumanTool implements Tool {
         
         return new JSONObject()
             .put("success", true)
-            .put("message", String.format("Would approach nearest human to %.1fm distance", distance))
+            .put("message", String.format(java.util.Locale.US, "Would approach nearest human to %.1fm distance", distance))
             .toString();
     }
     

@@ -166,7 +166,7 @@ public class SettingsManager {
         RealtimeApiProvider[] configuredProviders = keyManager.getConfiguredProviders();
         
         if (configuredProviders.length > 0) {
-            ArrayAdapter<RealtimeApiProvider> providerAdapter = new ArrayAdapter<RealtimeApiProvider>(activity, android.R.layout.simple_spinner_item, configuredProviders) {
+            ArrayAdapter<RealtimeApiProvider> providerAdapter = new ArrayAdapter<>(activity, android.R.layout.simple_spinner_item, configuredProviders) {
                 @Override
                 public View getView(int position, View convertView, android.view.ViewGroup parent) {
                     if (convertView == null) {
@@ -204,7 +204,7 @@ public class SettingsManager {
         }
 
         // Populate Model Spinner (provider-agnostic: all supported models)
-        updateModelSpinnerForProvider(null);
+        updateModelSpinnerForProvider();
 
         // Populate Voice Spinner (includes new GA voices: cedar, marin)
         String[] voices = { "alloy", "ash", "ballad", "cedar", "coral", "echo", "marin", "sage", "shimmer", "verse" };
@@ -289,7 +289,8 @@ public class SettingsManager {
             activity, R.array.transcription_models, android.R.layout.simple_spinner_item);
         int transcriptionModelPosition = 0;
         for (int i = 0; i < transcriptionAdapter.getCount(); i++) {
-            if (transcriptionAdapter.getItem(i).toString().equals(savedTranscriptionModel)) {
+            CharSequence item = transcriptionAdapter.getItem(i);
+            if (item != null && item.toString().equals(savedTranscriptionModel)) {
                 transcriptionModelPosition = i;
                 break;
             }
@@ -321,16 +322,20 @@ public class SettingsManager {
         }
         
         String savedEagerness = settings.getString(KEY_EAGERNESS, "auto");
-        int eagernessPosition = 0;
-        if (savedEagerness.equals("low")) eagernessPosition = 1;
-        else if (savedEagerness.equals("medium")) eagernessPosition = 2;
-        else if (savedEagerness.equals("high")) eagernessPosition = 3;
+        int eagernessPosition = switch (savedEagerness) {
+            case "low" -> 1;
+            case "medium" -> 2;
+            case "high" -> 3;
+            default -> 0;
+        };
         eagernessSpinner.setSelection(eagernessPosition);
         
         String savedNoiseReduction = settings.getString(KEY_NOISE_REDUCTION, "off");
-        int noiseReductionPosition = 0;
-        if (savedNoiseReduction.equals("near_field")) noiseReductionPosition = 1;
-        else if (savedNoiseReduction.equals("far_field")) noiseReductionPosition = 2;
+        int noiseReductionPosition = switch (savedNoiseReduction) {
+            case "near_field" -> 1;
+            case "far_field" -> 2;
+            default -> 0;
+        };
         noiseReductionSpinner.setSelection(noiseReductionPosition);
         
         // Set initial visibility based on audio input mode
@@ -358,11 +363,15 @@ public class SettingsManager {
         speedSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                speedValue.setText(activity.getString(R.string.speed_format, progress / 100f));
+                // Enforce minimum value for API < 26
+                int effectiveProgress = Math.max(progress, 25);
+                speedValue.setText(activity.getString(R.string.speed_format, effectiveProgress / 100f));
             }
             @Override public void onStartTrackingTouch(SeekBar seekBar) {}
             @Override public void onStopTrackingTouch(SeekBar seekBar) {
-                settings.edit().putInt(KEY_SPEED, seekBar.getProgress()).apply();
+                // Enforce minimum value for API < 26
+                int progress = Math.max(seekBar.getProgress(), 25);
+                settings.edit().putInt(KEY_SPEED, progress).apply();
             }
         });
 
@@ -451,11 +460,15 @@ public class SettingsManager {
         silenceDurationSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                silenceDurationValue.setText(activity.getString(R.string.realtime_silence_duration_format, progress));
+                // Enforce minimum value for API < 26
+                int effectiveProgress = Math.max(progress, 200);
+                silenceDurationValue.setText(activity.getString(R.string.realtime_silence_duration_format, effectiveProgress));
             }
             @Override public void onStartTrackingTouch(SeekBar seekBar) {}
             @Override public void onStopTrackingTouch(SeekBar seekBar) {
-                settings.edit().putInt(KEY_SILENCE_DURATION, seekBar.getProgress()).apply();
+                // Enforce minimum value for API < 26
+                int progress = Math.max(seekBar.getProgress(), 200);
+                settings.edit().putInt(KEY_SILENCE_DURATION, progress).apply();
             }
         });
     }
@@ -707,35 +720,25 @@ public class SettingsManager {
                     String description = definition.optString("description", "No description available");
                     toolDescription.setText(description);
                 } else {
-                    toolDescription.setText("Tool not available");
+                    toolDescription.setText(activity.getString(R.string.tool_not_available));
                 }
             } catch (Exception e) {
-                toolDescription.setText("Error loading description");
+                toolDescription.setText(activity.getString(R.string.tool_description_error));
             }
             
             // Check API key availability if required
-            boolean isApiKeyAvailable = true;
-            String apiKeyType = null;
+            record ApiKeyInfo(String type, boolean available) {}
             
-            // Map tool names to their API key requirements
-            switch (toolId) {
-                case "analyze_vision":
-                    apiKeyType = "Groq";
-                    isApiKeyAvailable = keyManager.isVisionAnalysisAvailable();
-                    break;
-                case "search_internet":
-                    apiKeyType = "Tavily";
-                    isApiKeyAvailable = keyManager.isInternetSearchAvailable();
-                    break;
-                case "get_weather":
-                    apiKeyType = "OpenWeatherMap";
-                    isApiKeyAvailable = keyManager.isWeatherAvailable();
-                    break;
-                case "play_youtube_video":
-                    apiKeyType = "YouTube";
-                    isApiKeyAvailable = keyManager.isYouTubeAvailable();
-                    break;
-            }
+            ApiKeyInfo apiKeyInfo = switch (toolId) {
+                case "analyze_vision" -> new ApiKeyInfo("Groq", keyManager.isVisionAnalysisAvailable());
+                case "search_internet" -> new ApiKeyInfo("Tavily", keyManager.isInternetSearchAvailable());
+                case "get_weather" -> new ApiKeyInfo("OpenWeatherMap", keyManager.isWeatherAvailable());
+                case "play_youtube_video" -> new ApiKeyInfo("YouTube", keyManager.isYouTubeAvailable());
+                default -> new ApiKeyInfo(null, true);
+            };
+            
+            String apiKeyType = apiKeyInfo.type();
+            boolean isApiKeyAvailable = apiKeyInfo.available();
             
             if (apiKeyType != null && !isApiKeyAvailable) {
                 toolApiKeyStatus.setVisibility(View.VISIBLE);
@@ -847,18 +850,11 @@ public class SettingsManager {
     /**
      * Update model spinner options (provider-agnostic)
      */
-    private void updateModelSpinnerForProvider(RealtimeApiProvider provider) {
+    private void updateModelSpinnerForProvider() {
         String[] models = new String[]{ "gpt-realtime", "gpt-realtime-mini", "gpt-4o-realtime-preview", "gpt-4o-mini-realtime-preview" };
         ArrayAdapter<String> modelAdapter = new ArrayAdapter<>(activity, android.R.layout.simple_spinner_item, models);
         modelAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         modelSpinner.setAdapter(modelAdapter);
-    }
-    
-    /**
-     * Get default model (provider-agnostic): prefer OpenAI gpt-realtime
-     */
-    private String getDefaultModelForProvider(RealtimeApiProvider provider) {
-        return activity.getString(R.string.openai_default_model);
     }
     
     /**
@@ -932,23 +928,17 @@ public class SettingsManager {
     }
 
     // A simple helper class to hold language display name and code
-    private static class LanguageOption {
-        private final String name;
-        private final String code;
-
-        LanguageOption(String name, String code) {
-            this.name = name;
-            this.code = code;
-        }
-
-        public String getCode() {
-            return code;
-        }
-
+    private record LanguageOption(String name, String code) {
         @NonNull
         @Override
         public String toString() {
             return name;
         }
+
+        // Standard getter methods are replaced by accessor methods name() and code()
+        // But for compatibility with existing code we can keep getCode if needed,
+        // or update usage sites. Let's check usage first.
+        // Usage sites use .getCode(). Updating usage sites is better.
+        public String getCode() { return code; } // Adapter/Legacy support
     }
 }

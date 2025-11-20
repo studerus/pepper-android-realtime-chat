@@ -1,0 +1,41 @@
+<problems>
+<problem>
+  <file>file://$PROJECT_DIR$/build.gradle</file>
+  <line>3</line>
+  <module>pepper_android_realtime</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/build.gradle" />
+  <problem_class id="AndroidLintAndroidGradlePluginVersion" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Obsolete Android Gradle Plugin Version</problem_class>
+  <hints />
+  <description>&lt;html&gt;A newer version of com.android.application than 8.13.0 is available: 8.13.1&lt;/html&gt;</description>
+  <highlighted_element>'8.13.0'</highlighted_element>
+  <language>Groovy</language>
+  <offset>41</offset>
+  <length>8</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/build.gradle</file>
+  <line>4</line>
+  <module>pepper_android_realtime</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/build.gradle" />
+  <problem_class id="AndroidLintAndroidGradlePluginVersion" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Obsolete Android Gradle Plugin Version</problem_class>
+  <hints />
+  <description>&lt;html&gt;A newer version of com.android.library than 8.13.0 is available: 8.13.1&lt;/html&gt;</description>
+  <highlighted_element>'8.13.0'</highlighted_element>
+  <language>Groovy</language>
+  <offset>37</offset>
+  <length>8</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/gradle/wrapper/gradle-wrapper.properties</file>
+  <line>3</line>
+  <module>pepper_android_realtime</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/gradle/wrapper/gradle-wrapper.properties" />
+  <problem_class id="AndroidLintAndroidGradlePluginVersion" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Obsolete Android Gradle Plugin Version</problem_class>
+  <hints />
+  <description>&lt;html&gt;A newer version of Gradle than 8.13 is available: 9.2.1&lt;/html&gt;</description>
+  <highlighted_element>https\://services.gradle.org/distributions/gradle-8.13-bin.zip</highlighted_element>
+  <language>Properties</language>
+  <offset>16</offset>
+  <length>62</length>
+</problem>
+</problems>

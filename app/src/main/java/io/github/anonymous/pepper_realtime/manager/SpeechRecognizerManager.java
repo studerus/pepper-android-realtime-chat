@@ -92,7 +92,7 @@ public class SpeechRecognizerManager {
                 connection.connected.addEventListener((s, e) -> {
                     Log.i(TAG, "🌐 Connection established - recognizer ready");
                     connectionEstablished = true;
-                    signalReadyIfNeeded("connection", false);
+                    signalReadyIfNeeded("connection");
                 });
                 connection.disconnected.addEventListener((s, e) -> {
                     Log.w(TAG, "⚠️ Connection lost");
@@ -104,11 +104,12 @@ public class SpeechRecognizerManager {
                 recognizer.sessionStarted.addEventListener((s, e) -> {
                     Log.i(TAG, "🎙️ sessionStarted event received");
                     sessionActive = true;
-                    signalReadyIfNeeded("sessionStarted", false);
+                    signalReadyIfNeeded("sessionStarted");
                 });
                 recognizer.sessionStopped.addEventListener((s, e) -> {
                     Log.i(TAG, "🛑 sessionStopped event received");
                     sessionActive = false;
+                    isRunning = false;  // Reset running state so it can be restarted
                     readySignaled = false;
                 });
 
@@ -262,7 +263,7 @@ public class SpeechRecognizerManager {
                 connection.connected.addEventListener((s, e) -> {
                     Log.i(TAG, "🌐 Recognizer connection established (lazy init)");
                     connectionEstablished = true;
-                    signalReadyIfNeeded("lazy-connection", false);
+                    signalReadyIfNeeded("lazy-connection");
                 });
                 connection.disconnected.addEventListener((s, e) -> {
                     Log.w(TAG, "⚠️ Recognizer connection lost (lazy init)");
@@ -274,7 +275,7 @@ public class SpeechRecognizerManager {
                 recognizer.sessionStarted.addEventListener((s, e) -> {
                     Log.i(TAG, "🎙️ sessionStarted (lazy init)");
                     sessionActive = true;
-                    signalReadyIfNeeded("lazy-session", false);
+                    signalReadyIfNeeded("lazy-session");
                 });
                 recognizer.sessionStopped.addEventListener((s, e) -> {
                     Log.i(TAG, "🛑 sessionStopped (lazy init)");
@@ -335,11 +336,11 @@ public class SpeechRecognizerManager {
         }
     }
     
-    private void signalReadyIfNeeded(String source, boolean force) {
+    private void signalReadyIfNeeded(String source) {
         if (!isRunning || readySignaled) {
             return;
         }
-        if (!force && (!connectionEstablished || !sessionActive)) {
+        if (!connectionEstablished || !sessionActive) {
             Log.i(TAG, "⏳ Waiting for full readiness (" + source + ") "
                     + "connection=" + connectionEstablished + ", sessionActive=" + sessionActive);
             return;
@@ -350,10 +351,6 @@ public class SpeechRecognizerManager {
             Log.i(TAG, "🟢 Recognizer ready (" + source + ")");
             activityCallbacks.onStarted();
         }
-    }
-    
-    private void signalReadyIfNeeded(String source) {
-        signalReadyIfNeeded(source, false);
     }
     
     /**

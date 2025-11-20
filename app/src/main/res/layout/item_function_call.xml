@@ -43,7 +43,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:textSize="16sp"
-                    android:text="🔧"
+                    android:text="@string/function_call_icon"
                     android:layout_marginEnd="8dp" />
 
                 <TextView
@@ -67,6 +67,7 @@
                     android:layout_width="20dp"
                     android:layout_height="20dp"
                     android:src="@drawable/ic_expand_more"
+                    android:contentDescription="@string/expand_description"
                     app:tint="@color/function_call_icon" />
 
             </LinearLayout>
@@ -94,7 +95,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Arguments:"
+                    android:text="@string/function_arguments_label"
                     android:textStyle="bold"
                     android:textSize="11sp"
                     android:textColor="@color/function_call_label" />
@@ -116,7 +117,7 @@
                     android:id="@+id/function_result_label"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Result:"
+                    android:text="@string/function_result_label"
                     android:textStyle="bold"
                     android:textSize="11sp"
                     android:textColor="@color/function_call_label"

@@ -14,11 +14,6 @@
         <!-- Customize your theme here. -->
     </style>
 
-    <style name="TileButton" parent="Widget.AppCompat.Button.Colored">
-        <item name="android:textSize">30sp</item>
-        <item name="android:textColor">@android:color/black</item>
-    </style>
-
     <style name="QuizDialog" parent="Theme.AppCompat.Light.Dialog.Alert">
         <item name="android:windowNoTitle">true</item>
     </style>

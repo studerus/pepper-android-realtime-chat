@@ -1,0 +1,41 @@
+<problems>
+<problem>
+  <file>file://$PROJECT_DIR$/app/src/main/java/io/github/anonymous/pepper_realtime/manager/AudioPlayer.java</file>
+  <line>19</line>
+  <module>pepper_android_realtime.app.main</module>
+  <package>io.github.anonymous.pepper_realtime.manager</package>
+  <entry_point TYPE="class" FQNAME="io.github.anonymous.pepper_realtime.manager.AudioPlayer" />
+  <problem_class id="JavadocBlankLines" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Blank line should be replaced with &lt;p&gt; to break lines</problem_class>
+  <description>Blank line will be ignored</description>
+  <highlighted_element>*</highlighted_element>
+  <language>JAVA</language>
+  <offset>1</offset>
+  <length>1</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/app/src/main/java/io/github/anonymous/pepper_realtime/manager/ThreadManager.java</file>
+  <line>15</line>
+  <module>pepper_android_realtime.app.main</module>
+  <package>io.github.anonymous.pepper_realtime.manager</package>
+  <entry_point TYPE="class" FQNAME="io.github.anonymous.pepper_realtime.manager.ThreadManager" />
+  <problem_class id="JavadocBlankLines" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Blank line should be replaced with &lt;p&gt; to break lines</problem_class>
+  <description>Blank line will be ignored</description>
+  <highlighted_element>*</highlighted_element>
+  <language>JAVA</language>
+  <offset>1</offset>
+  <length>1</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/app/src/main/java/io/github/anonymous/pepper_realtime/network/HttpClientManager.java</file>
+  <line>16</line>
+  <module>pepper_android_realtime.app.main</module>
+  <package>io.github.anonymous.pepper_realtime.network</package>
+  <entry_point TYPE="class" FQNAME="io.github.anonymous.pepper_realtime.network.HttpClientManager" />
+  <problem_class id="JavadocBlankLines" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Blank line should be replaced with &lt;p&gt; to break lines</problem_class>
+  <description>Blank line will be ignored</description>
+  <highlighted_element>*</highlighted_element>
+  <language>JAVA</language>
+  <offset>1</offset>
+  <length>1</length>
+</problem>
+</problems>
