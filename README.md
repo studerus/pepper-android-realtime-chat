@@ -1261,8 +1261,11 @@ app/src/
 ├── main/java/io/github/anonymous/pepper_realtime/    # Shared code for all flavors
 │   ├── controller/                      # Application logic controllers
 │   │   ├── AudioInputController.java    # Audio input & STT management
+│   │   ├── AudioVolumeController.java   # System volume control
 │   │   ├── ChatInterruptController.java # Interruption logic
+│   │   ├── ChatLifecycleController.java # App lifecycle orchestration
 │   │   ├── ChatRealtimeHandler.java     # WebSocket event bridging
+│   │   ├── ChatRobotLifecycleHandler.java # Robot lifecycle events
 │   │   ├── ChatSessionController.java   # Session management
 │   │   ├── ChatSpeechListener.java      # Speech recognition callbacks
 │   │   ├── ChatTurnListener.java        # Turn state management
@@ -1272,8 +1275,10 @@ app/src/
 │   │   ├── AppContainer.java            # Dependency Injection container
 │   │   ├── AudioPlayer.java             # Audio playback engine
 │   │   ├── DashboardManager.java        # Perception dashboard overlay
+│   │   ├── PermissionManager.java       # Android permission handling
 │   │   ├── QuizDialogManager.java       # Quiz UI management
 │   │   ├── RealtimeAudioInputManager.java # Audio input for Realtime API
+│   │   ├── SessionImageManager.java     # Temporary image cleanup
 │   │   ├── SettingsManager.java         # App settings & preferences
 │   │   ├── SpeechRecognizerManager.java # Azure Speech integration
 │   │   ├── ThreadManager.java           # Thread pooling & execution
@@ -1297,11 +1302,12 @@ app/src/
 │   │   ├── PerceptionData.java          # Human perception data models
 │   │   └── SavedLocation.java           # Location data structure
 │   ├── ui/                              # UI Components and Helpers
-│   │   ├── ChatActivity.java            # Main application with lifecycle management
+│   │   ├── ChatActivity.java            # Main UI entry point
 │   │   ├── ChatMenuController.java      # Menu handling
 │   │   ├── ChatMessage.java             # Message model
 │   │   ├── ChatMessageAdapter.java      # RecyclerView adapter
 │   │   ├── ChatUiHelper.java            # UI update helpers
+│   │   ├── ChatViewModel.java           # MVVM ViewModel
 │   │   ├── MapUiManager.java            # Map UI management
 │   │   └── YouTubePlayerDialog.java     # YouTube player UI
 │   └── tools/                           # Tool implementations (shared logic)
@@ -1348,7 +1354,7 @@ app/src/
     ├── data/
     │   └── NavigationMapCache.java      # Stub (no map data)
     └── ui/
-        └── MapPreviewView.java          # Stub (empty view)
+    │   └── MapPreviewView.java          # Stub (empty view)
 ```
 
 ### Key Configuration Files
