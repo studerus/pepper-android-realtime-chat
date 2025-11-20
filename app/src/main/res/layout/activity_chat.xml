@@ -145,7 +145,7 @@
                 android:layout_margin="32dp"
                 android:adjustViewBounds="true"
                 android:contentDescription="@string/human_face_description"
-                android:scaleType="centerInside" />
+                android:scaleType="fitCenter" />
                 
             <TextView
                 android:id="@+id/close_overlay_text"

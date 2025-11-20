@@ -30,10 +30,15 @@ public class ChatMessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
     private static final int VIEW_TYPE_ROBOT = 2;
     private static final int VIEW_TYPE_FUNCTION_CALL = 3;
 
-    private final List<ChatMessage> messages;
+    private List<ChatMessage> messages;
 
     public ChatMessageAdapter(List<ChatMessage> messages) {
         this.messages = messages;
+    }
+
+    public void setMessages(List<ChatMessage> messages) {
+        this.messages = messages;
+        notifyDataSetChanged();
     }
 
     @Override
@@ -52,7 +57,7 @@ public class ChatMessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
     @Override
     public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         LayoutInflater inflater = LayoutInflater.from(parent.getContext());
-        
+
         return switch (viewType) {
             case VIEW_TYPE_FUNCTION_CALL -> {
                 View functionView = inflater.inflate(R.layout.item_function_call, parent, false);
@@ -72,7 +77,7 @@ public class ChatMessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
     @Override
     public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
         ChatMessage message = messages.get(position);
-        
+
         if (holder instanceof FunctionCallViewHolder functionHolder) {
             functionHolder.bind(message);
         } else if (holder instanceof MessageViewHolder messageHolder) {
@@ -127,24 +132,24 @@ public class ChatMessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
         Activity activity = (Activity) clickedView.getContext();
         View rootView = activity.findViewById(android.R.id.content);
         View imageOverlay = activity.findViewById(R.id.image_overlay);
-        
+
         if (imageOverlay != null && rootView != null) {
             ImageView overlayImage = imageOverlay.findViewById(R.id.overlay_image);
-            
+
             if (overlayImage != null) {
                 // Load image
-                Bitmap bitmap = decodeSampledBitmapFromPath(imagePath, 1024, 1024);
+                Bitmap bitmap = decodeSampledBitmapFromPath(imagePath, 2048, 2048);
                 overlayImage.setImageBitmap(bitmap);
-                
+
                 // Show overlay
                 imageOverlay.setVisibility(View.VISIBLE);
-                
+
                 // Set click listener to close
                 imageOverlay.setOnClickListener(v -> hideImageOverlay(activity));
             }
         }
     }
-    
+
     private void hideImageOverlay(Activity activity) {
         View imageOverlay = activity.findViewById(R.id.image_overlay);
         if (imageOverlay != null) {
@@ -176,7 +181,9 @@ public class ChatMessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
     }
 
     @Override
-    public int getItemCount() { return messages.size(); }
+    public int getItemCount() {
+        return messages.size();
+    }
 
     static class MessageViewHolder extends RecyclerView.ViewHolder {
         final TextView messageTextView;
@@ -188,7 +195,7 @@ public class ChatMessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
             messageImageView = itemView.findViewById(R.id.messageImageView);
         }
     }
-    
+
     static class FunctionCallViewHolder extends RecyclerView.ViewHolder {
         private final TextView functionIcon;
         private final TextView functionName;
@@ -200,7 +207,7 @@ public class ChatMessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
         private final ImageView expandIcon;
         private final LinearLayout detailsContainer;
         private final ChatMessageAdapter adapter;
-        
+
         public FunctionCallViewHolder(@NonNull View itemView, ChatMessageAdapter adapter) {
             super(itemView);
             this.adapter = adapter;
@@ -213,35 +220,37 @@ public class ChatMessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
             functionResultLabel = itemView.findViewById(R.id.function_result_label);
             expandIcon = itemView.findViewById(R.id.expand_icon);
             detailsContainer = itemView.findViewById(R.id.function_details_container);
-            
+
             // Set up click listener for expand/collapse (no need to keep header as a field)
             LinearLayout header = itemView.findViewById(R.id.function_header);
             header.setOnClickListener(v -> toggleExpanded());
         }
-        
+
         public void bind(ChatMessage message) {
             // Set function icon based on function name
             functionIcon.setText(getFunctionIcon(message.getFunctionName()));
-            
+
             // Set function display name
             functionName.setText(getFunctionDisplayName(message.getFunctionName()));
-            
+
             // Set status with appropriate colors
             boolean hasResult = message.getFunctionResult() != null;
             if (hasResult) {
                 functionStatus.setText("✅");
-                functionStatus.setTextColor(ContextCompat.getColor(itemView.getContext(), R.color.function_call_status_success));
+                functionStatus.setTextColor(
+                        ContextCompat.getColor(itemView.getContext(), R.color.function_call_status_success));
             } else {
                 functionStatus.setText("⏳");
-                functionStatus.setTextColor(ContextCompat.getColor(itemView.getContext(), R.color.function_call_status_pending));
+                functionStatus.setTextColor(
+                        ContextCompat.getColor(itemView.getContext(), R.color.function_call_status_pending));
             }
-            
+
             // Set summary
             functionSummary.setText(generateSummary(message));
-            
+
             // Set arguments
             functionArgs.setText(formatJson(message.getFunctionArgs()));
-            
+
             // Show/hide result
             if (hasResult) {
                 functionResult.setText(formatJson(message.getFunctionResult()));
@@ -251,35 +260,36 @@ public class ChatMessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
                 functionResult.setVisibility(View.GONE);
                 functionResultLabel.setVisibility(View.GONE);
             }
-            
+
             // Set expand/collapse state
             updateExpandState(message.isExpanded());
         }
-        
+
         private void toggleExpanded() {
             int position = getBindingAdapterPosition();
-            if (position == RecyclerView.NO_POSITION) return;
-            if (position >= adapter.messages.size()) return;
+            if (position == RecyclerView.NO_POSITION)
+                return;
+            if (position >= adapter.messages.size())
+                return;
             ChatMessage message = adapter.messages.get(position);
             boolean newState = !message.isExpanded();
             message.setExpanded(newState);
             updateExpandState(newState);
         }
-        
+
         private void updateExpandState(boolean expanded) {
             detailsContainer.setVisibility(expanded ? View.VISIBLE : View.GONE);
-            
+
             // Rotate expand icon
             RotateAnimation rotate = new RotateAnimation(
-                expanded ? 0 : 180, expanded ? 180 : 0,
-                RotateAnimation.RELATIVE_TO_SELF, 0.5f,
-                RotateAnimation.RELATIVE_TO_SELF, 0.5f
-            );
+                    expanded ? 0 : 180, expanded ? 180 : 0,
+                    RotateAnimation.RELATIVE_TO_SELF, 0.5f,
+                    RotateAnimation.RELATIVE_TO_SELF, 0.5f);
             rotate.setDuration(200);
             rotate.setFillAfter(true);
             expandIcon.startAnimation(rotate);
         }
-        
+
         private String getFunctionIcon(String functionName) {
             return switch (functionName) {
                 case "search_internet" -> "🌐";
@@ -293,7 +303,7 @@ public class ChatMessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
                 default -> "🔧";
             };
         }
-        
+
         private String getFunctionDisplayName(String functionName) {
             return switch (functionName) {
                 case "search_internet" -> "Internet Search";
@@ -307,11 +317,11 @@ public class ChatMessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
                 default -> functionName.replace("_", " ");
             };
         }
-        
+
         private String generateSummary(ChatMessage message) {
             String functionName = message.getFunctionName();
             boolean hasResult = message.getFunctionResult() != null;
-            
+
             return switch (functionName) {
                 case "search_internet" -> hasResult ? "Internet search completed" : "Searching internet...";
                 case "get_weather" -> hasResult ? "Weather information retrieved" : "Getting weather...";
@@ -320,16 +330,16 @@ public class ChatMessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
                 default -> hasResult ? "Function completed" : "Function executing...";
             };
         }
-        
+
         private String formatJson(String json) {
-            if (json == null || json.isEmpty()) return "";
-            
+            if (json == null || json.isEmpty())
+                return "";
+
             // Simple formatting - add line breaks after commas and format braces
             return json.replace(",", ",\n")
-                      .replace("{", "{\n  ")
-                      .replace("}", "\n}")
-                      .replace("\":", "\": ");
+                    .replace("{", "{\n  ")
+                    .replace("}", "\n}")
+                    .replace("\":", "\": ");
         }
     }
 }
-

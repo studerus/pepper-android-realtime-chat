@@ -19,15 +19,18 @@ public class ChatTurnListener implements TurnManager.Callbacks {
     private final TextView statusTextView;
     private final FloatingActionButton fabInterrupt;
     private final GestureController gestureController;
+    private final AudioInputController audioInputController;
 
-    public ChatTurnListener(ChatActivity activity, 
-                          TextView statusTextView, 
-                          FloatingActionButton fabInterrupt,
-                          GestureController gestureController) {
+    public ChatTurnListener(ChatActivity activity,
+            TextView statusTextView,
+            FloatingActionButton fabInterrupt,
+            GestureController gestureController,
+            AudioInputController audioInputController) {
         this.activity = activity;
         this.statusTextView = statusTextView;
         this.fabInterrupt = fabInterrupt;
         this.gestureController = gestureController;
+        this.audioInputController = audioInputController;
     }
 
     @Override
@@ -37,17 +40,17 @@ public class ChatTurnListener implements TurnManager.Callbacks {
                 // Check robot readiness
                 RobotController robotController = activity.getRobotController();
                 Object qiContext = activity.getQiContext();
-                
+
                 if (robotController != null && robotController.isRobotHardwareAvailable() && qiContext == null) {
                     Log.w(TAG, "Pepper robot focus lost, aborting onEnterListening to prevent crashes");
                     return;
                 }
 
-                if (!activity.isMuted()) {
+                if (!audioInputController.isMuted()) {
                     statusTextView.setText(activity.getString(R.string.status_listening));
-                    if (!activity.isSttRunning()) {
+                    if (!audioInputController.isSttRunning()) {
                         try {
-                            activity.startContinuousRecognition();
+                            audioInputController.startContinuousRecognition();
                         } catch (Exception e) {
                             Log.e(TAG, "Failed to start recognition in onEnterListening", e);
                             statusTextView.setText(activity.getString(R.string.status_recognizer_not_ready));
@@ -63,9 +66,10 @@ public class ChatTurnListener implements TurnManager.Callbacks {
 
     @Override
     public void onEnterThinking() {
-        // Physically stop the mic so nothing is recognized during THINKING (only if running)
-        if (activity.isSttRunning()) {
-            activity.stopContinuousRecognition();
+        // Physically stop the mic so nothing is recognized during THINKING (only if
+        // running)
+        if (audioInputController.isSttRunning()) {
+            audioInputController.stopContinuousRecognition();
         } else {
             Log.d(TAG, "STT already stopped, skipping redundant stop in THINKING state");
         }
@@ -78,7 +82,7 @@ public class ChatTurnListener implements TurnManager.Callbacks {
     @Override
     public void onEnterSpeaking() {
         Log.i(TAG, "State: Entering SPEAKING - starting gestures and stopping STT");
-        activity.stopContinuousRecognition();
+        audioInputController.stopContinuousRecognition();
         activity.startExplainGesturesLoop();
         activity.runOnUiThread(() -> fabInterrupt.setVisibility(View.GONE));
     }
@@ -88,11 +92,10 @@ public class ChatTurnListener implements TurnManager.Callbacks {
         Log.i(TAG, "State: Exiting SPEAKING - stopping gestures and starting STT");
         gestureController.stopNow();
         activity.runOnUiThread(() -> {
-            if (!activity.isMuted()) {
+            if (!audioInputController.isMuted()) {
                 statusTextView.setText(activity.getString(R.string.status_listening));
             }
             fabInterrupt.setVisibility(View.GONE);
         });
     }
 }
-

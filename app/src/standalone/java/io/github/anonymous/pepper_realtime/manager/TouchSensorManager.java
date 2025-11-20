@@ -3,7 +3,8 @@ package io.github.anonymous.pepper_realtime.manager;
 import android.util.Log;
 
 /**
- * Stub implementation of TouchSensorManager for standalone mode (no robot hardware).
+ * Stub implementation of TouchSensorManager for standalone mode (no robot
+ * hardware).
  * Simulates touch sensor functionality without actual hardware.
  */
 public class TouchSensorManager {
@@ -11,6 +12,7 @@ public class TouchSensorManager {
 
     public interface TouchEventListener {
         void onSensorTouched(String sensorName, Object touchState);
+
         void onSensorReleased(String sensorName, Object touchState);
     }
 
@@ -41,5 +43,12 @@ public class TouchSensorManager {
     public void shutdown() {
         Log.i(TAG, "🤖 [SIMULATED] TouchSensorManager shutdown");
     }
-}
 
+    public void pause() {
+        Log.i(TAG, "🤖 [SIMULATED] TouchSensorManager paused");
+    }
+
+    public void resume() {
+        Log.i(TAG, "🤖 [SIMULATED] TouchSensorManager resumed");
+    }
+}
