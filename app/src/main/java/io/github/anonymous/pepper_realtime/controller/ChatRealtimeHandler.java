@@ -19,29 +19,39 @@ import io.github.anonymous.pepper_realtime.R;
 import io.github.anonymous.pepper_realtime.tools.ToolContext;
 import io.github.anonymous.pepper_realtime.tools.ToolRegistry;
 import io.github.anonymous.pepper_realtime.ui.ChatMessage;
+import io.github.anonymous.pepper_realtime.ui.ChatViewModel;
 
 public class ChatRealtimeHandler implements RealtimeEventHandler.Listener {
     private static final String TAG = "ChatRealtimeHandler";
 
-    private final ChatActivity activity;
+    private final ChatActivity activity; // Kept for context-dependent calls (runOnUiThread, resources)
+    private final ChatViewModel viewModel;
     private final AudioPlayer audioPlayer;
     private final TurnManager turnManager;
-    private final TextView statusTextView;
     private final ThreadManager threadManager;
     private final ToolRegistry toolRegistry;
-    private final ToolContext toolContext;
+    private ToolContext toolContext;
+    private ChatSessionController sessionController;
 
-    public ChatRealtimeHandler(ChatActivity activity, 
-                             AudioPlayer audioPlayer, 
-                             TurnManager turnManager, 
-                             TextView statusTextView,
-                             ThreadManager threadManager,
-                             ToolRegistry toolRegistry,
-                             ToolContext toolContext) {
+    public void setSessionController(ChatSessionController sessionController) {
+        this.sessionController = sessionController;
+    }
+
+    public void setToolContext(ToolContext toolContext) {
+        this.toolContext = toolContext;
+    }
+
+    public ChatRealtimeHandler(ChatActivity activity,
+            ChatViewModel viewModel,
+            AudioPlayer audioPlayer,
+            TurnManager turnManager,
+            ThreadManager threadManager,
+            ToolRegistry toolRegistry,
+            ToolContext toolContext) {
         this.activity = activity;
+        this.viewModel = viewModel;
         this.audioPlayer = audioPlayer;
         this.turnManager = turnManager;
-        this.statusTextView = statusTextView;
         this.threadManager = threadManager;
         this.toolRegistry = toolRegistry;
         this.toolContext = toolContext;
@@ -65,55 +75,78 @@ public class ChatRealtimeHandler implements RealtimeEventHandler.Listener {
         } catch (Exception e) {
             Log.w(TAG, "Failed to apply session sample rate", e);
         }
-        if (!activity.isWarmingUp()) {
-            activity.runOnUiThread(() -> statusTextView.setText(activity.getString(R.string.status_ready)));
+        if (!Boolean.TRUE.equals(viewModel.getIsWarmingUp().getValue())) {
+            // Status update removed to prevent "Ready" state flickering before "Listening"
+            // viewModel.setStatusText(activity.getString(R.string.status_ready));
         }
-        activity.completeConnectionPromise();
+        if (sessionController != null) {
+            sessionController.completeConnectionPromise();
+        } else {
+            Log.i(TAG, "SessionController null, cannot complete promise explicitly");
+        }
     }
 
     @Override
     public void onAudioTranscriptDelta(String delta, String responseId) {
         activity.runOnUiThread(() -> {
-            if (Objects.equals(responseId, activity.getCancelledResponseId())) {
+            if (Objects.equals(responseId, viewModel.getCancelledResponseId())) {
                 return; // drop transcript of cancelled response
             }
-            CharSequence current = statusTextView.getText();
-            if (current == null || current.length() == 0 || !current.toString().startsWith("Speaking — tap to interrupt: ")) {
-                statusTextView.setText(activity.getString(R.string.status_speaking_tap_to_interrupt));
+            String currentStatus = viewModel.getStatusText().getValue();
+            if (currentStatus == null || !currentStatus.startsWith("Speaking — tap to interrupt: ")) {
+                viewModel.setStatusText(activity.getString(R.string.status_speaking_tap_to_interrupt));
             }
-            statusTextView.append(delta);
-            boolean needNew = activity.isExpectingFinalAnswerAfterToolCall()
-                    || activity.isMessageListEmpty()
-                    || !activity.isLastMessageFromRobot()
-                    || !Objects.equals(responseId, activity.getLastChatBubbleResponseId());
+            // Append to status text logic removed as it's not standard MVVM to append to
+            // LiveData string repeatedly for UI effect
+            // Instead we rely on the message list update below
+
+            boolean needNew = viewModel.isExpectingFinalAnswerAfterToolCall()
+                    || isMessageListEmpty()
+                    || !isLastMessageFromRobot()
+                    || !Objects.equals(responseId, viewModel.getLastChatBubbleResponseId());
             if (needNew) {
-                activity.addMessage(delta, ChatMessage.Sender.ROBOT);
-                activity.setExpectingFinalAnswerAfterToolCall(false);
-                activity.setLastChatBubbleResponseId(responseId);
+                viewModel.addMessage(new ChatMessage(delta, ChatMessage.Sender.ROBOT));
+                viewModel.setExpectingFinalAnswerAfterToolCall(false);
+                viewModel.setLastChatBubbleResponseId(responseId);
             } else {
-                activity.appendToLastMessage(delta);
+                viewModel.appendToLastMessage(delta);
             }
         });
+    }
+
+    private boolean isMessageListEmpty() {
+        List<ChatMessage> list = viewModel.getMessageList().getValue();
+        return list == null || list.isEmpty();
+    }
+
+    private boolean isLastMessageFromRobot() {
+        List<ChatMessage> list = viewModel.getMessageList().getValue();
+        if (list == null || list.isEmpty())
+            return false;
+        return list.get(list.size() - 1).getSender() == ChatMessage.Sender.ROBOT;
     }
 
     @Override
     public void onAudioDelta(byte[] pcm16, String responseId) {
         // Ignore audio from cancelled response
-        if (Objects.equals(responseId, activity.getCancelledResponseId())) {
+        if (Objects.equals(responseId, viewModel.getCancelledResponseId())) {
             return;
         }
-        
+
         if (!audioPlayer.isPlaying()) {
             turnManager.setState(TurnManager.State.SPEAKING);
         }
         if (responseId != null) {
-            if (!Objects.equals(activity.getCurrentResponseId(), responseId)) {
-                try { audioPlayer.onResponseBoundary(); } catch (Exception ignored) {}
-                activity.setCurrentResponseId(responseId);
+            if (!Objects.equals(viewModel.getCurrentResponseId(), responseId)) {
+                try {
+                    audioPlayer.onResponseBoundary();
+                } catch (Exception ignored) {
+                }
+                viewModel.setCurrentResponseId(responseId);
             }
         }
-        
-        activity.setAudioPlaying(true);  // Audio chunks are being played
+
+        viewModel.setAudioPlaying(true); // Audio chunks are being played
         audioPlayer.addChunk(pcm16);
         audioPlayer.startIfNeeded();
     }
@@ -127,7 +160,7 @@ public class ChatRealtimeHandler implements RealtimeEventHandler.Listener {
 
     @Override
     public void onResponseDone(JSONObject response) {
-        activity.setResponseGenerating(false);  // API finished generating
+        viewModel.setResponseGenerating(false); // API finished generating
         Log.i(TAG, "Full response received. Processing final output.");
         try {
             JSONArray outputArray = response.optJSONArray("output");
@@ -165,7 +198,7 @@ public class ChatRealtimeHandler implements RealtimeEventHandler.Listener {
                     final String fCallId = callId;
                     activity.runOnUiThread(() -> activity.addFunctionCall(fToolName, args.toString()));
 
-                    activity.setExpectingFinalAnswerAfterToolCall(true);
+                    viewModel.setExpectingFinalAnswerAfterToolCall(true);
                     threadManager.executeNetwork(() -> {
                         String toolResult;
                         try {
@@ -174,7 +207,8 @@ public class ChatRealtimeHandler implements RealtimeEventHandler.Listener {
                             Log.e(TAG, "Tool execution crashed for " + fToolName, toolEx);
                             try {
                                 toolResult = new JSONObject()
-                                        .put("error", "Tool execution failed: " + (toolEx.getMessage() != null ? toolEx.getMessage() : "Unknown error"))
+                                        .put("error", "Tool execution failed: "
+                                                + (toolEx.getMessage() != null ? toolEx.getMessage() : "Unknown error"))
                                         .toString();
                             } catch (Exception jsonEx) {
                                 toolResult = "{\"error\":\"Tool execution failed.\"}";
@@ -185,9 +219,14 @@ public class ChatRealtimeHandler implements RealtimeEventHandler.Listener {
                             toolResult = "{\"error\":\"Tool returned no result.\"}";
                         }
 
+                        // ... (inside onResponseDone)
                         final String fResult = toolResult;
                         activity.runOnUiThread(() -> activity.updateFunctionCallResult(fResult));
-                        activity.sendToolResult(fCallId, fResult);
+                        if (sessionController != null) {
+                            sessionController.sendToolResult(fCallId, fResult);
+                        } else {
+                            Log.e(TAG, "SessionController is null, cannot send tool result");
+                        }
                     });
                 }
             }
@@ -211,14 +250,16 @@ public class ChatRealtimeHandler implements RealtimeEventHandler.Listener {
     @Override
     public void onAssistantItemAdded(String itemId) {
         try {
-            activity.setLastAssistantItemId(itemId);
-        } catch (Exception ignored) {}
+            viewModel.setLastAssistantItemId(itemId);
+        } catch (Exception ignored) {
+        }
     }
 
     @Override
     public void onResponseBoundary(String newResponseId) {
         try {
-            Log.d(TAG, "Response boundary detected - new ID: " + newResponseId + ", previous ID: " + activity.getCurrentResponseId());
+            Log.d(TAG, "Response boundary detected - new ID: " + newResponseId + ", previous ID: "
+                    + viewModel.getCurrentResponseId());
             if (audioPlayer != null) {
                 audioPlayer.onResponseBoundary();
             }
@@ -230,9 +271,10 @@ public class ChatRealtimeHandler implements RealtimeEventHandler.Listener {
     @Override
     public void onResponseCreated(String responseId) {
         try {
-            activity.setResponseGenerating(true);  // API started generating
+            viewModel.setResponseGenerating(true); // API started generating
             Log.d(TAG, "New response created with ID: " + responseId);
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
     }
 
     @Override
@@ -241,39 +283,66 @@ public class ChatRealtimeHandler implements RealtimeEventHandler.Listener {
         String msg = error != null ? error.optString("message", "An unknown error occurred.") : "";
         Log.e(TAG, "WebSocket Error Received - Code: " + code + ", Message: " + msg);
         activity.runOnUiThread(() -> {
-            activity.addMessage(activity.getString(R.string.server_error_prefix, msg), ChatMessage.Sender.ROBOT);
-            statusTextView.setText(activity.getString(R.string.error_generic, code));
+            viewModel.addMessage(
+                    new ChatMessage(activity.getString(R.string.server_error_prefix, msg), ChatMessage.Sender.ROBOT));
+            viewModel.setStatusText(activity.getString(R.string.error_generic, code));
         });
-        activity.failConnectionPromise("Server returned an error during setup: " + msg);
+        if (sessionController != null) {
+            sessionController.failConnectionPromise("Server returned an error during setup: " + msg);
+        } else {
+            Log.e(TAG, "SessionController null, cannot fail promise explicitly");
+        }
     }
 
     // User audio input events (Realtime API audio mode)
     @Override
     public void onUserSpeechStarted(String itemId) {
         activity.runOnUiThread(() -> {
-            statusTextView.setText(activity.getString(R.string.status_listening));
+            viewModel.setStatusText(activity.getString(R.string.status_listening));
             Log.d(TAG, "User speech started (Realtime API): " + itemId);
+
+            // Add placeholder message to reserve spot in chat history
+            ChatMessage placeholder = new ChatMessage("...", ChatMessage.Sender.USER);
+            placeholder.setItemId(itemId);
+            viewModel.addMessage(placeholder);
         });
     }
 
     @Override
     public void onUserSpeechStopped(String itemId) {
-        activity.runOnUiThread(() -> activity.handleUserSpeechStopped(itemId));
-    }
-
-    @Override
-    public void onUserItemCreated(String itemId, JSONObject item) {
-        Log.d(TAG, "User conversation item created: " + itemId);
+        activity.runOnUiThread(() -> {
+            // Just log or update status if needed
+            Log.d(TAG, "User speech stopped: " + itemId);
+        });
     }
 
     @Override
     public void onUserTranscriptCompleted(String itemId, String transcript) {
-        activity.runOnUiThread(() -> activity.handleUserTranscriptCompleted(itemId, transcript));
+        activity.runOnUiThread(() -> {
+            if (transcript != null && !transcript.isEmpty()) {
+                // Try to update existing placeholder first
+                boolean updated = viewModel.updateMessageByItemId(itemId, transcript);
+
+                // If no placeholder found (e.g. missed event), add new message
+                if (!updated) {
+                    Log.w(TAG, "No placeholder found for item " + itemId + ", adding new message");
+                    ChatMessage msg = new ChatMessage(transcript, ChatMessage.Sender.USER);
+                    msg.setItemId(itemId);
+                    viewModel.addMessage(msg);
+                }
+            }
+        });
     }
 
     @Override
     public void onUserTranscriptFailed(String itemId, JSONObject error) {
-        activity.runOnUiThread(() -> activity.handleUserTranscriptFailed(itemId, error));
+        activity.runOnUiThread(() -> {
+            String msg = error != null ? error.optString("message", "Unknown error") : "Unknown error";
+            Log.w(TAG, "User transcript failed: " + msg);
+
+            // Update placeholder to show error
+            viewModel.updateMessageByItemId(itemId, "(Transcription failed)");
+        });
     }
 
     @Override
@@ -281,4 +350,3 @@ public class ChatRealtimeHandler implements RealtimeEventHandler.Listener {
         Log.w(TAG, "Unknown WebSocket message type: " + type);
     }
 }
-

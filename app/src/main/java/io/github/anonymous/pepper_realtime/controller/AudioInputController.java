@@ -24,11 +24,11 @@ public class AudioInputController {
     private final ApiKeyManager keyManager;
     private final RealtimeSessionManager sessionManager;
     private final ThreadManager threadManager;
-    
+
     // UI components for status updates
     private final TextView statusTextView;
     private final FloatingActionButton fabInterrupt;
-    
+
     // State
     private SpeechRecognizerManager sttManager;
     private RealtimeAudioInputManager realtimeAudioInput;
@@ -39,13 +39,13 @@ public class AudioInputController {
     // Listener for STT events
     private ChatSpeechListener speechListener;
 
-    public AudioInputController(ChatActivity activity, 
-                              SettingsManager settingsManager,
-                              ApiKeyManager keyManager,
-                              RealtimeSessionManager sessionManager,
-                              ThreadManager threadManager,
-                              TextView statusTextView,
-                              FloatingActionButton fabInterrupt) {
+    public AudioInputController(ChatActivity activity,
+            SettingsManager settingsManager,
+            ApiKeyManager keyManager,
+            RealtimeSessionManager sessionManager,
+            ThreadManager threadManager,
+            TextView statusTextView,
+            FloatingActionButton fabInterrupt) {
         this.activity = activity;
         this.settingsManager = settingsManager;
         this.keyManager = keyManager;
@@ -84,7 +84,15 @@ public class AudioInputController {
         });
         Log.i(TAG, "Microphone muted - tap status to un-mute");
     }
-    
+
+    public void resetMuteState() {
+        isMuted = false;
+        activity.runOnUiThread(() -> {
+            fabInterrupt.setVisibility(View.GONE);
+        });
+        Log.i(TAG, "Mute state reset (audio capture not started automatically)");
+    }
+
     public void unmute() {
         isMuted = false;
         activity.runOnUiThread(() -> {
@@ -95,13 +103,20 @@ public class AudioInputController {
             startContinuousRecognition();
         } catch (Exception e) {
             Log.e(TAG, "Failed to start recognition on unmute", e);
-            activity.runOnUiThread(() -> statusTextView.setText(activity.getString(R.string.status_recognizer_not_ready)));
+            activity.runOnUiThread(
+                    () -> statusTextView.setText(activity.getString(R.string.status_recognizer_not_ready)));
         }
         Log.i(TAG, "Microphone un-muted - resuming listening");
     }
 
     public void startContinuousRecognition() {
         if (settingsManager.isUsingRealtimeAudioInput()) {
+            // MUTUAL EXCLUSION: Stop Azure STT if it's running before starting Realtime API
+            if (sttManager != null) {
+                threadManager.executeAudio(() -> cleanupSttForReinit());
+                Log.i(TAG, "Stopped and cleaned up Azure STT to prevent interference with Realtime API audio");
+            }
+
             if (realtimeAudioInput == null) {
                 realtimeAudioInput = new RealtimeAudioInputManager(sessionManager);
                 Log.i(TAG, "Created RealtimeAudioInputManager");
@@ -114,16 +129,25 @@ public class AudioInputController {
                     Log.e(TAG, "Failed to start Realtime API audio capture");
                     activity.runOnUiThread(() -> {
                         statusTextView.setText(activity.getString(R.string.error_audio_capture_failed));
-                        activity.addMessage(activity.getString(R.string.error_audio_capture_permissions), ChatMessage.Sender.ROBOT);
+                        activity.addMessage(activity.getString(R.string.error_audio_capture_permissions),
+                                ChatMessage.Sender.ROBOT);
                     });
                 }
             });
             return;
         }
-        
+
+        // MUTUAL EXCLUSION: Stop Realtime API audio if it's running before starting
+        // Azure STT
+        if (realtimeAudioInput != null && realtimeAudioInput.isCapturing()) {
+            threadManager.executeAudio(() -> realtimeAudioInput.stop());
+            Log.i(TAG, "Stopped Realtime API audio to prevent interference with Azure STT");
+        }
+
         if (sttManager == null) {
             Log.w(TAG, "Speech recognizer not initialized yet, cannot start recognition.");
-            activity.runOnUiThread(() -> statusTextView.setText(activity.getString(R.string.status_recognizer_not_ready)));
+            activity.runOnUiThread(
+                    () -> statusTextView.setText(activity.getString(R.string.status_recognizer_not_ready)));
             return;
         }
         threadManager.executeAudio(() -> sttManager.start());
@@ -187,13 +211,14 @@ public class AudioInputController {
 
     public void setupSpeechRecognizer() throws Exception {
         Log.i(TAG, "Starting STT setup...");
-        
+
         if (!settingsManager.isUsingRealtimeAudioInput()) {
             Log.i(TAG, "Azure Speech mode active - setting up STT...");
             ensureSttManager();
             Log.i(TAG, "Configuring speech recognizer (this will also perform warmup)...");
             configureSpeechRecognizer();
-            Log.i(TAG, "Azure Speech Recognizer setup initiated (warmup in progress, will notify via onReady() callback)");
+            Log.i(TAG,
+                    "Azure Speech Recognizer setup initiated (warmup in progress, will notify via onReady() callback)");
         } else {
             Log.i(TAG, "Realtime API audio mode active - skipping Azure Speech warmup");
         }
@@ -210,11 +235,13 @@ public class AudioInputController {
                 configureSpeechRecognizer();
                 String langCode = settingsManager.getLanguage();
                 int silenceTimeout = settingsManager.getSilenceTimeout();
-                Log.i(TAG, "Azure Speech Recognizer re-initialized for language: " + langCode + ", silence timeout: " + silenceTimeout + "ms");
+                Log.i(TAG, "Azure Speech Recognizer re-initialized for language: " + langCode + ", silence timeout: "
+                        + silenceTimeout + "ms");
                 activity.runOnUiThread(() -> statusTextView.setText(activity.getString(R.string.status_listening)));
             } catch (Exception ex) {
                 Log.e(TAG, "Azure Speech re-init failed", ex);
-                activity.runOnUiThread(() -> statusTextView.setText(activity.getString(R.string.error_updating_settings)));
+                activity.runOnUiThread(
+                        () -> statusTextView.setText(activity.getString(R.string.error_updating_settings)));
             }
         });
     }
@@ -250,7 +277,7 @@ public class AudioInputController {
         String langCode = settingsManager.getLanguage();
         int silenceTimeout = settingsManager.getSilenceTimeout();
         double confidenceThreshold = settingsManager.getConfidenceThreshold();
-        sttManager.configure(keyManager.getAzureSpeechKey(), keyManager.getAzureSpeechRegion(), langCode, silenceTimeout, confidenceThreshold);
+        sttManager.configure(keyManager.getAzureSpeechKey(), keyManager.getAzureSpeechRegion(), langCode,
+                silenceTimeout, confidenceThreshold);
     }
 }
-
