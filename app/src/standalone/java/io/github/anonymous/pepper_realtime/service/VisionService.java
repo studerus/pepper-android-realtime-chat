@@ -83,6 +83,23 @@ public class VisionService {
     }
 
     /**
+     * Pause vision service (stop ongoing analysis)
+     */
+    public void pause() {
+        if (working) {
+            Log.i(TAG, "Vision analysis interrupted by pause");
+            working = false;
+        }
+    }
+    
+    /**
+     * Resume vision service
+     */
+    public void resume() {
+        Log.d(TAG, "VisionService resumed");
+    }
+    
+    /**
      * Check if service is initialized (always true for standalone)
      */
     public boolean isInitialized() {

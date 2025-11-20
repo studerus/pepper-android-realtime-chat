@@ -64,6 +64,21 @@ public class GestureController {
     }
 
     /**
+     * Pause gesture controller (for background transitions)
+     */
+    public void pause() {
+        Log.i(TAG, "🤖 [SIMULATED] GestureController paused");
+        stopNow();
+    }
+    
+    /**
+     * Resume gesture controller (from background)
+     */
+    public void resume() {
+        Log.d(TAG, "🤖 [SIMULATED] GestureController resumed");
+    }
+    
+    /**
      * Shuts down the controller
      */
     public void shutdown() {

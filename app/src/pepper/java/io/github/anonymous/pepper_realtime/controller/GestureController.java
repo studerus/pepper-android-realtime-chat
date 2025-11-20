@@ -18,9 +18,13 @@ public class GestureController {
 
     private static final String TAG = "GestureController";
     private static final int NEXT_DELAY_MS = 350;
-    private final ExecutorService gestureExecutor = Executors.newSingleThreadExecutor();
+    private ExecutorService gestureExecutor;
     private volatile boolean running = false;
     private volatile Future<Void> currentRunFuture = null;
+    
+    public GestureController() {
+        gestureExecutor = Executors.newSingleThreadExecutor();
+    }
 
     public void start(Object robotContext, BoolSupplier keepRunning, IntSupplier nextResId) {
         if (robotContext == null) {
@@ -32,6 +36,13 @@ public class GestureController {
             Log.d(TAG, "GestureController already running, skipping start");
             return;
         }
+        
+        // Recreate executor if it was terminated (e.g., after shutdown)
+        if (gestureExecutor == null || gestureExecutor.isTerminated() || gestureExecutor.isShutdown()) {
+            Log.i(TAG, "Recreating gesture executor (was terminated/shutdown)");
+            gestureExecutor = Executors.newSingleThreadExecutor();
+        }
+        
         running = true;
         Log.i(TAG, "GestureController starting with qiContext: " + (qiContext != null));
         gestureExecutor.submit(() -> {
@@ -127,6 +138,24 @@ public class GestureController {
                 try { f.requestCancellation(); } catch (Exception ignored) {}
             }
         } catch (Exception ignored) {}
+    }
+    
+    /**
+     * Pause gesture controller (stop current gestures)
+     * Called when app goes to background
+     */
+    public void pause() {
+        Log.i(TAG, "GestureController paused");
+        stopNow();
+    }
+    
+    /**
+     * Resume gesture controller
+     * Called when app comes back from background
+     * Note: Gestures will automatically restart when conditions are met
+     */
+    public void resume() {
+        Log.d(TAG, "GestureController resumed (will restart when speaking)");
     }
 
     public void shutdown() {

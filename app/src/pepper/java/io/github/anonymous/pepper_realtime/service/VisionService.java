@@ -310,6 +310,26 @@ public class VisionService {
     }
 
     /**
+     * Pause vision service (stop ongoing analysis)
+     * Called when app goes to background
+     */
+    public void pause() {
+        if (working) {
+            Log.i(TAG, "Vision analysis interrupted by pause");
+            working = false;
+        }
+    }
+    
+    /**
+     * Resume vision service
+     * Called when app comes back from background
+     */
+    public void resume() {
+        // Nothing to do - service is ready when initialized
+        Log.d(TAG, "VisionService resumed");
+    }
+    
+    /**
      * Check if the service is initialized and ready to use
      */
     public boolean isInitialized() {

@@ -68,7 +68,9 @@ public class ChatActivity extends AppCompatActivity {
     
     private boolean wasStoppedByBackground = false;
     private boolean hasFocusInitialized = false;
+    private boolean hadFocusLostSinceInit = false;
     private boolean isWarmingUp = false;
+    private final Object robotLifecycleLock = new Object();
     
     private String lastAssistantItemId = null;
     private final List<String> sessionImagePaths = new ArrayList<>();
@@ -309,18 +311,10 @@ public class ChatActivity extends AppCompatActivity {
     @Override
     protected void onStop() {
         super.onStop();
-        Log.i(TAG, "🔄 Activity stopped (background) - pausing services");
+        Log.i(TAG, "Activity stopped (background) - pausing services");
         wasStoppedByBackground = true;
         
-        appContainer.audioInputController.cleanupForRestart();
-        
-        if (appContainer.audioPlayer != null) {
-            try {
-                appContainer.audioPlayer.interruptNow();
-            } catch (Exception e) {
-                Log.w(TAG, "Error stopping audio playback during background", e);
-            }
-        }
+        pauseActiveServices();
         
         runOnUiThread(() -> {
             if (appContainer.turnManager != null) {
@@ -334,17 +328,8 @@ public class ChatActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         if (wasStoppedByBackground && appContainer.robotFocusManager.isFocusAvailable()) {
-            Log.i(TAG, "🔄 Activity resumed from background - restarting services");
-            wasStoppedByBackground = false;
-            
-            runOnUiThread(() -> {
-                if (appContainer.turnManager != null) {
-                    appContainer.turnManager.setState(TurnManager.State.LISTENING);
-                }
-                statusTextView.setText(getString(R.string.status_listening));
-            });
-            
-            appContainer.audioInputController.handleResume();
+            Log.i(TAG, "Activity resumed from background - restarting services");
+            resumeServicesAfterBackground();
         }
     }
 
@@ -371,33 +356,36 @@ public class ChatActivity extends AppCompatActivity {
     }
     
     private void handleRobotReady(Object robotContext) {
-        if (appContainer.locationProvider != null) {
-            appContainer.locationProvider.refreshLocations(this);
-        }
+        synchronized (robotLifecycleLock) {
+            Log.i(TAG, "handleRobotReady: Acquired lifecycle lock");
+            
+            if (appContainer.locationProvider != null) {
+                appContainer.locationProvider.refreshLocations(this);
+            }
 
-        runOnUiThread(() -> {
-            boolean hasMap = new java.io.File(getFilesDir(), "maps/default_map.map").exists();
-            updateNavigationStatus(
-                getString(hasMap ? R.string.nav_map_saved : R.string.nav_map_none),
-                getString(R.string.nav_localization_not_running)
-            );
-        });
-        
-        appContainer.audioInputController.cleanupSttForReinit();
-        
-        if (appContainer.toolContext != null) appContainer.toolContext.updateQiContext(robotContext);
-        
-        if (appContainer.dashboardManager != null) {
-            appContainer.dashboardManager.initialize(appContainer.perceptionService);
-        }
-        
-        if (appContainer.perceptionService != null) {
-            appContainer.perceptionService.initialize(robotContext);
-        }
-        
-        if (appContainer.visionService != null) {
-            appContainer.visionService.initialize(robotContext);
-        }
+            runOnUiThread(() -> {
+                boolean hasMap = new java.io.File(getFilesDir(), "maps/default_map.map").exists();
+                updateNavigationStatus(
+                    getString(hasMap ? R.string.nav_map_saved : R.string.nav_map_none),
+                    getString(R.string.nav_localization_not_running)
+                );
+            });
+            
+            appContainer.audioInputController.cleanupSttForReinit();
+            
+            if (appContainer.toolContext != null) appContainer.toolContext.updateQiContext(robotContext);
+            
+            if (appContainer.dashboardManager != null) {
+                appContainer.dashboardManager.initialize(appContainer.perceptionService);
+            }
+            
+            if (appContainer.perceptionService != null) {
+                appContainer.perceptionService.initialize(robotContext);
+            }
+            
+            if (appContainer.visionService != null) {
+                appContainer.visionService.initialize(robotContext);
+            }
         
         if (appContainer.touchSensorManager != null) {
             appContainer.touchSensorManager.setListener(new TouchSensorManager.TouchEventListener() {
@@ -416,86 +404,124 @@ public class ChatActivity extends AppCompatActivity {
             appContainer.touchSensorManager.initialize(robotContext);
         }
         
-        if (appContainer.navigationServiceManager != null) {
-            appContainer.navigationServiceManager.setDependencies(appContainer.perceptionService, appContainer.touchSensorManager, appContainer.gestureController);
-        }
+            if (appContainer.navigationServiceManager != null) {
+                appContainer.navigationServiceManager.setDependencies(appContainer.perceptionService, appContainer.touchSensorManager, appContainer.gestureController);
+            }
 
-        if (!hasFocusInitialized) {
-            hasFocusInitialized = true;
-            isWarmingUp = true;
-            lastChatBubbleResponseId = null;
-            applyVolume(appContainer.settingsManager.getVolume());
-            showWarmupIndicator();
+            // Connect WebSocket on first init OR after focus regain
+            boolean needsReconnect = !hasFocusInitialized || hadFocusLostSinceInit;
             
-            Log.i(TAG, "Starting WebSocket connection...");
-            appContainer.sessionController.connectWebSocket(new WebSocketConnectionCallback() {
-                @Override
-                public void onSuccess() {
-                    Log.i(TAG, "WebSocket connected successfully, starting STT warmup...");
-                    appContainer.audioInputController.startWarmup();
-                    appContainer.threadManager.executeAudio(() -> {
-                        try {
-                            appContainer.audioInputController.setupSpeechRecognizer();
-                            if (appContainer.settingsManager.isUsingRealtimeAudioInput()) {
+            if (needsReconnect) {
+                // Clear chat and session state if this is a reconnect after focus lost
+                if (hadFocusLostSinceInit) {
+                    Log.i(TAG, "Reconnecting after focus lost - clearing chat history");
+                    runOnUiThread(this::clearMessages);
+                    deleteSessionImages();
+                    hadFocusLostSinceInit = false;
+                }
+                
+                hasFocusInitialized = true;
+                isWarmingUp = true;
+                lastChatBubbleResponseId = null;
+                applyVolume(appContainer.settingsManager.getVolume());
+                showWarmupIndicator();
+                
+                Log.i(TAG, "Starting WebSocket connection...");
+                appContainer.sessionController.connectWebSocket(new WebSocketConnectionCallback() {
+                    @Override
+                    public void onSuccess() {
+                        Log.i(TAG, "WebSocket connected successfully, starting STT warmup...");
+                        appContainer.audioInputController.startWarmup();
+                        appContainer.threadManager.executeAudio(() -> {
+                            try {
+                                appContainer.audioInputController.setupSpeechRecognizer();
+                                if (appContainer.settingsManager.isUsingRealtimeAudioInput()) {
+                                    runOnUiThread(() -> {
+                                        hideWarmupIndicator();
+                                        isWarmingUp = false;
+                                        statusTextView.setText(getString(R.string.status_listening));
+                                        if (appContainer.turnManager != null) {
+                                            appContainer.turnManager.setState(TurnManager.State.LISTENING);
+                                        }
+                                    });
+                                }
+                            } catch (Exception e) {
+                                Log.e(TAG, "❌ STT setup failed", e);
                                 runOnUiThread(() -> {
                                     hideWarmupIndicator();
                                     isWarmingUp = false;
-                                    statusTextView.setText(getString(R.string.status_listening));
-                                    if (appContainer.turnManager != null) {
-                                        appContainer.turnManager.setState(TurnManager.State.LISTENING);
-                                    }
+                                    addMessage(getString(R.string.warmup_failed_msg), ChatMessage.Sender.ROBOT);
+                                    statusTextView.setText(getString(R.string.ready_sr_lazy_init));
+                                    if (appContainer.turnManager != null) appContainer.turnManager.setState(TurnManager.State.LISTENING);
                                 });
                             }
-                        } catch (Exception e) {
-                            Log.e(TAG, "❌ STT setup failed", e);
-                            runOnUiThread(() -> {
-                                hideWarmupIndicator();
-                                isWarmingUp = false;
-                                addMessage(getString(R.string.warmup_failed_msg), ChatMessage.Sender.ROBOT);
-                                statusTextView.setText(getString(R.string.ready_sr_lazy_init));
-                                if (appContainer.turnManager != null) appContainer.turnManager.setState(TurnManager.State.LISTENING);
-                            });
-                        }
-                    });
-                }
-                @Override
-                public void onError(Throwable error) {
-                    Log.e(TAG, "WebSocket connection failed", error);
-                    hideWarmupIndicator();
-                    isWarmingUp = false;
-                    runOnUiThread(() -> {
-                        addMessage(getString(R.string.setup_error_during, error.getMessage()), ChatMessage.Sender.ROBOT);
-                        statusTextView.setText(getString(R.string.error_connection_failed));
-                    });
-                }
-            });
+                        });
+                    }
+                    @Override
+                    public void onError(Throwable error) {
+                        Log.e(TAG, "WebSocket connection failed", error);
+                        hideWarmupIndicator();
+                        isWarmingUp = false;
+                        runOnUiThread(() -> {
+                            addMessage(getString(R.string.setup_error_during, error.getMessage()), ChatMessage.Sender.ROBOT);
+                            statusTextView.setText(getString(R.string.error_connection_failed));
+                        });
+                    }
+                });
+            }
+            
+            Log.i(TAG, "handleRobotReady: Released lifecycle lock");
         }
     }
 
     private void handleRobotFocusLost() {
-        appContainer.audioInputController.setSttRunning(false);
-        appContainer.audioInputController.cleanupSttForReinit(); // Force stop
-        
-        if (appContainer.toolContext != null) appContainer.toolContext.updateQiContext(null);
-        // We shouldn't shutdown whole appContainer here, just stop services?
-        // Original code called shutdownManagers() which shut down perception, dashboard, touch, nav.
-        if (appContainer.perceptionService != null) appContainer.perceptionService.shutdown();
-        if (appContainer.dashboardManager != null) appContainer.dashboardManager.shutdown();
-        if (appContainer.touchSensorManager != null) appContainer.touchSensorManager.shutdown();
-        if (appContainer.navigationServiceManager != null) appContainer.navigationServiceManager.shutdown();
+        synchronized (robotLifecycleLock) {
+            Log.i(TAG, "handleRobotFocusLost: Acquired lifecycle lock");
+            
+            // Mark that we lost focus after initialization (important for reconnect logic)
+            if (hasFocusInitialized) {
+                hadFocusLostSinceInit = true;
+                Log.i(TAG, "Robot focus lost after initialization - will reconnect on regain");
+            }
+            
+            appContainer.audioInputController.setSttRunning(false);
+            appContainer.audioInputController.cleanupSttForReinit();
+            
+            if (appContainer.toolContext != null) appContainer.toolContext.updateQiContext(null);
+            
+            // Shutdown services only if they are initialized
+            // Note: We don't shutdown GestureController here to keep ExecutorService alive for reconnect
+            if (appContainer.perceptionService != null && appContainer.perceptionService.isInitialized()) {
+                appContainer.perceptionService.shutdown();
+            }
+            if (appContainer.dashboardManager != null) {
+                appContainer.dashboardManager.shutdown();
+            }
+            if (appContainer.touchSensorManager != null) {
+                appContainer.touchSensorManager.shutdown();
+            }
+            if (appContainer.navigationServiceManager != null) {
+                appContainer.navigationServiceManager.shutdown();
+            }
 
-        try {
-            appContainer.gestureController.shutdown();
-        } catch (Exception e) {
-            Log.w(TAG, "Error during GestureController shutdown", e);
+            // Pause gestures but don't shutdown the executor (we need it for reconnect)
+            try {
+                if (appContainer.gestureController != null) {
+                    appContainer.gestureController.stopNow();
+                }
+            } catch (Exception e) {
+                Log.w(TAG, "Error stopping GestureController", e);
+            }
+            
+            runOnUiThread(() -> {
+                statusTextView.setText(getString(R.string.robot_focus_lost_message));
+                boolean hasMap = new java.io.File(getFilesDir(), "maps/default_map.map").exists();
+                updateNavigationStatus(getString(hasMap ? R.string.nav_map_saved : R.string.nav_map_none),
+                                     getString(R.string.nav_localization_stopped));
+            });
+            
+            Log.i(TAG, "handleRobotFocusLost: Released lifecycle lock");
         }
-        
-        runOnUiThread(() -> {
-            statusTextView.setText(getString(R.string.robot_focus_lost_message));
-            boolean hasMap = new java.io.File(getFilesDir(), "maps/default_map.map").exists();
-            updateNavigationStatus(getString(hasMap ? R.string.nav_map_saved : R.string.nav_map_none),
-                                 getString(R.string.nav_localization_stopped));
-        });
     }
     
     private void applyVolume(int percentage) {
@@ -792,5 +818,87 @@ public class ChatActivity extends AppCompatActivity {
     public void setConnectionCallback(WebSocketConnectionCallback callback) {
         this.connectionCallback = callback;
     }
-}
 
+    private void pauseActiveServices() {
+        appContainer.audioInputController.cleanupForRestart();
+
+        if (appContainer.sessionController != null) {
+            appContainer.sessionController.disconnectWebSocketGracefully();
+        }
+
+        if (appContainer.perceptionService != null && appContainer.perceptionService.isInitialized()) {
+            appContainer.perceptionService.stopMonitoring();
+        }
+        
+        if (appContainer.visionService != null && appContainer.visionService.isInitialized()) {
+            appContainer.visionService.pause();
+        }
+
+        if (appContainer.touchSensorManager != null) {
+            appContainer.touchSensorManager.pause();
+        }
+        
+        if (appContainer.gestureController != null) {
+            appContainer.gestureController.pause();
+        }
+
+        if (appContainer.audioPlayer != null) {
+            try {
+                appContainer.audioPlayer.interruptNow();
+            } catch (Exception e) {
+                Log.w(TAG, "Error stopping audio playback during background", e);
+            }
+        }
+    }
+
+    private void resumeServicesAfterBackground() {
+        wasStoppedByBackground = false;
+
+        // Clear chat history to match fresh Realtime API session state
+        runOnUiThread(() -> {
+            clearMessages();
+            if (appContainer.turnManager != null) {
+                appContainer.turnManager.setState(TurnManager.State.LISTENING);
+            }
+            statusTextView.setText(getString(R.string.status_reconnecting));
+        });
+        
+        // Delete session images from previous session
+        deleteSessionImages();
+
+        if (appContainer.perceptionService != null && appContainer.perceptionService.isInitialized()) {
+            appContainer.perceptionService.startMonitoring();
+        }
+        
+        if (appContainer.visionService != null && appContainer.visionService.isInitialized()) {
+            appContainer.visionService.resume();
+        }
+
+        if (appContainer.touchSensorManager != null) {
+            appContainer.touchSensorManager.resume();
+        }
+        
+        if (appContainer.gestureController != null) {
+            appContainer.gestureController.resume();
+        }
+
+        if (appContainer.sessionController != null) {
+            appContainer.sessionController.connectWebSocket(new WebSocketConnectionCallback() {
+                @Override
+                public void onSuccess() {
+                    Log.i(TAG, "WebSocket reconnected after resume - fresh session started");
+                    runOnUiThread(() -> statusTextView.setText(getString(R.string.status_listening)));
+                    appContainer.audioInputController.handleResume();
+                }
+
+                @Override
+                public void onError(Throwable error) {
+                    Log.e(TAG, "Failed to reconnect WebSocket after resume", error);
+                    runOnUiThread(() -> statusTextView.setText(getString(R.string.error_connection_failed_short)));
+                }
+            });
+        } else {
+            appContainer.audioInputController.handleResume();
+        }
+    }
+}

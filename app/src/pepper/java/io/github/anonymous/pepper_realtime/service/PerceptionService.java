@@ -578,11 +578,34 @@ public class PerceptionService {
         stopMonitoring();
         this.qiContext = null;
         this.listener = null;
-        try {
-            if (this.humanAwareness != null) {
-                this.humanAwareness.removeAllOnHumansAroundChangedListeners();
+        
+        // Remove listeners on background thread to avoid NetworkOnMainThreadException
+        // Use monitoring thread if available, otherwise use a temporary thread
+        final com.aldebaran.qi.sdk.object.humanawareness.HumanAwareness humanAwarenessRef = this.humanAwareness;
+        if (humanAwarenessRef != null) {
+            if (monitoringHandler != null && monitoringThread != null && monitoringThread.isAlive()) {
+                // Use existing monitoring thread
+                monitoringHandler.post(() -> {
+                    try {
+                        humanAwarenessRef.removeAllOnHumansAroundChangedListeners();
+                        Log.d(TAG, "HumanAwareness listeners removed successfully");
+                    } catch (Exception e) {
+                        Log.w(TAG, "Failed removing humansAround listeners", e);
+                    }
+                });
+            } else {
+                // Monitoring thread not available, use temporary thread for cleanup
+                new Thread(() -> {
+                    try {
+                        humanAwarenessRef.removeAllOnHumansAroundChangedListeners();
+                        Log.d(TAG, "HumanAwareness listeners removed successfully (temp thread)");
+                    } catch (Exception e) {
+                        Log.w(TAG, "Failed removing humansAround listeners", e);
+                    }
+                }, "PerceptionCleanup").start();
             }
-        } catch (Exception e) { Log.w(TAG, "Failed removing humansAround listeners", e); }
+        }
+        
         this.humanAwareness = null;
         this.actuation = null;
         this.robotFrame = null;
