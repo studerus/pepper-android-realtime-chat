@@ -1029,30 +1029,36 @@ Robot: "Starting memory game! Find matching pairs by flipping two cards."
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                          ChatActivity                                │
-│                     (Main UI & Lifecycle)                            │
+│                          ChatActivity                               │
+│                     (UI View Layer)                                 │
 └──────────────┬──────────────────────────────────────┬───────────────┘
-               │                                       │
-               │                                       │
+               │                                      │
+               ▼                                      ▼
+┌──────────────────────────────┐      ┌───────────────────────────────┐
+│        ChatViewModel         │      │    ChatLifecycleController    │
+│      (State & Logic)         │      │    (Lifecycle & Services)     │
+└──────────────┬───────────────┘      └───────────────┬───────────────┘
+               │                                      │
+               │                                      │
        ┌───────▼────────┐                     ┌───────▼────────┐
        │ RealtimeSession│                     │  RobotLifecycle│
        │    Manager     │                     │     Bridge     │
        │  (WebSocket)   │                     │   (Flavor)     │
        └───────┬────────┘                     └───────┬────────┘
-               │                                       │
-               │                                       │
+               │                                      │
+               │                                      │
        ┌───────▼────────┐                     ┌───────▼────────┐
        │  RealtimeEvent │                     │ RobotController│
        │    Handler     │◄────────────────────┤   (Flavor)     │
        └───────┬────────┘                     └───────┬────────┘
-               │                                       │
-               │                                       │
+               │                                      │
+               │                                      │
        ┌───────▼────────────────────────────────┐     │
        │         ToolRegistry                   │     │
        │  (Dynamic Tool Registration)           │     │
        └───────┬────────────────────────────────┘     │
-               │                                       │
-               │                                       │
+               │                                      │
+               │                                      │
        ┌───────▼────────────────────────────────┐     │
        │         ToolContext                    │     │
        │  (Execution Environment)               │◄────┘
