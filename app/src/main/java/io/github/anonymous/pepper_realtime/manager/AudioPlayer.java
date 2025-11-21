@@ -28,20 +28,22 @@ import java.util.concurrent.locks.LockSupport;
 public class AudioPlayer {
     public interface Listener {
         void onPlaybackStarted();
+
         void onPlaybackFinished();
     }
 
     private static final String TAG = "AudioPlayer";
-    
+
     // Performance-optimized buffer using bounded queue for O(1) operations
-    // Increased to 150 to handle GA API's larger/more frequent audio chunks (~6-7 seconds of audio at 24kHz)
+    // Increased to 150 to handle GA API's larger/more frequent audio chunks (~6-7
+    // seconds of audio at 24kHz)
     private final ArrayBlockingQueue<byte[]> audioBuffer = new ArrayBlockingQueue<>(150);
-    
+
     // Atomic flags for lock-free operations
     private final AtomicBoolean isPlaying = new AtomicBoolean(false);
     private final AtomicBoolean isResponseDone = new AtomicBoolean(false);
     private final AtomicBoolean shouldStop = new AtomicBoolean(false);
-    
+
     private AudioTrack audioTrack;
     private Listener listener;
     private int sampleRateHz = 24000;
@@ -50,27 +52,31 @@ public class AudioPlayer {
 
     // Memory pool for reducing allocations
     private final ByteArrayPool memoryPool = new ByteArrayPool();
-    
+
     // Optimized frame alignment buffer
     private volatile byte[] carryBuffer = null;
     private final AtomicInteger carryLength = new AtomicInteger(0);
-    
+
     // Track frames written for precise drain - using AtomicLong for thread safety
     private final AtomicLong totalFramesWritten = new AtomicLong(0);
     // Track playback head position at response start to calculate relative position
     private volatile int responseStartFrames = 0;
     private Thread playThread = null;
 
-    public AudioPlayer() { 
-        initializeAudioTrack(); 
+    // Completion tracking for event-driven drain
+    private final AtomicBoolean playbackCompleted = new AtomicBoolean(false);
+    private volatile long drainStartTime = 0;
+
+    public AudioPlayer() {
+        initializeAudioTrack();
     }
 
-    public void setListener(Listener listener) { 
-        this.listener = listener; 
+    public void setListener(Listener listener) {
+        this.listener = listener;
     }
-    
-    public boolean isPlaying() { 
-        return isPlaying.get(); 
+
+    public boolean isPlaying() {
+        return isPlaying.get();
     }
 
     public void setSampleRate(int hz) {
@@ -85,12 +91,13 @@ public class AudioPlayer {
      * Optimized chunk addition with memory pooling and contamination prevention
      */
     public void addChunk(byte[] data) {
-        if (data == null || data.length == 0) return;
-        
+        if (data == null || data.length == 0)
+            return;
+
         // Use memory pool to reduce allocations
         byte[] pooled = memoryPool.acquireClean(data.length);
         System.arraycopy(data, 0, pooled, 0, data.length);
-        
+
         // Non-blocking add with fallback
         if (!audioBuffer.offer(pooled)) {
             // Buffer full - drop oldest chunk to maintain real-time performance
@@ -107,13 +114,16 @@ public class AudioPlayer {
      * Optimized playback start with better buffering strategy
      */
     public void startIfNeeded() {
-        if (isPlaying.get()) return;
-        if (!hasSufficientBuffer()) return;
-        
+        if (isPlaying.get())
+            return;
+        if (!hasSufficientBuffer())
+            return;
+
         if (isPlaying.compareAndSet(false, true)) {
             shouldStop.set(false);
-            if (listener != null) listener.onPlaybackStarted();
-            
+            if (listener != null)
+                listener.onPlaybackStarted();
+
             Thread t = new Thread(this::optimizedPlayLoop, "optimized-audio-player");
             t.setPriority(Thread.NORM_PRIORITY + 2); // Higher priority for audio
             playThread = t;
@@ -121,16 +131,19 @@ public class AudioPlayer {
         }
     }
 
-    public void markResponseDone() { 
+    public void markResponseDone() {
         isResponseDone.set(true);
-        // Memory pool cleanup moved to final cleanup() to prevent 
+        // Memory pool cleanup moved to final cleanup() to prevent
         // contamination during overlapping responses
         // Reset carry buffer to avoid cross-response merge (e.g., repeated syllables)
         resetCarryBuffer();
+        // Reset drain timing to prevent stale logs
+        drainStartTime = 0;
     }
 
     /**
-     * Called when a new response_id begins streaming. Prevents cross-response merging
+     * Called when a new response_id begins streaming. Prevents cross-response
+     * merging
      * by clearing any partial-frame carry from the previous response.
      */
     public void onResponseBoundary() {
@@ -143,11 +156,15 @@ public class AudioPlayer {
         } catch (Exception e) {
             responseStartFrames = 0; // Fallback if AudioTrack not ready
         }
+        // Reset drain timing to prevent stale logs from previous response
+        drainStartTime = 0;
+        playbackCompleted.set(false);
     }
 
     public int getEstimatedPlaybackPositionMs() {
         try {
-            if (audioTrack == null) return 0;
+            if (audioTrack == null)
+                return 0;
             int currentFrames = audioTrack.getPlaybackHeadPosition();
             // Calculate relative position since this response started
             int relativeFrames = Math.max(0, currentFrames - responseStartFrames);
@@ -165,30 +182,42 @@ public class AudioPlayer {
         try {
             shouldStop.set(true);
             isResponseDone.set(true);
-            
+
             // Clean audio buffer and return buffers to pool
             cleanupAudioBuffer();
             resetCarryBuffer();
-            
+
             // Clean memory pool to prevent contamination
             memoryPool.cleanupBetweenResponses();
-            
+
             if (audioTrack != null && audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING) {
-                try { audioTrack.pause(); } catch (Exception ignored) {}
-                try { audioTrack.flush(); } catch (Exception ignored) {}
-                try { audioTrack.stop(); } catch (Exception ignored) {}
+                try {
+                    audioTrack.pause();
+                } catch (Exception ignored) {
+                }
+                try {
+                    audioTrack.flush();
+                } catch (Exception ignored) {
+                }
+                try {
+                    audioTrack.stop();
+                } catch (Exception ignored) {
+                }
             }
-            
+
             // Extended thread join for proper cleanup
             Thread t = playThread;
             if (t != null && t != Thread.currentThread()) {
-                try { t.join(200); } catch (InterruptedException ie) { 
-                    Thread.currentThread().interrupt(); 
+                try {
+                    t.join(200);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
                 }
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
     }
-    
+
     /**
      * Clean audio buffer and return all buffers to pool
      */
@@ -204,33 +233,38 @@ public class AudioPlayer {
             shouldStop.set(true);
             if (audioTrack != null) {
                 if (audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING) {
-                    try { audioTrack.stop(); } catch (Exception ignored) {}
+                    try {
+                        audioTrack.stop();
+                    } catch (Exception ignored) {
+                    }
                 }
                 audioTrack.release();
                 audioTrack = null;
             }
             // Clean up memory pool
             memoryPool.cleanup();
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
     }
 
     private void initializeAudioTrack() {
         try {
-            int internalBufferMs = 200; // Reduced for lower latency (was 300ms for GA API compatibility)
+            int internalBufferMs = 100; // Reduced from 200ms for lower completion latency
             int channelConfig = AudioFormat.CHANNEL_OUT_MONO;
             int audioFormat = AudioFormat.ENCODING_PCM_16BIT;
             int minBuf = AudioTrack.getMinBufferSize(sampleRateHz, channelConfig, audioFormat);
-            int bufferSize = Math.max(minBuf, (int)(sampleRateHz * bytesPerSample * channels * (internalBufferMs / 1000.0)));
-            
+            int bufferSize = Math.max(minBuf,
+                    (int) (sampleRateHz * bytesPerSample * channels * (internalBufferMs / 1000.0)));
+
             // Build audio attributes with conditional low latency flag (API 24+)
             AudioAttributes.Builder attributesBuilder = new AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_MEDIA)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH);
-            
+
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 attributesBuilder.setFlags(AudioAttributes.FLAG_LOW_LATENCY);
             }
-            
+
             audioTrack = new AudioTrack(
                     attributesBuilder.build(),
                     new AudioFormat.Builder()
@@ -241,14 +275,37 @@ public class AudioPlayer {
                     bufferSize,
                     AudioTrack.MODE_STREAM,
                     AudioManager.AUDIO_SESSION_ID_GENERATE);
-                    
-            Log.i(TAG, "Optimized AudioTrack initialized. rate=" + sampleRateHz + "Hz, buf=" + bufferSize);
+
+            // Set up completion callback for event-driven drain
+            setupPlaybackCompletionListener();
+
+            Log.i(TAG, "Optimized AudioTrack initialized. rate=" + sampleRateHz + "Hz, buf=" + bufferSize + "ms="
+                    + internalBufferMs);
             resetCarryBuffer();
             totalFramesWritten.set(0);
             responseStartFrames = 0;
         } catch (Exception e) {
             Log.e(TAG, "Failed to initialize AudioTrack", e);
         }
+    }
+
+    private void setupPlaybackCompletionListener() {
+        if (audioTrack == null)
+            return;
+
+        audioTrack.setPlaybackPositionUpdateListener(new AudioTrack.OnPlaybackPositionUpdateListener() {
+            @Override
+            public void onMarkerReached(AudioTrack track) {
+                long drainDuration = System.currentTimeMillis() - drainStartTime;
+                Log.d(TAG, "Playback marker reached - drain took " + drainDuration + "ms");
+                playbackCompleted.set(true);
+            }
+
+            @Override
+            public void onPeriodicNotification(AudioTrack track) {
+                // Not used
+            }
+        });
     }
 
     private boolean hasSufficientBuffer() {
@@ -262,36 +319,38 @@ public class AudioPlayer {
      */
     private void optimizedPlayLoop() {
         Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO);
-        
+
         if (audioTrack == null || audioTrack.getState() != AudioTrack.STATE_INITIALIZED) {
             Log.e(TAG, "AudioTrack not ready.");
             isPlaying.set(false);
             return;
         }
-        
+
         try {
             audioTrack.play();
             int frameBytes = frameBytes10ms();
-            if (frameBytes <= 0) frameBytes = 480; // safety for 24kHz mono pcm16
-            
+            if (frameBytes <= 0)
+                frameBytes = 480; // safety for 24kHz mono pcm16
+
             while (!shouldStop.get()) {
                 byte[] data = audioBuffer.poll(); // O(1) operation
-                
+
                 if (data != null) {
                     processAudioChunk(data, frameBytes);
                     memoryPool.release(data); // Return to pool
                 } else {
-                    if (isResponseDone.get()) break;
-                    
+                    if (isResponseDone.get())
+                        break;
+
                     // More efficient waiting using LockSupport
                     LockSupport.parkNanos(5_000_000); // 5ms in nanoseconds
                 }
             }
-            
+
             // Process any remaining carry buffer
             flushCarryBuffer();
             drainAudioTrack();
-            
+
         } catch (Exception e) {
             Log.e(TAG, "Optimized playback error", e);
         } finally {
@@ -307,7 +366,7 @@ public class AudioPlayer {
         boolean needsRelease = (toWrite != data); // If combined, we need to release it
         int len = toWrite.length;
         int offset = 0;
-        
+
         // Write in aligned frames for optimal performance
         while (len - offset >= frameBytes && !shouldStop.get()) {
             int written = audioTrack.write(toWrite, offset, frameBytes, AudioTrack.WRITE_BLOCKING);
@@ -316,13 +375,13 @@ public class AudioPlayer {
                 LockSupport.parkNanos(2_000_000); // 2ms
             } else {
                 offset += written;
-                totalFramesWritten.addAndGet(written / (long)(bytesPerSample * channels));
+                totalFramesWritten.addAndGet(written / (long) (bytesPerSample * channels));
             }
         }
-        
+
         // Handle remaining bytes efficiently
         updateCarryBuffer(toWrite, offset, len);
-        
+
         // Release combined buffer back to pool if it was created
         if (needsRelease) {
             memoryPool.release(toWrite);
@@ -337,11 +396,11 @@ public class AudioPlayer {
         if (carryLen == 0) {
             return data;
         }
-        
+
         byte[] combined = memoryPool.acquireClean(carryLen + data.length);
         System.arraycopy(carryBuffer, 0, combined, 0, carryLen);
         System.arraycopy(data, 0, combined, carryLen, data.length);
-        
+
         return combined;
     }
 
@@ -367,7 +426,7 @@ public class AudioPlayer {
         if (carryLen > 0 && carryBuffer != null && !shouldStop.get()) {
             int written = audioTrack.write(carryBuffer, 0, carryLen, AudioTrack.WRITE_BLOCKING);
             if (written > 0) {
-                totalFramesWritten.addAndGet(written / (long)(bytesPerSample * channels));
+                totalFramesWritten.addAndGet(written / (long) (bytesPerSample * channels));
             }
             resetCarryBuffer();
         }
@@ -376,21 +435,32 @@ public class AudioPlayer {
     private void drainAudioTrack() {
         try {
             long totalFrames = totalFramesWritten.get();
-            int targetFrames = (totalFrames > Integer.MAX_VALUE) ? 
-                Integer.MAX_VALUE : (int) totalFrames;
+            int targetFrames = (totalFrames > Integer.MAX_VALUE) ? Integer.MAX_VALUE : (int) totalFrames;
+
+            drainStartTime = System.currentTimeMillis();
+            playbackCompleted.set(false);
+
+            // Set notification marker for event-driven completion
+            if (audioTrack != null && targetFrames > 0) {
+                audioTrack.setNotificationMarkerPosition(targetFrames);
+                Log.d(TAG, "Set playback marker at frame " + targetFrames);
+            }
+
+            // Wait for completion callback with timeout
             long startWait = System.nanoTime();
-            
-            while (audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING
-                    && audioTrack.getPlaybackHeadPosition() < targetFrames
-                    && !shouldStop.get()) {
-                LockSupport.parkNanos(5_000_000); // 5ms
-                
+            while (!playbackCompleted.get() && !shouldStop.get()) {
+                LockSupport.parkNanos(2_000_000); // 2ms - just for timeout check
+
                 // Safety timeout
                 if ((System.nanoTime() - startWait) > 1_500_000_000L) { // 1.5 seconds
+                    Log.w(TAG, "Drain timeout - forcing completion");
                     break;
                 }
             }
+
             audioTrack.stop();
+            long totalDrainTime = System.currentTimeMillis() - drainStartTime;
+            Log.d(TAG, "Total drain time: " + totalDrainTime + "ms");
         } catch (Exception e) {
             Log.w(TAG, "Drain wait interrupted", e);
         }
@@ -399,15 +469,15 @@ public class AudioPlayer {
     private void cleanup() {
         isPlaying.set(false);
         isResponseDone.set(false);
-        
+
         // Properly clean audio buffer and return to pool
         cleanupAudioBuffer();
         resetCarryBuffer();
         totalFramesWritten.set(0);
-        
+
         // Clean memory pool between responses
         memoryPool.cleanupBetweenResponses();
-        
+
         if (listener != null) {
             listener.onPlaybackFinished();
         }
@@ -423,12 +493,13 @@ public class AudioPlayer {
      */
     private static class ByteArrayPool {
         private final ArrayBlockingQueue<byte[]> pool = new ArrayBlockingQueue<>(50);
-        
+
         /**
          * Acquire a buffer and ensure it's clean (all zeros)
          */
         byte[] acquireClean(int size) {
-            // Always return an array with EXACT length 'size' to avoid writing stale tail bytes
+            // Always return an array with EXACT length 'size' to avoid writing stale tail
+            // bytes
             byte[] array = pool.poll();
             if (array == null || array.length != size) {
                 return new byte[size];
@@ -436,15 +507,17 @@ public class AudioPlayer {
             java.util.Arrays.fill(array, (byte) 0);
             return array;
         }
-        
+
         void release(byte[] array) {
-            if (array == null) return;
-            // Only pool arrays of common sizes to improve reuse while avoiding size mismatches
+            if (array == null)
+                return;
+            // Only pool arrays of common sizes to improve reuse while avoiding size
+            // mismatches
             if (array.length >= 256) {
                 pool.offer(array);
             }
         }
-        
+
         /**
          * Clean up pool between responses to prevent audio contamination
          */
@@ -457,7 +530,7 @@ public class AudioPlayer {
             }
             Log.d(TAG, "Memory pool cleaned between responses");
         }
-        
+
         void cleanup() {
             cleanupBetweenResponses();
         }
