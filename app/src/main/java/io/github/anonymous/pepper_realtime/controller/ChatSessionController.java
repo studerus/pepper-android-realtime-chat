@@ -20,7 +20,7 @@ import io.github.anonymous.pepper_realtime.ui.ChatMenuController;
 import io.github.anonymous.pepper_realtime.ui.ChatMessage;
 import io.github.anonymous.pepper_realtime.ui.ChatViewModel;
 import io.github.anonymous.pepper_realtime.manager.AudioPlayer;
-import io.github.anonymous.pepper_realtime.manager.AppContainer;
+import io.github.anonymous.pepper_realtime.manager.SessionImageManager;
 
 public class ChatSessionController {
     private static final String TAG = "ChatSessionController";
@@ -37,7 +37,7 @@ public class ChatSessionController {
     private final ChatInterruptController interruptController;
     private final AudioPlayer audioPlayer;
     private final RealtimeEventHandler eventHandler;
-    private final AppContainer appContainer;
+    private final SessionImageManager sessionImageManager;
     private WebSocketConnectionCallback connectionCallback;
 
     public ChatSessionController(ChatActivity activity,
@@ -52,7 +52,7 @@ public class ChatSessionController {
             ChatInterruptController interruptController,
             AudioPlayer audioPlayer,
             RealtimeEventHandler eventHandler,
-            AppContainer appContainer) {
+            SessionImageManager sessionImageManager) {
         this.activity = activity;
         this.viewModel = viewModel;
         this.sessionManager = sessionManager;
@@ -66,7 +66,7 @@ public class ChatSessionController {
         this.interruptController = interruptController;
         this.audioPlayer = audioPlayer;
         this.eventHandler = eventHandler;
-        this.appContainer = appContainer;
+        this.sessionImageManager = sessionImageManager;
 
         setupSessionManagerListeners();
         setupAudioPlayerListener();
@@ -189,7 +189,7 @@ public class ChatSessionController {
         });
 
         threadManager.executeNetwork(() -> {
-            threadManager.executeIO(() -> this.appContainer.sessionImageManager.deleteAllImages());
+            threadManager.executeIO(() -> this.sessionImageManager.deleteAllImages());
             audioInputController.cleanupForRestart();
             gestureController.stopNow();
             if (turnManager != null) {

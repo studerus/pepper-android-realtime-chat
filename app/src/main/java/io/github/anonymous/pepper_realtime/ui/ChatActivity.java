@@ -1,7 +1,6 @@
 package io.github.anonymous.pepper_realtime.ui;
 
 import android.Manifest;
-import io.github.anonymous.pepper_realtime.manager.PermissionManager;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.util.Log;
@@ -10,57 +9,92 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.TextView;
 import android.widget.LinearLayout;
+import android.widget.FrameLayout;
 import androidx.annotation.NonNull;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.recyclerview.widget.LinearLayoutManager;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.appbar.MaterialToolbar;
-import org.json.JSONObject;
+import com.google.android.material.navigation.NavigationView;
 
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.io.File;
 import java.util.List;
-import java.util.Map;
 
-import android.media.AudioManager;
-import android.content.Context;
-import android.view.Window;
-import android.annotation.SuppressLint;
+import javax.inject.Inject;
+import dagger.hilt.android.AndroidEntryPoint;
 
-import io.github.anonymous.pepper_realtime.R;
-import io.github.anonymous.pepper_realtime.controller.RobotFocusManager;
-import io.github.anonymous.pepper_realtime.manager.AppContainer;
-import io.github.anonymous.pepper_realtime.manager.AudioPlayer;
-import io.github.anonymous.pepper_realtime.manager.SettingsManager;
-import io.github.anonymous.pepper_realtime.manager.TurnManager;
-import io.github.anonymous.pepper_realtime.network.RealtimeSessionManager;
-import io.github.anonymous.pepper_realtime.network.WebSocketConnectionCallback;
-import io.github.anonymous.pepper_realtime.robot.RobotController;
-import io.github.anonymous.pepper_realtime.manager.NavigationServiceManager;
-import io.github.anonymous.pepper_realtime.manager.TouchSensorManager;
-import io.github.anonymous.pepper_realtime.controller.GestureController;
-import io.github.anonymous.pepper_realtime.service.PerceptionService;
-import io.github.anonymous.pepper_realtime.ui.ChatMessage;
 import androidx.lifecycle.ViewModelProvider;
 
-import okhttp3.Response;
-import okio.ByteString;
+import io.github.anonymous.pepper_realtime.R;
+import io.github.anonymous.pepper_realtime.controller.*;
+import io.github.anonymous.pepper_realtime.manager.*;
+import io.github.anonymous.pepper_realtime.network.*;
+import io.github.anonymous.pepper_realtime.robot.RobotController;
+import io.github.anonymous.pepper_realtime.service.*;
+import io.github.anonymous.pepper_realtime.tools.*;
+import io.github.anonymous.pepper_realtime.data.LocationProvider;
 
+@AndroidEntryPoint
 public class ChatActivity extends AppCompatActivity {
 
     private static final String TAG = "ChatActivity";
+
+    // Injected Dependencies
+    @Inject
+    ApiKeyManager keyManager;
+    @Inject
+    PermissionManager permissionManager;
+    @Inject
+    SessionImageManager sessionImageManager;
+    @Inject
+    LocationProvider locationProvider;
+    @Inject
+    RealtimeSessionManager sessionManager;
+    @Inject
+    GestureController gestureController;
+    @Inject
+    AudioPlayer audioPlayer;
+    @Inject
+    ThreadManager threadManager;
+    @Inject
+    ToolRegistry toolRegistry;
+    @Inject
+    PerceptionService perceptionService;
+    @Inject
+    VisionService visionService;
+    @Inject
+    TouchSensorManager touchSensorManager;
+    @Inject
+    MovementController movementController;
+    @Inject
+    NavigationServiceManager navigationServiceManager;
 
     // UI Components
     private TextView statusTextView;
     private LinearLayout warmupIndicatorLayout;
     private FloatingActionButton fabInterrupt;
 
-    // App Container
-    private AppContainer appContainer;
+    // Controllers & Managers (Initialized in onCreate)
+    private MapUiManager mapUiManager;
+    private ChatMessageAdapter chatAdapter;
+    private SettingsManager settingsManager;
+    private AudioInputController audioInputController;
+    private ChatMenuController chatMenuController;
+    private RobotFocusManager robotFocusManager;
+    private TurnManager turnManager;
+    private ChatInterruptController interruptController;
+    private DashboardManager dashboardManager;
+    private ToolContext toolContext;
+    private ChatSessionController sessionController;
+    private ChatUiHelper uiHelper;
+    private RealtimeEventHandler eventHandler;
+    private AudioVolumeController volumeController;
+    private ChatLifecycleController lifecycleController;
 
     // ViewModel
     private ChatViewModel viewModel;
@@ -68,7 +102,8 @@ public class ChatActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        supportRequestWindowFeature(Window.FEATURE_NO_TITLE);
+        // supportRequestWindowFeature(Window.FEATURE_NO_TITLE); // Not needed with
+        // AppCompat theme usually
         setContentView(R.layout.activity_chat);
 
         // Initialize UI references
@@ -95,9 +130,8 @@ public class ChatActivity extends AppCompatActivity {
         });
 
         viewModel.getMessageList().observe(this, messages -> {
-            if (appContainer != null && appContainer.chatAdapter != null) {
-                appContainer.chatAdapter.setMessages(messages);
-                // Auto-scroll to bottom on new messages
+            if (chatAdapter != null) {
+                chatAdapter.setMessages(messages);
                 if (!messages.isEmpty()) {
                     RecyclerView chatRecyclerView = findViewById(R.id.chatRecyclerView);
                     if (chatRecyclerView != null) {
@@ -108,37 +142,144 @@ public class ChatActivity extends AppCompatActivity {
         });
 
         viewModel.getMapStatus().observe(this, status -> {
-            if (appContainer != null && appContainer.mapUiManager != null) {
-                appContainer.mapUiManager.updateMapStatus(status);
+            if (mapUiManager != null) {
+                mapUiManager.updateMapStatus(status);
             }
         });
 
         viewModel.getLocalizationStatus().observe(this, status -> {
-            if (appContainer != null && appContainer.mapUiManager != null) {
-                appContainer.mapUiManager.updateLocalizationStatus(status);
+            if (mapUiManager != null) {
+                mapUiManager.updateLocalizationStatus(status);
             }
         });
 
-        // Initialize AppContainer (creates all managers and controllers)
-        appContainer = new AppContainer(this, viewModel);
+        initializeControllers();
 
-        // Setup Listeners using AppContainer components
+        // Setup Listeners
         setupSettingsListener();
-
         setupUiListeners();
-
         setupPermissionCallback();
 
         // Register Robot Lifecycle
-        appContainer.robotFocusManager.register();
+        robotFocusManager.register();
 
         // Request Permissions
-        appContainer.permissionManager.checkAndRequestPermissions(this);
+        permissionManager.checkAndRequestPermissions(this);
+    }
 
+    private void initializeControllers() {
+        Log.i(TAG, "Initializing Controllers...");
+
+        // Map UI Manager
+        TextView mapStatusTextView = findViewById(R.id.mapStatusTextView);
+        TextView localizationStatusTextView = findViewById(R.id.localizationStatusTextView);
+        FrameLayout mapPreviewContainer = findViewById(R.id.map_preview_container);
+        io.github.anonymous.pepper_realtime.ui.MapPreviewView mapPreviewView = findViewById(R.id.map_preview_view);
+        DrawerLayout drawerLayout = findViewById(R.id.drawer_layout);
+        MaterialToolbar topAppBar = findViewById(R.id.topAppBar);
+
+        this.mapUiManager = new MapUiManager(this, mapStatusTextView, localizationStatusTextView,
+                mapPreviewContainer, mapPreviewView, drawerLayout, topAppBar);
+
+        // Chat Adapter
+        this.chatAdapter = new ChatMessageAdapter(viewModel.getMessageList().getValue());
+        RecyclerView chatRecyclerView = findViewById(R.id.chatRecyclerView);
+        LinearLayoutManager layoutManager = new LinearLayoutManager(this);
+        chatRecyclerView.setLayoutManager(layoutManager);
+        chatRecyclerView.setAdapter(chatAdapter);
+
+        // Settings Manager
+        NavigationView navigationView = findViewById(R.id.navigation_view);
+        this.settingsManager = new SettingsManager(this, navigationView);
+
+        // Dashboard Manager
+        View dashboardOverlay = findViewById(R.id.dashboard_overlay);
+        if (dashboardOverlay != null) {
+            this.dashboardManager = new DashboardManager(this, dashboardOverlay);
+            this.dashboardManager.initialize(perceptionService);
+        }
+
+        // Chat Menu Controller
+        this.chatMenuController = new ChatMenuController(this, drawerLayout, mapUiManager,
+                dashboardManager, settingsManager);
+        this.chatMenuController.setupSettingsMenu();
+
+        // Robot Focus Manager
+        // Note: ChatRobotLifecycleHandler needs to be updated to take ChatActivity
+        ChatRobotLifecycleHandler lifecycleHandler = new ChatRobotLifecycleHandler(this, viewModel);
+        this.robotFocusManager = new RobotFocusManager(this);
+        this.robotFocusManager.setListener(lifecycleHandler);
+
+        // Audio Input Controller
+        this.audioInputController = new AudioInputController(this, settingsManager, keyManager, sessionManager,
+                threadManager, statusTextView, fabInterrupt);
+
+        // Turn Manager
+        this.turnManager = new TurnManager(null);
+        ChatTurnListener turnListener = new ChatTurnListener(this,
+                statusTextView,
+                fabInterrupt,
+                gestureController,
+                audioInputController,
+                robotFocusManager,
+                navigationServiceManager,
+                turnManager);
+        turnManager.setListener(turnListener);
+
+        // Interrupt Controller
+        this.interruptController = new ChatInterruptController(viewModel, sessionManager, audioPlayer,
+                gestureController, audioInputController);
+
+        // Realtime Event Handler
+        ChatRealtimeHandler realtimeHandler = new ChatRealtimeHandler(this, viewModel, audioPlayer, turnManager,
+                threadManager, toolRegistry,
+                null); // toolContext set later
+        this.eventHandler = new RealtimeEventHandler(realtimeHandler);
+
+        // Session Controller
+        this.sessionController = new ChatSessionController(this, viewModel, sessionManager, settingsManager,
+                keyManager, audioInputController, threadManager, gestureController, turnManager, interruptController,
+                audioPlayer, eventHandler, sessionImageManager);
+
+        // Tool Context
+        this.toolContext = new ToolContext(this, robotFocusManager, keyManager, movementController,
+                navigationServiceManager, perceptionService, dashboardManager, touchSensorManager,
+                gestureController, locationProvider, sessionController);
+
+        realtimeHandler.setToolContext(toolContext);
+        realtimeHandler.setSessionController(sessionController);
+
+        // Speech Listener
+        ChatSpeechListener speechListener = new ChatSpeechListener(this, turnManager, statusTextView,
+                audioInputController.getSttWarmupStartTime(), sessionController, audioInputController, viewModel);
+        audioInputController.setSpeechListener(speechListener);
+
+        // UI Helper
+        this.uiHelper = new ChatUiHelper(this, viewModel);
+
+        // Session Dependencies
+        this.sessionManager.setSessionDependencies(toolRegistry, toolContext, settingsManager, keyManager);
+
+        // Volume Controller
+        this.volumeController = new AudioVolumeController();
+
+        // Lifecycle Controller
+        this.lifecycleController = new ChatLifecycleController(
+                this,
+                viewModel,
+                audioInputController,
+                sessionController,
+                perceptionService,
+                visionService,
+                touchSensorManager,
+                gestureController,
+                audioPlayer,
+                turnManager,
+                sessionImageManager);
     }
 
     private void setupPermissionCallback() {
-        appContainer.permissionManager.setCallback(new PermissionManager.PermissionCallback() {
+        permissionManager.setCallback(new PermissionManager.PermissionCallback() {
             @Override
             public void onMicrophoneGranted() {
                 Log.i(TAG, "Microphone permission granted");
@@ -162,32 +303,32 @@ public class ChatActivity extends AppCompatActivity {
     }
 
     private void setupSettingsListener() {
-        appContainer.settingsManager.setListener(new SettingsManager.SettingsListener() {
+        settingsManager.setListener(new SettingsManager.SettingsListener() {
             @Override
             public void onSettingsChanged() {
                 Log.i(TAG, "Core settings changed. Starting new session.");
-                appContainer.sessionController.startNewSession();
+                sessionController.startNewSession();
             }
 
             @Override
             public void onRecognizerSettingsChanged() {
                 Log.i(TAG, "Recognizer settings changed. Re-initializing speech recognizer.");
                 runOnUiThread(() -> viewModel.setStatusText(getString(R.string.status_updating_recognizer)));
-                appContainer.audioInputController.stopContinuousRecognition();
-                appContainer.audioInputController.reinitializeSpeechRecognizerForSettings();
-                appContainer.audioInputController.startContinuousRecognition();
+                audioInputController.stopContinuousRecognition();
+                audioInputController.reinitializeSpeechRecognizerForSettings();
+                audioInputController.startContinuousRecognition();
             }
 
             @Override
             public void onVolumeChanged(int volume) {
-                appContainer.volumeController.setVolume(ChatActivity.this, volume);
+                volumeController.setVolume(ChatActivity.this, volume);
             }
 
             @Override
             public void onToolsChanged() {
                 Log.i(TAG, "Tools/prompt/temperature changed. Updating session.");
-                if (appContainer.sessionManager != null) {
-                    appContainer.sessionManager.updateSession();
+                if (sessionManager != null) {
+                    sessionManager.updateSession();
                 }
             }
         });
@@ -196,9 +337,9 @@ public class ChatActivity extends AppCompatActivity {
     private void setupUiListeners() {
         fabInterrupt.setOnClickListener(v -> {
             try {
-                appContainer.interruptController.interruptSpeech();
-                if (appContainer.turnManager != null)
-                    appContainer.turnManager.setState(TurnManager.State.LISTENING);
+                interruptController.interruptSpeech();
+                if (turnManager != null)
+                    turnManager.setState(TurnManager.State.LISTENING);
             } catch (Exception e) {
                 Log.e(TAG, "Interrupt failed", e);
             }
@@ -206,17 +347,17 @@ public class ChatActivity extends AppCompatActivity {
 
         statusTextView.setOnClickListener(v -> {
             try {
-                if (appContainer.turnManager == null)
+                if (turnManager == null)
                     return;
-                TurnManager.State currentState = appContainer.turnManager.getState();
+                TurnManager.State currentState = turnManager.getState();
 
                 if (currentState == TurnManager.State.SPEAKING) {
                     if (Boolean.TRUE.equals(viewModel.getIsResponseGenerating().getValue())
                             || Boolean.TRUE.equals(viewModel.getIsAudioPlaying().getValue())
-                            || (appContainer.audioPlayer != null && appContainer.audioPlayer.isPlaying())) {
-                        appContainer.interruptController.interruptAndMute();
+                            || (audioPlayer != null && audioPlayer.isPlaying())) {
+                        interruptController.interruptAndMute();
                     }
-                } else if (appContainer.audioInputController.isMuted()) {
+                } else if (audioInputController.isMuted()) {
                     unmute();
                 } else if (currentState == TurnManager.State.LISTENING) {
                     mute();
@@ -226,8 +367,7 @@ public class ChatActivity extends AppCompatActivity {
             }
         });
 
-        // Wire up menu controller listener
-        appContainer.chatMenuController.setListener(() -> appContainer.sessionController.startNewSession());
+        chatMenuController.setListener(() -> sessionController.startNewSession());
     }
 
     @Override
@@ -238,40 +378,78 @@ public class ChatActivity extends AppCompatActivity {
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        return appContainer.chatMenuController.onCreateOptionsMenu(menu, getMenuInflater());
+        return chatMenuController.onCreateOptionsMenu(menu, getMenuInflater());
     }
 
     @Override
     public boolean onPrepareOptionsMenu(Menu menu) {
-        return appContainer.chatMenuController.onPrepareOptionsMenu(menu);
+        return chatMenuController.onPrepareOptionsMenu(menu);
     }
 
     @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         if (item.getItemId() == R.id.action_new_chat) {
-            appContainer.sessionController.startNewSession();
+            sessionController.startNewSession();
             return true;
         }
-        return appContainer.chatMenuController.onOptionsItemSelected(item) || super.onOptionsItemSelected(item);
+        return chatMenuController.onOptionsItemSelected(item) || super.onOptionsItemSelected(item);
     }
 
     @Override
     protected void onStop() {
         super.onStop();
-        appContainer.lifecycleController.onStop();
+        lifecycleController.onStop();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        appContainer.lifecycleController.onResume(appContainer.robotFocusManager);
+        lifecycleController.onResume(robotFocusManager);
     }
 
     @Override
     protected void onDestroy() {
-        appContainer.shutdown();
-        appContainer.sessionImageManager.deleteAllImages();
+        shutdown();
+        sessionImageManager.deleteAllImages();
         super.onDestroy();
+    }
+
+    private void shutdown() {
+        if (audioInputController != null)
+            audioInputController.shutdown();
+        if (threadManager != null)
+            threadManager.shutdown();
+
+        if (audioPlayer != null)
+            audioPlayer.setListener(null);
+        if (sessionManager != null)
+            sessionManager.setListener(null);
+        if (settingsManager != null)
+            settingsManager.setListener(null);
+        if (toolContext != null)
+            toolContext.updateQiContext(null);
+
+        if (perceptionService != null)
+            perceptionService.shutdown();
+        if (dashboardManager != null)
+            dashboardManager.shutdown();
+        if (touchSensorManager != null)
+            touchSensorManager.shutdown();
+        if (navigationServiceManager != null)
+            navigationServiceManager.shutdown();
+
+        if (sessionController != null)
+            sessionController.disconnectWebSocket();
+        if (audioPlayer != null)
+            audioPlayer.release();
+        try {
+            if (gestureController != null)
+                gestureController.shutdown();
+        } catch (Exception ignored) {
+        }
+
+        if (robotFocusManager != null)
+            robotFocusManager.unregister();
     }
 
     public void updateNavigationStatus(String mapStatus, String localizationStatus) {
@@ -280,57 +458,105 @@ public class ChatActivity extends AppCompatActivity {
     }
 
     public void updateMapPreview() {
-        appContainer.mapUiManager.updateMapPreview(appContainer.navigationServiceManager,
-                appContainer.locationProvider);
+        mapUiManager.updateMapPreview(navigationServiceManager, locationProvider);
     }
 
+    // Getters for Controllers/Services
     public NavigationServiceManager getNavigationServiceManager() {
-        return appContainer.navigationServiceManager;
+        return navigationServiceManager;
     }
 
     public PerceptionService getPerceptionService() {
-        return appContainer.perceptionService;
+        return perceptionService;
     }
 
     public GestureController getGestureController() {
-        return appContainer.gestureController;
+        return gestureController;
     }
 
     public SettingsManager getSettingsManager() {
-        return appContainer.settingsManager;
+        return settingsManager;
     }
 
     public RealtimeSessionManager getSessionManager() {
-        return appContainer.sessionManager;
+        return sessionManager;
     }
 
     public RobotController getRobotController() {
-        return appContainer.robotFocusManager.getRobotController();
+        return robotFocusManager.getRobotController();
     }
 
     public Object getQiContext() {
-        return appContainer.robotFocusManager.getQiContext();
+        return robotFocusManager.getQiContext();
     }
 
-    // Delegation methods for controllers/tools
+    public LocationProvider getLocationProvider() {
+        return locationProvider;
+    }
+
+    public AudioInputController getAudioInputController() {
+        return audioInputController;
+    }
+
+    public ToolContext getToolContext() {
+        return toolContext;
+    }
+
+    public DashboardManager getDashboardManager() {
+        return dashboardManager;
+    }
+
+    public TouchSensorManager getTouchSensorManager() {
+        return touchSensorManager;
+    }
+
+    public ChatSessionController getSessionController() {
+        return sessionController;
+    }
+
+    public SessionImageManager getSessionImageManager() {
+        return sessionImageManager;
+    }
+
+    public AudioVolumeController getVolumeController() {
+        return volumeController;
+    }
+
+    public ThreadManager getThreadManager() {
+        return threadManager;
+    }
+
+    public TurnManager getTurnManager() {
+        return turnManager;
+    }
+
+    public VisionService getVisionService() {
+        return visionService;
+    }
+
+    public RobotFocusManager getRobotFocusManager() {
+        return robotFocusManager;
+    }
+
+    // Delegation methods
     public void startContinuousRecognition() {
-        appContainer.audioInputController.startContinuousRecognition();
+        audioInputController.startContinuousRecognition();
     }
 
     public void stopContinuousRecognition() {
-        appContainer.audioInputController.stopContinuousRecognition();
+        audioInputController.stopContinuousRecognition();
     }
 
     public void addMessage(String text, ChatMessage.Sender sender) {
-        appContainer.uiHelper.addMessage(text, sender);
+        uiHelper.addMessage(text, sender);
     }
 
     public void addFunctionCall(String functionName, String args) {
-        appContainer.uiHelper.addFunctionCall(functionName, args);
+        uiHelper.addFunctionCall(functionName, args);
     }
 
     public void updateFunctionCallResult(String result) {
-        appContainer.uiHelper.updateFunctionCallResult(result);
+        uiHelper.updateFunctionCallResult(result);
     }
 
     public void showWarmupIndicator() {
@@ -345,27 +571,27 @@ public class ChatActivity extends AppCompatActivity {
     }
 
     private void mute() {
-        appContainer.audioInputController.mute();
+        audioInputController.mute();
     }
 
     private void unmute() {
-        appContainer.audioInputController.unmute();
+        audioInputController.unmute();
     }
 
     public void handleServiceStateChange(String mode) {
-        if (appContainer.navigationServiceManager != null) {
-            appContainer.navigationServiceManager.handleServiceStateChange(mode);
+        if (navigationServiceManager != null) {
+            navigationServiceManager.handleServiceStateChange(mode);
         }
     }
 
     public void addImageMessage(String imagePath) {
-        appContainer.uiHelper.addImageMessage(imagePath);
+        uiHelper.addImageMessage(imagePath);
     }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
             @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        appContainer.permissionManager.handlePermissionResult(requestCode, grantResults);
+        permissionManager.handlePermissionResult(requestCode, grantResults);
     }
 }

@@ -12,7 +12,6 @@ import io.github.anonymous.pepper_realtime.controller.GestureController;
 import io.github.anonymous.pepper_realtime.data.LocationProvider;
 import io.github.anonymous.pepper_realtime.controller.ChatSessionController;
 import io.github.anonymous.pepper_realtime.controller.RobotFocusManager;
-import io.github.anonymous.pepper_realtime.manager.AppContainer;
 
 /**
  * Shared context providing dependencies for all tools.
@@ -33,15 +32,13 @@ public class ToolContext {
     private final GestureController gestureController;
     private final LocationProvider locationProvider;
     private final ChatSessionController sessionController;
-    private final AppContainer appContainer;
 
     // Constructor
     public ToolContext(ChatActivity activity, RobotFocusManager robotFocusManager, ApiKeyManager apiKeyManager,
             MovementController movementController, NavigationServiceManager navigationServiceManager,
             PerceptionService perceptionService, DashboardManager dashboardManager,
             TouchSensorManager touchSensorManager, GestureController gestureController,
-            LocationProvider locationProvider, ChatSessionController sessionController,
-            AppContainer appContainer) {
+            LocationProvider locationProvider, ChatSessionController sessionController) {
         this.activity = activity;
         this.appContext = activity;
         this.robotFocusManager = robotFocusManager;
@@ -55,7 +52,6 @@ public class ToolContext {
         this.gestureController = gestureController;
         this.locationProvider = locationProvider;
         this.sessionController = sessionController;
-        this.appContainer = appContainer;
     }
 
     // Getters
@@ -105,10 +101,6 @@ public class ToolContext {
 
     public ChatSessionController getSessionController() {
         return sessionController;
-    }
-
-    public AppContainer getAppContainer() {
-        return appContainer;
     }
 
     // Convenience methods

@@ -9,6 +9,10 @@ import androidx.lifecycle.MutableLiveData;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.inject.Inject;
+import dagger.hilt.android.lifecycle.HiltViewModel;
+
+@HiltViewModel
 public class ChatViewModel extends AndroidViewModel {
 
     // State LiveData
@@ -32,6 +36,7 @@ public class ChatViewModel extends AndroidViewModel {
     private volatile boolean expectingFinalAnswerAfterToolCall = false;
     private volatile String lastAssistantItemId = null;
 
+    @Inject
     public ChatViewModel(@NonNull Application application) {
         super(application);
     }

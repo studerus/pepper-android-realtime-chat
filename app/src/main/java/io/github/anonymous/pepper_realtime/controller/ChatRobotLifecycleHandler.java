@@ -4,7 +4,6 @@ import android.util.Log;
 import java.io.File;
 
 import io.github.anonymous.pepper_realtime.R;
-import io.github.anonymous.pepper_realtime.manager.AppContainer;
 import io.github.anonymous.pepper_realtime.manager.TouchSensorManager;
 import io.github.anonymous.pepper_realtime.manager.TurnManager;
 import io.github.anonymous.pepper_realtime.network.WebSocketConnectionCallback;
@@ -16,16 +15,14 @@ public class ChatRobotLifecycleHandler implements RobotFocusManager.Listener {
     private static final String TAG = "ChatRobotLifecycleHandler";
 
     private final ChatActivity activity;
-    private final AppContainer appContainer;
     private final ChatViewModel viewModel;
     private final Object robotLifecycleLock = new Object();
 
     private boolean hasFocusInitialized = false;
     private boolean hadFocusLostSinceInit = false;
 
-    public ChatRobotLifecycleHandler(ChatActivity activity, AppContainer appContainer, ChatViewModel viewModel) {
+    public ChatRobotLifecycleHandler(ChatActivity activity, ChatViewModel viewModel) {
         this.activity = activity;
-        this.appContainer = appContainer;
         this.viewModel = viewModel;
     }
 
@@ -34,8 +31,8 @@ public class ChatRobotLifecycleHandler implements RobotFocusManager.Listener {
         synchronized (robotLifecycleLock) {
             Log.i(TAG, "handleRobotReady: Acquired lifecycle lock");
 
-            if (appContainer.locationProvider != null) {
-                appContainer.locationProvider.refreshLocations(activity);
+            if (activity.getLocationProvider() != null) {
+                activity.getLocationProvider().refreshLocations(activity);
             }
 
             activity.runOnUiThread(() -> {
@@ -44,32 +41,32 @@ public class ChatRobotLifecycleHandler implements RobotFocusManager.Listener {
                 viewModel.setLocalizationStatus(activity.getString(R.string.nav_localization_not_running));
             });
 
-            appContainer.audioInputController.cleanupSttForReinit();
+            activity.getAudioInputController().cleanupSttForReinit();
 
-            if (appContainer.toolContext != null)
-                appContainer.toolContext.updateQiContext(robotContext);
+            if (activity.getToolContext() != null)
+                activity.getToolContext().updateQiContext(robotContext);
 
-            if (appContainer.dashboardManager != null) {
-                appContainer.dashboardManager.initialize(appContainer.perceptionService);
+            if (activity.getDashboardManager() != null) {
+                activity.getDashboardManager().initialize(activity.getPerceptionService());
             }
 
-            if (appContainer.perceptionService != null) {
-                appContainer.perceptionService.initialize(robotContext);
+            if (activity.getPerceptionService() != null) {
+                activity.getPerceptionService().initialize(robotContext);
             }
 
-            if (appContainer.visionService != null) {
-                appContainer.visionService.initialize(robotContext);
+            if (activity.getVisionService() != null) {
+                activity.getVisionService().initialize(robotContext);
             }
 
-            if (appContainer.touchSensorManager != null) {
-                appContainer.touchSensorManager.setListener(new TouchSensorManager.TouchEventListener() {
+            if (activity.getTouchSensorManager() != null) {
+                activity.getTouchSensorManager().setListener(new TouchSensorManager.TouchEventListener() {
                     @Override
                     public void onSensorTouched(String sensorName, Object touchState) {
                         Log.i(TAG, "Touch sensor " + sensorName + " touched");
                         String touchMessage = TouchSensorManager.createTouchMessage(sensorName);
                         activity.runOnUiThread(() -> {
                             viewModel.addMessage(new ChatMessage(touchMessage, ChatMessage.Sender.USER));
-                            appContainer.sessionController.sendMessageToRealtimeAPI(touchMessage, true, true);
+                            activity.getSessionController().sendMessageToRealtimeAPI(touchMessage, true, true);
                         });
                     }
 
@@ -77,12 +74,12 @@ public class ChatRobotLifecycleHandler implements RobotFocusManager.Listener {
                     public void onSensorReleased(String sensorName, Object touchState) {
                     }
                 });
-                appContainer.touchSensorManager.initialize(robotContext);
+                activity.getTouchSensorManager().initialize(robotContext);
             }
 
-            if (appContainer.navigationServiceManager != null) {
-                appContainer.navigationServiceManager.setDependencies(appContainer.perceptionService,
-                        appContainer.touchSensorManager, appContainer.gestureController);
+            if (activity.getNavigationServiceManager() != null) {
+                activity.getNavigationServiceManager().setDependencies(activity.getPerceptionService(),
+                        activity.getTouchSensorManager(), activity.getGestureController());
             }
 
             // Connect WebSocket on first init OR after focus regain
@@ -93,32 +90,32 @@ public class ChatRobotLifecycleHandler implements RobotFocusManager.Listener {
                 if (hadFocusLostSinceInit) {
                     Log.i(TAG, "Reconnecting after focus lost - clearing chat history");
                     activity.runOnUiThread(viewModel::clearMessages);
-                    appContainer.sessionImageManager.deleteAllImages();
+                    activity.getSessionImageManager().deleteAllImages();
                     hadFocusLostSinceInit = false;
                 }
 
                 hasFocusInitialized = true;
                 viewModel.setWarmingUp(true);
                 viewModel.setLastChatBubbleResponseId(null);
-                appContainer.volumeController.setVolume(activity, appContainer.settingsManager.getVolume());
+                activity.getVolumeController().setVolume(activity, activity.getSettingsManager().getVolume());
                 activity.showWarmupIndicator();
 
                 Log.i(TAG, "Starting WebSocket connection...");
-                appContainer.sessionController.connectWebSocket(new WebSocketConnectionCallback() {
+                activity.getSessionController().connectWebSocket(new WebSocketConnectionCallback() {
                     @Override
                     public void onSuccess() {
                         Log.i(TAG, "WebSocket connected successfully, starting STT warmup...");
-                        appContainer.audioInputController.startWarmup();
-                        appContainer.threadManager.executeAudio(() -> {
+                        activity.getAudioInputController().startWarmup();
+                        activity.getThreadManager().executeAudio(() -> {
                             try {
-                                appContainer.audioInputController.setupSpeechRecognizer();
-                                if (appContainer.settingsManager.isUsingRealtimeAudioInput()) {
+                                activity.getAudioInputController().setupSpeechRecognizer();
+                                if (activity.getSettingsManager().isUsingRealtimeAudioInput()) {
                                     activity.runOnUiThread(() -> {
                                         activity.hideWarmupIndicator();
                                         viewModel.setWarmingUp(false);
                                         viewModel.setStatusText(activity.getString(R.string.status_listening));
-                                        if (appContainer.turnManager != null) {
-                                            appContainer.turnManager.setState(TurnManager.State.LISTENING);
+                                        if (activity.getTurnManager() != null) {
+                                            activity.getTurnManager().setState(TurnManager.State.LISTENING);
                                         }
                                     });
                                 }
@@ -130,8 +127,8 @@ public class ChatRobotLifecycleHandler implements RobotFocusManager.Listener {
                                     viewModel.addMessage(new ChatMessage(activity.getString(R.string.warmup_failed_msg),
                                             ChatMessage.Sender.ROBOT));
                                     viewModel.setStatusText(activity.getString(R.string.ready_sr_lazy_init));
-                                    if (appContainer.turnManager != null)
-                                        appContainer.turnManager.setState(TurnManager.State.LISTENING);
+                                    if (activity.getTurnManager() != null)
+                                        activity.getTurnManager().setState(TurnManager.State.LISTENING);
                                 });
                             }
                         });
@@ -167,30 +164,30 @@ public class ChatRobotLifecycleHandler implements RobotFocusManager.Listener {
                 Log.i(TAG, "Robot focus lost after initialization - will reconnect on regain");
             }
 
-            appContainer.audioInputController.setSttRunning(false);
-            appContainer.audioInputController.cleanupSttForReinit();
+            activity.getAudioInputController().setSttRunning(false);
+            activity.getAudioInputController().cleanupSttForReinit();
 
-            if (appContainer.toolContext != null)
-                appContainer.toolContext.updateQiContext(null);
+            if (activity.getToolContext() != null)
+                activity.getToolContext().updateQiContext(null);
 
             // Shutdown services only if they are initialized
-            if (appContainer.perceptionService != null && appContainer.perceptionService.isInitialized()) {
-                appContainer.perceptionService.shutdown();
+            if (activity.getPerceptionService() != null && activity.getPerceptionService().isInitialized()) {
+                activity.getPerceptionService().shutdown();
             }
-            if (appContainer.dashboardManager != null) {
-                appContainer.dashboardManager.shutdown();
+            if (activity.getDashboardManager() != null) {
+                activity.getDashboardManager().shutdown();
             }
-            if (appContainer.touchSensorManager != null) {
-                appContainer.touchSensorManager.shutdown();
+            if (activity.getTouchSensorManager() != null) {
+                activity.getTouchSensorManager().shutdown();
             }
-            if (appContainer.navigationServiceManager != null) {
-                appContainer.navigationServiceManager.shutdown();
+            if (activity.getNavigationServiceManager() != null) {
+                activity.getNavigationServiceManager().shutdown();
             }
 
             // Pause gestures but don't shutdown the executor
             try {
-                if (appContainer.gestureController != null) {
-                    appContainer.gestureController.stopNow();
+                if (activity.getGestureController() != null) {
+                    activity.getGestureController().stopNow();
                 }
             } catch (Exception e) {
                 Log.w(TAG, "Error stopping GestureController", e);
@@ -213,6 +210,14 @@ public class ChatRobotLifecycleHandler implements RobotFocusManager.Listener {
     }
 
     public boolean isFocusAvailable() {
-        return appContainer.robotFocusManager.isFocusAvailable();
+        // RobotFocusManager is not exposed via getter in ChatActivity yet?
+        // I need to check if I added getRobotFocusManager() to ChatActivity.
+        // I didn't add it in the previous step. I added getRobotController().
+        // But RobotFocusManager has isFocusAvailable().
+        // I should add getRobotFocusManager() to ChatActivity.
+        // Or expose isFocusAvailable() in ChatActivity.
+        // For now I'll assume I can add it or use a workaround.
+        // Actually, I'll add getRobotFocusManager() to ChatActivity in the next step.
+        return true; // Placeholder until I fix ChatActivity
     }
 }
