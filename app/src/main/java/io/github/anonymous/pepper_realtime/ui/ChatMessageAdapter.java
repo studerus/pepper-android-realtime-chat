@@ -20,6 +20,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.core.content.ContextCompat;
+import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.RecyclerView;
 import java.io.File;
 import java.util.List;
@@ -36,9 +37,11 @@ public class ChatMessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
         this.messages = messages;
     }
 
-    public void setMessages(List<ChatMessage> messages) {
-        this.messages = messages;
-        notifyDataSetChanged();
+    public void setMessages(List<ChatMessage> newMessages) {
+        DiffUtil.DiffResult diffResult = DiffUtil
+                .calculateDiff(new ChatMessageDiffCallback(this.messages, newMessages));
+        this.messages = newMessages;
+        diffResult.dispatchUpdatesTo(this);
     }
 
     @Override
@@ -72,6 +75,42 @@ public class ChatMessageAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
                 yield new MessageViewHolder(robotView);
             }
         };
+    }
+
+    @Override
+    public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position,
+            @NonNull List<Object> payloads) {
+        if (payloads.isEmpty()) {
+            onBindViewHolder(holder, position);
+        } else {
+            ChatMessage message = messages.get(position);
+            for (Object payload : payloads) {
+                if ("TEXT_UPDATE".equals(payload)) {
+                    if (holder instanceof MessageViewHolder messageHolder) {
+                        messageHolder.messageTextView.setText(message.getMessage());
+                        // Ensure bubble visibility is correct if it was empty before
+                        if (!TextUtils.isEmpty(message.getMessage())) {
+                            FrameLayout bubbleContainer = messageHolder.itemView.findViewById(R.id.bubble_container);
+                            if (bubbleContainer != null && bubbleContainer.getVisibility() != View.VISIBLE) {
+                                bubbleContainer.setVisibility(View.VISIBLE);
+                                // Re-apply background if needed, though usually handled in full bind
+                                if (message.getSender() == ChatMessage.Sender.ROBOT) {
+                                    GradientDrawable robotBubble = new GradientDrawable();
+                                    robotBubble.setShape(GradientDrawable.RECTANGLE);
+                                    robotBubble.setColor(Color.parseColor("#E5E5EA"));
+                                    robotBubble.setCornerRadius(dpToPx(messageHolder.itemView.getContext(), 20));
+                                    bubbleContainer.setBackground(robotBubble);
+                                }
+                            }
+                        }
+                    }
+                } else if ("FUNCTION_RESULT_UPDATE".equals(payload)) {
+                    if (holder instanceof FunctionCallViewHolder functionHolder) {
+                        functionHolder.bind(message); // Re-bind function view to show result
+                    }
+                }
+            }
+        }
     }
 
     @Override

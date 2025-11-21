@@ -114,6 +114,34 @@ public class ChatRealtimeHandler implements RealtimeEventHandler.Listener {
         });
     }
 
+    @Override
+    public void onAudioTranscriptDone(String transcript, String responseId) {
+        activity.runOnUiThread(() -> {
+            if (Objects.equals(responseId, viewModel.getCancelledResponseId())) {
+                return;
+            }
+            // Ensure the final text is correct by replacing the last message content
+            // This fixes issues where deltas might have been dropped or incomplete
+            if (isLastMessageFromRobot() && Objects.equals(responseId, viewModel.getLastChatBubbleResponseId())) {
+                // We can use updateMessageByItemId if we had the item ID, but here we assume
+                // it's the last message
+                // Since we don't have the item ID easily available here without tracking it,
+                // we'll use a new method in ViewModel or just update the last message if it
+                // matches.
+                // Actually, appendToLastMessage appends. We need a "replaceLastMessage" or
+                // similar.
+                // But wait, updateMessageByItemId needs an ID.
+                // Let's assume the last message IS the one we want to update.
+
+                // Better approach: The ViewModel's appendToLastMessage logic is robust for
+                // deltas.
+                // But for "Done", we want to enforce the final string.
+                // We can add a method to ViewModel: updateLastRobotMessage(String newText)
+                viewModel.updateLastRobotMessage(transcript);
+            }
+        });
+    }
+
     private boolean isMessageListEmpty() {
         List<ChatMessage> list = viewModel.getMessageList().getValue();
         return list == null || list.isEmpty();
@@ -304,6 +332,7 @@ public class ChatRealtimeHandler implements RealtimeEventHandler.Listener {
             // Add placeholder message to reserve spot in chat history
             ChatMessage placeholder = new ChatMessage("...", ChatMessage.Sender.USER);
             placeholder.setItemId(itemId);
+            Log.d(TAG, "Created placeholder with itemId: " + itemId + ", UUID: " + placeholder.getUuid());
             viewModel.addMessage(placeholder);
         });
     }
@@ -320,6 +349,7 @@ public class ChatRealtimeHandler implements RealtimeEventHandler.Listener {
     public void onUserTranscriptCompleted(String itemId, String transcript) {
         activity.runOnUiThread(() -> {
             if (transcript != null && !transcript.isEmpty()) {
+                Log.d(TAG, "Attempting to update message with itemId: " + itemId + ", transcript: " + transcript);
                 // Try to update existing placeholder first
                 boolean updated = viewModel.updateMessageByItemId(itemId, transcript);
 
@@ -329,6 +359,8 @@ public class ChatRealtimeHandler implements RealtimeEventHandler.Listener {
                     ChatMessage msg = new ChatMessage(transcript, ChatMessage.Sender.USER);
                     msg.setItemId(itemId);
                     viewModel.addMessage(msg);
+                } else {
+                    Log.d(TAG, "Successfully updated placeholder for itemId: " + itemId);
                 }
             }
         });

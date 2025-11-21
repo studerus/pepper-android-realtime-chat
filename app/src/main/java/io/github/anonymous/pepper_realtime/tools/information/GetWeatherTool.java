@@ -34,20 +34,21 @@ public class GetWeatherTool implements Tool {
             JSONObject tool = new JSONObject();
             tool.put("type", "function");
             tool.put("name", getName());
-            tool.put("description", "Gets the current weather AND the 5-day forecast for a specific location. Always provides both current conditions and future forecast.");
-            
+            tool.put("description",
+                    "Gets the current weather AND the 5-day forecast for a specific location. Always provides both current conditions and future forecast.");
+
             JSONObject params = new JSONObject();
             params.put("type", "object");
-            
+
             JSONObject properties = new JSONObject();
             properties.put("location", new JSONObject()
-                .put("type", "string")
-                .put("description", "The city or location to get weather information for"));
-            
+                    .put("type", "string")
+                    .put("description", "The city or location to get weather information for"));
+
             params.put("properties", properties);
             params.put("required", new JSONArray().put("location"));
             tool.put("parameters", params);
-            
+
             return tool;
         } catch (Exception e) {
             throw new RuntimeException("Failed to create tool definition", e);
@@ -58,11 +59,13 @@ public class GetWeatherTool implements Tool {
     public String execute(JSONObject args, ToolContext context) throws Exception {
         String location = args != null ? args.optString("location", "") : "";
         if (location.isEmpty()) {
-            return new JSONObject().put("success", false).put("error", "Please provide a location for the weather query.").toString();
+            return new JSONObject().put("success", false)
+                    .put("error", "Please provide a location for the weather query.").toString();
         }
 
         if (!context.getApiKeyManager().isWeatherAvailable()) {
-            return new JSONObject().put("success", false).put("error", context.getApiKeyManager().getWeatherSetupMessage()).toString();
+            return new JSONObject().put("success", false)
+                    .put("error", context.getApiKeyManager().getWeatherSetupMessage()).toString();
         }
 
         String apiKey = context.getApiKeyManager().getOpenWeatherApiKey();
@@ -70,7 +73,7 @@ public class GetWeatherTool implements Tool {
         // Use optimized shared client for better performance and connection reuse
         OkHttpClient client = HttpClientManager.getInstance().getQuickApiClient();
 
-        String locationQueryParam = "q=" + java.net.URLEncoder.encode(location, StandardCharsets.UTF_8);
+        String locationQueryParam = "q=" + java.net.URLEncoder.encode(location, "UTF-8");
         String locationInputForName = location;
         String lower = location.toLowerCase();
         if (lower.contains("baden")) {
@@ -89,7 +92,8 @@ public class GetWeatherTool implements Tool {
 
         // Fetch current weather
         try {
-            String currentUrl = "https://api.openweathermap.org/data/2.5/weather?" + locationQueryParam + "&appid=" + apiKey + "&units=" + units + "&lang=" + lang;
+            String currentUrl = "https://api.openweathermap.org/data/2.5/weather?" + locationQueryParam + "&appid="
+                    + apiKey + "&units=" + units + "&lang=" + lang;
             Request currentReq = new Request.Builder().url(currentUrl).build();
             try (Response r = client.newCall(currentReq).execute()) {
                 okhttp3.ResponseBody responseBody = r.body();
@@ -111,7 +115,8 @@ public class GetWeatherTool implements Tool {
 
         // Fetch forecast
         try {
-            String forecastUrl = "https://api.openweathermap.org/data/2.5/forecast?" + locationQueryParam + "&appid=" + apiKey + "&units=" + units + "&lang=" + lang;
+            String forecastUrl = "https://api.openweathermap.org/data/2.5/forecast?" + locationQueryParam + "&appid="
+                    + apiKey + "&units=" + units + "&lang=" + lang;
             Request forecastReq = new Request.Builder().url(forecastUrl).build();
             try (Response r = client.newCall(forecastReq).execute()) {
                 okhttp3.ResponseBody responseBody = r.body();
@@ -133,7 +138,9 @@ public class GetWeatherTool implements Tool {
 
         if (currentData == null && forecastData == null) {
             return new JSONObject().put("success", false)
-                    .put("error", "Failed to fetch weather data. Current Error: " + currentError + ". Forecast Error: " + forecastError)
+                    .put("error",
+                            "Failed to fetch weather data. Current Error: " + currentError + ". Forecast Error: "
+                                    + forecastError)
                     .toString();
         }
 
@@ -149,7 +156,7 @@ public class GetWeatherTool implements Tool {
         } else {
             locationName = currentData.optString("name", locationInputForName);
         }
-        
+
         int timezoneOffset;
         if (forecastData != null) {
             JSONObject city = forecastData.optJSONObject("city");
@@ -164,7 +171,8 @@ public class GetWeatherTool implements Tool {
 
         long nowSec = System.currentTimeMillis() / 1000L;
         StringBuilder summary = new StringBuilder();
-        summary.append("Weather Report for ").append(locationName).append(" (Retrieved: ").append(actualFetchTime).append("):\n\n");
+        summary.append("Weather Report for ").append(locationName).append(" (Retrieved: ").append(actualFetchTime)
+                .append("):\n\n");
 
         // Current weather
         if (currentData != null) {
@@ -173,7 +181,9 @@ public class GetWeatherTool implements Tool {
             JSONObject wind = currentData.optJSONObject("wind");
             int temp = main != null ? (int) Math.round(main.optDouble("temp")) : 0;
             int feels = main != null ? (int) Math.round(main.optDouble("feels_like")) : 0;
-            String desc = (weatherArr != null && weatherArr.length() > 0) ? weatherArr.optJSONObject(0).optString("description", "N/A") : "N/A";
+            String desc = (weatherArr != null && weatherArr.length() > 0)
+                    ? weatherArr.optJSONObject(0).optString("description", "N/A")
+                    : "N/A";
             int humidity = main != null ? main.optInt("humidity", 0) : 0;
             double windSpeed = wind != null ? wind.optDouble("speed", 0.0) : 0.0;
             summary.append("**Current (")
@@ -189,7 +199,8 @@ public class GetWeatherTool implements Tool {
         // Forecast summary (simplified for space)
         if (forecastData != null && forecastData.optJSONArray("list") != null) {
             summary.append("**Forecast:**\n");
-            summary.append("(Today is ").append(getReadableDate(nowSec, timezoneOffset)).append(". The following are predictions.)\n\n");
+            summary.append("(Today is ").append(getReadableDate(nowSec, timezoneOffset))
+                    .append(". The following are predictions.)\n\n");
 
             java.util.Map<String, java.util.List<JSONObject>> byDay = new java.util.LinkedHashMap<>();
             JSONArray list = forecastData.optJSONArray("list");
@@ -207,7 +218,8 @@ public class GetWeatherTool implements Tool {
             }
 
             java.util.List<String> days = new java.util.ArrayList<>(byDay.keySet());
-            if (days.size() > 5) days = days.subList(0, 5);
+            if (days.size() > 5)
+                days = days.subList(0, 5);
             for (String day : days) {
                 java.util.List<JSONObject> items = byDay.get(day);
                 if (items != null) {
@@ -225,7 +237,8 @@ public class GetWeatherTool implements Tool {
                         JSONArray wArr = item.optJSONArray("weather");
                         if (wArr != null && wArr.length() > 0) {
                             String d = wArr.optJSONObject(0).optString("description", "");
-                            if (!d.isEmpty()) descs.add(d);
+                            if (!d.isEmpty())
+                                descs.add(d);
                         }
                     }
                     int minT = min == Double.POSITIVE_INFINITY ? Integer.MIN_VALUE : (int) Math.round(min);
@@ -238,15 +251,18 @@ public class GetWeatherTool implements Tool {
                         StringBuilder joiner = new StringBuilder();
                         boolean first = true;
                         for (String d : unique) {
-                            if (!first) joiner.append(", ");
+                            if (!first)
+                                joiner.append(", ");
                             joiner.append(d);
                             first = false;
                         }
                         cond = joiner.toString();
                     }
                     summary.append("**").append(day).append(":**\n");
-                    summary.append("  Overall: Min ").append(minT == Integer.MIN_VALUE ? "N/A" : String.valueOf(minT)).append("°C, Max ")
-                        .append(maxT == Integer.MIN_VALUE ? "N/A" : String.valueOf(maxT)).append("°C. Conditions: ").append(cond).append(".\n\n");
+                    summary.append("  Overall: Min ").append(minT == Integer.MIN_VALUE ? "N/A" : String.valueOf(minT))
+                            .append("°C, Max ")
+                            .append(maxT == Integer.MIN_VALUE ? "N/A" : String.valueOf(maxT)).append("°C. Conditions: ")
+                            .append(cond).append(".\n\n");
                 }
             }
         } else {

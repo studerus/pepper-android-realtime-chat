@@ -70,6 +70,9 @@ public class RealtimeEventHandler {
 
         default void onUserTranscriptFailed(String itemId, JSONObject error) {
         }
+
+        default void onAudioTranscriptDone(String transcript, String responseId) {
+        }
     }
 
     private final Listener listener;
@@ -241,10 +244,14 @@ public class RealtimeEventHandler {
                 case "response.audio_transcript.done":
                     // Audio transcript completed - log the transcript content
                     String transcript = obj.optString("transcript", "");
+                    String transcriptRid = obj.optString("response_id", "");
                     if (!transcript.isEmpty()) {
                         Log.d(TAG, "Audio transcript: \"" + transcript + "\"");
                     } else {
                         Log.d(TAG, "Audio transcript done (empty)");
+                    }
+                    if (listener != null) {
+                        listener.onAudioTranscriptDone(transcript, transcriptRid);
                     }
                     break;
                 // GA API audio events (new event names)

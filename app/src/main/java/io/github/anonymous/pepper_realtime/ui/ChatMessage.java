@@ -4,7 +4,7 @@ public class ChatMessage {
     public enum Sender {
         USER, ROBOT
     }
-    
+
     public enum Type {
         REGULAR_MESSAGE,
         FUNCTION_CALL,
@@ -16,21 +16,23 @@ public class ChatMessage {
     private final Type type;
     private String imagePath; // optional
     private String itemId; // optional, for tracking Realtime API conversation items
-    
+    private final String uuid; // Unique local ID for DiffUtil
+
     // Function call specific fields
     private String functionName;
     private String functionArgs;
     private String functionResult;
     private boolean isExpanded = false;
 
-    // Private constructor 
+    // Private constructor
     private ChatMessage(Sender sender, Type type) {
         this.sender = sender;
         this.type = type;
+        this.uuid = java.util.UUID.randomUUID().toString();
     }
 
     // Static factory for function call messages
-    
+
     public static ChatMessage createFunctionCall(String functionName, String functionArgs, Sender sender) {
         ChatMessage chatMessage = new ChatMessage(sender, Type.FUNCTION_CALL);
         chatMessage.functionName = functionName;
@@ -53,23 +55,98 @@ public class ChatMessage {
     }
 
     // Getters and setters
-    public String getMessage() { return message; }
-    public void setMessage(String message) { this.message = message; }
+    public String getMessage() {
+        return message;
+    }
 
-    public Sender getSender() { return sender; }
-    public Type getType() { return type; }
+    public void setMessage(String message) {
+        this.message = message;
+    }
 
-    public String getImagePath() { return imagePath; }
-    
-    public String getItemId() { return itemId; }
-    public void setItemId(String itemId) { this.itemId = itemId; }
-    
-    public String getFunctionName() { return functionName; }
-    public String getFunctionArgs() { return functionArgs; }
-    public String getFunctionResult() { return functionResult; }
-    public void setFunctionResult(String functionResult) { this.functionResult = functionResult; }
-    
-    public boolean isExpanded() { return isExpanded; }
-    public void setExpanded(boolean expanded) { this.isExpanded = expanded; }
+    public Sender getSender() {
+        return sender;
+    }
+
+    public Type getType() {
+        return type;
+    }
+
+    public String getImagePath() {
+        return imagePath;
+    }
+
+    public String getItemId() {
+        return itemId;
+    }
+
+    public void setItemId(String itemId) {
+        this.itemId = itemId;
+    }
+
+    public String getFunctionName() {
+        return functionName;
+    }
+
+    public String getFunctionArgs() {
+        return functionArgs;
+    }
+
+    public String getFunctionResult() {
+        return functionResult;
+    }
+
+    public void setFunctionResult(String functionResult) {
+        this.functionResult = functionResult;
+    }
+
+    public boolean isExpanded() {
+        return isExpanded;
+    }
+
+    public void setExpanded(boolean expanded) {
+        this.isExpanded = expanded;
+    }
+
+    public String getUuid() {
+        return uuid;
+    }
+
+    /**
+     * Creates a shallow copy of the message with updated text.
+     * Preserves the UUID to maintain item identity for DiffUtil.
+     */
+    public ChatMessage copyWithNewText(String newText) {
+        ChatMessage copy = new ChatMessage(this.sender, this.type, this.uuid);
+        copy.message = newText;
+        copy.imagePath = this.imagePath;
+        copy.itemId = this.itemId;
+        copy.functionName = this.functionName;
+        copy.functionArgs = this.functionArgs;
+        copy.functionResult = this.functionResult;
+        copy.isExpanded = this.isExpanded;
+        return copy;
+    }
+
+    /**
+     * Creates a shallow copy of the message with updated function result.
+     * Preserves the UUID to maintain item identity for DiffUtil.
+     */
+    public ChatMessage copyWithFunctionResult(String result) {
+        ChatMessage copy = new ChatMessage(this.sender, this.type, this.uuid);
+        copy.message = this.message;
+        copy.imagePath = this.imagePath;
+        copy.itemId = this.itemId;
+        copy.functionName = this.functionName;
+        copy.functionArgs = this.functionArgs;
+        copy.functionResult = result;
+        copy.isExpanded = this.isExpanded;
+        return copy;
+    }
+
+    // Private constructor for copying with existing UUID
+    private ChatMessage(Sender sender, Type type, String uuid) {
+        this.sender = sender;
+        this.type = type;
+        this.uuid = uuid;
+    }
 }
-
