@@ -3,12 +3,18 @@ package io.github.anonymous.pepper_realtime.controller;
 import android.util.Log;
 
 /**
- * Stub implementation of GestureController for standalone mode (no robot hardware).
+ * Stub implementation of GestureController for standalone mode (no robot
+ * hardware).
  * Logs all gesture/animation commands without executing them.
  */
 public class GestureController {
-    public interface BoolSupplier { boolean get(); }
-    public interface IntSupplier { Integer get(); }
+    public interface BoolSupplier {
+        boolean get();
+    }
+
+    public interface IntSupplier {
+        Integer get();
+    }
 
     private static final String TAG = "GestureController[STUB]";
     private volatile boolean running = false;
@@ -42,7 +48,7 @@ public class GestureController {
      */
     public void playAnimation(Object qiContext, int animationResourceId, Runnable onComplete) {
         Log.i(TAG, "🤖 [SIMULATED] Playing animation with resource ID: " + animationResourceId);
-        
+
         if (onComplete != null) {
             new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(onComplete, 300);
         }
@@ -70,14 +76,14 @@ public class GestureController {
         Log.i(TAG, "🤖 [SIMULATED] GestureController paused");
         stopNow();
     }
-    
+
     /**
      * Resume gesture controller (from background)
      */
     public void resume() {
         Log.d(TAG, "🤖 [SIMULATED] GestureController resumed");
     }
-    
+
     /**
      * Shuts down the controller
      */
@@ -85,5 +91,9 @@ public class GestureController {
         running = false;
         Log.i(TAG, "🤖 [SIMULATED] GestureController shutdown");
     }
-}
 
+    public Integer getRandomExplainAnimationResId() {
+        // Return a dummy ID for standalone mode
+        return 0;
+    }
+}

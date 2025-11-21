@@ -83,8 +83,7 @@ public class AppContainer {
     public final ChatLifecycleController lifecycleController;
 
     public AppContainer(ChatActivity activity,
-            ChatViewModel viewModel,
-            Map<String, ChatMessage> pendingUserTranscripts) {
+            ChatViewModel viewModel) {
 
         Log.i(TAG, "Initializing AppContainer...");
 
@@ -156,19 +155,26 @@ public class AppContainer {
         this.audioInputController = new AudioInputController(activity, settingsManager, keyManager, sessionManager,
                 threadManager, statusTextView, fabInterrupt);
 
-        this.turnManager = new TurnManager(new ChatTurnListener(activity,
+        // Initialize Tool System (Moved up for dependency)
+        MovementController movementController = new MovementController();
+        this.navigationServiceManager = new NavigationServiceManager(movementController);
+
+        this.turnManager = new TurnManager(null); // Circular dependency, set listener later
+        ChatTurnListener turnListener = new ChatTurnListener(activity,
                 activity.findViewById(R.id.statusTextView),
                 activity.findViewById(R.id.fab_interrupt),
                 gestureController,
-                audioInputController));
+                audioInputController,
+                robotFocusManager,
+                navigationServiceManager,
+                turnManager);
+        turnManager.setListener(turnListener);
 
         // Initialize Interrupt Controller
         this.interruptController = new ChatInterruptController(viewModel, sessionManager, audioPlayer,
                 gestureController, audioInputController);
 
         // Initialize Tool System
-        MovementController movementController = new MovementController();
-        this.navigationServiceManager = new NavigationServiceManager(movementController);
 
         // Initialize Realtime Event Handler early (needed by ChatSessionController)
         this.toolRegistry = new ToolRegistry();
@@ -201,8 +207,7 @@ public class AppContainer {
         realtimeHandler.setSessionController(sessionController);
 
         // Initialize Chat UI Helper
-        this.uiHelper = new ChatUiHelper(activity, viewModel, chatAdapter, chatRecyclerView,
-                pendingUserTranscripts);
+        this.uiHelper = new ChatUiHelper(activity, viewModel);
 
         // Set session dependencies
         this.sessionManager.setSessionDependencies(toolRegistry, toolContext, settingsManager, keyManager);

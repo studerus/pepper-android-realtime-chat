@@ -15,6 +15,7 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.drawerlayout.widget.DrawerLayout;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.appbar.MaterialToolbar;
@@ -64,9 +65,6 @@ public class ChatActivity extends AppCompatActivity {
     // ViewModel
     private ChatViewModel viewModel;
 
-    // State
-    private final Map<String, ChatMessage> pendingUserTranscripts = new HashMap<>();
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -99,15 +97,36 @@ public class ChatActivity extends AppCompatActivity {
         viewModel.getMessageList().observe(this, messages -> {
             if (appContainer != null && appContainer.chatAdapter != null) {
                 appContainer.chatAdapter.setMessages(messages);
+                // Auto-scroll to bottom on new messages
+                if (!messages.isEmpty()) {
+                    RecyclerView chatRecyclerView = findViewById(R.id.chatRecyclerView);
+                    if (chatRecyclerView != null) {
+                        chatRecyclerView.scrollToPosition(messages.size() - 1);
+                    }
+                }
+            }
+        });
+
+        viewModel.getMapStatus().observe(this, status -> {
+            if (appContainer != null && appContainer.mapUiManager != null) {
+                appContainer.mapUiManager.updateMapStatus(status);
+            }
+        });
+
+        viewModel.getLocalizationStatus().observe(this, status -> {
+            if (appContainer != null && appContainer.mapUiManager != null) {
+                appContainer.mapUiManager.updateLocalizationStatus(status);
             }
         });
 
         // Initialize AppContainer (creates all managers and controllers)
-        appContainer = new AppContainer(this, viewModel, pendingUserTranscripts);
+        appContainer = new AppContainer(this, viewModel);
 
         // Setup Listeners using AppContainer components
         setupSettingsListener();
+
         setupUiListeners();
+
         setupPermissionCallback();
 
         // Register Robot Lifecycle
@@ -115,6 +134,7 @@ public class ChatActivity extends AppCompatActivity {
 
         // Request Permissions
         appContainer.permissionManager.checkAndRequestPermissions(this);
+
     }
 
     private void setupPermissionCallback() {
@@ -255,10 +275,8 @@ public class ChatActivity extends AppCompatActivity {
     }
 
     public void updateNavigationStatus(String mapStatus, String localizationStatus) {
-        appContainer.mapUiManager.updateMapStatus(mapStatus);
-        appContainer.mapUiManager.updateLocalizationStatus(localizationStatus);
-        appContainer.mapUiManager.updateMapPreview(appContainer.navigationServiceManager,
-                appContainer.locationProvider);
+        viewModel.setMapStatus(mapStatus);
+        viewModel.setLocalizationStatus(localizationStatus);
     }
 
     public void updateMapPreview() {
@@ -301,31 +319,6 @@ public class ChatActivity extends AppCompatActivity {
 
     public void stopContinuousRecognition() {
         appContainer.audioInputController.stopContinuousRecognition();
-    }
-
-    public void startExplainGesturesLoop() {
-        if (appContainer.robotFocusManager.getQiContext() == null)
-            return;
-        if (appContainer.navigationServiceManager != null
-                && appContainer.navigationServiceManager.areGesturesSuppressed())
-            return;
-
-        appContainer.gestureController.start(appContainer.robotFocusManager.getQiContext(),
-                () -> appContainer.turnManager != null
-                        && appContainer.turnManager.getState() == TurnManager.State.SPEAKING
-                        && appContainer.robotFocusManager.getQiContext() != null &&
-                        (appContainer.navigationServiceManager == null
-                                || !appContainer.navigationServiceManager.areGesturesSuppressed()),
-                this::getRandomExplainAnimationResId);
-    }
-
-    private Integer getRandomExplainAnimationResId() {
-        int[] ids = new int[] {
-                R.raw.explain_01, R.raw.explain_02, R.raw.explain_03, R.raw.explain_04,
-                R.raw.explain_05, R.raw.explain_06, R.raw.explain_07, R.raw.explain_08,
-                R.raw.explain_09, R.raw.explain_10, R.raw.explain_11
-        };
-        return ids[new java.util.Random().nextInt(ids.length)];
     }
 
     public void addMessage(String text, ChatMessage.Sender sender) {

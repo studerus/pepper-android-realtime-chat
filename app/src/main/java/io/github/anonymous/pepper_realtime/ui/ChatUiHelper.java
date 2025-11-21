@@ -24,32 +24,17 @@ public class ChatUiHelper {
 
     private final Map<String, ChatMessage> pendingUserTranscripts;
 
-    public ChatUiHelper(Activity activity,
-            ChatViewModel viewModel,
-            ChatMessageAdapter chatAdapter,
-            RecyclerView chatRecyclerView,
-            Map<String, ChatMessage> pendingUserTranscripts) {
+    public ChatUiHelper(Activity activity, ChatViewModel viewModel) {
         this.activity = activity;
         this.viewModel = viewModel;
-        this.chatAdapter = chatAdapter;
-        this.chatRecyclerView = chatRecyclerView;
-        this.pendingUserTranscripts = pendingUserTranscripts;
+        this.pendingUserTranscripts = null; // No longer used here
+        this.chatAdapter = null; // No longer used here
+        this.chatRecyclerView = null; // No longer used here
     }
 
     public void addMessage(String text, ChatMessage.Sender sender) {
         activity.runOnUiThread(() -> {
             viewModel.addMessage(new ChatMessage(text, sender));
-            // Adapter update handled by LiveData observer in Activity or we can do it here
-            // if we share the list reference
-            // For now, rely on Activity observer for consistency, or keep manual notify if
-            // animation needed
-            // But viewModel.addMessage posts value, so observer will fire.
-            // To keep animations, we might need to know index.
-            List<ChatMessage> list = viewModel.getMessageList().getValue();
-            if (list != null) {
-                chatAdapter.notifyItemInserted(list.size() - 1);
-                chatRecyclerView.scrollToPosition(list.size() - 1);
-            }
             if (sender == ChatMessage.Sender.USER) {
                 viewModel.setStatusText(activity.getString(R.string.status_thinking));
             }
@@ -60,88 +45,29 @@ public class ChatUiHelper {
         activity.runOnUiThread(() -> {
             ChatMessage functionCall = ChatMessage.createFunctionCall(functionName, args, ChatMessage.Sender.ROBOT);
             viewModel.addMessage(functionCall);
-            List<ChatMessage> list = viewModel.getMessageList().getValue();
-            if (list != null) {
-                chatAdapter.notifyItemInserted(list.size() - 1);
-                chatRecyclerView.scrollToPosition(list.size() - 1);
-            }
         });
     }
 
     public void updateFunctionCallResult(String result) {
-        activity.runOnUiThread(() -> {
-            List<ChatMessage> messageList = viewModel.getMessageList().getValue();
-            if (messageList == null)
-                return;
-            for (int i = messageList.size() - 1; i >= 0; i--) {
-                ChatMessage message = messageList.get(i);
-                if (message.getType() == ChatMessage.Type.FUNCTION_CALL &&
-                        message.getFunctionResult() == null) {
-                    message.setFunctionResult(result);
-                    chatAdapter.notifyItemChanged(i);
-                    break;
-                }
-            }
-        });
+        activity.runOnUiThread(() -> viewModel.updateLatestFunctionCallResult(result));
     }
 
     public void handleUserSpeechStopped(String itemId) {
-        activity.runOnUiThread(() -> {
-            ChatMessage placeholder = new ChatMessage("🎤 ...", ChatMessage.Sender.USER);
-            placeholder.setItemId(itemId);
-            viewModel.addMessage(placeholder);
-            List<ChatMessage> list = viewModel.getMessageList().getValue();
-            if (list != null) {
-                chatAdapter.notifyItemInserted(list.size() - 1);
-                chatRecyclerView.smoothScrollToPosition(list.size() - 1);
-            }
-            pendingUserTranscripts.put(itemId, placeholder);
-        });
+        activity.runOnUiThread(() -> viewModel.handleUserSpeechStopped(itemId));
     }
 
     public void handleUserTranscriptCompleted(String itemId, String transcript) {
-        activity.runOnUiThread(() -> {
-            ChatMessage placeholder = pendingUserTranscripts.remove(itemId);
-            if (placeholder != null) {
-                List<ChatMessage> messageList = viewModel.getMessageList().getValue();
-                if (messageList != null) {
-                    int index = messageList.indexOf(placeholder);
-                    if (index >= 0) {
-                        placeholder.setMessage(transcript);
-                        chatAdapter.notifyItemChanged(index);
-                    }
-                }
-            } else {
-                addMessage(transcript, ChatMessage.Sender.USER);
-            }
-        });
+        activity.runOnUiThread(() -> viewModel.handleUserTranscriptCompleted(itemId, transcript));
     }
 
     public void handleUserTranscriptFailed(String itemId, JSONObject error) {
-        activity.runOnUiThread(() -> {
-            ChatMessage placeholder = pendingUserTranscripts.remove(itemId);
-            if (placeholder != null) {
-                List<ChatMessage> messageList = viewModel.getMessageList().getValue();
-                if (messageList != null) {
-                    int index = messageList.indexOf(placeholder);
-                    if (index >= 0) {
-                        placeholder.setMessage("🎤 [Transcription failed]");
-                        chatAdapter.notifyItemChanged(index);
-                    }
-                }
-            }
-        });
+        activity.runOnUiThread(() -> viewModel.handleUserTranscriptFailed(itemId, error));
     }
 
     public void addImageMessage(String imagePath) {
         activity.runOnUiThread(() -> {
             ChatMessage msg = new ChatMessage("", imagePath, ChatMessage.Sender.ROBOT);
             viewModel.addMessage(msg);
-            List<ChatMessage> list = viewModel.getMessageList().getValue();
-            if (list != null) {
-                chatAdapter.notifyItemInserted(list.size() - 1);
-                chatRecyclerView.scrollToPosition(list.size() - 1);
-            }
         });
     }
 
@@ -150,9 +76,6 @@ public class ChatUiHelper {
     }
 
     public void clearMessages() {
-        activity.runOnUiThread(() -> {
-            viewModel.clearMessages();
-            // notifyDataSetChanged will be called by Activity observer
-        });
+        activity.runOnUiThread(() -> viewModel.clearMessages());
     }
 }

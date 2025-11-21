@@ -11,6 +11,8 @@ import io.github.anonymous.pepper_realtime.controller.GestureController;
 import io.github.anonymous.pepper_realtime.R;
 import io.github.anonymous.pepper_realtime.manager.TurnManager;
 import io.github.anonymous.pepper_realtime.robot.RobotController;
+import io.github.anonymous.pepper_realtime.controller.RobotFocusManager;
+import io.github.anonymous.pepper_realtime.manager.NavigationServiceManager;
 
 public class ChatTurnListener implements TurnManager.Callbacks {
     private static final String TAG = "ChatTurnListener";
@@ -20,17 +22,26 @@ public class ChatTurnListener implements TurnManager.Callbacks {
     private final FloatingActionButton fabInterrupt;
     private final GestureController gestureController;
     private final AudioInputController audioInputController;
+    private final RobotFocusManager robotFocusManager;
+    private final NavigationServiceManager navigationServiceManager;
+    private final TurnManager turnManager;
 
     public ChatTurnListener(ChatActivity activity,
             TextView statusTextView,
             FloatingActionButton fabInterrupt,
             GestureController gestureController,
-            AudioInputController audioInputController) {
+            AudioInputController audioInputController,
+            RobotFocusManager robotFocusManager,
+            NavigationServiceManager navigationServiceManager,
+            TurnManager turnManager) {
         this.activity = activity;
         this.statusTextView = statusTextView;
         this.fabInterrupt = fabInterrupt;
         this.gestureController = gestureController;
         this.audioInputController = audioInputController;
+        this.robotFocusManager = robotFocusManager;
+        this.navigationServiceManager = navigationServiceManager;
+        this.turnManager = turnManager;
     }
 
     @Override
@@ -38,10 +49,10 @@ public class ChatTurnListener implements TurnManager.Callbacks {
         activity.runOnUiThread(() -> {
             try {
                 // Check robot readiness
-                RobotController robotController = activity.getRobotController();
-                Object qiContext = activity.getQiContext();
+                Object qiContext = robotFocusManager.getQiContext();
 
-                if (robotController != null && robotController.isRobotHardwareAvailable() && qiContext == null) {
+                if (robotFocusManager.getRobotController() != null
+                        && robotFocusManager.getRobotController().isRobotHardwareAvailable() && qiContext == null) {
                     Log.w(TAG, "Pepper robot focus lost, aborting onEnterListening to prevent crashes");
                     return;
                 }
@@ -83,7 +94,19 @@ public class ChatTurnListener implements TurnManager.Callbacks {
     public void onEnterSpeaking() {
         Log.i(TAG, "State: Entering SPEAKING - starting gestures and stopping STT");
         audioInputController.stopContinuousRecognition();
-        activity.startExplainGesturesLoop();
+
+        if (robotFocusManager.getQiContext() != null) {
+            if (navigationServiceManager == null || !navigationServiceManager.areGesturesSuppressed()) {
+                gestureController.start(robotFocusManager.getQiContext(),
+                        () -> turnManager != null
+                                && turnManager.getState() == TurnManager.State.SPEAKING
+                                && robotFocusManager.getQiContext() != null &&
+                                (navigationServiceManager == null
+                                        || !navigationServiceManager.areGesturesSuppressed()),
+                        gestureController::getRandomExplainAnimationResId);
+            }
+        }
+
         activity.runOnUiThread(() -> fabInterrupt.setVisibility(View.GONE));
     }
 

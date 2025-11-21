@@ -21,6 +21,10 @@ public class ChatViewModel extends AndroidViewModel {
     // Connection State
     private final MutableLiveData<Boolean> isConnected = new MutableLiveData<>(false);
 
+    // Navigation State
+    private final MutableLiveData<String> mapStatus = new MutableLiveData<>("");
+    private final MutableLiveData<String> localizationStatus = new MutableLiveData<>("");
+
     // Internal State
     private volatile String currentResponseId = null;
     private volatile String cancelledResponseId = null;
@@ -78,6 +82,23 @@ public class ChatViewModel extends AndroidViewModel {
         isConnected.postValue(connected);
     }
 
+    // Navigation State Accessors
+    public LiveData<String> getMapStatus() {
+        return mapStatus;
+    }
+
+    public LiveData<String> getLocalizationStatus() {
+        return localizationStatus;
+    }
+
+    public void setMapStatus(String status) {
+        mapStatus.postValue(status);
+    }
+
+    public void setLocalizationStatus(String status) {
+        localizationStatus.postValue(status);
+    }
+
     public void addMessage(ChatMessage message) {
         List<ChatMessage> currentList = messageList.getValue();
         if (currentList == null)
@@ -122,6 +143,58 @@ public class ChatViewModel extends AndroidViewModel {
         messageList.postValue(new ArrayList<>());
         // Clear cached item ID to prevent truncate errors on non-existent items
         lastAssistantItemId = null;
+    }
+
+    // Transcript Management
+    private final java.util.Map<String, ChatMessage> pendingUserTranscripts = new java.util.HashMap<>();
+
+    public void handleUserSpeechStopped(String itemId) {
+        ChatMessage placeholder = new ChatMessage("🎤 ...", ChatMessage.Sender.USER);
+        placeholder.setItemId(itemId);
+        addMessage(placeholder);
+        pendingUserTranscripts.put(itemId, placeholder);
+    }
+
+    public void handleUserTranscriptCompleted(String itemId, String transcript) {
+        ChatMessage placeholder = pendingUserTranscripts.remove(itemId);
+        if (placeholder != null) {
+            List<ChatMessage> currentList = messageList.getValue();
+            if (currentList != null) {
+                // Find the message in the list (it might be the same object, but let's be safe)
+                // Since we're modifying the object directly, we need to trigger an update
+                placeholder.setMessage(transcript);
+                messageList.postValue(currentList);
+            }
+        } else {
+            // Fallback if placeholder not found
+            addMessage(new ChatMessage(transcript, ChatMessage.Sender.USER));
+        }
+    }
+
+    public void handleUserTranscriptFailed(String itemId, org.json.JSONObject error) {
+        ChatMessage placeholder = pendingUserTranscripts.remove(itemId);
+        if (placeholder != null) {
+            List<ChatMessage> currentList = messageList.getValue();
+            if (currentList != null) {
+                placeholder.setMessage("🎤 [Transcription failed]");
+                messageList.postValue(currentList);
+            }
+        }
+    }
+
+    public void updateLatestFunctionCallResult(String result) {
+        List<ChatMessage> currentList = messageList.getValue();
+        if (currentList != null) {
+            for (int i = currentList.size() - 1; i >= 0; i--) {
+                ChatMessage message = currentList.get(i);
+                if (message.getType() == ChatMessage.Type.FUNCTION_CALL &&
+                        message.getFunctionResult() == null) {
+                    message.setFunctionResult(result);
+                    messageList.postValue(currentList);
+                    break;
+                }
+            }
+        }
     }
 
     // State Accessors

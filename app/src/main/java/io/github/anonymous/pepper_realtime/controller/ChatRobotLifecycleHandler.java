@@ -40,9 +40,8 @@ public class ChatRobotLifecycleHandler implements RobotFocusManager.Listener {
 
             activity.runOnUiThread(() -> {
                 boolean hasMap = new File(activity.getFilesDir(), "maps/default_map.map").exists();
-                activity.updateNavigationStatus(
-                        activity.getString(hasMap ? R.string.nav_map_saved : R.string.nav_map_none),
-                        activity.getString(R.string.nav_localization_not_running));
+                viewModel.setMapStatus(activity.getString(hasMap ? R.string.nav_map_saved : R.string.nav_map_none));
+                viewModel.setLocalizationStatus(activity.getString(R.string.nav_localization_not_running));
             });
 
             appContainer.audioInputController.cleanupSttForReinit();
@@ -200,9 +199,8 @@ public class ChatRobotLifecycleHandler implements RobotFocusManager.Listener {
             activity.runOnUiThread(() -> {
                 viewModel.setStatusText(activity.getString(R.string.robot_focus_lost_message));
                 boolean hasMap = new File(activity.getFilesDir(), "maps/default_map.map").exists();
-                activity.updateNavigationStatus(
-                        activity.getString(hasMap ? R.string.nav_map_saved : R.string.nav_map_none),
-                        activity.getString(R.string.nav_localization_stopped));
+                viewModel.setMapStatus(activity.getString(hasMap ? R.string.nav_map_saved : R.string.nav_map_none));
+                viewModel.setLocalizationStatus(activity.getString(R.string.nav_localization_stopped));
             });
 
             Log.i(TAG, "handleRobotFocusLost: Released lifecycle lock");
