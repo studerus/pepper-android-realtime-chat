@@ -6,7 +6,7 @@ import io.github.anonymous.pepper_realtime.ui.ChatViewModel;
 import io.github.anonymous.pepper_realtime.controller.GestureController;
 import io.github.anonymous.pepper_realtime.R;
 import io.github.anonymous.pepper_realtime.manager.TurnManager;
-import io.github.anonymous.pepper_realtime.robot.RobotController;
+
 import io.github.anonymous.pepper_realtime.controller.RobotFocusManager;
 import io.github.anonymous.pepper_realtime.manager.NavigationServiceManager;
 

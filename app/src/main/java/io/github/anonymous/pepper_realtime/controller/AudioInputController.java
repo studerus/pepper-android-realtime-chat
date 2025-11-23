@@ -1,7 +1,6 @@
 package io.github.anonymous.pepper_realtime.controller;
 
 import android.util.Log;
-import android.content.Context;
 
 import io.github.anonymous.pepper_realtime.ui.ChatViewModel;
 import io.github.anonymous.pepper_realtime.R;

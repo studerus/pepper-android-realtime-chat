@@ -1,7 +1,5 @@
 package io.github.anonymous.pepper_realtime.ui;
 
-import android.Manifest;
-import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
@@ -11,8 +9,6 @@ import android.widget.TextView;
 import android.widget.LinearLayout;
 import android.widget.FrameLayout;
 import androidx.annotation.NonNull;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.recyclerview.widget.RecyclerView;
@@ -21,9 +17,6 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.navigation.NavigationView;
-
-import java.io.File;
-import java.util.List;
 
 import javax.inject.Inject;
 import dagger.hilt.android.AndroidEntryPoint;

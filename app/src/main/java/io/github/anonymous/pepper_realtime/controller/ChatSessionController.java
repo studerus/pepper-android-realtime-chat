@@ -2,9 +2,6 @@ package io.github.anonymous.pepper_realtime.controller;
 
 import android.util.Log;
 import okhttp3.Response;
-import java.util.List;
-import java.util.Map;
-
 import io.github.anonymous.pepper_realtime.controller.GestureController;
 import io.github.anonymous.pepper_realtime.R;
 import io.github.anonymous.pepper_realtime.network.RealtimeEventHandler;
@@ -15,7 +12,6 @@ import io.github.anonymous.pepper_realtime.manager.TurnManager;
 import io.github.anonymous.pepper_realtime.network.RealtimeApiProvider;
 import io.github.anonymous.pepper_realtime.network.RealtimeSessionManager;
 import io.github.anonymous.pepper_realtime.network.WebSocketConnectionCallback;
-import io.github.anonymous.pepper_realtime.ui.ChatMenuController;
 import io.github.anonymous.pepper_realtime.ui.ChatMessage;
 import io.github.anonymous.pepper_realtime.ui.ChatViewModel;
 import io.github.anonymous.pepper_realtime.manager.AudioPlayer;
