@@ -27,6 +27,7 @@ import io.github.anonymous.pepper_realtime.R;
 import io.github.anonymous.pepper_realtime.controller.*;
 import io.github.anonymous.pepper_realtime.manager.*;
 import io.github.anonymous.pepper_realtime.manager.SettingsRepository;
+import io.github.anonymous.pepper_realtime.ui.settings.SettingsViewModel;
 import io.github.anonymous.pepper_realtime.network.*;
 import io.github.anonymous.pepper_realtime.robot.RobotController;
 import io.github.anonymous.pepper_realtime.service.*;
@@ -105,6 +106,7 @@ public class ChatActivity extends AppCompatActivity {
 
     // ViewModel
     private ChatViewModel viewModel;
+    private SettingsViewModel settingsViewModel;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -122,6 +124,7 @@ public class ChatActivity extends AppCompatActivity {
 
         // Initialize ViewModel
         viewModel = new ViewModelProvider(this).get(ChatViewModel.class);
+        settingsViewModel = new ViewModelProvider(this).get(SettingsViewModel.class);
 
         // Set Controller on ViewModel (Break circular dependency)
         viewModel.setSessionController(sessionController);
@@ -175,6 +178,42 @@ public class ChatActivity extends AppCompatActivity {
             }
         });
 
+        // Observe SettingsViewModel events
+        settingsViewModel.getRestartSessionEvent().observe(this, restart -> {
+            if (Boolean.TRUE.equals(restart)) {
+                Log.i(TAG, "Core settings changed. Starting new session.");
+                viewModel.startNewSession();
+                settingsViewModel.consumeRestartSessionEvent();
+            }
+        });
+
+        settingsViewModel.getUpdateSessionEvent().observe(this, update -> {
+            if (Boolean.TRUE.equals(update)) {
+                Log.i(TAG, "Tools/prompt/temperature changed. Updating session.");
+                if (sessionManager != null) {
+                    sessionManager.updateSession();
+                }
+                settingsViewModel.consumeUpdateSessionEvent();
+            }
+        });
+
+        settingsViewModel.getRestartRecognizerEvent().observe(this, restart -> {
+            if (Boolean.TRUE.equals(restart)) {
+                Log.i(TAG, "Recognizer settings changed. Re-initializing speech recognizer.");
+                runOnUiThread(() -> viewModel.setStatusText(getString(R.string.status_updating_recognizer)));
+                audioInputController.stopContinuousRecognition();
+                audioInputController.reinitializeSpeechRecognizerForSettings();
+                audioInputController.startContinuousRecognition();
+                settingsViewModel.consumeRestartRecognizerEvent();
+            }
+        });
+
+        settingsViewModel.getVolumeChangeEvent().observe(this, volume -> {
+            if (volume != null) {
+                volumeController.setVolume(ChatActivity.this, volume);
+            }
+        });
+
         initializeControllers();
 
         // Setup Listeners
@@ -215,7 +254,7 @@ public class ChatActivity extends AppCompatActivity {
 
         // Settings Manager
         NavigationView navigationView = findViewById(R.id.navigation_view);
-        this.settingsManager = new SettingsManager(this, navigationView, settingsRepository);
+        this.settingsManager = new SettingsManager(this, navigationView, settingsViewModel);
 
         // Dashboard Manager
         View dashboardOverlay = findViewById(R.id.dashboard_overlay);
