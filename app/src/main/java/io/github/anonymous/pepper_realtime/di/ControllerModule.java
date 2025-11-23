@@ -1,0 +1,102 @@
+package io.github.anonymous.pepper_realtime.di;
+
+import android.app.Activity;
+import dagger.Module;
+import dagger.Provides;
+import dagger.hilt.InstallIn;
+import dagger.hilt.android.components.ActivityComponent;
+import dagger.hilt.android.scopes.ActivityScoped;
+import io.github.anonymous.pepper_realtime.controller.AudioInputController;
+import io.github.anonymous.pepper_realtime.controller.ChatInterruptController;
+import io.github.anonymous.pepper_realtime.controller.ChatSessionController;
+import io.github.anonymous.pepper_realtime.controller.GestureController;
+import io.github.anonymous.pepper_realtime.controller.RobotFocusManager;
+import io.github.anonymous.pepper_realtime.manager.ApiKeyManager;
+import io.github.anonymous.pepper_realtime.manager.AudioPlayer;
+import io.github.anonymous.pepper_realtime.network.RealtimeSessionManager;
+import io.github.anonymous.pepper_realtime.manager.SessionImageManager;
+import io.github.anonymous.pepper_realtime.manager.SettingsManager;
+import io.github.anonymous.pepper_realtime.manager.ThreadManager;
+import io.github.anonymous.pepper_realtime.manager.TurnManager;
+import io.github.anonymous.pepper_realtime.network.RealtimeEventHandler;
+import io.github.anonymous.pepper_realtime.ui.ChatActivity;
+import io.github.anonymous.pepper_realtime.ui.ChatViewModel;
+import io.github.anonymous.pepper_realtime.controller.ChatRealtimeHandler;
+import io.github.anonymous.pepper_realtime.tools.ToolContext;
+import io.github.anonymous.pepper_realtime.tools.ToolRegistry;
+
+@Module
+@InstallIn(ActivityComponent.class)
+public class ControllerModule {
+
+    @Provides
+    @ActivityScoped
+    public ChatActivity provideChatActivity(Activity activity) {
+        return (ChatActivity) activity;
+    }
+
+    @Provides
+    @ActivityScoped
+    public ChatViewModel provideChatViewModel(ChatActivity activity) {
+        return new androidx.lifecycle.ViewModelProvider(activity).get(ChatViewModel.class);
+    }
+
+    @Provides
+    @ActivityScoped
+    public TurnManager provideTurnManager() {
+        // Listener is set later in Activity
+        return new TurnManager(null);
+    }
+
+    @Provides
+    @ActivityScoped
+    public RobotFocusManager provideRobotFocusManager(ChatActivity activity) {
+        return new RobotFocusManager(activity);
+    }
+
+    @Provides
+    @ActivityScoped
+    public ChatInterruptController provideChatInterruptController(
+            ChatViewModel viewModel,
+            RealtimeSessionManager sessionManager,
+            AudioPlayer audioPlayer,
+            GestureController gestureController,
+            AudioInputController audioInputController) {
+        return new ChatInterruptController(viewModel, sessionManager, audioPlayer, gestureController,
+                audioInputController);
+    }
+
+    @Provides
+    @ActivityScoped
+    public RealtimeEventHandler provideRealtimeEventHandler(
+            ChatViewModel viewModel,
+            AudioPlayer audioPlayer,
+            TurnManager turnManager,
+            ThreadManager threadManager,
+            ToolRegistry toolRegistry) {
+        // ToolContext is set later
+        ChatRealtimeHandler handler = new ChatRealtimeHandler(viewModel, audioPlayer, turnManager,
+                threadManager, toolRegistry, null);
+        return new RealtimeEventHandler(handler);
+    }
+
+    @Provides
+    @ActivityScoped
+    public ChatSessionController provideChatSessionController(
+            ChatViewModel viewModel,
+            RealtimeSessionManager sessionManager,
+            io.github.anonymous.pepper_realtime.manager.SettingsRepository settingsRepository,
+            ApiKeyManager keyManager,
+            AudioInputController audioInputController,
+            ThreadManager threadManager,
+            GestureController gestureController,
+            TurnManager turnManager,
+            ChatInterruptController interruptController,
+            AudioPlayer audioPlayer,
+            RealtimeEventHandler eventHandler,
+            SessionImageManager sessionImageManager) {
+        return new ChatSessionController(viewModel, sessionManager, settingsRepository, keyManager,
+                audioInputController, threadManager, gestureController, turnManager, interruptController,
+                audioPlayer, eventHandler, sessionImageManager);
+    }
+}

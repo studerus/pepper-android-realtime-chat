@@ -1,33 +1,30 @@
 package io.github.anonymous.pepper_realtime.controller;
 
 import android.util.Log;
-import android.view.View;
-import android.widget.TextView;
+import android.content.Context;
 
-import com.google.android.material.floatingactionbutton.FloatingActionButton;
-
-import io.github.anonymous.pepper_realtime.ui.ChatActivity;
+import io.github.anonymous.pepper_realtime.ui.ChatViewModel;
 import io.github.anonymous.pepper_realtime.R;
 import io.github.anonymous.pepper_realtime.manager.ApiKeyManager;
 import io.github.anonymous.pepper_realtime.manager.ThreadManager;
 import io.github.anonymous.pepper_realtime.manager.RealtimeAudioInputManager;
-import io.github.anonymous.pepper_realtime.manager.SettingsManager;
 import io.github.anonymous.pepper_realtime.manager.SpeechRecognizerManager;
 import io.github.anonymous.pepper_realtime.network.RealtimeSessionManager;
 import io.github.anonymous.pepper_realtime.ui.ChatMessage;
+import io.github.anonymous.pepper_realtime.manager.SettingsRepository;
 
+import dagger.hilt.android.scopes.ActivityScoped;
+import javax.inject.Inject;
+
+@ActivityScoped
 public class AudioInputController {
     private static final String TAG = "AudioInputController";
 
-    private final ChatActivity activity;
-    private final SettingsManager settingsManager;
+    private final ChatViewModel viewModel;
+    private final SettingsRepository settingsRepository;
     private final ApiKeyManager keyManager;
     private final RealtimeSessionManager sessionManager;
     private final ThreadManager threadManager;
-
-    // UI components for status updates
-    private final TextView statusTextView;
-    private final FloatingActionButton fabInterrupt;
 
     // State
     private SpeechRecognizerManager sttManager;
@@ -39,20 +36,17 @@ public class AudioInputController {
     // Listener for STT events
     private ChatSpeechListener speechListener;
 
-    public AudioInputController(ChatActivity activity,
-            SettingsManager settingsManager,
+    @Inject
+    public AudioInputController(ChatViewModel viewModel,
+            SettingsRepository settingsRepository,
             ApiKeyManager keyManager,
             RealtimeSessionManager sessionManager,
-            ThreadManager threadManager,
-            TextView statusTextView,
-            FloatingActionButton fabInterrupt) {
-        this.activity = activity;
-        this.settingsManager = settingsManager;
+            ThreadManager threadManager) {
+        this.viewModel = viewModel;
+        this.settingsRepository = settingsRepository;
         this.keyManager = keyManager;
         this.sessionManager = sessionManager;
         this.threadManager = threadManager;
-        this.statusTextView = statusTextView;
-        this.fabInterrupt = fabInterrupt;
     }
 
     public void setSpeechListener(ChatSpeechListener listener) {
@@ -77,40 +71,35 @@ public class AudioInputController {
 
     public void mute() {
         isMuted = true;
+        viewModel.setMuted(true);
         stopContinuousRecognition();
-        activity.runOnUiThread(() -> {
-            statusTextView.setText(activity.getString(R.string.status_muted_tap_to_unmute));
-            fabInterrupt.setVisibility(View.GONE);
-        });
+
+        viewModel.setStatusText(getString(R.string.status_muted_tap_to_unmute));
         Log.i(TAG, "Microphone muted - tap status to un-mute");
     }
 
     public void resetMuteState() {
         isMuted = false;
-        activity.runOnUiThread(() -> {
-            fabInterrupt.setVisibility(View.GONE);
-        });
+        viewModel.setMuted(false);
         Log.i(TAG, "Mute state reset (audio capture not started automatically)");
     }
 
     public void unmute() {
         isMuted = false;
-        activity.runOnUiThread(() -> {
-            statusTextView.setText(activity.getString(R.string.status_listening));
-            fabInterrupt.setVisibility(View.GONE);
-        });
+        viewModel.setMuted(false);
+        viewModel.setStatusText(getString(R.string.status_listening));
+
         try {
             startContinuousRecognition();
         } catch (Exception e) {
             Log.e(TAG, "Failed to start recognition on unmute", e);
-            activity.runOnUiThread(
-                    () -> statusTextView.setText(activity.getString(R.string.status_recognizer_not_ready)));
+            viewModel.setStatusText(getString(R.string.status_recognizer_not_ready));
         }
         Log.i(TAG, "Microphone un-muted - resuming listening");
     }
 
     public void startContinuousRecognition() {
-        if (settingsManager.isUsingRealtimeAudioInput()) {
+        if (settingsRepository.isUsingRealtimeAudioInput()) {
             // MUTUAL EXCLUSION: Stop Azure STT if it's running before starting Realtime API
             if (sttManager != null) {
                 threadManager.executeAudio(() -> cleanupSttForReinit());
@@ -127,11 +116,9 @@ public class AudioInputController {
                     Log.i(TAG, "Realtime API audio capture started (server VAD enabled)");
                 } else {
                     Log.e(TAG, "Failed to start Realtime API audio capture");
-                    activity.runOnUiThread(() -> {
-                        statusTextView.setText(activity.getString(R.string.error_audio_capture_failed));
-                        activity.addMessage(activity.getString(R.string.error_audio_capture_permissions),
-                                ChatMessage.Sender.ROBOT);
-                    });
+                    viewModel.setStatusText(getString(R.string.error_audio_capture_failed));
+                    viewModel.addMessage(new ChatMessage(getString(R.string.error_audio_capture_permissions),
+                            ChatMessage.Sender.ROBOT));
                 }
             });
             return;
@@ -146,15 +133,14 @@ public class AudioInputController {
 
         if (sttManager == null) {
             Log.w(TAG, "Speech recognizer not initialized yet, cannot start recognition.");
-            activity.runOnUiThread(
-                    () -> statusTextView.setText(activity.getString(R.string.status_recognizer_not_ready)));
+            viewModel.setStatusText(getString(R.string.status_recognizer_not_ready));
             return;
         }
         threadManager.executeAudio(() -> sttManager.start());
     }
 
     public void stopContinuousRecognition() {
-        if (settingsManager.isUsingRealtimeAudioInput()) {
+        if (settingsRepository.isUsingRealtimeAudioInput()) {
             if (realtimeAudioInput != null && realtimeAudioInput.isCapturing()) {
                 threadManager.executeAudio(() -> {
                     realtimeAudioInput.stop();
@@ -191,15 +177,15 @@ public class AudioInputController {
     }
 
     public void handleResume() {
-        String currentMode = settingsManager.getAudioInputMode();
-        if (SettingsManager.MODE_AZURE_SPEECH.equals(currentMode) && sttManager != null) {
+        String currentMode = settingsRepository.getAudioInputMode();
+        if (SettingsRepository.MODE_AZURE_SPEECH.equals(currentMode) && sttManager != null) {
             try {
                 sttManager.start();
                 Log.i(TAG, "Restarted Azure STT after resume");
             } catch (Exception e) {
                 Log.e(TAG, "Failed to restart STT after resume", e);
             }
-        } else if (SettingsManager.MODE_REALTIME_API.equals(currentMode) && realtimeAudioInput != null) {
+        } else if (SettingsRepository.MODE_REALTIME_API.equals(currentMode) && realtimeAudioInput != null) {
             try {
                 realtimeAudioInput.start();
                 Log.i(TAG, "Restarted Realtime audio input after resume");
@@ -212,7 +198,7 @@ public class AudioInputController {
     public void setupSpeechRecognizer() throws Exception {
         Log.i(TAG, "Starting STT setup...");
 
-        if (!settingsManager.isUsingRealtimeAudioInput()) {
+        if (!settingsRepository.isUsingRealtimeAudioInput()) {
             Log.i(TAG, "Azure Speech mode active - setting up STT...");
             ensureSttManager();
             Log.i(TAG, "Configuring speech recognizer (this will also perform warmup)...");
@@ -225,7 +211,7 @@ public class AudioInputController {
     }
 
     public void reinitializeSpeechRecognizerForSettings() {
-        if (settingsManager.isUsingRealtimeAudioInput()) {
+        if (settingsRepository.isUsingRealtimeAudioInput()) {
             Log.i(TAG, "Realtime API audio mode - no STT re-initialization needed");
             return;
         }
@@ -233,15 +219,14 @@ public class AudioInputController {
             try {
                 ensureSttManager();
                 configureSpeechRecognizer();
-                String langCode = settingsManager.getLanguage();
-                int silenceTimeout = settingsManager.getSilenceTimeout();
+                String langCode = settingsRepository.getLanguage();
+                int silenceTimeout = settingsRepository.getSilenceTimeout();
                 Log.i(TAG, "Azure Speech Recognizer re-initialized for language: " + langCode + ", silence timeout: "
                         + silenceTimeout + "ms");
-                activity.runOnUiThread(() -> statusTextView.setText(activity.getString(R.string.status_listening)));
+                viewModel.setStatusText(getString(R.string.status_listening));
             } catch (Exception ex) {
                 Log.e(TAG, "Azure Speech re-init failed", ex);
-                activity.runOnUiThread(
-                        () -> statusTextView.setText(activity.getString(R.string.error_updating_settings)));
+                viewModel.setStatusText(getString(R.string.error_updating_settings));
             }
         });
     }
@@ -274,10 +259,14 @@ public class AudioInputController {
         if (speechListener != null) {
             sttManager.setCallbacks(speechListener);
         }
-        String langCode = settingsManager.getLanguage();
-        int silenceTimeout = settingsManager.getSilenceTimeout();
-        double confidenceThreshold = settingsManager.getConfidenceThreshold();
+        String langCode = settingsRepository.getLanguage();
+        int silenceTimeout = settingsRepository.getSilenceTimeout();
+        double confidenceThreshold = settingsRepository.getConfidenceThreshold();
         sttManager.configure(keyManager.getAzureSpeechKey(), keyManager.getAzureSpeechRegion(), langCode,
                 silenceTimeout, confidenceThreshold);
+    }
+
+    private String getString(int resId) {
+        return viewModel.getApplication().getString(resId);
     }
 }

@@ -5,13 +5,12 @@ import okhttp3.Response;
 import java.util.List;
 import java.util.Map;
 
-import io.github.anonymous.pepper_realtime.ui.ChatActivity;
 import io.github.anonymous.pepper_realtime.controller.GestureController;
 import io.github.anonymous.pepper_realtime.R;
 import io.github.anonymous.pepper_realtime.network.RealtimeEventHandler;
 import io.github.anonymous.pepper_realtime.manager.ApiKeyManager;
 import io.github.anonymous.pepper_realtime.manager.ThreadManager;
-import io.github.anonymous.pepper_realtime.manager.SettingsManager;
+import io.github.anonymous.pepper_realtime.manager.SettingsRepository;
 import io.github.anonymous.pepper_realtime.manager.TurnManager;
 import io.github.anonymous.pepper_realtime.network.RealtimeApiProvider;
 import io.github.anonymous.pepper_realtime.network.RealtimeSessionManager;
@@ -25,10 +24,9 @@ import io.github.anonymous.pepper_realtime.manager.SessionImageManager;
 public class ChatSessionController {
     private static final String TAG = "ChatSessionController";
 
-    private final ChatActivity activity;
     private final ChatViewModel viewModel;
     private final RealtimeSessionManager sessionManager;
-    private final SettingsManager settingsManager;
+    private final SettingsRepository settingsRepository;
     private final ApiKeyManager keyManager;
     private final AudioInputController audioInputController;
     private final ThreadManager threadManager;
@@ -40,10 +38,10 @@ public class ChatSessionController {
     private final SessionImageManager sessionImageManager;
     private WebSocketConnectionCallback connectionCallback;
 
-    public ChatSessionController(ChatActivity activity,
+    public ChatSessionController(
             ChatViewModel viewModel,
             RealtimeSessionManager sessionManager,
-            SettingsManager settingsManager,
+            SettingsRepository settingsRepository,
             ApiKeyManager keyManager,
             AudioInputController audioInputController,
             ThreadManager threadManager,
@@ -53,10 +51,9 @@ public class ChatSessionController {
             AudioPlayer audioPlayer,
             RealtimeEventHandler eventHandler,
             SessionImageManager sessionImageManager) {
-        this.activity = activity;
         this.viewModel = viewModel;
         this.sessionManager = sessionManager;
-        this.settingsManager = settingsManager;
+        this.settingsRepository = settingsRepository;
         this.keyManager = keyManager;
         this.audioInputController = audioInputController;
 
@@ -76,7 +73,7 @@ public class ChatSessionController {
         if (sessionManager == null || !sessionManager.isConnected()) {
             Log.e(TAG, "WebSocket is not connected.");
             if (requestResponse) {
-                activity.runOnUiThread(() -> activity.addMessage(activity.getString(R.string.error_not_connected),
+                viewModel.addMessage(new ChatMessage(viewModel.getApplication().getString(R.string.error_not_connected),
                         ChatMessage.Sender.ROBOT));
             }
             return;
@@ -84,17 +81,15 @@ public class ChatSessionController {
 
         if (allowInterrupt && requestResponse && turnManager != null
                 && turnManager.getState() == TurnManager.State.SPEAKING) {
-            activity.runOnUiThread(() -> {
-                // Simple explicit interrupt via controller if playing
-                if (Boolean.TRUE.equals(viewModel.getIsAudioPlaying().getValue())
-                        || (audioPlayer != null && audioPlayer.isPlaying())) {
-                    interruptController.interruptSpeech();
-                }
-            });
+            // Simple explicit interrupt via controller if playing
+            if (Boolean.TRUE.equals(viewModel.getIsAudioPlaying().getValue())
+                    || (audioPlayer != null && audioPlayer.isPlaying())) {
+                interruptController.interruptSpeech();
+            }
         }
 
         if (requestResponse && turnManager != null) {
-            activity.runOnUiThread(() -> turnManager.setState(TurnManager.State.THINKING));
+            turnManager.setState(TurnManager.State.THINKING);
         }
 
         threadManager.executeNetwork(() -> {
@@ -102,12 +97,11 @@ public class ChatSessionController {
                 boolean sentItem = sessionManager.sendUserTextMessage(text);
                 if (!sentItem) {
                     Log.e(TAG, "Failed to send message - WebSocket connection broken");
-                    activity.runOnUiThread(() -> {
-                        activity.addMessage(activity.getString(R.string.error_connection_lost_message),
-                                ChatMessage.Sender.ROBOT);
-                        if (turnManager != null)
-                            turnManager.setState(TurnManager.State.IDLE);
-                    });
+                    viewModel.addMessage(new ChatMessage(
+                            viewModel.getApplication().getString(R.string.error_connection_lost_message),
+                            ChatMessage.Sender.ROBOT));
+                    if (turnManager != null)
+                        turnManager.setState(TurnManager.State.IDLE);
                     return;
                 }
 
@@ -130,21 +124,20 @@ public class ChatSessionController {
                     if (!sentResponse) {
                         viewModel.setResponseGenerating(false);
                         Log.e(TAG, "Failed to send response request");
-                        activity.runOnUiThread(
-                                () -> activity.addMessage(activity.getString(R.string.error_connection_lost_response),
-                                        ChatMessage.Sender.ROBOT));
+                        viewModel.addMessage(new ChatMessage(
+                                viewModel.getApplication().getString(R.string.error_connection_lost_response),
+                                ChatMessage.Sender.ROBOT));
                     }
                 }
             } catch (Exception e) {
                 Log.e(TAG, "Exception in sendMessageToRealtimeAPI", e);
                 if (requestResponse) {
                     viewModel.setResponseGenerating(false);
-                    activity.runOnUiThread(() -> {
-                        activity.addMessage(activity.getString(R.string.error_processing_message),
-                                ChatMessage.Sender.ROBOT);
-                        if (turnManager != null)
-                            turnManager.setState(TurnManager.State.IDLE);
-                    });
+                    viewModel.addMessage(
+                            new ChatMessage(viewModel.getApplication().getString(R.string.error_processing_message),
+                                    ChatMessage.Sender.ROBOT));
+                    if (turnManager != null)
+                        turnManager.setState(TurnManager.State.IDLE);
                 }
             }
         });
@@ -183,10 +176,8 @@ public class ChatSessionController {
         }
         viewModel.setLastChatBubbleResponseId(null);
 
-        activity.runOnUiThread(() -> {
-            viewModel.setStatusText(activity.getString(R.string.status_starting_new_session));
-            viewModel.clearMessages();
-        });
+        viewModel.setStatusText(viewModel.getApplication().getString(R.string.status_starting_new_session));
+        viewModel.clearMessages();
 
         threadManager.executeNetwork(() -> {
             threadManager.executeIO(() -> this.sessionImageManager.deleteAllImages());
@@ -214,18 +205,16 @@ public class ChatSessionController {
                 @Override
                 public void onSuccess() {
                     Log.i(TAG, "New session started successfully.");
-                    if (!settingsManager.isUsingRealtimeAudioInput()) {
+                    if (!settingsRepository.isUsingRealtimeAudioInput()) {
                         // Azure Speech Mode
                         if (!audioInputController.isSttRunning()) {
                             threadManager.executeAudio(() -> {
                                 try {
                                     audioInputController.setupSpeechRecognizer();
-                                    activity.runOnUiThread(() -> {
-                                        if (turnManager != null) {
-                                            turnManager.setState(TurnManager.State.LISTENING);
-                                        }
-                                        audioInputController.startContinuousRecognition();
-                                    });
+                                    if (turnManager != null) {
+                                        turnManager.setState(TurnManager.State.LISTENING);
+                                    }
+                                    audioInputController.startContinuousRecognition();
                                 } catch (Exception e) {
                                     Log.e(TAG, "Failed to setup Azure Speech after session restart", e);
                                 }
@@ -234,11 +223,9 @@ public class ChatSessionController {
                     } else {
                         // Realtime API Mode
                         // Just set LISTENING state - ChatTurnListener will trigger audio start
-                        activity.runOnUiThread(() -> {
-                            if (turnManager != null) {
-                                turnManager.setState(TurnManager.State.LISTENING);
-                            }
-                        });
+                        if (turnManager != null) {
+                            turnManager.setState(TurnManager.State.LISTENING);
+                        }
                     }
                 }
 
@@ -249,11 +236,11 @@ public class ChatSessionController {
                         Log.w(TAG, "Harmless race condition during new session start");
                     } else {
                         Log.e(TAG, "Failed to start new session", error);
-                        activity.runOnUiThread(() -> {
-                            viewModel.addMessage(new ChatMessage(activity.getString(R.string.new_session_error),
-                                    ChatMessage.Sender.ROBOT));
-                            viewModel.setStatusText(activity.getString(R.string.error_connection_failed_short));
-                        });
+                        viewModel.addMessage(
+                                new ChatMessage(viewModel.getApplication().getString(R.string.new_session_error),
+                                        ChatMessage.Sender.ROBOT));
+                        viewModel.setStatusText(
+                                viewModel.getApplication().getString(R.string.error_connection_failed_short));
                     }
                 }
             });
@@ -270,8 +257,8 @@ public class ChatSessionController {
         this.connectionCallback = callback;
 
         try {
-            RealtimeApiProvider provider = settingsManager.getApiProvider();
-            String selectedModel = settingsManager.getModel();
+            RealtimeApiProvider provider = settingsRepository.getApiProviderEnum();
+            String selectedModel = settingsRepository.getModel();
             String azureEndpoint = keyManager.getAzureOpenAiEndpoint();
 
             String url = provider.getWebSocketUrl(azureEndpoint, selectedModel);

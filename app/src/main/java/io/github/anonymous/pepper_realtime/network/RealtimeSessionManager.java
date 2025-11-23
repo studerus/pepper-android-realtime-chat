@@ -7,6 +7,9 @@ import androidx.annotation.NonNull;
 import java.util.Map;
 import java.util.Set;
 
+import javax.inject.Inject;
+import javax.inject.Singleton;
+
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
@@ -17,28 +20,33 @@ import okio.ByteString;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import io.github.anonymous.pepper_realtime.network.RealtimeEventHandler;
 import io.github.anonymous.pepper_realtime.manager.ApiKeyManager;
-import io.github.anonymous.pepper_realtime.manager.SettingsManager;
+import io.github.anonymous.pepper_realtime.manager.SettingsRepository;
 import io.github.anonymous.pepper_realtime.tools.ToolRegistry;
 import io.github.anonymous.pepper_realtime.tools.ToolContext;
 
+@Singleton
 public class RealtimeSessionManager {
     public interface Listener {
         void onOpen(Response response);
+
         void onTextMessage(String text);
+
         void onBinaryMessage(ByteString bytes);
+
         void onClosing(int code, String reason);
+
         void onClosed(int code, String reason);
+
         void onFailure(Throwable t, Response response);
     }
-    
+
     public interface SessionConfigCallback {
         void onSessionConfigured(boolean success, String error);
     }
 
     private static final String TAG = "RealtimeSession";
-    
+
     // Latency measurement for audio response time
     public static volatile long responseCreateTimestamp = 0;
 
@@ -46,13 +54,14 @@ public class RealtimeSessionManager {
     private WebSocket webSocket;
     private Listener listener;
     private SessionConfigCallback sessionConfigCallback;
-    
+
     // Session configuration dependencies
     private ToolRegistry toolRegistry;
     private ToolContext toolContext;
-    private SettingsManager settingsManager;
+    private SettingsRepository settingsRepository;
     private ApiKeyManager keyManager;
 
+    @Inject
     public RealtimeSessionManager() {
         // Use optimized shared WebSocket client for better performance
         this.client = HttpClientManager.getInstance().getWebSocketClient();
@@ -61,60 +70,83 @@ public class RealtimeSessionManager {
     public void setListener(Listener listener) {
         this.listener = listener;
     }
-    
+
     public void setSessionConfigCallback(SessionConfigCallback callback) {
         this.sessionConfigCallback = callback;
     }
-    
+
     /**
      * Set dependencies for session configuration
      */
-    public void setSessionDependencies(ToolRegistry toolRegistry, ToolContext toolContext, 
-                                      SettingsManager settingsManager, ApiKeyManager keyManager) {
+    public void setSessionDependencies(ToolRegistry toolRegistry, ToolContext toolContext,
+            SettingsRepository settingsRepository, ApiKeyManager keyManager) {
         this.toolRegistry = toolRegistry;
         this.toolContext = toolContext;
-        this.settingsManager = settingsManager;
+        this.settingsRepository = settingsRepository;
         this.keyManager = keyManager;
     }
 
     public boolean isConnected() {
         // Check both WebSocket existence and actual connection state
-        // Additional diagnostic info - but still rely on null check since we can't access internal state
+        // Additional diagnostic info - but still rely on null check since we can't
+        // access internal state
         return webSocket != null;
     }
 
     public void connect(String url, Map<String, String> headers) {
         Request.Builder b = new Request.Builder().url(url);
         if (headers != null) {
-            for (Map.Entry<String, String> e : headers.entrySet()) b.addHeader(e.getKey(), e.getValue());
+            for (Map.Entry<String, String> e : headers.entrySet())
+                b.addHeader(e.getKey(), e.getValue());
         }
         Request request = b.build();
         WebSocketListener wsListener = new WebSocketListener() {
-            @Override public void onOpen(@NonNull WebSocket ws, @NonNull Response response) {
+            @Override
+            public void onOpen(@NonNull WebSocket ws, @NonNull Response response) {
                 Log.i(TAG, "WebSocket onOpen: " + response.message() + " Code: " + response.code());
                 webSocket = ws;
-                if (listener != null) listener.onOpen(response);
-                else Log.w(TAG, "WARNING: onOpen called but listener is null!");
+                if (listener != null)
+                    listener.onOpen(response);
+                else
+                    Log.w(TAG, "WARNING: onOpen called but listener is null!");
             }
-            @Override public void onMessage(@NonNull WebSocket ws, @NonNull String text) {
-                if (listener != null) listener.onTextMessage(text);
+
+            @Override
+            public void onMessage(@NonNull WebSocket ws, @NonNull String text) {
+                if (listener != null)
+                    listener.onTextMessage(text);
             }
-            @Override public void onMessage(@NonNull WebSocket ws, @NonNull ByteString bytes) {
-                if (listener != null) listener.onBinaryMessage(bytes);
+
+            @Override
+            public void onMessage(@NonNull WebSocket ws, @NonNull ByteString bytes) {
+                if (listener != null)
+                    listener.onBinaryMessage(bytes);
             }
-            @Override public void onClosing(@NonNull WebSocket ws, int code, @NonNull String reason) {
-                if (listener != null) listener.onClosing(code, reason);
+
+            @Override
+            public void onClosing(@NonNull WebSocket ws, int code, @NonNull String reason) {
+                if (listener != null)
+                    listener.onClosing(code, reason);
                 ws.close(1000, null);
             }
-            @Override public void onClosed(@NonNull WebSocket ws, int code, @NonNull String reason) {
-                if (listener != null) listener.onClosed(code, reason);
-                if (webSocket == ws) webSocket = null;
+
+            @Override
+            public void onClosed(@NonNull WebSocket ws, int code, @NonNull String reason) {
+                if (listener != null)
+                    listener.onClosed(code, reason);
+                if (webSocket == ws)
+                    webSocket = null;
             }
-            @Override public void onFailure(@NonNull WebSocket ws, @NonNull Throwable t, Response response) {
+
+            @Override
+            public void onFailure(@NonNull WebSocket ws, @NonNull Throwable t, Response response) {
                 Log.e(TAG, "WebSocket failure: " + t.getMessage(), t);
-                if (listener != null) listener.onFailure(t, response);
-                else Log.w(TAG, "WARNING: onFailure called but listener is null!");
-                if (webSocket == ws) webSocket = null;
+                if (listener != null)
+                    listener.onFailure(t, response);
+                else
+                    Log.w(TAG, "WARNING: onFailure called but listener is null!");
+                if (webSocket == ws)
+                    webSocket = null;
             }
         };
         client.newWebSocket(request, wsListener);
@@ -150,7 +182,7 @@ public class RealtimeSessionManager {
         try {
             JSONObject createResponsePayload = new JSONObject();
             createResponsePayload.put("type", "response.create");
-            
+
             // GA API doesn't support response.modalities - let it use session defaults
             // JSONObject responseDetails = new JSONObject();
             // responseDetails.put("modalities", new JSONArray().put("audio").put("text"));
@@ -168,7 +200,8 @@ public class RealtimeSessionManager {
     }
 
     /**
-     * Send a user image message to the Realtime API (GA/Beta) as a conversation item
+     * Send a user image message to the Realtime API (GA/Beta) as a conversation
+     * item
      * Uses input_image content with a data URL to avoid separate upload steps.
      *
      * @param base64 Base64-encoded JPEG/PNG without data URL prefix
@@ -206,14 +239,14 @@ public class RealtimeSessionManager {
         try {
             JSONObject toolResultPayload = new JSONObject();
             toolResultPayload.put("type", "conversation.item.create");
-            
+
             JSONObject item = new JSONObject();
             item.put("type", "function_call_output");
             item.put("call_id", callId);
             item.put("output", result);
-            
+
             toolResultPayload.put("item", item);
-            
+
             Log.d(TAG, "Sending tool result: " + toolResultPayload);
             return send(toolResultPayload.toString());
         } catch (Exception e) {
@@ -221,9 +254,10 @@ public class RealtimeSessionManager {
             return false;
         }
     }
-    
+
     /**
      * Send audio chunk to Realtime API input audio buffer
+     * 
      * @param base64Audio Base64-encoded PCM16 audio data
      * @return true if sent successfully
      */
@@ -232,7 +266,7 @@ public class RealtimeSessionManager {
             JSONObject payload = new JSONObject();
             payload.put("type", "input_audio_buffer.append");
             payload.put("audio", base64Audio);
-            
+
             return send(payload.toString());
         } catch (Exception e) {
             Log.e(TAG, "Error creating audio chunk payload", e);
@@ -245,11 +279,12 @@ public class RealtimeSessionManager {
             android.util.Log.w("RealtimeSessionManager", "🚨 DIAGNOSTIC: Cannot send - webSocket is null");
             return false;
         }
-        
+
         try {
             boolean result = webSocket.send(text);
             if (!result) {
-                android.util.Log.w("RealtimeSessionManager", "🚨 DIAGNOSTIC: WebSocket.send() returned false - connection may be broken");
+                android.util.Log.w("RealtimeSessionManager",
+                        "🚨 DIAGNOSTIC: WebSocket.send() returned false - connection may be broken");
             }
             return result;
         } catch (Exception e) {
@@ -259,10 +294,14 @@ public class RealtimeSessionManager {
     }
 
     public void close(int code, String reason) {
-        try { if (webSocket != null) webSocket.close(code, reason); } catch (Exception ignored) {}
+        try {
+            if (webSocket != null)
+                webSocket.close(code, reason);
+        } catch (Exception ignored) {
+        }
         webSocket = null;
     }
-    
+
     /**
      * Configure initial session with tools, voice, temperature, and instructions
      * This should be called when WebSocket connection is established
@@ -275,19 +314,19 @@ public class RealtimeSessionManager {
             }
             return;
         }
-        
-        if (settingsManager == null || toolRegistry == null || toolContext == null) {
+
+        if (settingsRepository == null || toolRegistry == null || toolContext == null) {
             Log.w(TAG, "Session config SKIPPED - missing dependencies");
             if (sessionConfigCallback != null) {
                 sessionConfigCallback.onSessionConfigured(false, "Missing dependencies");
             }
             return;
         }
-        
+
         try {
             JSONObject payload = createSessionUpdatePayload("Initial session");
             boolean sent = send(payload.toString());
-            
+
             if (sent) {
                 if (sessionConfigCallback != null) {
                     sessionConfigCallback.onSessionConfigured(true, null);
@@ -299,7 +338,7 @@ public class RealtimeSessionManager {
                     sessionConfigCallback.onSessionConfigured(false, error);
                 }
             }
-            
+
         } catch (Exception e) {
             String error = "Error creating initial session config: " + e.getMessage();
             Log.e(TAG, error, e);
@@ -308,7 +347,7 @@ public class RealtimeSessionManager {
             }
         }
     }
-    
+
     /**
      * Update session configuration with current settings
      * This should be called when settings change during an active session
@@ -318,29 +357,29 @@ public class RealtimeSessionManager {
             Log.w(TAG, "Session update SKIPPED - not connected");
             return;
         }
-        
-        if (settingsManager == null || toolRegistry == null || toolContext == null) {
+
+        if (settingsRepository == null || toolRegistry == null || toolContext == null) {
             Log.w(TAG, "Session update SKIPPED - missing dependencies");
             return;
         }
-        
+
         try {
             // Debug YouTube API key availability
-            Set<String> enabledTools = settingsManager.getEnabledTools();
+            Set<String> enabledTools = settingsRepository.getEnabledTools();
             if (keyManager != null && enabledTools.contains("play_youtube_video")) {
                 boolean hasYouTubeKey = keyManager.isYouTubeAvailable();
                 if (!hasYouTubeKey) {
                     Log.w(TAG, "YouTube tool enabled but no API key found!");
                 }
             }
-            
+
             JSONObject payload = createSessionUpdatePayload("Session update");
             boolean sent = send(payload.toString());
-            
+
             if (!sent) {
                 Log.e(TAG, "Failed to send session update");
             }
-            
+
         } catch (Exception e) {
             Log.e(TAG, "Error updating session config", e);
         }
@@ -351,27 +390,28 @@ public class RealtimeSessionManager {
      * Eliminates duplication between initial config and updates.
      */
     private JSONObject createSessionUpdatePayload(String contextLog) throws Exception {
-        String voice = settingsManager.getVoice();
-        float speed = settingsManager.getSpeed();
-        String model = settingsManager.getModel();
-        float temperature = settingsManager.getTemperature();
-        String systemPrompt = settingsManager.getSystemPrompt();
-        Set<String> enabledTools = settingsManager.getEnabledTools();
-        
+        String voice = settingsRepository.getVoice();
+        float speed = settingsRepository.getSpeed();
+        String model = settingsRepository.getModel();
+        float temperature = settingsRepository.getTemperature();
+        String systemPrompt = settingsRepository.getSystemPrompt();
+        Set<String> enabledTools = settingsRepository.getEnabledTools();
+
         Log.i(TAG, contextLog + " - Model: " + model + ", Enabled tools: " + enabledTools);
-        
+
         JSONObject payload = new JSONObject();
         payload.put("type", "session.update");
-        
+
         JSONObject sessionConfig = new JSONObject();
-        
+
         // For OpenAI Direct with gpt-realtime, use GA API structure
-        if ("gpt-realtime".equals(model) && settingsManager.getApiProvider() == RealtimeApiProvider.OPENAI_DIRECT) {
+        if ("gpt-realtime".equals(model)
+                && settingsRepository.getApiProviderEnum() == RealtimeApiProvider.OPENAI_DIRECT) {
             sessionConfig.put("type", "realtime");
-            
+
             // GA API uses structured audio configuration
             JSONObject audio = new JSONObject();
-            
+
             // Output configuration
             JSONObject output = new JSONObject();
             output.put("voice", voice);
@@ -381,51 +421,51 @@ public class RealtimeSessionManager {
             format.put("rate", 24000);
             output.put("format", format);
             audio.put("output", output);
-            
+
             // Input configuration with turn detection
             JSONObject input = new JSONObject();
-            
+
             // Enable input audio configuration if using Realtime API audio mode
-            if (settingsManager.isUsingRealtimeAudioInput()) {
+            if (settingsRepository.isUsingRealtimeAudioInput()) {
                 // Turn Detection configuration
                 JSONObject turnDetection = new JSONObject();
-                String turnDetType = settingsManager.getTurnDetectionType();
+                String turnDetType = settingsRepository.getTurnDetectionType();
                 turnDetection.put("type", turnDetType);
                 turnDetection.put("create_response", true);
                 turnDetection.put("interrupt_response", true);
-                
+
                 if ("server_vad".equals(turnDetType)) {
-                    turnDetection.put("threshold", settingsManager.getVadThreshold());
-                    turnDetection.put("prefix_padding_ms", settingsManager.getPrefixPadding());
-                    turnDetection.put("silence_duration_ms", settingsManager.getSilenceDuration());
-                    
+                    turnDetection.put("threshold", settingsRepository.getVadThreshold());
+                    turnDetection.put("prefix_padding_ms", settingsRepository.getPrefixPadding());
+                    turnDetection.put("silence_duration_ms", settingsRepository.getSilenceDuration());
+
                     // Idle timeout only supported for server_vad
-                    Integer idleTimeout = settingsManager.getIdleTimeout();
+                    Integer idleTimeout = settingsRepository.getIdleTimeout();
                     if (idleTimeout != null && idleTimeout > 0) {
                         turnDetection.put("idle_timeout_ms", idleTimeout);
                     }
                 } else if ("semantic_vad".equals(turnDetType)) {
-                    String eagerness = settingsManager.getEagerness();
+                    String eagerness = settingsRepository.getEagerness();
                     turnDetection.put("eagerness", eagerness);
                 }
-                
+
                 input.put("turn_detection", turnDetection);
-                
+
                 // Transcription configuration
                 JSONObject transcription = new JSONObject();
-                transcription.put("model", settingsManager.getTranscriptionModel());
-                String transcriptLang = settingsManager.getTranscriptionLanguage();
+                transcription.put("model", settingsRepository.getTranscriptionModel());
+                String transcriptLang = settingsRepository.getTranscriptionLanguage();
                 if (transcriptLang != null && !transcriptLang.isEmpty()) {
                     transcription.put("language", transcriptLang);
                 }
-                String transcriptPrompt = settingsManager.getTranscriptionPrompt();
+                String transcriptPrompt = settingsRepository.getTranscriptionPrompt();
                 if (transcriptPrompt != null && !transcriptPrompt.isEmpty()) {
                     transcription.put("prompt", transcriptPrompt);
                 }
                 input.put("transcription", transcription);
-                
+
                 // Noise Reduction configuration
-                String noiseReduction = settingsManager.getNoiseReduction();
+                String noiseReduction = settingsRepository.getNoiseReduction();
                 if (!"off".equals(noiseReduction)) {
                     JSONObject noiseReductionObj = new JSONObject();
                     noiseReductionObj.put("type", noiseReduction);
@@ -433,21 +473,22 @@ public class RealtimeSessionManager {
                 } else {
                     input.put("noise_reduction", JSONObject.NULL);
                 }
-                
+
                 // Input format
                 JSONObject inputFormat = new JSONObject();
                 inputFormat.put("type", "audio/pcm");
                 inputFormat.put("rate", 24000);
                 input.put("format", inputFormat);
-                
-                Log.i(TAG, "Input audio enabled - Turn: " + turnDetType + ", Transcription: " + settingsManager.getTranscriptionModel());
+
+                Log.i(TAG, "Input audio enabled - Turn: " + turnDetType + ", Transcription: "
+                        + settingsRepository.getTranscriptionModel());
             } else {
                 // Azure Speech mode - disable turn detection
                 input.put("turn_detection", JSONObject.NULL);
             }
-            
+
             audio.put("input", input);
-            
+
             sessionConfig.put("audio", audio);
             // Note: temperature not supported in GA API
         } else {
@@ -456,64 +497,65 @@ public class RealtimeSessionManager {
             sessionConfig.put("speed", speed);
             sessionConfig.put("temperature", temperature);
             sessionConfig.put("output_audio_format", "pcm16");
-            
+
             // Configure audio input for Realtime API audio mode
-            if (settingsManager.isUsingRealtimeAudioInput()) {
+            if (settingsRepository.isUsingRealtimeAudioInput()) {
                 // Turn Detection configuration
                 JSONObject turnDetection = new JSONObject();
-                String turnDetType = settingsManager.getTurnDetectionType();
+                String turnDetType = settingsRepository.getTurnDetectionType();
                 turnDetection.put("type", turnDetType);
                 turnDetection.put("create_response", true);
                 turnDetection.put("interrupt_response", true);
-                
+
                 if ("server_vad".equals(turnDetType)) {
-                    turnDetection.put("threshold", settingsManager.getVadThreshold());
-                    turnDetection.put("prefix_padding_ms", settingsManager.getPrefixPadding());
-                    turnDetection.put("silence_duration_ms", settingsManager.getSilenceDuration());
+                    turnDetection.put("threshold", settingsRepository.getVadThreshold());
+                    turnDetection.put("prefix_padding_ms", settingsRepository.getPrefixPadding());
+                    turnDetection.put("silence_duration_ms", settingsRepository.getSilenceDuration());
                 }
-                
-                Integer idleTimeout = settingsManager.getIdleTimeout();
+
+                Integer idleTimeout = settingsRepository.getIdleTimeout();
                 if (idleTimeout != null && idleTimeout > 0) {
                     turnDetection.put("idle_timeout_ms", idleTimeout);
                 }
-                
+
                 sessionConfig.put("turn_detection", turnDetection);
-                
+
                 // Configure input audio format
                 sessionConfig.put("input_audio_format", "pcm16");
-                
+
                 // Enable input audio transcription
                 JSONObject inputTranscription = new JSONObject();
-                inputTranscription.put("model", settingsManager.getTranscriptionModel());
-                String transcriptLang = settingsManager.getTranscriptionLanguage();
+                inputTranscription.put("model", settingsRepository.getTranscriptionModel());
+                String transcriptLang = settingsRepository.getTranscriptionLanguage();
                 if (transcriptLang != null && !transcriptLang.isEmpty()) {
                     inputTranscription.put("language", transcriptLang);
                 }
-                String transcriptPrompt = settingsManager.getTranscriptionPrompt();
+                String transcriptPrompt = settingsRepository.getTranscriptionPrompt();
                 if (transcriptPrompt != null && !transcriptPrompt.isEmpty()) {
                     inputTranscription.put("prompt", transcriptPrompt);
                 }
                 sessionConfig.put("input_audio_transcription", inputTranscription);
-                
-                Log.i(TAG, "Beta API: Turn detection=" + turnDetType + ", Transcription=" + settingsManager.getTranscriptionModel());
+
+                Log.i(TAG, "Beta API: Turn detection=" + turnDetType + ", Transcription="
+                        + settingsRepository.getTranscriptionModel());
             } else {
                 // Azure Speech mode - disable server VAD
                 sessionConfig.put("turn_detection", JSONObject.NULL);
             }
         }
         sessionConfig.put("instructions", systemPrompt);
-        
+
         JSONArray toolsArray = toolRegistry.buildToolsDefinitionForAzure(toolContext, enabledTools);
         sessionConfig.put("tools", toolsArray);
-        
+
         payload.put("session", sessionConfig);
-        
+
         Log.d(TAG, contextLog + " payload built with " + toolsArray.length() + " tools");
         logToolsDebug(toolsArray, contextLog);
-        
+
         return payload;
     }
-    
+
     /**
      * Log tools array for debugging
      */

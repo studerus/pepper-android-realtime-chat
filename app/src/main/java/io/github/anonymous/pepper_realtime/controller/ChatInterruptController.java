@@ -3,7 +3,6 @@ package io.github.anonymous.pepper_realtime.controller;
 import android.util.Log;
 import org.json.JSONObject;
 
-import io.github.anonymous.pepper_realtime.ui.ChatActivity;
 import io.github.anonymous.pepper_realtime.controller.GestureController;
 import io.github.anonymous.pepper_realtime.manager.AudioPlayer;
 import io.github.anonymous.pepper_realtime.ui.ChatViewModel;

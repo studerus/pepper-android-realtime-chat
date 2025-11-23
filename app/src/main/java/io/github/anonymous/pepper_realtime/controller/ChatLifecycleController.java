@@ -10,7 +10,6 @@ import io.github.anonymous.pepper_realtime.network.WebSocketConnectionCallback;
 import io.github.anonymous.pepper_realtime.service.PerceptionService;
 import io.github.anonymous.pepper_realtime.service.VisionService;
 import io.github.anonymous.pepper_realtime.manager.TouchSensorManager;
-import io.github.anonymous.pepper_realtime.ui.ChatActivity;
 import io.github.anonymous.pepper_realtime.ui.ChatViewModel;
 
 /**
@@ -21,7 +20,6 @@ import io.github.anonymous.pepper_realtime.ui.ChatViewModel;
 public class ChatLifecycleController {
     private static final String TAG = "ChatLifecycleController";
 
-    private final ChatActivity activity;
     private final ChatViewModel viewModel;
     private final AudioInputController audioInputController;
     private final ChatSessionController sessionController;
@@ -36,7 +34,6 @@ public class ChatLifecycleController {
     private boolean wasStoppedByBackground = false;
 
     public ChatLifecycleController(
-            ChatActivity activity,
             ChatViewModel viewModel,
             AudioInputController audioInputController,
             ChatSessionController sessionController,
@@ -47,7 +44,6 @@ public class ChatLifecycleController {
             AudioPlayer audioPlayer,
             TurnManager turnManager,
             SessionImageManager sessionImageManager) {
-        this.activity = activity;
         this.viewModel = viewModel;
         this.audioInputController = audioInputController;
         this.sessionController = sessionController;
@@ -69,12 +65,10 @@ public class ChatLifecycleController {
 
         pauseActiveServices();
 
-        activity.runOnUiThread(() -> {
-            if (turnManager != null) {
-                turnManager.setState(TurnManager.State.IDLE);
-            }
-            viewModel.setStatusText(activity.getString(R.string.app_paused));
-        });
+        if (turnManager != null) {
+            turnManager.setState(TurnManager.State.IDLE);
+        }
+        viewModel.setStatusText(getString(R.string.app_paused));
     }
 
     /**
@@ -130,10 +124,8 @@ public class ChatLifecycleController {
         wasStoppedByBackground = false;
 
         // Clear chat history to match fresh Realtime API session state
-        activity.runOnUiThread(() -> {
-            viewModel.clearMessages();
-            viewModel.setStatusText(activity.getString(R.string.status_reconnecting));
-        });
+        viewModel.clearMessages();
+        viewModel.setStatusText(getString(R.string.status_reconnecting));
 
         // Delete session images from previous session
         sessionImageManager.deleteAllImages();
@@ -159,13 +151,11 @@ public class ChatLifecycleController {
                 @Override
                 public void onSuccess() {
                     Log.i(TAG, "WebSocket reconnected after resume - fresh session started");
-                    activity.runOnUiThread(() -> {
-                        // Set LISTENING state AFTER WebSocket is connected
-                        if (turnManager != null) {
-                            turnManager.setState(TurnManager.State.LISTENING);
-                        }
-                        viewModel.setStatusText(activity.getString(R.string.status_listening));
-                    });
+                    // Set LISTENING state AFTER WebSocket is connected
+                    if (turnManager != null) {
+                        turnManager.setState(TurnManager.State.LISTENING);
+                    }
+                    viewModel.setStatusText(getString(R.string.status_listening));
                     // audioInputController.handleResume() removed to prevent double-start race
                     // condition
                     // TurnManager.setState(LISTENING) already triggers audio start via
@@ -175,18 +165,19 @@ public class ChatLifecycleController {
                 @Override
                 public void onError(Throwable error) {
                     Log.e(TAG, "Failed to reconnect WebSocket after resume", error);
-                    activity.runOnUiThread(
-                            () -> viewModel.setStatusText(activity.getString(R.string.error_connection_failed_short)));
+                    viewModel.setStatusText(getString(R.string.error_connection_failed_short));
                 }
             });
         } else {
             // No session controller - just set state and resume audio
-            activity.runOnUiThread(() -> {
-                if (turnManager != null) {
-                    turnManager.setState(TurnManager.State.LISTENING);
-                }
-            });
+            if (turnManager != null) {
+                turnManager.setState(TurnManager.State.LISTENING);
+            }
             audioInputController.handleResume();
         }
+    }
+
+    private String getString(int resId) {
+        return viewModel.getApplication().getString(resId);
     }
 }

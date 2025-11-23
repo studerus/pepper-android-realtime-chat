@@ -3,7 +3,6 @@ package io.github.anonymous.pepper_realtime.controller;
 import android.util.Log;
 import android.widget.TextView;
 
-import io.github.anonymous.pepper_realtime.ui.ChatActivity;
 import io.github.anonymous.pepper_realtime.ui.ChatViewModel;
 import io.github.anonymous.pepper_realtime.R;
 import io.github.anonymous.pepper_realtime.manager.SpeechRecognizerManager;
@@ -13,7 +12,6 @@ import io.github.anonymous.pepper_realtime.ui.ChatMessage;
 public class ChatSpeechListener implements SpeechRecognizerManager.ActivityCallbacks {
     private static final String TAG = "ChatSpeechListener";
 
-    private final ChatActivity activity;
     private final TurnManager turnManager;
     private final TextView statusTextView;
     private final ChatSessionController sessionController;
@@ -23,14 +21,13 @@ public class ChatSpeechListener implements SpeechRecognizerManager.ActivityCallb
     // Start time tracking for warmup stats
     private final long sttWarmupStartTime;
 
-    public ChatSpeechListener(ChatActivity activity,
+    public ChatSpeechListener(
             TurnManager turnManager,
             TextView statusTextView,
             long sttWarmupStartTime,
             ChatSessionController sessionController,
             AudioInputController audioInputController,
             ChatViewModel viewModel) {
-        this.activity = activity;
         this.turnManager = turnManager;
         this.statusTextView = statusTextView;
         this.sttWarmupStartTime = sttWarmupStartTime;
@@ -53,7 +50,7 @@ public class ChatSpeechListener implements SpeechRecognizerManager.ActivityCallb
         }
 
         String sanitizedText = text.replaceAll("\\[Low confidence:.*?]", "").trim();
-        activity.runOnUiThread(() -> activity.addMessage(sanitizedText, ChatMessage.Sender.USER));
+        viewModel.addMessage(new ChatMessage(sanitizedText, ChatMessage.Sender.USER));
         sessionController.sendMessageToRealtimeAPI(text, true, false);
     }
 
@@ -64,37 +61,32 @@ public class ChatSpeechListener implements SpeechRecognizerManager.ActivityCallb
             return;
         }
 
-        activity.runOnUiThread(() -> {
-            String currentText = statusTextView.getText().toString();
-            if (currentText.startsWith("Listening")) {
-                statusTextView.setText(activity.getString(R.string.status_listening_partial, partialText));
-            }
-        });
+        String currentText = viewModel.getStatusText().getValue();
+        if (currentText != null && currentText.startsWith("Listening")) {
+            viewModel.setStatusText(getString(R.string.status_listening_partial, partialText));
+        }
     }
 
     @Override
     public void onError(String errorMessage) {
         Log.e(TAG, "STT error: " + errorMessage);
-        activity.runOnUiThread(() -> statusTextView.setText(activity.getString(R.string.error_generic, errorMessage)));
+        viewModel.setStatusText(getString(R.string.error_generic, errorMessage));
     }
 
     @Override
     public void onStarted() {
         audioInputController.setSttRunning(true);
-        activity.runOnUiThread(() -> {
-            Log.i(TAG, "✅ STT is now actively listening - entering LISTENING state");
+        Log.i(TAG, "✅ STT is now actively listening - entering LISTENING state");
 
-            // Hide warmup indicator NOW - recognition is truly active
-            activity.hideWarmupIndicator();
-            viewModel.setWarmingUp(false);
+        // Hide warmup indicator via ViewModel
+        viewModel.setWarmingUp(false);
 
-            statusTextView.setText(activity.getString(R.string.status_listening));
+        viewModel.setStatusText(getString(R.string.status_listening));
 
-            // Now that recognition is ACTUALLY running, transition to LISTENING state
-            if (turnManager != null) {
-                turnManager.setState(TurnManager.State.LISTENING);
-            }
-        });
+        // Now that recognition is ACTUALLY running, transition to LISTENING state
+        if (turnManager != null) {
+            turnManager.setState(TurnManager.State.LISTENING);
+        }
     }
 
     @Override
@@ -112,15 +104,20 @@ public class ChatSpeechListener implements SpeechRecognizerManager.ActivityCallb
         // truly active
         Log.i(TAG, "STT warmup complete - starting continuous recognition (warmup indicator stays visible)...");
 
-        activity.runOnUiThread(() -> {
-            try {
-                audioInputController.startContinuousRecognition();
-            } catch (Exception e) {
-                Log.e(TAG, "Failed to start recognition after warmup", e);
-                activity.hideWarmupIndicator();
-                viewModel.setWarmingUp(false);
-                statusTextView.setText(activity.getString(R.string.status_recognizer_not_ready));
-            }
-        });
+        try {
+            audioInputController.startContinuousRecognition();
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to start recognition after warmup", e);
+            viewModel.setWarmingUp(false);
+            viewModel.setStatusText(getString(R.string.status_recognizer_not_ready));
+        }
+    }
+
+    private String getString(int resId) {
+        return viewModel.getApplication().getString(resId);
+    }
+
+    private String getString(int resId, Object... formatArgs) {
+        return viewModel.getApplication().getString(resId, formatArgs);
     }
 }

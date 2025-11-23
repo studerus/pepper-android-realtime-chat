@@ -33,6 +33,7 @@ import androidx.lifecycle.ViewModelProvider;
 import io.github.anonymous.pepper_realtime.R;
 import io.github.anonymous.pepper_realtime.controller.*;
 import io.github.anonymous.pepper_realtime.manager.*;
+import io.github.anonymous.pepper_realtime.manager.SettingsRepository;
 import io.github.anonymous.pepper_realtime.network.*;
 import io.github.anonymous.pepper_realtime.robot.RobotController;
 import io.github.anonymous.pepper_realtime.service.*;
@@ -73,26 +74,36 @@ public class ChatActivity extends AppCompatActivity {
     MovementController movementController;
     @Inject
     NavigationServiceManager navigationServiceManager;
+    @Inject
+    SettingsRepository settingsRepository;
 
     // UI Components
     private TextView statusTextView;
     private LinearLayout warmupIndicatorLayout;
     private FloatingActionButton fabInterrupt;
 
+    // Injected Controllers
+    @Inject
+    ChatSessionController sessionController;
+    @Inject
+    AudioInputController audioInputController;
+    @Inject
+    ChatInterruptController interruptController;
+    @Inject
+    RobotFocusManager robotFocusManager;
+    @Inject
+    TurnManager turnManager;
+    @Inject
+    RealtimeEventHandler eventHandler;
+
     // Controllers & Managers (Initialized in onCreate)
     private MapUiManager mapUiManager;
     private ChatMessageAdapter chatAdapter;
     private SettingsManager settingsManager;
-    private AudioInputController audioInputController;
     private ChatMenuController chatMenuController;
-    private RobotFocusManager robotFocusManager;
-    private TurnManager turnManager;
-    private ChatInterruptController interruptController;
     private DashboardManager dashboardManager;
     private ToolContext toolContext;
-    private ChatSessionController sessionController;
-    private ChatUiHelper uiHelper;
-    private RealtimeEventHandler eventHandler;
+
     private AudioVolumeController volumeController;
     private ChatLifecycleController lifecycleController;
 
@@ -116,6 +127,9 @@ public class ChatActivity extends AppCompatActivity {
         // Initialize ViewModel
         viewModel = new ViewModelProvider(this).get(ChatViewModel.class);
 
+        // Set Controller on ViewModel (Break circular dependency)
+        viewModel.setSessionController(sessionController);
+
         // Observe ViewModel
         viewModel.getStatusText().observe(this, text -> {
             if (statusTextView != null)
@@ -123,10 +137,22 @@ public class ChatActivity extends AppCompatActivity {
         });
 
         viewModel.getIsWarmingUp().observe(this, isWarmingUp -> {
-            if (isWarmingUp)
-                showWarmupIndicator();
-            else
-                hideWarmupIndicator();
+            if (warmupIndicatorLayout != null) {
+                warmupIndicatorLayout.setVisibility(isWarmingUp ? View.VISIBLE : View.GONE);
+            }
+            if (isWarmingUp) {
+                viewModel.setStatusText(getString(R.string.status_warming_up));
+            }
+        });
+
+        viewModel.getIsMuted().observe(this, isMuted -> {
+            // FAB visibility is now controlled by isInterruptFabVisible
+        });
+
+        viewModel.getIsInterruptFabVisible().observe(this, isVisible -> {
+            if (fabInterrupt != null) {
+                fabInterrupt.setVisibility(isVisible ? View.VISIBLE : View.GONE);
+            }
         });
 
         viewModel.getMessageList().observe(this, messages -> {
@@ -170,6 +196,9 @@ public class ChatActivity extends AppCompatActivity {
     private void initializeControllers() {
         Log.i(TAG, "Initializing Controllers...");
 
+        // Bind Views to AudioInputController
+        // AudioInputController views are now handled by ViewModel observers
+
         // Map UI Manager
         TextView mapStatusTextView = findViewById(R.id.mapStatusTextView);
         TextView localizationStatusTextView = findViewById(R.id.localizationStatusTextView);
@@ -190,7 +219,7 @@ public class ChatActivity extends AppCompatActivity {
 
         // Settings Manager
         NavigationView navigationView = findViewById(R.id.navigation_view);
-        this.settingsManager = new SettingsManager(this, navigationView);
+        this.settingsManager = new SettingsManager(this, navigationView, settingsRepository);
 
         // Dashboard Manager
         View dashboardOverlay = findViewById(R.id.dashboard_overlay);
@@ -204,21 +233,12 @@ public class ChatActivity extends AppCompatActivity {
                 dashboardManager, settingsManager);
         this.chatMenuController.setupSettingsMenu();
 
-        // Robot Focus Manager
-        // Note: ChatRobotLifecycleHandler needs to be updated to take ChatActivity
+        // Robot Focus Manager - Listener
         ChatRobotLifecycleHandler lifecycleHandler = new ChatRobotLifecycleHandler(this, viewModel);
-        this.robotFocusManager = new RobotFocusManager(this);
         this.robotFocusManager.setListener(lifecycleHandler);
 
-        // Audio Input Controller
-        this.audioInputController = new AudioInputController(this, settingsManager, keyManager, sessionManager,
-                threadManager, statusTextView, fabInterrupt);
-
-        // Turn Manager
-        this.turnManager = new TurnManager(null);
-        ChatTurnListener turnListener = new ChatTurnListener(this,
-                statusTextView,
-                fabInterrupt,
+        // Turn Manager - Listener
+        ChatTurnListener turnListener = new ChatTurnListener(viewModel,
                 gestureController,
                 audioInputController,
                 robotFocusManager,
@@ -226,46 +246,39 @@ public class ChatActivity extends AppCompatActivity {
                 turnManager);
         turnManager.setListener(turnListener);
 
-        // Interrupt Controller
-        this.interruptController = new ChatInterruptController(viewModel, sessionManager, audioPlayer,
-                gestureController, audioInputController);
-
-        // Realtime Event Handler
-        ChatRealtimeHandler realtimeHandler = new ChatRealtimeHandler(this, viewModel, audioPlayer, turnManager,
-                threadManager, toolRegistry,
-                null); // toolContext set later
-        this.eventHandler = new RealtimeEventHandler(realtimeHandler);
-
-        // Session Controller
-        this.sessionController = new ChatSessionController(this, viewModel, sessionManager, settingsManager,
-                keyManager, audioInputController, threadManager, gestureController, turnManager, interruptController,
-                audioPlayer, eventHandler, sessionImageManager);
+        // Realtime Event Handler - ToolContext
+        // We need to access the underlying handler to set tool context
+        // This is a bit hacky, ideally we'd inject ToolContext too, but it has circular
+        // deps
 
         // Tool Context
         this.toolContext = new ToolContext(this, robotFocusManager, keyManager, movementController,
                 navigationServiceManager, perceptionService, dashboardManager, touchSensorManager,
                 gestureController, locationProvider, sessionController);
 
-        realtimeHandler.setToolContext(toolContext);
-        realtimeHandler.setSessionController(sessionController);
+        // Set ToolContext on the handler
+        if (eventHandler.getListener() instanceof ChatRealtimeHandler) {
+            ((ChatRealtimeHandler) eventHandler.getListener()).setToolContext(toolContext);
+            ((ChatRealtimeHandler) eventHandler.getListener()).setSessionController(sessionController);
+        }
 
         // Speech Listener
-        ChatSpeechListener speechListener = new ChatSpeechListener(this, turnManager, statusTextView,
+        ChatSpeechListener speechListener = new ChatSpeechListener(turnManager, statusTextView,
                 audioInputController.getSttWarmupStartTime(), sessionController, audioInputController, viewModel);
         audioInputController.setSpeechListener(speechListener);
 
         // UI Helper
-        this.uiHelper = new ChatUiHelper(this, viewModel);
+        // UI Helper - Removed as logic moved to ViewModel
 
         // Session Dependencies
-        this.sessionManager.setSessionDependencies(toolRegistry, toolContext, settingsManager, keyManager);
+        this.sessionManager.setSessionDependencies(toolRegistry, toolContext, settingsRepository, keyManager);
 
         // Volume Controller
         this.volumeController = new AudioVolumeController();
 
         // Lifecycle Controller
+        // Lifecycle Controller
         this.lifecycleController = new ChatLifecycleController(
-                this,
                 viewModel,
                 audioInputController,
                 sessionController,
@@ -307,7 +320,7 @@ public class ChatActivity extends AppCompatActivity {
             @Override
             public void onSettingsChanged() {
                 Log.i(TAG, "Core settings changed. Starting new session.");
-                sessionController.startNewSession();
+                viewModel.startNewSession();
             }
 
             @Override
@@ -367,7 +380,7 @@ public class ChatActivity extends AppCompatActivity {
             }
         });
 
-        chatMenuController.setListener(() -> sessionController.startNewSession());
+        chatMenuController.setListener(() -> viewModel.startNewSession());
     }
 
     @Override
@@ -389,7 +402,7 @@ public class ChatActivity extends AppCompatActivity {
     @Override
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         if (item.getItemId() == R.id.action_new_chat) {
-            sessionController.startNewSession();
+            viewModel.startNewSession();
             return true;
         }
         return chatMenuController.onOptionsItemSelected(item) || super.onOptionsItemSelected(item);
@@ -439,7 +452,7 @@ public class ChatActivity extends AppCompatActivity {
             navigationServiceManager.shutdown();
 
         if (sessionController != null)
-            sessionController.disconnectWebSocket();
+            viewModel.disconnectWebSocket();
         if (audioPlayer != null)
             audioPlayer.release();
         try {
@@ -450,6 +463,9 @@ public class ChatActivity extends AppCompatActivity {
 
         if (robotFocusManager != null)
             robotFocusManager.unregister();
+
+        if (viewModel != null)
+            viewModel.setSessionController(null);
     }
 
     public void updateNavigationStatus(String mapStatus, String localizationStatus) {
@@ -547,29 +563,6 @@ public class ChatActivity extends AppCompatActivity {
         audioInputController.stopContinuousRecognition();
     }
 
-    public void addMessage(String text, ChatMessage.Sender sender) {
-        uiHelper.addMessage(text, sender);
-    }
-
-    public void addFunctionCall(String functionName, String args) {
-        uiHelper.addFunctionCall(functionName, args);
-    }
-
-    public void updateFunctionCallResult(String result) {
-        uiHelper.updateFunctionCallResult(result);
-    }
-
-    public void showWarmupIndicator() {
-        runOnUiThread(() -> {
-            warmupIndicatorLayout.setVisibility(View.VISIBLE);
-            viewModel.setStatusText(getString(R.string.status_warming_up));
-        });
-    }
-
-    public void hideWarmupIndicator() {
-        runOnUiThread(() -> warmupIndicatorLayout.setVisibility(View.GONE));
-    }
-
     private void mute() {
         audioInputController.mute();
     }
@@ -585,7 +578,7 @@ public class ChatActivity extends AppCompatActivity {
     }
 
     public void addImageMessage(String imagePath) {
-        uiHelper.addImageMessage(imagePath);
+        viewModel.addImageMessage(imagePath);
     }
 
     @Override

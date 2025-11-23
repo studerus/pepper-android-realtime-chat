@@ -64,10 +64,8 @@ public class ChatRobotLifecycleHandler implements RobotFocusManager.Listener {
                     public void onSensorTouched(String sensorName, Object touchState) {
                         Log.i(TAG, "Touch sensor " + sensorName + " touched");
                         String touchMessage = TouchSensorManager.createTouchMessage(sensorName);
-                        activity.runOnUiThread(() -> {
-                            viewModel.addMessage(new ChatMessage(touchMessage, ChatMessage.Sender.USER));
-                            activity.getSessionController().sendMessageToRealtimeAPI(touchMessage, true, true);
-                        });
+                        viewModel.addMessage(new ChatMessage(touchMessage, ChatMessage.Sender.USER));
+                        activity.getSessionController().sendMessageToRealtimeAPI(touchMessage, true, true);
                     }
 
                     @Override
@@ -89,7 +87,7 @@ public class ChatRobotLifecycleHandler implements RobotFocusManager.Listener {
                 // Clear chat and session state if this is a reconnect after focus lost
                 if (hadFocusLostSinceInit) {
                     Log.i(TAG, "Reconnecting after focus lost - clearing chat history");
-                    activity.runOnUiThread(viewModel::clearMessages);
+                    viewModel.clearMessages();
                     activity.getSessionImageManager().deleteAllImages();
                     hadFocusLostSinceInit = false;
                 }
@@ -98,7 +96,7 @@ public class ChatRobotLifecycleHandler implements RobotFocusManager.Listener {
                 viewModel.setWarmingUp(true);
                 viewModel.setLastChatBubbleResponseId(null);
                 activity.getVolumeController().setVolume(activity, activity.getSettingsManager().getVolume());
-                activity.showWarmupIndicator();
+                // activity.showWarmupIndicator(); // Handled by observing isWarmingUp
 
                 Log.i(TAG, "Starting WebSocket connection...");
                 activity.getSessionController().connectWebSocket(new WebSocketConnectionCallback() {
@@ -110,26 +108,22 @@ public class ChatRobotLifecycleHandler implements RobotFocusManager.Listener {
                             try {
                                 activity.getAudioInputController().setupSpeechRecognizer();
                                 if (activity.getSettingsManager().isUsingRealtimeAudioInput()) {
-                                    activity.runOnUiThread(() -> {
-                                        activity.hideWarmupIndicator();
-                                        viewModel.setWarmingUp(false);
-                                        viewModel.setStatusText(activity.getString(R.string.status_listening));
-                                        if (activity.getTurnManager() != null) {
-                                            activity.getTurnManager().setState(TurnManager.State.LISTENING);
-                                        }
-                                    });
+                                    // activity.hideWarmupIndicator(); // Handled by setWarmingUp
+                                    viewModel.setWarmingUp(false);
+                                    viewModel.setStatusText(activity.getString(R.string.status_listening));
+                                    if (activity.getTurnManager() != null) {
+                                        activity.getTurnManager().setState(TurnManager.State.LISTENING);
+                                    }
                                 }
                             } catch (Exception e) {
                                 Log.e(TAG, "❌ STT setup failed", e);
-                                activity.runOnUiThread(() -> {
-                                    activity.hideWarmupIndicator();
-                                    viewModel.setWarmingUp(false);
-                                    viewModel.addMessage(new ChatMessage(activity.getString(R.string.warmup_failed_msg),
-                                            ChatMessage.Sender.ROBOT));
-                                    viewModel.setStatusText(activity.getString(R.string.ready_sr_lazy_init));
-                                    if (activity.getTurnManager() != null)
-                                        activity.getTurnManager().setState(TurnManager.State.LISTENING);
-                                });
+                                // activity.hideWarmupIndicator(); // Handled by setWarmingUp
+                                viewModel.setWarmingUp(false);
+                                viewModel.addMessage(new ChatMessage(activity.getString(R.string.warmup_failed_msg),
+                                        ChatMessage.Sender.ROBOT));
+                                viewModel.setStatusText(activity.getString(R.string.ready_sr_lazy_init));
+                                if (activity.getTurnManager() != null)
+                                    activity.getTurnManager().setState(TurnManager.State.LISTENING);
                             }
                         });
                     }
@@ -137,14 +131,12 @@ public class ChatRobotLifecycleHandler implements RobotFocusManager.Listener {
                     @Override
                     public void onError(Throwable error) {
                         Log.e(TAG, "WebSocket connection failed", error);
-                        activity.hideWarmupIndicator();
+                        // activity.hideWarmupIndicator(); // Handled by setWarmingUp
                         viewModel.setWarmingUp(false);
-                        activity.runOnUiThread(() -> {
-                            viewModel.addMessage(
-                                    new ChatMessage(activity.getString(R.string.setup_error_during, error.getMessage()),
-                                            ChatMessage.Sender.ROBOT));
-                            viewModel.setStatusText(activity.getString(R.string.error_connection_failed));
-                        });
+                        viewModel.addMessage(
+                                new ChatMessage(activity.getString(R.string.setup_error_during, error.getMessage()),
+                                        ChatMessage.Sender.ROBOT));
+                        viewModel.setStatusText(activity.getString(R.string.error_connection_failed));
                     }
                 });
             }

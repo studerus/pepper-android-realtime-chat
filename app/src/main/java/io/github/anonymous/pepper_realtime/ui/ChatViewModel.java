@@ -21,6 +21,8 @@ public class ChatViewModel extends AndroidViewModel {
     private final MutableLiveData<Boolean> isAudioPlaying = new MutableLiveData<>(false);
     private final MutableLiveData<String> statusText = new MutableLiveData<>("");
     private final MutableLiveData<List<ChatMessage>> messageList = new MutableLiveData<>(new ArrayList<>());
+    private final MutableLiveData<Boolean> isMuted = new MutableLiveData<>(false);
+    private final MutableLiveData<Boolean> isInterruptFabVisible = new MutableLiveData<>(false);
 
     // Connection State
     private final MutableLiveData<Boolean> isConnected = new MutableLiveData<>(false);
@@ -66,6 +68,10 @@ public class ChatViewModel extends AndroidViewModel {
         return isConnected;
     }
 
+    public LiveData<Boolean> getIsMuted() {
+        return isMuted;
+    }
+
     // Setters (to be replaced by logic later)
     public void setWarmingUp(boolean warmingUp) {
         isWarmingUp.postValue(warmingUp);
@@ -87,6 +93,18 @@ public class ChatViewModel extends AndroidViewModel {
         isConnected.postValue(connected);
     }
 
+    public void setMuted(boolean muted) {
+        isMuted.postValue(muted);
+    }
+
+    public LiveData<Boolean> getIsInterruptFabVisible() {
+        return isInterruptFabVisible;
+    }
+
+    public void setInterruptFabVisible(boolean visible) {
+        isInterruptFabVisible.postValue(visible);
+    }
+
     // Navigation State Accessors
     public LiveData<String> getMapStatus() {
         return mapStatus;
@@ -106,10 +124,17 @@ public class ChatViewModel extends AndroidViewModel {
 
     public void addMessage(ChatMessage message) {
         List<ChatMessage> currentList = messageList.getValue();
+        List<ChatMessage> newList;
         if (currentList == null)
-            currentList = new ArrayList<>();
-        currentList.add(message);
-        messageList.postValue(currentList);
+            newList = new ArrayList<>();
+        else
+            newList = new ArrayList<>(currentList);
+        newList.add(message);
+        messageList.postValue(newList);
+    }
+
+    public void addImageMessage(String imagePath) {
+        addMessage(new ChatMessage("", imagePath, ChatMessage.Sender.USER));
     }
 
     public void appendToLastMessage(String text) {
@@ -208,10 +233,19 @@ public class ChatViewModel extends AndroidViewModel {
         if (placeholder != null) {
             List<ChatMessage> currentList = messageList.getValue();
             if (currentList != null) {
-                // Find the message in the list (it might be the same object, but let's be safe)
-                // Since we're modifying the object directly, we need to trigger an update
-                placeholder.setMessage(transcript);
-                messageList.postValue(currentList);
+                // Create a new list
+                List<ChatMessage> newList = new ArrayList<>(currentList);
+                // Find the index of the placeholder
+                int index = newList.indexOf(placeholder);
+                if (index != -1) {
+                    // Create a copy of the message with new text
+                    ChatMessage updatedMsg = placeholder.copyWithNewText(transcript);
+                    newList.set(index, updatedMsg);
+                    messageList.postValue(newList);
+                } else {
+                    // Fallback: just add if not found (shouldn't happen if logic is correct)
+                    addMessage(new ChatMessage(transcript, ChatMessage.Sender.USER));
+                }
             }
         } else {
             // Fallback if placeholder not found
@@ -224,8 +258,13 @@ public class ChatViewModel extends AndroidViewModel {
         if (placeholder != null) {
             List<ChatMessage> currentList = messageList.getValue();
             if (currentList != null) {
-                placeholder.setMessage("🎤 [Transcription failed]");
-                messageList.postValue(currentList);
+                List<ChatMessage> newList = new ArrayList<>(currentList);
+                int index = newList.indexOf(placeholder);
+                if (index != -1) {
+                    ChatMessage updatedMsg = placeholder.copyWithNewText("🎤 [Transcription failed]");
+                    newList.set(index, updatedMsg);
+                    messageList.postValue(newList);
+                }
             }
         }
     }
@@ -294,5 +333,49 @@ public class ChatViewModel extends AndroidViewModel {
 
     public void setLastAssistantItemId(String lastAssistantItemId) {
         this.lastAssistantItemId = lastAssistantItemId;
+    }
+
+    // Controller Delegation
+    private io.github.anonymous.pepper_realtime.controller.ChatSessionController sessionController;
+
+    public void setSessionController(
+            io.github.anonymous.pepper_realtime.controller.ChatSessionController sessionController) {
+        this.sessionController = sessionController;
+    }
+
+    public void sendMessageToRealtimeAPI(String text, boolean requestResponse, boolean allowInterrupt) {
+        if (sessionController != null) {
+            sessionController.sendMessageToRealtimeAPI(text, requestResponse, allowInterrupt);
+        }
+    }
+
+    public void sendToolResult(String callId, String result) {
+        if (sessionController != null) {
+            sessionController.sendToolResult(callId, result);
+        }
+    }
+
+    public void startNewSession() {
+        if (sessionController != null) {
+            sessionController.startNewSession();
+        }
+    }
+
+    public void connectWebSocket(io.github.anonymous.pepper_realtime.network.WebSocketConnectionCallback callback) {
+        if (sessionController != null) {
+            sessionController.connectWebSocket(callback);
+        }
+    }
+
+    public void disconnectWebSocket() {
+        if (sessionController != null) {
+            sessionController.disconnectWebSocket();
+        }
+    }
+
+    public void disconnectWebSocketGracefully() {
+        if (sessionController != null) {
+            sessionController.disconnectWebSocketGracefully();
+        }
     }
 }
