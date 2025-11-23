@@ -24,38 +24,54 @@ import io.github.anonymous.pepper_realtime.R;
 
 @SuppressWarnings("SpellCheckingInspection")
 public class YouTubePlayerDialog {
-    
+
     public interface PlayerEventListener {
         void onPlayerOpened();
+
         void onPlayerClosed();
     }
 
     private static final String TAG = "YouTubePlayerDialog";
-    
+
     private final Context context;
     private final PlayerEventListener eventListener;
     private AlertDialog dialog;
     private WebView webView;
     private AudioManager audioManager;
-    private final AudioManager.OnAudioFocusChangeListener audioFocusChangeListener = focusChange -> {};
-    
+    private final AudioManager.OnAudioFocusChangeListener audioFocusChangeListener = focusChange -> {
+    };
+
     // UI elements
     // Only keep WebView as a field (used in closePlayer)
 
     // Bridge to receive events from WebView JS
     private static class JsBridge {
         @SuppressWarnings("unused")
-        @JavascriptInterface public void onReady() { Log.d(TAG, "JS onReady"); }
+        @JavascriptInterface
+        public void onReady() {
+            Log.d(TAG, "JS onReady");
+        }
+
         @SuppressWarnings("unused")
-        @JavascriptInterface public void onState(String state) { Log.d(TAG, "JS onState: " + state); }
+        @JavascriptInterface
+        public void onState(String state) {
+            Log.d(TAG, "JS onState: " + state);
+        }
+
         @SuppressWarnings("unused")
-        @JavascriptInterface public void onError(String error) { Log.e(TAG, "JS onError: " + error); }
+        @JavascriptInterface
+        public void onError(String error) {
+            Log.e(TAG, "JS onError: " + error);
+        }
     }
 
     public YouTubePlayerDialog(Context context, PlayerEventListener eventListener) {
         this.context = context;
         this.eventListener = eventListener;
-        try { this.audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE); } catch (Exception ignored) {}
+        try {
+            this.audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+        } catch (Exception ignored) {
+        }
     }
 
     public void playVideo(YouTubeSearchService.YouTubeVideo video) {
@@ -63,12 +79,12 @@ public class YouTubePlayerDialog {
             Log.e(TAG, "Cannot play null video");
             return;
         }
-        
+
         Log.i(TAG, "Opening YouTube player for: " + video.getTitle());
-        
+
         // Create and show dialog
         createDialog(video);
-        
+
         // Notify listener
         if (eventListener != null) {
             eventListener.onPlayerOpened();
@@ -77,31 +93,31 @@ public class YouTubePlayerDialog {
 
     private void createDialog(YouTubeSearchService.YouTubeVideo video) {
         View dialogView = LayoutInflater.from(context).inflate(R.layout.dialog_youtube_player, null);
-        
+
         // Initialize UI elements
         TextView videoTitle = dialogView.findViewById(R.id.youtube_video_title);
         TextView channelTitle = dialogView.findViewById(R.id.youtube_channel_title);
         Button closeButton = dialogView.findViewById(R.id.youtube_close_button);
         webView = dialogView.findViewById(R.id.youtube_webview);
-        
+
         // Set video information
         videoTitle.setText(video.getTitle());
         channelTitle.setText(video.getChannelTitle());
-        
+
         // Setup WebView
         setupWebView(video.getVideoId());
-        
+
         // Setup close button
         closeButton.setOnClickListener(v -> closePlayer());
-        
+
         // Create dialog
         AlertDialog.Builder builder = new AlertDialog.Builder(context);
         builder.setView(dialogView);
         builder.setCancelable(false); // Force use of close button
-        
+
         dialog = builder.create();
         dialog.show();
-        
+
         // Make dialog full-screen
         if (dialog.getWindow() != null) {
             dialog.getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
@@ -110,21 +126,24 @@ public class YouTubePlayerDialog {
         try {
             webView.onResume();
             webView.resumeTimers();
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
 
         // Request transient audio focus for media playback
         try {
             if (audioManager != null) {
-                audioManager.requestAudioFocus(audioFocusChangeListener, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
+                audioManager.requestAudioFocus(audioFocusChangeListener, AudioManager.STREAM_MUSIC,
+                        AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
     }
 
     @SuppressLint("SetJavaScriptEnabled")
     private void setupWebView(String videoId) {
         // Prefer hardware acceleration for HTML5 video playback
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
-        
+
         // Configure WebView for YouTube embed
         WebSettings webSettings = webView.getSettings();
         webSettings.setJavaScriptEnabled(true);
@@ -136,9 +155,11 @@ public class YouTubePlayerDialog {
         webSettings.setDisplayZoomControls(false);
         webSettings.setMediaPlaybackRequiresUserGesture(false); // Allow autoplay
         webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
-        // Use a modern mobile user agent for better YouTube compatibility on old WebView
-        webSettings.setUserAgentString("Mozilla/5.0 (Linux; Android 8.0; SM-G955U Build/R16NW) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Mobile Safari/537.36");
-        
+        // Use a modern mobile user agent for better YouTube compatibility on old
+        // WebView
+        webSettings.setUserAgentString(
+                "Mozilla/5.0 (Linux; Android 8.0; SM-G955U Build/R16NW) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Mobile Safari/537.36");
+
         // Pepper-specific optimizations to prevent OpenGL errors
         webSettings.setCacheMode(WebSettings.LOAD_DEFAULT);
         // setRenderPriority is deprecated on modern WebView; omit for compatibility
@@ -147,7 +168,7 @@ public class YouTubePlayerDialog {
         webSettings.setLoadsImagesAutomatically(true);
         webSettings.setBlockNetworkImage(false);
         webSettings.setBlockNetworkLoads(false);
-        
+
         // Disable problematic features for embedded systems
         webSettings.setGeolocationEnabled(false);
         webSettings.setDatabaseEnabled(false);
@@ -157,8 +178,9 @@ public class YouTubePlayerDialog {
             CookieManager cookieManager = CookieManager.getInstance();
             cookieManager.setAcceptCookie(true);
             cookieManager.setAcceptThirdPartyCookies(webView, true);
-        } catch (Throwable ignored) {}
-        
+        } catch (Throwable ignored) {
+        }
+
         // Set WebView client to handle navigation
         webView.setWebViewClient(new WebViewClient() {
             @Override
@@ -167,7 +189,7 @@ public class YouTubePlayerDialog {
                 // Keep navigation within WebView for YouTube embed
                 return !(url.contains("youtube.com") || url.contains("youtu.be"));
             }
-            
+
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 String url = request.getUrl() != null ? request.getUrl().toString() : "";
@@ -179,7 +201,7 @@ public class YouTubePlayerDialog {
                 super.onPageFinished(view, url);
                 Log.d(TAG, "YouTube embed loaded: " + url);
             }
-            
+
             @Override
             @SuppressWarnings("deprecation")
             public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
@@ -194,18 +216,20 @@ public class YouTubePlayerDialog {
                     String url = request != null && request.getUrl() != null ? request.getUrl().toString() : "";
                     CharSequence desc = error != null ? error.getDescription() : "";
                     Log.e(TAG, "WebView error: " + desc + " for URL: " + url);
-                } catch (Exception ignored) {}
+                } catch (Exception ignored) {
+                }
             }
         });
-        
+
         // Add WebChromeClient for better YouTube support
         webView.setWebChromeClient(new android.webkit.WebChromeClient() {
             @Override
             public boolean onConsoleMessage(android.webkit.ConsoleMessage message) {
-                Log.d(TAG, "WebView console: " + message.message() + " [" + message.sourceId() + ":" + message.lineNumber() + "]");
+                Log.d(TAG, "WebView console: " + message.message() + " [" + message.sourceId() + ":"
+                        + message.lineNumber() + "]");
                 return true; // Indicate that the message was handled
             }
-            
+
             @Override
             public void onPermissionRequest(PermissionRequest request) {
                 try {
@@ -215,13 +239,13 @@ public class YouTubePlayerDialog {
                     Log.w(TAG, "Failed to grant WebView permissions", e);
                 }
             }
-            
+
             @Override
             public void onShowCustomView(View view, CustomViewCallback callback) {
                 Log.d(TAG, "WebView custom view shown");
                 super.onShowCustomView(view, callback);
             }
-            
+
             @Override
             public void onHideCustomView() {
                 Log.d(TAG, "WebView custom view hidden");
@@ -230,11 +254,14 @@ public class YouTubePlayerDialog {
         });
 
         // JS bridge for debug and fallback control
-        try { webView.addJavascriptInterface(new JsBridge(), "Android"); } catch (Throwable ignored) {}
-        
+        try {
+            webView.addJavascriptInterface(new JsBridge(), "Android");
+        } catch (Throwable ignored) {
+        }
+
         // Set black background to prevent flashing
         webView.setBackgroundColor(android.graphics.Color.BLACK);
-        
+
         // Load YouTube via IFrame API to improve autoplay compatibility
         String html = """
                 <!DOCTYPE html>
@@ -264,16 +291,21 @@ public class YouTubePlayerDialog {
                   setTimeout(function(){ try { var s = (player && player.getPlayerState) ? player.getPlayerState() : -2; if (s !== 1) { console.log('Fallback redirect to m.youtube'); location.replace('https://m.youtube.com/watch?v=%s&autoplay=1'); } } catch(err) { console.log('fallback error: '+err); } }, 4000);
                 </script>
                 <script src='https://www.youtube.com/iframe_api'></script>
-                </body></html>""".formatted(videoId, videoId);
+                </body></html>""";
+        html = String.format(html, videoId, videoId);
         webView.loadDataWithBaseURL("https://www.youtube.com", html, "text/html", "UTF-8", null);
     }
 
     public void closePlayer() {
         Log.i(TAG, "Closing YouTube player");
-        
+
         // Stop WebView
         if (webView != null) {
-            try { webView.onPause(); webView.pauseTimers(); } catch (Exception ignored) {}
+            try {
+                webView.onPause();
+                webView.pauseTimers();
+            } catch (Exception ignored) {
+            }
             webView.stopLoading();
             webView.loadUrl("about:blank");
             webView.clearHistory();
@@ -286,13 +318,14 @@ public class YouTubePlayerDialog {
             if (audioManager != null) {
                 audioManager.abandonAudioFocus(audioFocusChangeListener);
             }
-        } catch (Exception ignored) {}
-        
+        } catch (Exception ignored) {
+        }
+
         // Close dialog
         if (dialog != null && dialog.isShowing()) {
             dialog.dismiss();
         }
-        
+
         // Notify listener
         if (eventListener != null) {
             eventListener.onPlayerClosed();

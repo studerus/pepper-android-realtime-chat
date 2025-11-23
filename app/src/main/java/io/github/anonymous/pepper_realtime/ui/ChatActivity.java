@@ -526,19 +526,6 @@ public class ChatActivity extends AppCompatActivity {
         return visionService;
     }
 
-    public RobotFocusManager getRobotFocusManager() {
-        return robotFocusManager;
-    }
-
-    // Delegation methods
-    public void startContinuousRecognition() {
-        audioInputController.startContinuousRecognition();
-    }
-
-    public void stopContinuousRecognition() {
-        audioInputController.stopContinuousRecognition();
-    }
-
     private void mute() {
         audioInputController.mute();
     }

@@ -6,23 +6,14 @@ import dagger.Provides;
 import dagger.hilt.InstallIn;
 import dagger.hilt.android.components.ActivityComponent;
 import dagger.hilt.android.scopes.ActivityScoped;
-import io.github.anonymous.pepper_realtime.controller.AudioInputController;
-import io.github.anonymous.pepper_realtime.controller.ChatInterruptController;
-import io.github.anonymous.pepper_realtime.controller.ChatSessionController;
-import io.github.anonymous.pepper_realtime.controller.GestureController;
 import io.github.anonymous.pepper_realtime.controller.RobotFocusManager;
-import io.github.anonymous.pepper_realtime.manager.ApiKeyManager;
 import io.github.anonymous.pepper_realtime.manager.AudioPlayer;
-import io.github.anonymous.pepper_realtime.network.RealtimeSessionManager;
-import io.github.anonymous.pepper_realtime.manager.SessionImageManager;
-import io.github.anonymous.pepper_realtime.manager.SettingsManager;
 import io.github.anonymous.pepper_realtime.manager.ThreadManager;
 import io.github.anonymous.pepper_realtime.manager.TurnManager;
 import io.github.anonymous.pepper_realtime.network.RealtimeEventHandler;
 import io.github.anonymous.pepper_realtime.ui.ChatActivity;
 import io.github.anonymous.pepper_realtime.ui.ChatViewModel;
 import io.github.anonymous.pepper_realtime.controller.ChatRealtimeHandler;
-import io.github.anonymous.pepper_realtime.tools.ToolContext;
 import io.github.anonymous.pepper_realtime.tools.ToolRegistry;
 
 @Module
