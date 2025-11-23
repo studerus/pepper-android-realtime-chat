@@ -20,6 +20,7 @@ import io.github.anonymous.pepper_realtime.ui.ChatMessage;
 import io.github.anonymous.pepper_realtime.ui.ChatViewModel;
 import io.github.anonymous.pepper_realtime.manager.AudioPlayer;
 import io.github.anonymous.pepper_realtime.manager.SessionImageManager;
+import javax.inject.Inject;
 
 public class ChatSessionController {
     private static final String TAG = "ChatSessionController";
@@ -38,6 +39,7 @@ public class ChatSessionController {
     private final SessionImageManager sessionImageManager;
     private WebSocketConnectionCallback connectionCallback;
 
+    @Inject
     public ChatSessionController(
             ChatViewModel viewModel,
             RealtimeSessionManager sessionManager,

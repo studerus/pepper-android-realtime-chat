@@ -33,6 +33,7 @@ public class ChatLifecycleController {
 
     private boolean wasStoppedByBackground = false;
 
+    @javax.inject.Inject
     public ChatLifecycleController(
             ChatViewModel viewModel,
             AudioInputController audioInputController,

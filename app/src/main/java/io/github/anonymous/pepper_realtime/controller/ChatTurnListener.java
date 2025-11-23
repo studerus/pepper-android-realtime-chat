@@ -20,6 +20,7 @@ public class ChatTurnListener implements TurnManager.Callbacks {
     private final NavigationServiceManager navigationServiceManager;
     private final TurnManager turnManager;
 
+    @javax.inject.Inject
     public ChatTurnListener(ChatViewModel viewModel,
             GestureController gestureController,
             AudioInputController audioInputController,

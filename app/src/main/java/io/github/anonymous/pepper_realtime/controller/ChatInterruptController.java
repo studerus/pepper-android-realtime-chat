@@ -17,6 +17,7 @@ public class ChatInterruptController {
     private final AudioInputController audioInputController;
     private final ChatViewModel viewModel;
 
+    @javax.inject.Inject
     public ChatInterruptController(ChatViewModel viewModel,
             RealtimeSessionManager sessionManager,
             AudioPlayer audioPlayer,

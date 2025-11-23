@@ -56,18 +56,6 @@ public class ControllerModule {
 
     @Provides
     @ActivityScoped
-    public ChatInterruptController provideChatInterruptController(
-            ChatViewModel viewModel,
-            RealtimeSessionManager sessionManager,
-            AudioPlayer audioPlayer,
-            GestureController gestureController,
-            AudioInputController audioInputController) {
-        return new ChatInterruptController(viewModel, sessionManager, audioPlayer, gestureController,
-                audioInputController);
-    }
-
-    @Provides
-    @ActivityScoped
     public RealtimeEventHandler provideRealtimeEventHandler(
             ChatViewModel viewModel,
             AudioPlayer audioPlayer,
@@ -80,23 +68,4 @@ public class ControllerModule {
         return new RealtimeEventHandler(handler);
     }
 
-    @Provides
-    @ActivityScoped
-    public ChatSessionController provideChatSessionController(
-            ChatViewModel viewModel,
-            RealtimeSessionManager sessionManager,
-            io.github.anonymous.pepper_realtime.manager.SettingsRepository settingsRepository,
-            ApiKeyManager keyManager,
-            AudioInputController audioInputController,
-            ThreadManager threadManager,
-            GestureController gestureController,
-            TurnManager turnManager,
-            ChatInterruptController interruptController,
-            AudioPlayer audioPlayer,
-            RealtimeEventHandler eventHandler,
-            SessionImageManager sessionImageManager) {
-        return new ChatSessionController(viewModel, sessionManager, settingsRepository, keyManager,
-                audioInputController, threadManager, gestureController, turnManager, interruptController,
-                audioPlayer, eventHandler, sessionImageManager);
-    }
 }

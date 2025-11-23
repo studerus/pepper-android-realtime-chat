@@ -95,6 +95,10 @@ public class ChatActivity extends AppCompatActivity {
     TurnManager turnManager;
     @Inject
     RealtimeEventHandler eventHandler;
+    @Inject
+    ChatTurnListener turnListener;
+    @Inject
+    ChatLifecycleController lifecycleController;
 
     // Controllers & Managers (Initialized in onCreate)
     private MapUiManager mapUiManager;
@@ -105,7 +109,6 @@ public class ChatActivity extends AppCompatActivity {
     private ToolContext toolContext;
 
     private AudioVolumeController volumeController;
-    private ChatLifecycleController lifecycleController;
 
     // ViewModel
     private ChatViewModel viewModel;
@@ -238,12 +241,6 @@ public class ChatActivity extends AppCompatActivity {
         this.robotFocusManager.setListener(lifecycleHandler);
 
         // Turn Manager - Listener
-        ChatTurnListener turnListener = new ChatTurnListener(viewModel,
-                gestureController,
-                audioInputController,
-                robotFocusManager,
-                navigationServiceManager,
-                turnManager);
         turnManager.setListener(turnListener);
 
         // Realtime Event Handler - ToolContext
@@ -275,20 +272,6 @@ public class ChatActivity extends AppCompatActivity {
 
         // Volume Controller
         this.volumeController = new AudioVolumeController();
-
-        // Lifecycle Controller
-        // Lifecycle Controller
-        this.lifecycleController = new ChatLifecycleController(
-                viewModel,
-                audioInputController,
-                sessionController,
-                perceptionService,
-                visionService,
-                touchSensorManager,
-                gestureController,
-                audioPlayer,
-                turnManager,
-                sessionImageManager);
     }
 
     private void setupPermissionCallback() {
