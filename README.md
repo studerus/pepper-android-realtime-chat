@@ -1276,9 +1276,11 @@ app/src/
 │   │   ├── ChatSpeechListener.java      # Speech recognition callbacks
 │   │   ├── ChatTurnListener.java        # Turn state management
 │   │   └── RobotFocusManager.java       # Robot lifecycle focus management
+│   ├── di/                              # Dependency Injection (Hilt)
+│   │   ├── AppModule.java               # App-level bindings
+│   │   └── ControllerModule.java        # Controller bindings
 │   ├── manager/                         # Application managers
 │   │   ├── ApiKeyManager.java           # API key management
-│   │   ├── AppContainer.java            # Dependency Injection container
 │   │   ├── AudioPlayer.java             # Audio playback engine
 │   │   ├── DashboardManager.java        # Perception dashboard overlay
 │   │   ├── PermissionManager.java       # Android permission handling
@@ -1286,6 +1288,7 @@ app/src/
 │   │   ├── RealtimeAudioInputManager.java # Audio input for Realtime API
 │   │   ├── SessionImageManager.java     # Temporary image cleanup
 │   │   ├── SettingsManager.java         # App settings & preferences
+│   │   ├── SettingsRepository.java      # Settings data repository
 │   │   ├── SpeechRecognizerManager.java # Azure Speech integration
 │   │   ├── ThreadManager.java           # Thread pooling & execution
 │   │   ├── TurnManager.java             # Conversation turn state machine
@@ -1313,7 +1316,7 @@ app/src/
 │   │   ├── ChatMessage.java             # Message model
 │   │   ├── ChatMessageAdapter.java      # RecyclerView adapter
 │   │   ├── ChatUiHelper.java            # UI update helpers
-│   │   ├── ChatViewModel.java           # MVVM ViewModel
+│   │   ├── ChatViewModel.java           # MVVM ViewModel (State & Logic)
 │   │   ├── MapUiManager.java            # Map UI management
 │   │   └── YouTubePlayerDialog.java     # YouTube player UI
 │   └── tools/                           # Tool implementations (shared logic)
