@@ -2,7 +2,8 @@ package io.github.anonymous.pepper_realtime.tools;
 
 import android.content.Context;
 import io.github.anonymous.pepper_realtime.manager.ApiKeyManager;
-import io.github.anonymous.pepper_realtime.ui.ChatActivity;
+import io.github.anonymous.pepper_realtime.tools.interfaces.ToolHost;
+import io.github.anonymous.pepper_realtime.tools.interfaces.RealtimeMessageSender;
 import io.github.anonymous.pepper_realtime.controller.MovementController;
 import io.github.anonymous.pepper_realtime.manager.NavigationServiceManager;
 import io.github.anonymous.pepper_realtime.service.PerceptionService;
@@ -10,7 +11,6 @@ import io.github.anonymous.pepper_realtime.manager.DashboardManager;
 import io.github.anonymous.pepper_realtime.manager.TouchSensorManager;
 import io.github.anonymous.pepper_realtime.controller.GestureController;
 import io.github.anonymous.pepper_realtime.data.LocationProvider;
-import io.github.anonymous.pepper_realtime.controller.ChatSessionController;
 import io.github.anonymous.pepper_realtime.controller.RobotFocusManager;
 
 /**
@@ -19,8 +19,7 @@ import io.github.anonymous.pepper_realtime.controller.RobotFocusManager;
  */
 public class ToolContext {
 
-    private final ChatActivity activity;
-    private final Context appContext;
+    private final ToolHost toolHost;
     private final RobotFocusManager robotFocusManager;
     private Object qiContext;
     private final ApiKeyManager apiKeyManager;
@@ -31,16 +30,15 @@ public class ToolContext {
     private final TouchSensorManager touchSensorManager;
     private final GestureController gestureController;
     private final LocationProvider locationProvider;
-    private final ChatSessionController sessionController;
+    private final RealtimeMessageSender messageSender;
 
     // Constructor
-    public ToolContext(ChatActivity activity, RobotFocusManager robotFocusManager, ApiKeyManager apiKeyManager,
+    public ToolContext(ToolHost toolHost, RobotFocusManager robotFocusManager, ApiKeyManager apiKeyManager,
             MovementController movementController, NavigationServiceManager navigationServiceManager,
             PerceptionService perceptionService, DashboardManager dashboardManager,
             TouchSensorManager touchSensorManager, GestureController gestureController,
-            LocationProvider locationProvider, ChatSessionController sessionController) {
-        this.activity = activity;
-        this.appContext = activity;
+            LocationProvider locationProvider, RealtimeMessageSender messageSender) {
+        this.toolHost = toolHost;
         this.robotFocusManager = robotFocusManager;
         this.qiContext = robotFocusManager != null ? robotFocusManager.getQiContext() : null;
         this.apiKeyManager = apiKeyManager;
@@ -51,16 +49,21 @@ public class ToolContext {
         this.touchSensorManager = touchSensorManager;
         this.gestureController = gestureController;
         this.locationProvider = locationProvider;
-        this.sessionController = sessionController;
+        this.messageSender = messageSender;
     }
 
     // Getters
     public Context getAppContext() {
-        return appContext;
+        return toolHost.getAppContext();
     }
 
-    public ChatActivity getActivity() {
-        return activity;
+    public ToolHost getToolHost() {
+        return toolHost;
+    }
+
+    // Deprecated: Prefer using ToolHost methods or specific services
+    public android.app.Activity getActivity() {
+        return toolHost.getActivity();
     }
 
     public Object getQiContext() {
@@ -99,8 +102,8 @@ public class ToolContext {
         return locationProvider;
     }
 
-    public ChatSessionController getSessionController() {
-        return sessionController;
+    public RealtimeMessageSender getMessageSender() {
+        return messageSender;
     }
 
     // Convenience methods
@@ -109,7 +112,7 @@ public class ToolContext {
     }
 
     public boolean hasUi() {
-        return activity != null;
+        return toolHost.getActivity() != null;
     }
 
     /**
@@ -128,8 +131,8 @@ public class ToolContext {
      * @param requestResponse Whether to request a response from AI
      */
     public void sendAsyncUpdate(String message, boolean requestResponse) {
-        if (sessionController != null) {
-            sessionController.sendMessageToRealtimeAPI(message, requestResponse, true);
+        if (messageSender != null) {
+            messageSender.sendMessageToRealtimeAPI(message, requestResponse, true);
         }
     }
 
@@ -140,8 +143,8 @@ public class ToolContext {
      *             "resumeNormalOperation")
      */
     public void notifyServiceStateChange(String mode) {
-        if (activity != null) {
-            activity.handleServiceStateChange(mode);
+        if (toolHost != null) {
+            toolHost.handleServiceStateChange(mode);
         }
     }
 }

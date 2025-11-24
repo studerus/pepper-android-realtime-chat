@@ -26,19 +26,6 @@ public class SettingsManager {
     private final AzureSettingsUiController azureSettings;
     private final ToolsSettingsUiController toolsSettings;
 
-    // Listener for legacy support (ChatActivity)
-    public interface SettingsListener {
-        void onSettingsChanged();
-
-        void onRecognizerSettingsChanged();
-
-        void onVolumeChanged(int volume);
-
-        void onToolsChanged();
-    }
-
-    private SettingsListener listener;
-
     public SettingsManager(ChatActivity activity, View settingsView, SettingsViewModel viewModel) {
         this.viewModel = viewModel;
         this.generalSettings = new GeneralSettingsUiController(activity, settingsView, viewModel);
@@ -51,10 +38,6 @@ public class SettingsManager {
 
         // Initial visibility setup
         updateVisibility();
-    }
-
-    public void setListener(SettingsListener listener) {
-        this.listener = listener;
     }
 
     public void onDrawerClosed() {

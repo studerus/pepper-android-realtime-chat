@@ -132,8 +132,8 @@ public class AnalyzeVisionTool implements Tool {
                 public void onPhotoCaptured(String path) {
                     // Add image to chat UI and session cleanup
                     if (context.hasUi()) {
-                        context.getActivity().addImageMessage(path);
-                        context.getActivity().getSessionImageManager().addImage(path);
+                        context.getToolHost().addImageMessage(path);
+                        context.getToolHost().getSessionImageManager().addImage(path);
                     }
                     // Inform about photo capture via async update
                     context.sendAsyncUpdate("📷 Photo captured.", false);

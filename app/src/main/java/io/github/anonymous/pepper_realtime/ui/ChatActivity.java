@@ -34,8 +34,10 @@ import io.github.anonymous.pepper_realtime.service.*;
 import io.github.anonymous.pepper_realtime.tools.*;
 import io.github.anonymous.pepper_realtime.data.LocationProvider;
 
+import io.github.anonymous.pepper_realtime.tools.interfaces.ToolHost;
+
 @AndroidEntryPoint
-public class ChatActivity extends AppCompatActivity {
+public class ChatActivity extends AppCompatActivity implements ToolHost {
 
     private static final String TAG = "ChatActivity";
 
@@ -70,6 +72,8 @@ public class ChatActivity extends AppCompatActivity {
     NavigationServiceManager navigationServiceManager;
     @Inject
     SettingsRepository settingsRepository;
+    @Inject
+    ToolContextFactory toolContextFactory;
 
     // UI Components
     private TextView statusTextView;
@@ -217,7 +221,6 @@ public class ChatActivity extends AppCompatActivity {
         initializeControllers();
 
         // Setup Listeners
-        setupSettingsListener();
         setupUiListeners();
         setupPermissionCallback();
 
@@ -281,9 +284,7 @@ public class ChatActivity extends AppCompatActivity {
         // deps
 
         // Tool Context
-        this.toolContext = new ToolContext(this, robotFocusManager, keyManager, movementController,
-                navigationServiceManager, perceptionService, dashboardManager, touchSensorManager,
-                gestureController, locationProvider, sessionController);
+        this.toolContext = toolContextFactory.create(this, dashboardManager);
 
         // Set ToolContext on the handler
         if (eventHandler.getListener() instanceof ChatRealtimeHandler) {
@@ -326,38 +327,6 @@ public class ChatActivity extends AppCompatActivity {
             @Override
             public void onCameraDenied() {
                 Log.w(TAG, "Camera permission denied");
-            }
-        });
-    }
-
-    private void setupSettingsListener() {
-        settingsManager.setListener(new SettingsManager.SettingsListener() {
-            @Override
-            public void onSettingsChanged() {
-                Log.i(TAG, "Core settings changed. Starting new session.");
-                viewModel.startNewSession();
-            }
-
-            @Override
-            public void onRecognizerSettingsChanged() {
-                Log.i(TAG, "Recognizer settings changed. Re-initializing speech recognizer.");
-                runOnUiThread(() -> viewModel.setStatusText(getString(R.string.status_updating_recognizer)));
-                audioInputController.stopContinuousRecognition();
-                audioInputController.reinitializeSpeechRecognizerForSettings();
-                audioInputController.startContinuousRecognition();
-            }
-
-            @Override
-            public void onVolumeChanged(int volume) {
-                volumeController.setVolume(ChatActivity.this, volume);
-            }
-
-            @Override
-            public void onToolsChanged() {
-                Log.i(TAG, "Tools/prompt/temperature changed. Updating session.");
-                if (sessionManager != null) {
-                    sessionManager.updateSession();
-                }
             }
         });
     }
@@ -452,8 +421,6 @@ public class ChatActivity extends AppCompatActivity {
             audioPlayer.setListener(null);
         if (sessionManager != null)
             sessionManager.setListener(null);
-        if (settingsManager != null)
-            settingsManager.setListener(null);
         if (toolContext != null)
             toolContext.updateQiContext(null);
 
@@ -588,5 +555,16 @@ public class ChatActivity extends AppCompatActivity {
             @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         permissionManager.handlePermissionResult(requestCode, grantResults);
+    }
+
+    // ToolHost Implementation
+    @Override
+    public android.content.Context getAppContext() {
+        return getApplicationContext();
+    }
+
+    @Override
+    public android.app.Activity getActivity() {
+        return this;
     }
 }

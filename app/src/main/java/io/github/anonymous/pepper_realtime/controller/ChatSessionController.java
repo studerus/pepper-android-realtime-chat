@@ -18,7 +18,9 @@ import io.github.anonymous.pepper_realtime.manager.AudioPlayer;
 import io.github.anonymous.pepper_realtime.manager.SessionImageManager;
 import javax.inject.Inject;
 
-public class ChatSessionController {
+import io.github.anonymous.pepper_realtime.tools.interfaces.RealtimeMessageSender;
+
+public class ChatSessionController implements RealtimeMessageSender {
     private static final String TAG = "ChatSessionController";
 
     private final ChatViewModel viewModel;
