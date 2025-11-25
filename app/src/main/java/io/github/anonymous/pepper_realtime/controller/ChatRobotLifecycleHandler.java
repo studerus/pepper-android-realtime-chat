@@ -93,39 +93,47 @@ public class ChatRobotLifecycleHandler implements RobotFocusManager.Listener {
                 }
 
                 hasFocusInitialized = true;
-                viewModel.setWarmingUp(true);
                 viewModel.setLastChatBubbleResponseId(null);
                 activity.getVolumeController().setVolume(activity, activity.getSettingsManager().getVolume());
-                // activity.showWarmupIndicator(); // Handled by observing isWarmingUp
+
+                // Only show warmup indicator for Azure Speech mode
+                boolean isRealtimeMode = activity.getSettingsManager().isUsingRealtimeAudioInput();
+                if (!isRealtimeMode) {
+                    viewModel.setWarmingUp(true);
+                } else {
+                    viewModel.setStatusText(activity.getString(R.string.status_reconnecting));
+                }
 
                 Log.i(TAG, "Starting WebSocket connection...");
                 activity.getSessionController().connectWebSocket(new WebSocketConnectionCallback() {
                     @Override
                     public void onSuccess() {
-                        Log.i(TAG, "WebSocket connected successfully, starting STT warmup...");
-                        activity.getAudioInputController().startWarmup();
-                        activity.getThreadManager().executeAudio(() -> {
-                            try {
-                                activity.getAudioInputController().setupSpeechRecognizer();
-                                if (activity.getSettingsManager().isUsingRealtimeAudioInput()) {
-                                    // activity.hideWarmupIndicator(); // Handled by setWarmingUp
-                                    viewModel.setWarmingUp(false);
-                                    viewModel.setStatusText(activity.getString(R.string.status_listening));
-                                    if (activity.getTurnManager() != null) {
-                                        activity.getTurnManager().setState(TurnManager.State.LISTENING);
-                                    }
-                                }
-                            } catch (Exception e) {
-                                Log.e(TAG, "❌ STT setup failed", e);
-                                // activity.hideWarmupIndicator(); // Handled by setWarmingUp
-                                viewModel.setWarmingUp(false);
-                                viewModel.addMessage(new ChatMessage(activity.getString(R.string.warmup_failed_msg),
-                                        ChatMessage.Sender.ROBOT));
-                                viewModel.setStatusText(activity.getString(R.string.ready_sr_lazy_init));
-                                if (activity.getTurnManager() != null)
-                                    activity.getTurnManager().setState(TurnManager.State.LISTENING);
+                        if (isRealtimeMode) {
+                            // Realtime API Mode - no STT warmup needed
+                            Log.i(TAG, "WebSocket connected successfully (Realtime API mode)");
+                            viewModel.setStatusText(activity.getString(R.string.status_listening));
+                            if (activity.getTurnManager() != null) {
+                                activity.getTurnManager().setState(TurnManager.State.LISTENING);
                             }
-                        });
+                        } else {
+                            // Azure Speech Mode - perform STT warmup
+                            Log.i(TAG, "WebSocket connected successfully, starting STT warmup...");
+                            activity.getAudioInputController().startWarmup();
+                            activity.getThreadManager().executeAudio(() -> {
+                                try {
+                                    activity.getAudioInputController().setupSpeechRecognizer();
+                                    // LISTENING state will be set by ChatSpeechListener.onStarted()
+                                } catch (Exception e) {
+                                    Log.e(TAG, "❌ STT setup failed", e);
+                                    viewModel.setWarmingUp(false);
+                                    viewModel.addMessage(new ChatMessage(activity.getString(R.string.warmup_failed_msg),
+                                            ChatMessage.Sender.ROBOT));
+                                    viewModel.setStatusText(activity.getString(R.string.ready_sr_lazy_init));
+                                    if (activity.getTurnManager() != null)
+                                        activity.getTurnManager().setState(TurnManager.State.LISTENING);
+                                }
+                            });
+                        }
                     }
 
                     @Override

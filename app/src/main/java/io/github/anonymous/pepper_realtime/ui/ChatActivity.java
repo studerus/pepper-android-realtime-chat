@@ -149,7 +149,14 @@ public class ChatActivity extends AppCompatActivity implements ToolHost {
         });
 
         viewModel.getIsMuted().observe(this, isMuted -> {
-            // FAB visibility is now controlled by isInterruptFabVisible
+            // Change status bar background color based on mute state
+            if (statusTextView != null) {
+                if (isMuted) {
+                    statusTextView.setBackgroundColor(getResources().getColor(R.color.muted_status_background, getTheme()));
+                } else {
+                    statusTextView.setBackgroundColor(getResources().getColor(R.color.normal_status_background, getTheme()));
+                }
+            }
         });
 
         viewModel.getIsInterruptFabVisible().observe(this, isVisible -> {
@@ -453,6 +460,13 @@ public class ChatActivity extends AppCompatActivity implements ToolHost {
     public void updateNavigationStatus(String mapStatus, String localizationStatus) {
         viewModel.setMapStatus(mapStatus);
         viewModel.setLocalizationStatus(localizationStatus);
+        // Also update the map preview to reflect the new status
+        updateMapPreview();
+    }
+
+    @Override
+    public void refreshChatMessages() {
+        viewModel.refreshMessages();
     }
 
     public void updateMapPreview() {
@@ -538,6 +552,16 @@ public class ChatActivity extends AppCompatActivity implements ToolHost {
 
     private void unmute() {
         audioInputController.unmute();
+    }
+
+    @Override
+    public void muteMicrophone() {
+        mute();
+    }
+
+    @Override
+    public void unmuteMicrophone() {
+        unmute();
     }
 
     public void handleServiceStateChange(String mode) {

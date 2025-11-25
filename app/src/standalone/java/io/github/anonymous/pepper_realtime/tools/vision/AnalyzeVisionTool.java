@@ -60,8 +60,8 @@ public class AnalyzeVisionTool implements Tool {
                 "Analyzing vision with Android camera, prompt: " + (prompt.isEmpty() ? "(default analysis)" : prompt));
 
         try {
-            // Use VisionService (standalone implementation uses Android camera)
-            VisionService visionService = new VisionService(context.getAppContext());
+            // Use VisionService - pass Activity for access to SettingsManager and SessionManager
+            VisionService visionService = new VisionService(context.getActivity());
 
             // Initialize with null qiContext (standalone mode)
             visionService.initialize(null);

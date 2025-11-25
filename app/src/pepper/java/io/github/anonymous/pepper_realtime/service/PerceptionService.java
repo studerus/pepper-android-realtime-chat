@@ -92,10 +92,23 @@ public class PerceptionService {
 
     public PerceptionService() {
         Log.d(TAG, "PerceptionService created");
-        // Initialize background thread for monitoring (QiSDK synchronous calls)
-        monitoringThread = new HandlerThread("PerceptionMonitoringThread");
-        monitoringThread.start();
-        monitoringHandler = new Handler(monitoringThread.getLooper());
+        ensureMonitoringThreadReady();
+    }
+
+    /**
+     * Ensures the monitoring thread and handler are ready.
+     * Reinitializes them if they were shutdown or are in an invalid state.
+     */
+    private synchronized void ensureMonitoringThreadReady() {
+        if (monitoringThread == null || !monitoringThread.isAlive()) {
+            Log.i(TAG, "Reinitializing monitoring thread (was shutdown or invalid)");
+            monitoringThread = new HandlerThread("PerceptionMonitoringThread");
+            monitoringThread.start();
+            monitoringHandler = new Handler(monitoringThread.getLooper());
+        } else if (monitoringHandler == null) {
+            Log.i(TAG, "Reinitializing monitoring handler");
+            monitoringHandler = new Handler(monitoringThread.getLooper());
+        }
     }
 
     /**
@@ -106,13 +119,18 @@ public class PerceptionService {
     }
 
     /**
-     * Initialize the perception service with QiContext
+     * Initialize the perception service with QiContext.
+     * Reinitializes internal resources if they were previously shutdown.
      */
     public void initialize(Object robotContext) {
         if (robotContext == null) {
             Log.w(TAG, "PerceptionService: No robot context available.");
             return;
         }
+        
+        // Reinitialize monitoring thread if it was shutdown
+        ensureMonitoringThreadReady();
+        
         QiContext qiContext = (QiContext) robotContext;
         this.qiContext = qiContext;
         try {

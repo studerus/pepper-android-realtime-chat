@@ -83,7 +83,7 @@ public class YouTubeSearchService {
                 "?part=snippet" +
                 "&type=video" +
                 "&maxResults=" + maxResults +
-                "&q=" + java.net.URLEncoder.encode(query, StandardCharsets.UTF_8.toString()) +
+                "&q=" + java.net.URLEncoder.encode(query, "UTF-8") +
                 "&key=" + apiKey;
 
         // Make API request

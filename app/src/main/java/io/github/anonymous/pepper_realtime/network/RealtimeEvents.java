@@ -137,6 +137,13 @@ public class RealtimeEvents {
         public String itemId;
     }
 
+    public static class AudioBufferCommitted extends BaseEvent {
+        @SerializedName("item_id")
+        public String itemId;
+        @SerializedName("previous_item_id")
+        public String previousItemId;
+    }
+
     public static class UserTranscriptCompleted extends BaseEvent {
         @SerializedName("item_id")
         public String itemId;

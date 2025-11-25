@@ -28,7 +28,6 @@ public class ChatSessionController implements RealtimeMessageSender {
     private final SettingsRepository settingsRepository;
     private final ApiKeyManager keyManager;
     private final AudioInputController audioInputController;
-    private final ThreadManager threadManager;
     private final GestureController gestureController;
     private final TurnManager turnManager;
     private final ChatInterruptController interruptController;
@@ -36,6 +35,14 @@ public class ChatSessionController implements RealtimeMessageSender {
     private final RealtimeEventHandler eventHandler;
     private final SessionImageManager sessionImageManager;
     private WebSocketConnectionCallback connectionCallback;
+
+    /**
+     * Always get the current ThreadManager instance to avoid using a shutdown instance
+     * after app restart.
+     */
+    private ThreadManager getThreadManager() {
+        return ThreadManager.getInstance();
+    }
 
     @Inject
     public ChatSessionController(
@@ -56,8 +63,8 @@ public class ChatSessionController implements RealtimeMessageSender {
         this.settingsRepository = settingsRepository;
         this.keyManager = keyManager;
         this.audioInputController = audioInputController;
-
-        this.threadManager = threadManager;
+        // Note: threadManager parameter kept for DI compatibility but not stored
+        // We use getThreadManager() to always get the current instance
         this.gestureController = gestureController;
         this.turnManager = turnManager;
         this.interruptController = interruptController;
@@ -88,12 +95,17 @@ public class ChatSessionController implements RealtimeMessageSender {
             }
         }
 
-        if (requestResponse && turnManager != null) {
-            turnManager.setState(TurnManager.State.THINKING);
-        }
+        // Capture for use in lambda
+        final boolean shouldRequestResponse = requestResponse;
 
-        threadManager.executeNetwork(() -> {
+        getThreadManager().executeNetwork(() -> {
             try {
+                // Set THINKING state inside the network task to ensure it only happens
+                // when the task actually runs (not if ThreadManager is shutdown)
+                if (shouldRequestResponse && turnManager != null) {
+                    turnManager.setState(TurnManager.State.THINKING);
+                }
+
                 boolean sentItem = sessionManager.sendUserTextMessage(text);
                 if (!sentItem) {
                     Log.e(TAG, "Failed to send message - WebSocket connection broken");
@@ -101,7 +113,7 @@ public class ChatSessionController implements RealtimeMessageSender {
                             viewModel.getApplication().getString(R.string.error_connection_lost_message),
                             ChatMessage.Sender.ROBOT));
                     if (turnManager != null)
-                        turnManager.setState(TurnManager.State.IDLE);
+                        turnManager.setState(TurnManager.State.LISTENING);
                     return;
                 }
 
@@ -131,13 +143,13 @@ public class ChatSessionController implements RealtimeMessageSender {
                 }
             } catch (Exception e) {
                 Log.e(TAG, "Exception in sendMessageToRealtimeAPI", e);
-                if (requestResponse) {
+                if (shouldRequestResponse) {
                     viewModel.setResponseGenerating(false);
                     viewModel.addMessage(
                             new ChatMessage(viewModel.getApplication().getString(R.string.error_processing_message),
                                     ChatMessage.Sender.ROBOT));
                     if (turnManager != null)
-                        turnManager.setState(TurnManager.State.IDLE);
+                        turnManager.setState(TurnManager.State.LISTENING);
                 }
             }
         });
@@ -179,8 +191,8 @@ public class ChatSessionController implements RealtimeMessageSender {
         viewModel.setStatusText(viewModel.getApplication().getString(R.string.status_starting_new_session));
         viewModel.clearMessages();
 
-        threadManager.executeNetwork(() -> {
-            threadManager.executeIO(() -> this.sessionImageManager.deleteAllImages());
+        getThreadManager().executeNetwork(() -> {
+            getThreadManager().executeIO(() -> this.sessionImageManager.deleteAllImages());
             audioInputController.cleanupForRestart();
             gestureController.stopNow();
             if (turnManager != null) {
@@ -206,20 +218,21 @@ public class ChatSessionController implements RealtimeMessageSender {
                 public void onSuccess() {
                     Log.i(TAG, "New session started successfully.");
                     if (!settingsRepository.isUsingRealtimeAudioInput()) {
-                        // Azure Speech Mode
-                        if (!audioInputController.isSttRunning()) {
-                            threadManager.executeAudio(() -> {
-                                try {
-                                    audioInputController.setupSpeechRecognizer();
-                                    if (turnManager != null) {
-                                        turnManager.setState(TurnManager.State.LISTENING);
-                                    }
-                                    audioInputController.startContinuousRecognition();
-                                } catch (Exception e) {
-                                    Log.e(TAG, "Failed to setup Azure Speech after session restart", e);
-                                }
-                            });
-                        }
+                        // Azure Speech Mode - perform warmup like initial startup
+                        Log.i(TAG, "Azure Speech mode - starting STT warmup...");
+                        viewModel.setWarmingUp(true);
+                        audioInputController.startWarmup();
+                        getThreadManager().executeAudio(() -> {
+                            try {
+                                audioInputController.setupSpeechRecognizer();
+                                // Don't set LISTENING state here - it will be set by 
+                                // ChatSpeechListener.onStarted() after warmup completes
+                            } catch (Exception e) {
+                                Log.e(TAG, "Failed to setup Azure Speech after session restart", e);
+                                viewModel.setWarmingUp(false);
+                                viewModel.setStatusText(viewModel.getApplication().getString(R.string.status_recognizer_not_ready));
+                            }
+                        });
                     } else {
                         // Realtime API Mode
                         // Just set LISTENING state - ChatTurnListener will trigger audio start

@@ -70,8 +70,9 @@ public class TouchSensorManager {
     }
     
     /**
-     * Initialize touch sensors with QiContext
-     * Must be called when robot focus is gained
+     * Initialize touch sensors with QiContext.
+     * Must be called when robot focus is gained.
+     * Handles reinitialization after shutdown by clearing old sensors first.
      */
     public void initialize(Object robotContext) {
         if (robotContext == null) {
@@ -81,6 +82,20 @@ public class TouchSensorManager {
         QiContext qiContext = (QiContext) robotContext;
         
         try {
+            // Clear any old sensors first (handles reinitialization after restart)
+            if (!touchSensors.isEmpty()) {
+                Log.i(TAG, "Clearing old touch sensors before reinitialization");
+                touchSensors.clear();
+            }
+            
+            // Reset paused state on reinitialization
+            isPaused = false;
+            
+            // Reset debouncing timestamps on reinitialization
+            for (String sensorName : TOUCH_SENSOR_NAMES) {
+                lastTouchTimes.put(sensorName, 0L);
+            }
+            
             Touch touch = qiContext.getTouch();
             List<String> availableSensors = touch.getSensorNames();
             

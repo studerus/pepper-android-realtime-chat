@@ -47,7 +47,10 @@ public class ChatTurnListener implements TurnManager.Callbacks {
                 return;
             }
 
-            if (!audioInputController.isMuted()) {
+            if (audioInputController.isMuted()) {
+                // Show muted status when returning to listening while muted
+                viewModel.setStatusText(getString(R.string.status_muted_tap_to_unmute));
+            } else {
                 viewModel.setStatusText(getString(R.string.status_listening));
                 if (!audioInputController.isSttRunning()) {
                     try {
@@ -101,7 +104,9 @@ public class ChatTurnListener implements TurnManager.Callbacks {
     public void onExitSpeaking() {
         Log.i(TAG, "State: Exiting SPEAKING - stopping gestures and starting STT");
         gestureController.stopNow();
-        if (!audioInputController.isMuted()) {
+        if (audioInputController.isMuted()) {
+            viewModel.setStatusText(getString(R.string.status_muted_tap_to_unmute));
+        } else {
             viewModel.setStatusText(getString(R.string.status_listening));
         }
         viewModel.setInterruptFabVisible(false);

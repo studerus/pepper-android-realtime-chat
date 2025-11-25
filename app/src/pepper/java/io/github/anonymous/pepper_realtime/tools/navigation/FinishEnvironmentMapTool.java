@@ -58,8 +58,8 @@ public class FinishEnvironmentMapTool implements Tool {
         Log.i(TAG, "Finishing environment mapping and saving map: " + ACTIVE_MAP_NAME);
         
         // CRITICAL: Enter localization mode immediately to stop gestures and other services
-        if (context.hasUi() && context.getActivity().getNavigationServiceManager() != null) {
-            context.getActivity().getNavigationServiceManager().handleServiceStateChange("enterLocalizationMode");
+        if (context.getNavigationServiceManager() != null) {
+            context.getNavigationServiceManager().handleServiceStateChange("enterLocalizationMode");
             Log.i(TAG, "Entered localization mode to suppress gestures during map finalization");
         }
         
@@ -122,22 +122,24 @@ public class FinishEnvironmentMapTool implements Tool {
                         }
 
                         // 2c) Cache the new map, update UI, and start new localization via manager
-                        if (context.hasUi() && context.getActivity().getNavigationServiceManager() != null) {
+                        if (context.getNavigationServiceManager() != null) {
                             Log.i(TAG, "Caching map directly via NavigationServiceManager and preparing UI/localization.");
-                            final NavigationServiceManager navManager = context.getActivity().getNavigationServiceManager();
+                            final NavigationServiceManager navManager = context.getNavigationServiceManager();
 
                             // Cache with callback to ensure proper sequencing
                             navManager.cacheNewMap(explorationMap, () -> {
                                 try {
                                     // Update UI on main thread
-                                    context.getActivity().runOnUiThread(() -> {
+                                    if (context.hasUi()) {
+                                        context.getToolHost().runOnUiThread(() -> {
                                         try {
                                             Log.i(TAG, "Updating map preview UI after caching...");
-                                            context.getActivity().updateMapPreview();
+                                                context.getToolHost().updateMapPreview();
                                         } catch (Exception e) {
                                             Log.e(TAG, "Failed to update map preview UI", e);
                                         }
                                     });
+                                    }
 
                                     Log.i(TAG, "Starting localization after successful map caching...");
                                     // Start localization via manager so actions/futures are tracked consistently
@@ -147,7 +149,7 @@ public class FinishEnvironmentMapTool implements Tool {
                                                 try {
                                                     Log.i(TAG, "Localization completed successfully - resuming normal operation");
                                                     if (context.hasUi()) {
-                                                        context.getActivity().updateNavigationStatus("🗺️ Map: Ready", "🧭 Localization: Localized");
+                                                        context.getToolHost().updateNavigationStatus("🗺️ Map: Ready", "🧭 Localization: Localized");
                                                     }
                                                     context.sendAsyncUpdate(
                                                             "[ORIENTATION COMPLETED] Pepper is now localized and ready for navigation.",
@@ -163,7 +165,7 @@ public class FinishEnvironmentMapTool implements Tool {
                                                 try {
                                                     Log.e(TAG, "Localization failed after map caching");
                                                     if (context.hasUi()) {
-                                                        context.getActivity().updateNavigationStatus("🗺️ Map: Ready", "🧭 Localization: Failed");
+                                                        context.getToolHost().updateNavigationStatus("🗺️ Map: Ready", "🧭 Localization: Failed");
                                                     }
                                                     context.sendAsyncUpdate(
                                                             "[ORIENTATION ERROR] Localization failed after saving the map. Please try again.",
@@ -182,11 +184,11 @@ public class FinishEnvironmentMapTool implements Tool {
 
                         // 2d) Inform user but keep services in localization mode until localization completes
                         if (context.hasUi()) {
-                            context.getActivity().updateNavigationStatus("🗺️ Map: Ready", "🧭 Localization: Localizing...");
+                            context.getToolHost().updateNavigationStatus("🗺️ Map: Ready", "🧭 Localization: Localizing...");
+                        }
                             context.sendAsyncUpdate(String.format(Locale.US,
                                 "[MAP SAVED] Map '%s' has been saved. Pepper will now orient itself; navigation will be available once orientation completes.",
                                 ACTIVE_MAP_NAME), true);
-                        }
                         Log.i(TAG, "Map '" + ACTIVE_MAP_NAME + "' finalization process initiated successfully.");
 
                     } catch (Throwable t) {

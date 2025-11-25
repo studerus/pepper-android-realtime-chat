@@ -64,6 +64,9 @@ public class RealtimeEventHandler {
         default void onUserSpeechStopped(String itemId) {
         }
 
+        default void onAudioBufferCommitted(String itemId) {
+        }
+
         default void onUserItemCreated(String itemId, RealtimeEvents.ConversationItemCreated event) {
         }
 
@@ -232,6 +235,9 @@ public class RealtimeEventHandler {
                     if (!gaTranscript.isEmpty()) {
                         Log.d(TAG, "GA Audio transcript: \"" + gaTranscript + "\"");
                     }
+                    if (listener != null) {
+                        listener.onAudioTranscriptDone(gaTranscript, gaTranscriptDone.responseId);
+                    }
                     break;
                 case "response.output_item.done":
                     Log.d(TAG, "Output item done");
@@ -252,6 +258,14 @@ public class RealtimeEventHandler {
                     Log.i(TAG, "User speech stopped (item: " + speechStopped.itemId + ")");
                     if (listener != null)
                         listener.onUserSpeechStopped(speechStopped.itemId);
+                    break;
+                case "input_audio_buffer.committed":
+                    // Server has accepted the audio input and will generate a response
+                    RealtimeEvents.AudioBufferCommitted bufferCommitted = gson.fromJson(jsonObject,
+                            RealtimeEvents.AudioBufferCommitted.class);
+                    Log.i(TAG, "Audio buffer committed (item: " + bufferCommitted.itemId + ")");
+                    if (listener != null)
+                        listener.onAudioBufferCommitted(bufferCommitted.itemId);
                     break;
                 case "conversation.item.input_audio_transcription.completed":
                     RealtimeEvents.UserTranscriptCompleted transcriptCompleted = gson.fromJson(jsonObject,

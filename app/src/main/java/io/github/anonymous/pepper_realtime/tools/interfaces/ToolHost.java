@@ -17,4 +17,14 @@ public interface ToolHost {
     void addImageMessage(String imagePath);
 
     io.github.anonymous.pepper_realtime.manager.SessionImageManager getSessionImageManager();
+
+    void updateMapPreview();
+
+    void updateNavigationStatus(String mapStatus, String localizationStatus);
+
+    void muteMicrophone();
+
+    void unmuteMicrophone();
+
+    void refreshChatMessages();
 }

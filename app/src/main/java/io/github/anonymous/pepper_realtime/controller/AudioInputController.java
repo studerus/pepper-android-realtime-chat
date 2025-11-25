@@ -23,7 +23,6 @@ public class AudioInputController {
     private final SettingsRepository settingsRepository;
     private final ApiKeyManager keyManager;
     private final RealtimeSessionManager sessionManager;
-    private final ThreadManager threadManager;
 
     // State
     private SpeechRecognizerManager sttManager;
@@ -39,13 +38,19 @@ public class AudioInputController {
     public AudioInputController(ChatViewModel viewModel,
             SettingsRepository settingsRepository,
             ApiKeyManager keyManager,
-            RealtimeSessionManager sessionManager,
-            ThreadManager threadManager) {
+            RealtimeSessionManager sessionManager) {
         this.viewModel = viewModel;
         this.settingsRepository = settingsRepository;
         this.keyManager = keyManager;
         this.sessionManager = sessionManager;
-        this.threadManager = threadManager;
+    }
+
+    /**
+     * Always get the current ThreadManager instance to avoid using a shutdown instance
+     * after app restart.
+     */
+    private ThreadManager getThreadManager() {
+        return ThreadManager.getInstance();
     }
 
     public void setSpeechListener(ChatSpeechListener listener) {
@@ -101,7 +106,7 @@ public class AudioInputController {
         if (settingsRepository.isUsingRealtimeAudioInput()) {
             // MUTUAL EXCLUSION: Stop Azure STT if it's running before starting Realtime API
             if (sttManager != null) {
-                threadManager.executeAudio(() -> cleanupSttForReinit());
+                getThreadManager().executeAudio(() -> cleanupSttForReinit());
                 Log.i(TAG, "Stopped and cleaned up Azure STT to prevent interference with Realtime API audio");
             }
 
@@ -109,7 +114,7 @@ public class AudioInputController {
                 realtimeAudioInput = new RealtimeAudioInputManager(sessionManager);
                 Log.i(TAG, "Created RealtimeAudioInputManager");
             }
-            threadManager.executeAudio(() -> {
+            getThreadManager().executeAudio(() -> {
                 boolean started = realtimeAudioInput.start();
                 if (started) {
                     Log.i(TAG, "Realtime API audio capture started (server VAD enabled)");
@@ -126,7 +131,7 @@ public class AudioInputController {
         // MUTUAL EXCLUSION: Stop Realtime API audio if it's running before starting
         // Azure STT
         if (realtimeAudioInput != null && realtimeAudioInput.isCapturing()) {
-            threadManager.executeAudio(() -> realtimeAudioInput.stop());
+            getThreadManager().executeAudio(() -> realtimeAudioInput.stop());
             Log.i(TAG, "Stopped Realtime API audio to prevent interference with Azure STT");
         }
 
@@ -135,13 +140,13 @@ public class AudioInputController {
             viewModel.setStatusText(getString(R.string.status_recognizer_not_ready));
             return;
         }
-        threadManager.executeAudio(() -> sttManager.start());
+        getThreadManager().executeAudio(() -> sttManager.start());
     }
 
     public void stopContinuousRecognition() {
         if (settingsRepository.isUsingRealtimeAudioInput()) {
             if (realtimeAudioInput != null && realtimeAudioInput.isCapturing()) {
-                threadManager.executeAudio(() -> {
+                getThreadManager().executeAudio(() -> {
                     realtimeAudioInput.stop();
                     Log.i(TAG, "Realtime API audio capture stopped");
                 });
@@ -149,7 +154,7 @@ public class AudioInputController {
             return;
         }
         if (sttManager != null) {
-            threadManager.executeAudio(() -> sttManager.stop());
+            getThreadManager().executeAudio(() -> sttManager.stop());
         }
     }
 
@@ -170,7 +175,7 @@ public class AudioInputController {
             Log.i(TAG, "Stopped Realtime audio capture");
         }
         if (sttManager != null && sttIsRunning) {
-            threadManager.executeAudio(() -> sttManager.stop());
+            getThreadManager().executeAudio(() -> sttManager.stop());
             Log.i(TAG, "Stopped Azure Speech recognizer");
         }
     }
@@ -214,7 +219,7 @@ public class AudioInputController {
             Log.i(TAG, "Realtime API audio mode - no STT re-initialization needed");
             return;
         }
-        threadManager.executeAudio(() -> {
+        getThreadManager().executeAudio(() -> {
             try {
                 ensureSttManager();
                 configureSpeechRecognizer();

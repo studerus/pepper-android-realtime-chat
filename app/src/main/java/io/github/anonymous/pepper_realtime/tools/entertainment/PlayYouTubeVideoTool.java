@@ -82,12 +82,18 @@ public class PlayYouTubeVideoTool implements Tool {
                         new io.github.anonymous.pepper_realtime.manager.YouTubePlayerManager.YouTubePlayerCallback() {
                             @Override
                             public void onPlayerOpened() {
+                                // Mute microphone while YouTube video is playing
+                                context.getToolHost().muteMicrophone();
                                 context.sendAsyncUpdate("🎵 YouTube video started - microphone muted", false);
                             }
                             
                             @Override
                             public void onPlayerClosed() {
+                                // Unmute microphone when video ends
+                                context.getToolHost().unmuteMicrophone();
                                 context.sendAsyncUpdate("🎵 YouTube video ended - microphone active again", false);
+                                // Refresh chat UI to show any updates that were missed while overlay was active
+                                context.getToolHost().refreshChatMessages();
                             }
                             
                             @Override

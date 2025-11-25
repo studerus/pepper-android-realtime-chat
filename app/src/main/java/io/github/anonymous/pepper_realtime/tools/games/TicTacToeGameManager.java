@@ -1,6 +1,5 @@
 package io.github.anonymous.pepper_realtime.tools.games;
 
-import android.content.Context;
 import android.util.Log;
 import io.github.anonymous.pepper_realtime.tools.ToolContext;
 
@@ -23,9 +22,9 @@ public class TicTacToeGameManager {
             return false;
         }
         
-        Context appContext = context.getAppContext();
-        if (appContext == null) {
-            Log.w(TAG, "Cannot start game - no app context available");
+        android.app.Activity activity = context.getActivity();
+        if (activity == null) {
+            Log.w(TAG, "Cannot start game - no activity context available");
             return false;
         }
         
@@ -41,9 +40,9 @@ public class TicTacToeGameManager {
             context.sendAsyncUpdate(message, requestResponse);
         };
         
-        // Create and show new dialog on UI thread
-        context.getActivity().runOnUiThread(() -> {
-            currentDialog = new TicTacToeDialog(appContext, gameCallback);
+        // Create and show new dialog on UI thread (Dialog requires Activity context, not Application context)
+        activity.runOnUiThread(() -> {
+            currentDialog = new TicTacToeDialog(activity, gameCallback);
             currentDialog.show();
         });
         

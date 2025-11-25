@@ -24,6 +24,11 @@ public class ChatViewModel extends AndroidViewModel {
     private final MutableLiveData<Boolean> isMuted = new MutableLiveData<>(false);
     private final MutableLiveData<Boolean> isInterruptFabVisible = new MutableLiveData<>(false);
 
+    // Synchronized backing field for message list to avoid postValue() race conditions
+    // postValue() is async and getValue() doesn't reflect the new value immediately
+    private final Object messageListLock = new Object();
+    private List<ChatMessage> currentMessageList = new ArrayList<>();
+
     // Connection State
     private final MutableLiveData<Boolean> isConnected = new MutableLiveData<>(false);
 
@@ -123,72 +128,64 @@ public class ChatViewModel extends AndroidViewModel {
     }
 
     public void addMessage(ChatMessage message) {
-        List<ChatMessage> currentList = messageList.getValue();
-        List<ChatMessage> newList;
-        if (currentList == null)
-            newList = new ArrayList<>();
-        else
-            newList = new ArrayList<>(currentList);
+        synchronized (messageListLock) {
+            List<ChatMessage> newList = new ArrayList<>(currentMessageList);
         newList.add(message);
+            currentMessageList = newList;
         messageList.postValue(newList);
+        }
     }
 
     public void addImageMessage(String imagePath) {
-        addMessage(new ChatMessage("", imagePath, ChatMessage.Sender.USER));
+        // Image is captured by robot camera, so it's a ROBOT output (displayed on the left with thumbnail)
+        addMessage(new ChatMessage("", imagePath, ChatMessage.Sender.ROBOT));
     }
 
     public void appendToLastMessage(String text) {
-        List<ChatMessage> currentList = messageList.getValue();
-        if (currentList != null && !currentList.isEmpty()) {
-            int lastIndex = currentList.size() - 1;
-            ChatMessage lastMsg = currentList.get(lastIndex);
+        synchronized (messageListLock) {
+            if (!currentMessageList.isEmpty()) {
+                int lastIndex = currentMessageList.size() - 1;
+                ChatMessage lastMsg = currentMessageList.get(lastIndex);
 
             if (lastMsg.getSender() == ChatMessage.Sender.ROBOT
                     && lastMsg.getType() == ChatMessage.Type.REGULAR_MESSAGE) {
 
-                // Create a new list
-                List<ChatMessage> newList = new ArrayList<>(currentList);
-                // Create a copy of the message with new text
+                    List<ChatMessage> newList = new ArrayList<>(currentMessageList);
                 ChatMessage updatedMsg = lastMsg.copyWithNewText(lastMsg.getMessage() + text);
-                // Replace in list
                 newList.set(lastIndex, updatedMsg);
-
-                // Post new list
+                    currentMessageList = newList;
                 messageList.postValue(newList);
+                }
             }
         }
     }
 
     public void updateLastRobotMessage(String newText) {
-        List<ChatMessage> currentList = messageList.getValue();
-        if (currentList != null && !currentList.isEmpty()) {
-            int lastIndex = currentList.size() - 1;
-            ChatMessage lastMsg = currentList.get(lastIndex);
+        synchronized (messageListLock) {
+            if (!currentMessageList.isEmpty()) {
+                int lastIndex = currentMessageList.size() - 1;
+                ChatMessage lastMsg = currentMessageList.get(lastIndex);
 
             if (lastMsg.getSender() == ChatMessage.Sender.ROBOT
                     && lastMsg.getType() == ChatMessage.Type.REGULAR_MESSAGE) {
 
-                // Create a new list
-                List<ChatMessage> newList = new ArrayList<>(currentList);
-                // Create a copy of the message with REPLACED text
+                    List<ChatMessage> newList = new ArrayList<>(currentMessageList);
                 ChatMessage updatedMsg = lastMsg.copyWithNewText(newText);
-                // Replace in list
                 newList.set(lastIndex, updatedMsg);
-
-                // Post new list
+                    currentMessageList = newList;
                 messageList.postValue(newList);
+                }
             }
         }
     }
 
     public boolean updateMessageByItemId(String itemId, String newText) {
-        List<ChatMessage> currentList = messageList.getValue();
-        if (currentList != null) {
+        synchronized (messageListLock) {
             int indexToUpdate = -1;
             ChatMessage msgToUpdate = null;
 
-            for (int i = 0; i < currentList.size(); i++) {
-                ChatMessage msg = currentList.get(i);
+            for (int i = 0; i < currentMessageList.size(); i++) {
+                ChatMessage msg = currentMessageList.get(i);
                 if (itemId != null && itemId.equals(msg.getItemId())) {
                     indexToUpdate = i;
                     msgToUpdate = msg;
@@ -197,25 +194,40 @@ public class ChatViewModel extends AndroidViewModel {
             }
 
             if (indexToUpdate != -1 && msgToUpdate != null) {
-                List<ChatMessage> newList = new ArrayList<>(currentList);
+                List<ChatMessage> newList = new ArrayList<>(currentMessageList);
                 ChatMessage updatedMsg = msgToUpdate.copyWithNewText(newText);
                 newList.set(indexToUpdate, updatedMsg);
+                currentMessageList = newList;
                 messageList.postValue(newList);
                 android.util.Log.d("ChatViewModel", "Updated message at index " + indexToUpdate +
                         " with itemId " + itemId + " to text: " + newText);
                 return true;
             } else {
                 android.util.Log.w("ChatViewModel", "Could not find message with itemId: " + itemId +
-                        " in list of " + currentList.size() + " messages");
+                        " in list of " + currentMessageList.size() + " messages");
             }
         }
         return false;
     }
 
     public void clearMessages() {
-        messageList.postValue(new ArrayList<>());
+        synchronized (messageListLock) {
+            currentMessageList = new ArrayList<>();
+            messageList.postValue(currentMessageList);
+        }
         // Clear cached item ID to prevent truncate errors on non-existent items
         lastAssistantItemId = null;
+    }
+
+    /**
+     * Force a UI refresh by re-posting the current message list.
+     * Useful when UI updates were missed due to overlays (e.g., YouTube player).
+     */
+    public void refreshMessages() {
+        synchronized (messageListLock) {
+            // Re-post the current list to trigger UI update
+            messageList.postValue(new ArrayList<>(currentMessageList));
+        }
     }
 
     // Transcript Management
@@ -231,16 +243,13 @@ public class ChatViewModel extends AndroidViewModel {
     public void handleUserTranscriptCompleted(String itemId, String transcript) {
         ChatMessage placeholder = pendingUserTranscripts.remove(itemId);
         if (placeholder != null) {
-            List<ChatMessage> currentList = messageList.getValue();
-            if (currentList != null) {
-                // Create a new list
-                List<ChatMessage> newList = new ArrayList<>(currentList);
-                // Find the index of the placeholder
+            synchronized (messageListLock) {
+                List<ChatMessage> newList = new ArrayList<>(currentMessageList);
                 int index = newList.indexOf(placeholder);
                 if (index != -1) {
-                    // Create a copy of the message with new text
                     ChatMessage updatedMsg = placeholder.copyWithNewText(transcript);
                     newList.set(index, updatedMsg);
+                    currentMessageList = newList;
                     messageList.postValue(newList);
                 } else {
                     // Fallback: just add if not found (shouldn't happen if logic is correct)
@@ -256,13 +265,13 @@ public class ChatViewModel extends AndroidViewModel {
     public void handleUserTranscriptFailed(String itemId, org.json.JSONObject error) {
         ChatMessage placeholder = pendingUserTranscripts.remove(itemId);
         if (placeholder != null) {
-            List<ChatMessage> currentList = messageList.getValue();
-            if (currentList != null) {
-                List<ChatMessage> newList = new ArrayList<>(currentList);
+            synchronized (messageListLock) {
+                List<ChatMessage> newList = new ArrayList<>(currentMessageList);
                 int index = newList.indexOf(placeholder);
                 if (index != -1) {
                     ChatMessage updatedMsg = placeholder.copyWithNewText("🎤 [Transcription failed]");
                     newList.set(index, updatedMsg);
+                    currentMessageList = newList;
                     messageList.postValue(newList);
                 }
             }
@@ -270,13 +279,12 @@ public class ChatViewModel extends AndroidViewModel {
     }
 
     public void updateLatestFunctionCallResult(String result) {
-        List<ChatMessage> currentList = messageList.getValue();
-        if (currentList != null) {
+        synchronized (messageListLock) {
             int indexToUpdate = -1;
             ChatMessage msgToUpdate = null;
 
-            for (int i = currentList.size() - 1; i >= 0; i--) {
-                ChatMessage message = currentList.get(i);
+            for (int i = currentMessageList.size() - 1; i >= 0; i--) {
+                ChatMessage message = currentMessageList.get(i);
                 if (message.getType() == ChatMessage.Type.FUNCTION_CALL &&
                         message.getFunctionResult() == null) {
                     indexToUpdate = i;
@@ -286,9 +294,10 @@ public class ChatViewModel extends AndroidViewModel {
             }
 
             if (indexToUpdate != -1 && msgToUpdate != null) {
-                List<ChatMessage> newList = new ArrayList<>(currentList);
+                List<ChatMessage> newList = new ArrayList<>(currentMessageList);
                 ChatMessage updatedMsg = msgToUpdate.copyWithFunctionResult(result);
                 newList.set(indexToUpdate, updatedMsg);
+                currentMessageList = newList;
                 messageList.postValue(newList);
             }
         }

@@ -165,10 +165,19 @@ public class AudioPlayer {
         try {
             if (audioTrack == null)
                 return 0;
+            
+            // 1. Calculate position based on AudioTrack head
+            // Handle potential int overflow/wrap-around correctly by subtraction first
             int currentFrames = audioTrack.getPlaybackHeadPosition();
-            // Calculate relative position since this response started
             int relativeFrames = Math.max(0, currentFrames - responseStartFrames);
-            return (int) Math.round(relativeFrames * 1000.0 / sampleRateHz);
+            int playedMs = (int) Math.round(relativeFrames * 1000.0 / sampleRateHz);
+
+            // 2. Calculate max possible duration based on written data
+            long writtenFrames = totalFramesWritten.get();
+            int writtenMs = (int) Math.round(writtenFrames * 1000.0 / sampleRateHz);
+
+            // 3. Clamp result: we cannot have played more than we wrote
+            return Math.min(playedMs, writtenMs);
         } catch (Exception e) {
             // Return 0 if AudioTrack not ready or any error occurs
             return 0;
@@ -315,13 +324,28 @@ public class AudioPlayer {
     }
 
     /**
+     * Ensures AudioTrack is initialized and ready for playback.
+     * Reinitializes if it was released or is in an invalid state.
+     */
+    private synchronized void ensureAudioTrackReady() {
+        if (audioTrack == null || audioTrack.getState() != AudioTrack.STATE_INITIALIZED) {
+            Log.i(TAG, "Reinitializing AudioTrack (was released or invalid)");
+            shouldStop.set(false);
+            initializeAudioTrack();
+        }
+    }
+
+    /**
      * Highly optimized playback loop with reduced allocations and better timing
      */
     private void optimizedPlayLoop() {
         Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO);
 
+        // Auto-reinitialize if needed
+        ensureAudioTrackReady();
+
         if (audioTrack == null || audioTrack.getState() != AudioTrack.STATE_INITIALIZED) {
-            Log.e(TAG, "AudioTrack not ready.");
+            Log.e(TAG, "AudioTrack not ready after reinitialization attempt.");
             isPlaying.set(false);
             return;
         }

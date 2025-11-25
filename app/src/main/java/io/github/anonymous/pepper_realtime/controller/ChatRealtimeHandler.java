@@ -1,5 +1,7 @@
 package io.github.anonymous.pepper_realtime.controller;
 
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import com.google.gson.JsonObject;
 
@@ -27,7 +29,6 @@ public class ChatRealtimeHandler implements RealtimeEventHandler.Listener {
     private final ChatViewModel viewModel;
     private final AudioPlayer audioPlayer;
     private final TurnManager turnManager;
-    private final ThreadManager threadManager;
     private final ToolRegistry toolRegistry;
     private ToolContext toolContext;
     private ChatSessionController sessionController;
@@ -40,6 +41,14 @@ public class ChatRealtimeHandler implements RealtimeEventHandler.Listener {
         this.toolContext = toolContext;
     }
 
+    /**
+     * Always get the current ThreadManager instance to avoid using a shutdown instance
+     * after app restart.
+     */
+    private ThreadManager getThreadManager() {
+        return ThreadManager.getInstance();
+    }
+
     public ChatRealtimeHandler(ChatViewModel viewModel,
             AudioPlayer audioPlayer,
             TurnManager turnManager,
@@ -49,7 +58,8 @@ public class ChatRealtimeHandler implements RealtimeEventHandler.Listener {
         this.viewModel = viewModel;
         this.audioPlayer = audioPlayer;
         this.turnManager = turnManager;
-        this.threadManager = threadManager;
+        // Note: threadManager parameter kept for DI compatibility but not stored
+        // We use getThreadManager() to always get the current instance
         this.toolRegistry = toolRegistry;
         this.toolContext = toolContext;
     }
@@ -73,9 +83,23 @@ public class ChatRealtimeHandler implements RealtimeEventHandler.Listener {
         if (Objects.equals(responseId, viewModel.getCancelledResponseId())) {
             return; // drop transcript of cancelled response
         }
+        
+        // Debug: Log first delta to verify transcript is being processed
+        boolean isFirstDelta = !Objects.equals(responseId, viewModel.getLastChatBubbleResponseId());
+        if (isFirstDelta) {
+            Log.d(TAG, "First transcript delta received for response: " + responseId + 
+                ", expectingFinalAnswer=" + viewModel.isExpectingFinalAnswerAfterToolCall());
+        }
+        
+        // Update status bar with streaming transcript (like LISTENING shows partial recognition)
+        String speakingPrefix = viewModel.getApplication().getString(R.string.status_speaking_tap_to_interrupt) + " ";
         String currentStatus = viewModel.getStatusText().getValue();
-        if (currentStatus == null || !currentStatus.startsWith("Speaking — tap to interrupt: ")) {
-            viewModel.setStatusText(viewModel.getApplication().getString(R.string.status_speaking_tap_to_interrupt));
+        if (currentStatus == null || !currentStatus.startsWith(speakingPrefix)) {
+            // First delta - set initial status with this delta
+            viewModel.setStatusText(speakingPrefix + delta);
+        } else {
+            // Subsequent deltas - append to existing status
+            viewModel.setStatusText(currentStatus + delta);
         }
 
         boolean needNew = viewModel.isExpectingFinalAnswerAfterToolCall()
@@ -83,6 +107,7 @@ public class ChatRealtimeHandler implements RealtimeEventHandler.Listener {
                 || !isLastMessageFromRobot()
                 || !Objects.equals(responseId, viewModel.getLastChatBubbleResponseId());
         if (needNew) {
+            Log.d(TAG, "Creating new chat bubble for transcript (needNew=true)");
             viewModel.addMessage(new ChatMessage(delta, ChatMessage.Sender.ROBOT));
             viewModel.setExpectingFinalAnswerAfterToolCall(false);
             viewModel.setLastChatBubbleResponseId(responseId);
@@ -96,6 +121,11 @@ public class ChatRealtimeHandler implements RealtimeEventHandler.Listener {
         if (Objects.equals(responseId, viewModel.getCancelledResponseId())) {
             return;
         }
+        // Update status bar with complete transcript
+        String speakingPrefix = viewModel.getApplication().getString(R.string.status_speaking_tap_to_interrupt) + " ";
+        viewModel.setStatusText(speakingPrefix + transcript);
+        
+        // Update chat bubble with complete transcript
         if (isLastMessageFromRobot() && Objects.equals(responseId, viewModel.getLastChatBubbleResponseId())) {
             viewModel.updateLastRobotMessage(transcript);
         }
@@ -120,9 +150,8 @@ public class ChatRealtimeHandler implements RealtimeEventHandler.Listener {
             return;
         }
 
-        if (!audioPlayer.isPlaying()) {
-            turnManager.setState(TurnManager.State.SPEAKING);
-        }
+        // Note: State transition to SPEAKING is handled by AudioPlayer.Listener.onPlaybackStarted()
+        // when playback actually begins, not here when audio chunks arrive
         if (responseId != null) {
             if (!Objects.equals(viewModel.getCurrentResponseId(), responseId)) {
                 try {
@@ -184,7 +213,7 @@ public class ChatRealtimeHandler implements RealtimeEventHandler.Listener {
                     viewModel.addMessage(functionCall);
 
                     viewModel.setExpectingFinalAnswerAfterToolCall(true);
-                    threadManager.executeNetwork(() -> {
+                    getThreadManager().executeNetwork(() -> {
                         String toolResult;
                         try {
                             toolResult = toolRegistry.executeTool(fToolName, args, toolContext);
@@ -205,7 +234,10 @@ public class ChatRealtimeHandler implements RealtimeEventHandler.Listener {
                         }
 
                         final String fResult = toolResult;
-                        viewModel.updateLatestFunctionCallResult(fResult);
+                        // Update UI on main thread to ensure RecyclerView updates even with overlays
+                        new Handler(Looper.getMainLooper()).post(() -> 
+                            viewModel.updateLatestFunctionCallResult(fResult)
+                        );
                         if (sessionController != null) {
                             sessionController.sendToolResult(fCallId, fResult);
                         } else {
@@ -259,6 +291,18 @@ public class ChatRealtimeHandler implements RealtimeEventHandler.Listener {
         String msg = (event.error != null && event.error.message != null) ? event.error.message
                 : "An unknown error occurred.";
 
+        // Handle harmless errors that can occur during normal operation
+        if ("response_cancel_not_active".equals(code)) {
+            // This happens when trying to cancel a response that already finished - harmless race condition
+            Log.d(TAG, "Interrupt race condition (harmless): " + msg);
+            return;
+        }
+        if ("invalid_value".equals(code) && msg != null && msg.contains("already shorter than")) {
+            // This happens when truncating audio that's shorter than the truncate position - harmless
+            Log.d(TAG, "Truncate position beyond audio length (harmless): " + msg);
+            return;
+        }
+
         Log.e(TAG, "WebSocket Error Received - Code: " + code + ", Message: " + msg);
 
         viewModel.addMessage(
@@ -287,6 +331,16 @@ public class ChatRealtimeHandler implements RealtimeEventHandler.Listener {
     @Override
     public void onUserSpeechStopped(String itemId) {
         Log.d(TAG, "User speech stopped: " + itemId);
+    }
+
+    @Override
+    public void onAudioBufferCommitted(String itemId) {
+        // Server has accepted the audio input and will generate a response
+        // Transition to THINKING state (equivalent to after Azure speech recognition sends transcript)
+        Log.d(TAG, "Audio buffer committed: " + itemId + " - entering THINKING state");
+        if (turnManager != null && turnManager.getState() == TurnManager.State.LISTENING) {
+            turnManager.setState(TurnManager.State.THINKING);
+        }
     }
 
     @Override

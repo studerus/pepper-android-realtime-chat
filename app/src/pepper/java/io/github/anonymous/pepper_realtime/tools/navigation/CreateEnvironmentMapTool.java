@@ -70,7 +70,7 @@ public class CreateEnvironmentMapTool implements Tool {
         Log.i(TAG, "Starting environment mapping prerequisite checks for: " + ACTIVE_MAP_NAME);
 
         // Get the NavigationServiceManager from the context
-        NavigationServiceManager navManager = context.getActivity().getNavigationServiceManager();
+        NavigationServiceManager navManager = context.getNavigationServiceManager();
         if (navManager == null) {
             return new JSONObject().put("error", "NavigationService is not available.").toString();
         }

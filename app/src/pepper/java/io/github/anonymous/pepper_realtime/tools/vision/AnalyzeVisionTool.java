@@ -62,8 +62,8 @@ public class AnalyzeVisionTool implements Tool {
         Log.i(TAG, "Analyzing vision with prompt: " + (prompt.isEmpty() ? "(default analysis)" : prompt));
 
         try {
-            // Use existing VisionService for actual implementation
-            VisionService visionService = new VisionService(context.getAppContext());
+            // Use existing VisionService - pass Activity for access to SettingsManager and SessionManager
+            VisionService visionService = new VisionService(context.getActivity());
 
             // Initialize with QiContext for robot camera access
             visionService.initialize((com.aldebaran.qi.sdk.QiContext) context.getQiContext());
@@ -136,8 +136,8 @@ public class AnalyzeVisionTool implements Tool {
                 public void onPhotoCaptured(String path) {
                     // Add image to chat UI and session cleanup (unchanged)
                     if (context.hasUi()) {
-                        context.getActivity().addImageMessage(path);
-                        context.getActivity().getSessionImageManager().addImage(path);
+                        context.getToolHost().addImageMessage(path);
+                        context.getToolHost().getSessionImageManager().addImage(path);
                     }
                     // Inform about photo capture via async update
                     context.sendAsyncUpdate("📷 Photo captured.", false);

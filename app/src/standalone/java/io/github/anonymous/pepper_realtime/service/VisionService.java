@@ -39,7 +39,6 @@ import okhttp3.Response;
 import io.github.anonymous.pepper_realtime.ui.ChatActivity;
 import io.github.anonymous.pepper_realtime.manager.ThreadManager;
 import io.github.anonymous.pepper_realtime.network.HttpClientManager;
-import io.github.anonymous.pepper_realtime.network.RealtimeApiProvider;
 import io.github.anonymous.pepper_realtime.network.RealtimeSessionManager;
 
 /**
@@ -427,15 +426,21 @@ public class VisionService {
     }
 
     /**
-     * Decide if we should send the image directly to the Realtime API (GA gpt-realtime)
+     * Decide if we should send the image directly to the Realtime API.
+     * Only gpt-realtime and gpt-realtime-mini support direct image analysis.
      */
     private boolean shouldSendImageDirectToRealtime() {
         try {
-            if (activityRef == null) return false;
+            if (activityRef == null) {
+                Log.w(TAG, "Cannot determine model - activityRef is null");
+                return false;
+            }
             String model = activityRef.getSettingsManager().getModel();
-            RealtimeApiProvider provider = activityRef.getSettingsManager().getApiProvider();
-            return "gpt-realtime".equals(model) && provider == RealtimeApiProvider.OPENAI_DIRECT;
-        } catch (Exception ignored) {
+            Log.d(TAG, "Current model for vision decision: " + model);
+            // Only gpt-realtime and gpt-realtime-mini support direct image analysis
+            return "gpt-realtime".equals(model) || "gpt-realtime-mini".equals(model);
+        } catch (Exception e) {
+            Log.w(TAG, "Error checking model for vision path", e);
             return false;
         }
     }

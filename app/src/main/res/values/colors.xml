@@ -19,6 +19,10 @@
     <color name="quiz_stroke">#FFBDBDBD</color>
     <color name="quiz_ripple">#1F000000</color>
     
+    <!-- Status bar colors -->
+    <color name="muted_status_background">#FFE53935</color>
+    <color name="normal_status_background">#DDDDDD</color>
+    
     <!-- Function call colors - Tech/Code Theme -->
     <color name="function_call_background">#FFF8FAFC</color>
     <color name="function_call_title">#FF1E3A8A</color>
