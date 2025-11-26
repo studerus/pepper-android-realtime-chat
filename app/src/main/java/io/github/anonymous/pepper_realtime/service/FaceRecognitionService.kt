@@ -43,24 +43,24 @@ class FaceRecognitionService @Inject constructor() {
     /**
      * Exception thrown when Azure rate limits the request
      */
-    class RateLimitException(@JvmField val retryAfterMs: Long) : Exception("Azure Face API rate limited")
+    class RateLimitException(val retryAfterMs: Long) : Exception("Azure Face API rate limited")
 
     /**
      * Face detection result with attributes
      */
     data class FaceInfo(
-        @JvmField var left: Int = 0,
-        @JvmField var top: Int = 0,
-        @JvmField var width: Int = 0,
-        @JvmField var height: Int = 0,
-        @JvmField var yawDeg: Double? = null,
-        @JvmField var pitchDeg: Double? = null,
-        @JvmField var rollDeg: Double? = null,
-        @JvmField var glassesType: String? = null,
-        @JvmField var isMasked: Boolean? = null,
-        @JvmField var imageQuality: String? = null,
-        @JvmField var blurValue: Double? = null,
-        @JvmField var exposureLevel: String? = null
+        var left: Int = 0,
+        var top: Int = 0,
+        var width: Int = 0,
+        var height: Int = 0,
+        var yawDeg: Double? = null,
+        var pitchDeg: Double? = null,
+        var rollDeg: Double? = null,
+        var glassesType: String? = null,
+        var isMasked: Boolean? = null,
+        var imageQuality: String? = null,
+        var blurValue: Double? = null,
+        var exposureLevel: String? = null
     )
 
     private val http by lazy { HttpClientManager.getInstance().getApiClient() }
@@ -339,4 +339,5 @@ class FaceRecognitionService @Inject constructor() {
         }, "face-recognition-thread").start()
     }
 }
+
 

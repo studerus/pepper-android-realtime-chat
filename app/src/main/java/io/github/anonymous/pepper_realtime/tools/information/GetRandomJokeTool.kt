@@ -1,7 +1,7 @@
 package io.github.anonymous.pepper_realtime.tools.information
 
 import android.util.Log
-import io.github.anonymous.pepper_realtime.tools.BaseTool
+import io.github.anonymous.pepper_realtime.tools.Tool
 import io.github.anonymous.pepper_realtime.tools.ToolContext
 import org.json.JSONObject
 import java.io.BufferedReader
@@ -13,7 +13,7 @@ import kotlin.random.Random
  * Tool for getting random jokes from the local jokes database.
  * Reads jokes from assets/jokes.json file.
  */
-class GetRandomJokeTool : BaseTool() {
+class GetRandomJokeTool : Tool {
 
     override fun getName(): String = "get_random_joke"
 
@@ -80,4 +80,5 @@ class GetRandomJokeTool : BaseTool() {
         private const val TAG = "GetRandomJokeTool"
     }
 }
+
 

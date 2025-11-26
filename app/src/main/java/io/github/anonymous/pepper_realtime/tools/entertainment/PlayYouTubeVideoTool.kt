@@ -3,16 +3,18 @@ package io.github.anonymous.pepper_realtime.tools.entertainment
 import android.util.Log
 import io.github.anonymous.pepper_realtime.manager.YouTubePlayerManager
 import io.github.anonymous.pepper_realtime.service.YouTubeSearchService
-import io.github.anonymous.pepper_realtime.tools.BaseTool
+import io.github.anonymous.pepper_realtime.tools.Tool
 import io.github.anonymous.pepper_realtime.tools.ToolContext
 import org.json.JSONArray
 import org.json.JSONObject
+
+import kotlinx.coroutines.runBlocking
 
 /**
  * Tool for searching and playing YouTube videos.
  * Uses YouTube Data API to find videos and displays them in the UI.
  */
-class PlayYouTubeVideoTool : BaseTool() {
+class PlayYouTubeVideoTool : Tool {
 
     override fun getName(): String = "play_youtube_video"
 
@@ -57,9 +59,10 @@ class PlayYouTubeVideoTool : BaseTool() {
             // Create YouTube search service
             val youtubeService = YouTubeSearchService(context.apiKeyManager.youTubeApiKey)
 
-            // Search for video
-            val video = youtubeService.searchFirstVideoBlocking(query)
-                ?: return JSONObject().put("error", "No videos found for query: $query").toString()
+            // Search for video using runBlocking since execute is synchronous
+            val video = runBlocking {
+                youtubeService.searchFirstVideo(query)
+            } ?: return JSONObject().put("error", "No videos found for query: $query").toString()
 
             // Show video player via manager on main thread
             if (context.hasUi()) {
@@ -114,4 +117,5 @@ class PlayYouTubeVideoTool : BaseTool() {
         private const val TAG = "PlayYouTubeVideoTool"
     }
 }
+
 

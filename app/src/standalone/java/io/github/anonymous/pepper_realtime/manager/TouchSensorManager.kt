@@ -19,7 +19,6 @@ class TouchSensorManager {
         /**
          * Creates a human-readable touch message
          */
-        @JvmStatic
         fun createTouchMessage(sensorName: String): String {
             return "[Sensor touched: $sensorName]"
         }
@@ -54,4 +53,5 @@ class TouchSensorManager {
         Log.i(TAG, "🤖 [SIMULATED] TouchSensorManager resumed")
     }
 }
+
 

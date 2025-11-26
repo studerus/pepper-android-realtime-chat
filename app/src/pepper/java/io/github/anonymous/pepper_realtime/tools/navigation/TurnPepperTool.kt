@@ -2,7 +2,7 @@ package io.github.anonymous.pepper_realtime.tools.navigation
 
 import android.util.Log
 import com.aldebaran.qi.sdk.QiContext
-import io.github.anonymous.pepper_realtime.tools.BaseTool
+import io.github.anonymous.pepper_realtime.tools.Tool
 import io.github.anonymous.pepper_realtime.tools.ToolContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -15,7 +15,7 @@ import java.util.concurrent.atomic.AtomicReference
  * Tool for turning Pepper robot left or right by specific degrees.
  * This is a synchronous tool that waits for turn completion.
  */
-class TurnPepperTool : BaseTool() {
+class TurnPepperTool : Tool {
 
     companion object {
         private const val TAG = "TurnPepperTool"
@@ -192,4 +192,5 @@ class TurnPepperTool : BaseTool() {
         }
     }
 }
+
 

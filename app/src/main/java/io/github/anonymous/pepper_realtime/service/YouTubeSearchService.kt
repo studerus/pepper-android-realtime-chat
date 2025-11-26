@@ -39,20 +39,6 @@ class YouTubeSearchService(
         val channelTitle: String,
         val thumbnailUrl: String
     ) {
-        // Legacy getters for Java interop
-        @JvmName("getVideoIdCompat")
-        fun getVideoId(): String = videoId
-
-        @JvmName("getTitleCompat")
-        fun getTitle(): String = title
-
-        @JvmName("getChannelTitleCompat")
-        fun getChannelTitle(): String = channelTitle
-
-        @Suppress("unused")
-        @JvmName("getThumbnailUrlCompat")
-        fun getThumbnailUrl(): String = thumbnailUrl
-
         override fun toString(): String {
             return "YouTubeVideo{videoId='$videoId', title='$title', channelTitle='$channelTitle'}"
         }
@@ -148,71 +134,6 @@ class YouTubeSearchService(
      * @return First video result or null if no results
      */
     suspend fun searchFirstVideo(query: String): YouTubeVideo? = searchVideo(query, 1)
-
-    /**
-     * Blocking version of searchFirstVideo for Java interop.
-     */
-    @Throws(Exception::class)
-    fun searchFirstVideoBlocking(query: String): YouTubeVideo? = searchVideoBlocking(query, 1)
-
-    /**
-     * Blocking version for legacy Java code.
-     * New code should use the suspend functions instead.
-     */
-    @Deprecated("Use suspend fun searchVideo() for new Kotlin code")
-    @Throws(Exception::class)
-    fun searchVideoBlocking(query: String, maxResults: Int): YouTubeVideo? {
-        require(query.isNotBlank()) { "Search query cannot be empty" }
-        require(apiKey.isNotEmpty()) { "YouTube API key is required" }
-
-        Log.i(TAG, "Searching YouTube for: $query")
-
-        val url = "$YOUTUBE_API_BASE_URL" +
-                "?part=snippet" +
-                "&type=video" +
-                "&maxResults=$maxResults" +
-                "&q=${URLEncoder.encode(query, "UTF-8")}" +
-                "&key=$apiKey"
-
-        val request = Request.Builder()
-            .url(url)
-            .addHeader("Accept", "application/json")
-            .build()
-
-        httpClient.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) {
-                val errorBody = response.body?.string() ?: "Unknown error"
-                Log.e(TAG, "YouTube API error: ${response.code} - $errorBody")
-                throw IOException("YouTube API request failed: ${response.code}")
-            }
-
-            val responseBody = response.body?.string() ?: return null
-
-            val jsonResponse = JSONObject(responseBody)
-            val items = jsonResponse.getJSONArray("items")
-
-            if (items.length() == 0) {
-                Log.w(TAG, "No videos found for query: $query")
-                return null
-            }
-
-            val firstItem = items.optJSONObject(0) ?: return null
-            val idObj = firstItem.optJSONObject("id")
-            val videoId = idObj?.optString("videoId", "") ?: ""
-
-            val snippet = firstItem.getJSONObject("snippet")
-            val title = snippet.optString("title", "")
-            val channelTitle = snippet.optString("channelTitle", "")
-
-            val thumbnails = snippet.optJSONObject("thumbnails")
-            val defaultThumb = thumbnails?.optJSONObject("default")
-            val thumbnailUrl = defaultThumb?.optString("url", "") ?: ""
-
-            val video = YouTubeVideo(videoId, title, channelTitle, thumbnailUrl)
-            Log.i(TAG, "Found video: $video")
-
-            return video
-        }
-    }
 }
+
 

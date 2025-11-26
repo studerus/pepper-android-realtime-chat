@@ -30,7 +30,6 @@ class ChatMessageAdapter(
         private const val VIEW_TYPE_ROBOT = 2
         private const val VIEW_TYPE_FUNCTION_CALL = 3
 
-        @JvmStatic
         fun decodeSampledBitmapFromPath(path: String, reqWidth: Int, reqHeight: Int): Bitmap? {
             val options = BitmapFactory.Options().apply {
                 inJustDecodeBounds = true
@@ -41,7 +40,6 @@ class ChatMessageAdapter(
             return BitmapFactory.decodeFile(path, options)
         }
 
-        @JvmStatic
         fun calculateInSampleSize(options: BitmapFactory.Options, reqWidth: Int, reqHeight: Int): Int {
             val height = options.outHeight
             val width = options.outWidth
@@ -356,4 +354,5 @@ class ChatMessageAdapter(
         }
     }
 }
+
 

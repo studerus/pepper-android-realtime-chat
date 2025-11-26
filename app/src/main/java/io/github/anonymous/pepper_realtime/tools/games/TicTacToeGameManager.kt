@@ -19,7 +19,6 @@ object TicTacToeGameManager {
     /**
      * Start a new TicTacToe game
      */
-    @JvmStatic
     fun startNewGame(context: ToolContext): Boolean {
         if (!context.hasUi()) {
             Log.w(TAG, "Cannot start game - no UI context available")
@@ -59,7 +58,6 @@ object TicTacToeGameManager {
     /**
      * Get current active dialog
      */
-    @JvmStatic
     fun getCurrentDialog(): TicTacToeDialog {
         return currentDialog ?: throw IllegalStateException("No active TicTacToe game")
     }
@@ -67,7 +65,6 @@ object TicTacToeGameManager {
     /**
      * Check if there's an active game
      */
-    @JvmStatic
     fun hasNoActiveGame(): Boolean {
         val dialog = currentDialog
         return dialog == null || !dialog.isShowing
@@ -76,7 +73,6 @@ object TicTacToeGameManager {
     /**
      * Make an AI move in the current game
      */
-    @JvmStatic
     fun makeAIMove(position: Int): Boolean {
         if (hasNoActiveGame()) {
             Log.w(TAG, "Cannot make AI move - no active game")
@@ -87,4 +83,5 @@ object TicTacToeGameManager {
         return true
     }
 }
+
 

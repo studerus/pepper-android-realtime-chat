@@ -2,7 +2,7 @@ package io.github.anonymous.pepper_realtime.tools.information
 
 import android.util.Log
 import io.github.anonymous.pepper_realtime.network.HttpClientManager
-import io.github.anonymous.pepper_realtime.tools.BaseTool
+import io.github.anonymous.pepper_realtime.tools.Tool
 import io.github.anonymous.pepper_realtime.tools.ToolContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
@@ -14,7 +14,7 @@ import org.json.JSONObject
  * Tool for searching the internet using Tavily API.
  * Provides real-time information that the AI doesn't have in its training data.
  */
-class SearchInternetTool : BaseTool() {
+class SearchInternetTool : Tool {
 
     override fun getName(): String = "search_internet"
 
@@ -106,4 +106,5 @@ class SearchInternetTool : BaseTool() {
         private const val TAG = "SearchInternetTool"
     }
 }
+
 

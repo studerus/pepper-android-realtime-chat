@@ -1,7 +1,7 @@
 package io.github.anonymous.pepper_realtime.tools.navigation
 
 import android.util.Log
-import io.github.anonymous.pepper_realtime.tools.BaseTool
+import io.github.anonymous.pepper_realtime.tools.Tool
 import io.github.anonymous.pepper_realtime.tools.ToolContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -10,7 +10,7 @@ import java.util.Locale
 /**
  * Stub implementation of TurnPepperTool for standalone mode.
  */
-class TurnPepperTool : BaseTool() {
+class TurnPepperTool : Tool {
 
     companion object {
         private const val TAG = "TurnPepperTool[STUB]"
@@ -64,4 +64,5 @@ class TurnPepperTool : BaseTool() {
 
     override fun getApiKeyType(): String? = null
 }
+
 

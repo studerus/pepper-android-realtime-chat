@@ -1,6 +1,6 @@
 package io.github.anonymous.pepper_realtime.tools.information
 
-import io.github.anonymous.pepper_realtime.tools.BaseTool
+import io.github.anonymous.pepper_realtime.tools.Tool
 import io.github.anonymous.pepper_realtime.tools.ToolContext
 import org.json.JSONObject
 import java.text.DateFormat
@@ -13,7 +13,7 @@ import java.util.TimeZone
  * Tool for getting current date and time with various formatting options.
  * Supports custom formatting, timezones, and locale-specific formatting.
  */
-class GetDateTimeTool : BaseTool() {
+class GetDateTimeTool : Tool {
 
     override fun getName(): String = "get_current_datetime"
 
@@ -89,4 +89,5 @@ class GetDateTimeTool : BaseTool() {
         }
     }
 }
+
 

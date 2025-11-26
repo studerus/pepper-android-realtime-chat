@@ -16,32 +16,27 @@ object RobotSafetyGuard {
     }
 
     class Result private constructor(
-        @JvmField val status: SafetyStatus,
-        @JvmField val message: String?
+        val status: SafetyStatus,
+        val message: String?
     ) {
         fun isOk(): Boolean = status == SafetyStatus.OK
 
         companion object {
-            @JvmStatic
             fun ok(): Result = Result(SafetyStatus.OK, null)
 
-            @JvmStatic
             fun robotNotReady(): Result = Result(SafetyStatus.ROBOT_NOT_READY, "Robot not ready")
 
-            @JvmStatic
             fun flapOpen(): Result = Result(
                 SafetyStatus.CHARGING_FLAP_OPEN,
                 "Cannot move while charging flap is open. Please close it for safety."
             )
 
-            @JvmStatic
             fun unknown(message: String?): Result = Result(SafetyStatus.UNKNOWN, message)
         }
     }
 
     private const val TAG = "RobotSafetyGuard"
 
-    @JvmStatic
     fun evaluateMovementSafety(qiContext: QiContext?): Result {
         if (qiContext == null) {
             return Result.robotNotReady()
@@ -66,4 +61,5 @@ object RobotSafetyGuard {
         }
     }
 }
+
 

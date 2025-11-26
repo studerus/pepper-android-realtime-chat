@@ -29,7 +29,6 @@ object YouTubePlayerManager {
      * @param video The YouTube video to play
      * @param callback Callback interface for handling player events
      */
-    @JvmStatic
     fun showYouTubePlayerDialog(
         context: Context,
         video: YouTubeSearchService.YouTubeVideo?,
@@ -64,4 +63,5 @@ object YouTubePlayerManager {
         Log.i(TAG, "YouTube player dialog created for: ${video.title}")
     }
 }
+
 

@@ -1,7 +1,7 @@
 package io.github.anonymous.pepper_realtime.tools.navigation
 
 import android.util.Log
-import io.github.anonymous.pepper_realtime.tools.BaseTool
+import io.github.anonymous.pepper_realtime.tools.Tool
 import io.github.anonymous.pepper_realtime.tools.ToolContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -9,7 +9,7 @@ import org.json.JSONObject
 /**
  * Stub implementation of SaveCurrentLocationTool for standalone mode.
  */
-class SaveCurrentLocationTool : BaseTool() {
+class SaveCurrentLocationTool : Tool {
 
     companion object {
         private const val TAG = "SaveCurrentLocationTool[STUB]"
@@ -47,4 +47,5 @@ class SaveCurrentLocationTool : BaseTool() {
 
     override fun getApiKeyType(): String? = null
 }
+
 

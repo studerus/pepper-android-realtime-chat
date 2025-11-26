@@ -5,12 +5,12 @@ package io.github.anonymous.pepper_realtime.data
  * Coordinates are in the Robot Frame.
  */
 data class SavedLocation(
-    @JvmField var name: String = "",
-    @JvmField var description: String = "",
-    @JvmField var translation: DoubleArray = doubleArrayOf(), // x, y, z in meters
-    @JvmField var rotation: DoubleArray = doubleArrayOf(),    // quaternion x, y, z, w
-    @JvmField var timestamp: Long = 0L,
-    @JvmField var highPrecision: Boolean = false
+    var name: String = "",
+    var description: String = "",
+    var translation: DoubleArray = doubleArrayOf(), // x, y, z in meters
+    var rotation: DoubleArray = doubleArrayOf(),    // quaternion x, y, z, w
+    var timestamp: Long = 0L,
+    var highPrecision: Boolean = false
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -38,4 +38,5 @@ data class SavedLocation(
         return result
     }
 }
+
 

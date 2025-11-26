@@ -7,7 +7,7 @@ import com.aldebaran.qi.sdk.builder.LookAtBuilder
 import com.aldebaran.qi.sdk.builder.TransformBuilder
 import com.aldebaran.qi.sdk.`object`.actuation.LookAtMovementPolicy
 import com.aldebaran.qi.sdk.`object`.geometry.Vector3
-import io.github.anonymous.pepper_realtime.tools.BaseTool
+import io.github.anonymous.pepper_realtime.tools.Tool
 import io.github.anonymous.pepper_realtime.tools.ToolContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -22,7 +22,7 @@ import java.util.concurrent.atomic.AtomicReference
  * Tool for making Pepper look at a specific 3D position relative to the robot's base frame.
  * Returns success immediately when gaze is aligned, then automatically cancels after specified duration.
  */
-class LookAtPositionTool : BaseTool() {
+class LookAtPositionTool : Tool {
 
     companion object {
         private const val TAG = "LookAtPositionTool"
@@ -261,4 +261,5 @@ class LookAtPositionTool : BaseTool() {
         }
     }
 }
+
 

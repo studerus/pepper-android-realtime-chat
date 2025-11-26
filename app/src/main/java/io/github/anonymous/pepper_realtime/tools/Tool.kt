@@ -42,28 +42,21 @@ interface Tool {
     fun getApiKeyType(): String?
 
     /**
-     * Check if this tool is currently available based on context
+     * Check if this tool is currently available based on context.
+     * Default implementation checks API key availability based on getApiKeyType().
+     *
      * @param context Tool context to check availability
      * @return true if tool can be executed, false if disabled/unavailable
      */
-    fun isAvailable(context: ToolContext): Boolean
+    fun isAvailable(context: ToolContext): Boolean {
+        if (!requiresApiKey()) return true
 
-    companion object {
-        /**
-         * Default implementation for isAvailable check.
-         * Call this from Java implementations that don't override isAvailable.
-         */
-        @JvmStatic
-        fun defaultIsAvailable(tool: Tool, context: ToolContext): Boolean {
-            if (!tool.requiresApiKey()) return true
-
-            return when (tool.getApiKeyType()) {
-                "Tavily" -> context.apiKeyManager.isInternetSearchAvailable()
-                "OpenWeatherMap" -> context.apiKeyManager.isWeatherAvailable()
-                "YouTube" -> context.apiKeyManager.isYouTubeAvailable()
-                "Groq" -> context.apiKeyManager.isVisionAnalysisAvailable()
-                else -> false // Unknown API key type
-            }
+        return when (getApiKeyType()) {
+            "Tavily" -> context.apiKeyManager.isInternetSearchAvailable()
+            "OpenWeatherMap" -> context.apiKeyManager.isWeatherAvailable()
+            "YouTube" -> context.apiKeyManager.isYouTubeAvailable()
+            "Groq" -> context.apiKeyManager.isVisionAnalysisAvailable()
+            else -> false // Unknown API key type
         }
     }
 }

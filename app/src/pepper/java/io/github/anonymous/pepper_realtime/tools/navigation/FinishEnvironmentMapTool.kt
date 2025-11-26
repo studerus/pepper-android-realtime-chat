@@ -2,7 +2,7 @@ package io.github.anonymous.pepper_realtime.tools.navigation
 
 import android.util.Log
 import com.aldebaran.qi.sdk.QiContext
-import io.github.anonymous.pepper_realtime.tools.BaseTool
+import io.github.anonymous.pepper_realtime.tools.Tool
 import kotlinx.coroutines.*
 import io.github.anonymous.pepper_realtime.tools.ToolContext
 import org.json.JSONObject
@@ -15,7 +15,7 @@ import java.util.Locale
  * Tool for finishing and saving environment maps.
  * Completes the mapping process and saves the map for navigation.
  */
-class FinishEnvironmentMapTool : BaseTool() {
+class FinishEnvironmentMapTool : Tool {
 
     companion object {
         private const val TAG = "FinishEnvironmentMapTool"
@@ -219,4 +219,5 @@ class FinishEnvironmentMapTool : BaseTool() {
 
     override fun getApiKeyType(): String? = null
 }
+
 

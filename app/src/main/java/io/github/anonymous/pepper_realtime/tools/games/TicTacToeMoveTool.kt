@@ -1,7 +1,7 @@
 package io.github.anonymous.pepper_realtime.tools.games
 
 import android.util.Log
-import io.github.anonymous.pepper_realtime.tools.BaseTool
+import io.github.anonymous.pepper_realtime.tools.Tool
 import io.github.anonymous.pepper_realtime.tools.ToolContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -10,7 +10,7 @@ import org.json.JSONObject
  * Tool for making moves in an active Tic Tac Toe game.
  * AI uses this tool to place its O moves on the game board.
  */
-class TicTacToeMoveTool : BaseTool() {
+class TicTacToeMoveTool : Tool {
 
     override fun getName(): String = "make_tic_tac_toe_move"
 
@@ -78,4 +78,5 @@ class TicTacToeMoveTool : BaseTool() {
         private const val TAG = "TicTacToeMoveTool"
     }
 }
+
 

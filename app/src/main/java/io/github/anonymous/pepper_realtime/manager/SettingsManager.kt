@@ -72,7 +72,6 @@ class SettingsManager(
         const val MODE_AZURE_SPEECH = "azure_speech"
 
         // Legacy helper for languages
-        @JvmStatic
         fun getAvailableLanguages(): List<LanguageOption> {
             return listOf(
                 // German variants
@@ -114,4 +113,5 @@ class SettingsManager(
         }
     }
 }
+
 

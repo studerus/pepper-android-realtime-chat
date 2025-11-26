@@ -48,7 +48,6 @@ class TouchSensorManager {
         /**
          * Create human-readable message for touch sensor events
          */
-        @JvmStatic
         fun createTouchMessage(sensorName: String): String {
             return when (sensorName) {
                 "Head/Touch" -> "[User touched my head]"
@@ -232,4 +231,5 @@ class TouchSensorManager {
         }
     }
 }
+
 

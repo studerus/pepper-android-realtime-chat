@@ -39,7 +39,7 @@ class NavigationServiceManager(private val movementController: MovementControlle
     /**
      * Result object for movement/navigation/turn operations
      */
-    data class MovementResult(@JvmField val success: Boolean, @JvmField val error: String?)
+    data class MovementResult(val success: Boolean, val error: String?)
 
     companion object {
         private const val TAG = "NavigationServiceManager"
@@ -616,4 +616,5 @@ class NavigationServiceManager(private val movementController: MovementControlle
         mapCache.reset()
     }
 }
+
 

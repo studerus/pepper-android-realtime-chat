@@ -122,7 +122,6 @@ class TicTacToeGame {
          * @param winner Result from checkWinner()
          * @return System message for AI context
          */
-        @JvmStatic
         fun getGameResultMessage(winner: Int): String {
             return when (winner) {
                 X_WINS -> "User has won the game. Please congratulate the user on their victory."
@@ -133,4 +132,5 @@ class TicTacToeGame {
         }
     }
 }
+
 

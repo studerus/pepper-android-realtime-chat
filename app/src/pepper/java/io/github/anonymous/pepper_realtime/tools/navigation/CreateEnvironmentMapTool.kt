@@ -5,7 +5,7 @@ import com.aldebaran.qi.Future
 import com.aldebaran.qi.sdk.QiContext
 import com.aldebaran.qi.sdk.builder.LocalizeAndMapBuilder
 import com.aldebaran.qi.sdk.`object`.actuation.LocalizeAndMap
-import io.github.anonymous.pepper_realtime.tools.BaseTool
+import io.github.anonymous.pepper_realtime.tools.Tool
 import io.github.anonymous.pepper_realtime.tools.ToolContext
 import org.json.JSONObject
 import java.io.File
@@ -14,7 +14,7 @@ import java.io.File
  * Tool for creating environment maps for robot navigation.
  * Uses manual mapping process where user guides robot through the environment.
  */
-class CreateEnvironmentMapTool : BaseTool() {
+class CreateEnvironmentMapTool : Tool {
 
     companion object {
         private const val TAG = "CreateEnvironmentMapTool"
@@ -22,19 +22,16 @@ class CreateEnvironmentMapTool : BaseTool() {
 
         // Static reference to current mapping operation for tool coordination
         @Volatile
-        @JvmStatic
         var currentLocalizeAndMap: LocalizeAndMap? = null
             private set
 
         @Volatile
-        @JvmStatic
         var currentMappingFuture: Future<Void>? = null
             private set
 
         /**
          * Stop current mapping operation
          */
-        @JvmStatic
         fun stopCurrentMapping() {
             currentMappingFuture?.let { future ->
                 if (!future.isDone) {
@@ -247,4 +244,6 @@ class CreateEnvironmentMapTool : BaseTool() {
         }
     }
 }
+
+
 

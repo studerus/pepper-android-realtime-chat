@@ -3,7 +3,7 @@ package io.github.anonymous.pepper_realtime.tools.vision
 import android.util.Log
 import io.github.anonymous.pepper_realtime.R
 import io.github.anonymous.pepper_realtime.service.VisionService
-import io.github.anonymous.pepper_realtime.tools.BaseTool
+import io.github.anonymous.pepper_realtime.tools.Tool
 import io.github.anonymous.pepper_realtime.tools.ToolContext
 import org.json.JSONObject
 import java.util.concurrent.CountDownLatch
@@ -15,7 +15,7 @@ import java.util.concurrent.atomic.AtomicReference
  * Uses Groq API or Realtime API to analyze what the camera sees.
  */
 @Suppress("SpellCheckingInspection") // "Groq" is the correct API provider name
-class AnalyzeVisionTool : BaseTool() {
+class AnalyzeVisionTool : Tool {
 
     companion object {
         private const val TAG = "AnalyzeVisionTool[Standalone]"
@@ -152,4 +152,5 @@ class AnalyzeVisionTool : BaseTool() {
 
     override fun getApiKeyType(): String? = null
 }
+
 

@@ -65,7 +65,6 @@ class ChatMessage private constructor(
         /**
          * Static factory for function call messages
          */
-        @JvmStatic
         fun createFunctionCall(functionName: String, functionArgs: String, sender: Sender): ChatMessage {
             return ChatMessage(sender, Type.FUNCTION_CALL, UUID.randomUUID().toString()).also {
                 it.functionName = functionName
@@ -92,4 +91,5 @@ class ChatMessage private constructor(
         this.imagePath = imagePath
     }
 }
+
 

@@ -41,7 +41,6 @@ object QuizDialogManager {
      * @param correctAnswer The correct answer from the options
      * @param callback Callback interface for handling quiz events
      */
-    @JvmStatic
     fun showQuizDialog(
         context: Context,
         question: String,
@@ -124,4 +123,5 @@ object QuizDialogManager {
         Log.i(TAG, "Quiz dialog shown with question: $question")
     }
 }
+
 

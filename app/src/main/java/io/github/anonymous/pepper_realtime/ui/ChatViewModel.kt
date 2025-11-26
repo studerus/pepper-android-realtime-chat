@@ -49,34 +49,24 @@ class ChatViewModel @Inject constructor(
     @Volatile var lastAssistantItemId: String? = null
 
     // Getters for LiveData (read-only) - @JvmName for Java interop
-    @get:JvmName("getIsWarmingUp")
     val isWarmingUp: LiveData<Boolean> get() = _isWarmingUp
 
-    @get:JvmName("getIsResponseGenerating")
     val isResponseGenerating: LiveData<Boolean> get() = _isResponseGenerating
 
-    @get:JvmName("getIsAudioPlaying")
     val isAudioPlaying: LiveData<Boolean> get() = _isAudioPlaying
 
-    @get:JvmName("getStatusText")
     val statusText: LiveData<String> get() = _statusText
 
-    @get:JvmName("getMessageList")
     val messageList: LiveData<List<ChatMessage>> get() = _messageList
 
-    @get:JvmName("getIsConnected")
     val isConnected: LiveData<Boolean> get() = _isConnected
 
-    @get:JvmName("getIsMuted")
     val isMuted: LiveData<Boolean> get() = _isMuted
 
-    @get:JvmName("getIsInterruptFabVisible")
     val isInterruptFabVisible: LiveData<Boolean> get() = _isInterruptFabVisible
 
-    @get:JvmName("getMapStatus")
     val mapStatus: LiveData<String> get() = _mapStatus
 
-    @get:JvmName("getLocalizationStatus")
     val localizationStatus: LiveData<String> get() = _localizationStatus
 
     // Setters
@@ -323,4 +313,5 @@ class ChatViewModel @Inject constructor(
         sessionController?.disconnectWebSocketGracefully()
     }
 }
+
 

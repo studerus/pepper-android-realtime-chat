@@ -1,7 +1,7 @@
 package io.github.anonymous.pepper_realtime.tools.navigation
 
 import android.util.Log
-import io.github.anonymous.pepper_realtime.tools.BaseTool
+import io.github.anonymous.pepper_realtime.tools.Tool
 import io.github.anonymous.pepper_realtime.tools.ToolContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -10,7 +10,7 @@ import java.util.Locale
 /**
  * Stub implementation of LookAtPositionTool for standalone mode.
  */
-class LookAtPositionTool : BaseTool() {
+class LookAtPositionTool : Tool {
 
     companion object {
         private const val TAG = "LookAtPositionTool[STUB]"
@@ -52,4 +52,5 @@ class LookAtPositionTool : BaseTool() {
 
     override fun getApiKeyType(): String? = null
 }
+
 

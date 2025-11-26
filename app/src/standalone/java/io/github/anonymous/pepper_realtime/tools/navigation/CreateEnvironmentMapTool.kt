@@ -1,14 +1,14 @@
 package io.github.anonymous.pepper_realtime.tools.navigation
 
 import android.util.Log
-import io.github.anonymous.pepper_realtime.tools.BaseTool
+import io.github.anonymous.pepper_realtime.tools.Tool
 import io.github.anonymous.pepper_realtime.tools.ToolContext
 import org.json.JSONObject
 
 /**
  * Stub implementation of CreateEnvironmentMapTool for standalone mode.
  */
-class CreateEnvironmentMapTool : BaseTool() {
+class CreateEnvironmentMapTool : Tool {
 
     companion object {
         private const val TAG = "CreateEnvironmentMapTool[STUB]"
@@ -40,4 +40,5 @@ class CreateEnvironmentMapTool : BaseTool() {
 
     override fun getApiKeyType(): String? = null
 }
+
 

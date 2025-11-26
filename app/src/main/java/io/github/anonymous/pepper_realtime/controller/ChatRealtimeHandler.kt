@@ -174,7 +174,6 @@ class ChatRealtimeHandler(
 
                     viewModel.isExpectingFinalAnswerAfterToolCall = true
                     
-                    // Use coroutines instead of ThreadManager
                     applicationScope.launch(ioDispatcher) {
                         var toolResult: String?
                         try {

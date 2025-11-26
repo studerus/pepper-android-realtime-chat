@@ -37,7 +37,6 @@ class HttpClientManager @Inject constructor() {
         @Volatile
         private var instance: HttpClientManager? = null
         
-        @JvmStatic
         fun getInstance(): HttpClientManager {
             return instance ?: synchronized(this) {
                 instance ?: HttpClientManager().also { instance = it }
@@ -263,4 +262,5 @@ class HttpClientManager @Inject constructor() {
         }
     }
 }
+
 

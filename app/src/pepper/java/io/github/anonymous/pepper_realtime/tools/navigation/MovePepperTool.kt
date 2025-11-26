@@ -3,7 +3,7 @@ package io.github.anonymous.pepper_realtime.tools.navigation
 import android.util.Log
 import com.aldebaran.qi.sdk.QiContext
 import io.github.anonymous.pepper_realtime.robot.RobotSafetyGuard
-import io.github.anonymous.pepper_realtime.tools.BaseTool
+import io.github.anonymous.pepper_realtime.tools.Tool
 import io.github.anonymous.pepper_realtime.tools.ToolContext
 import org.json.JSONObject
 import java.util.Locale
@@ -12,7 +12,7 @@ import java.util.Locale
  * Tool for moving Pepper robot in specific directions.
  * Supports forward, backward, left, right movement with safety checks.
  */
-class MovePepperTool : BaseTool() {
+class MovePepperTool : Tool {
 
     companion object {
         private const val TAG = "MovePepperTool"
@@ -216,4 +216,5 @@ class MovePepperTool : BaseTool() {
         }
     }
 }
+
 

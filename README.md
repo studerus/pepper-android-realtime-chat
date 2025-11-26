@@ -1299,7 +1299,6 @@ app/src/
 │   │   ├── SettingsManager.kt           # App settings & preferences
 │   │   ├── SettingsRepository.kt        # Settings data repository
 │   │   ├── SpeechRecognizerManager.kt   # Azure Speech integration
-│   │   ├── ThreadManager.kt             # Coroutine dispatchers & execution
 │   │   ├── TurnManager.kt               # Conversation turn state machine
 │   │   └── YouTubePlayerManager.kt      # YouTube playback management
 │   ├── network/                         # Network & API communication

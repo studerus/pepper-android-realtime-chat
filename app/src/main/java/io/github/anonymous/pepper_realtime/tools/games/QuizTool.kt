@@ -2,7 +2,7 @@ package io.github.anonymous.pepper_realtime.tools.games
 
 import io.github.anonymous.pepper_realtime.R
 import io.github.anonymous.pepper_realtime.manager.QuizDialogManager
-import io.github.anonymous.pepper_realtime.tools.BaseTool
+import io.github.anonymous.pepper_realtime.tools.Tool
 import io.github.anonymous.pepper_realtime.tools.ToolContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -11,7 +11,7 @@ import org.json.JSONObject
  * Tool for presenting quiz questions to users.
  * Shows a question with four multiple choice answers in a popup dialog.
  */
-class QuizTool : BaseTool() {
+class QuizTool : Tool {
 
     override fun getName(): String = "present_quiz_question"
 
@@ -98,4 +98,5 @@ class QuizTool : BaseTool() {
 
     override fun getApiKeyType(): String? = null
 }
+
 

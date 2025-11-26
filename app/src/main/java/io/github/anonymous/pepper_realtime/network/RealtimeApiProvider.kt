@@ -65,7 +65,6 @@ enum class RealtimeApiProvider(
          * @param value String representation
          * @return Provider enum or default (AZURE_OPENAI)
          */
-        @JvmStatic
         fun fromString(value: String?): RealtimeApiProvider {
             if (value == null) return AZURE_OPENAI
 
@@ -78,4 +77,5 @@ enum class RealtimeApiProvider(
         }
     }
 }
+
 

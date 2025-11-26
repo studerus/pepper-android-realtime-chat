@@ -36,7 +36,6 @@ class RealtimeSessionManager @Inject constructor() {
 
         // Latency measurement for audio response time
         @Volatile
-        @JvmField
         var responseCreateTimestamp: Long = 0
     }
 
@@ -509,4 +508,5 @@ class RealtimeSessionManager @Inject constructor() {
         }
     }
 }
+
 

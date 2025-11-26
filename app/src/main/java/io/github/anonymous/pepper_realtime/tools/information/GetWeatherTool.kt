@@ -1,7 +1,7 @@
 package io.github.anonymous.pepper_realtime.tools.information
 
 import io.github.anonymous.pepper_realtime.network.HttpClientManager
-import io.github.anonymous.pepper_realtime.tools.BaseTool
+import io.github.anonymous.pepper_realtime.tools.Tool
 import io.github.anonymous.pepper_realtime.tools.ToolContext
 import okhttp3.Request
 import org.json.JSONArray
@@ -19,7 +19,7 @@ import kotlin.math.roundToInt
  * Provides current weather and 5-day forecast for specified locations.
  */
 @Suppress("SpellCheckingInspection") // API parameter names like appid, desc, ddT, etc.
-class GetWeatherTool : BaseTool() {
+class GetWeatherTool : Tool {
 
     override fun getName(): String = "get_weather"
 
@@ -241,4 +241,5 @@ class GetWeatherTool : BaseTool() {
         return sdf.format(Date(localMillis))
     }
 }
+
 

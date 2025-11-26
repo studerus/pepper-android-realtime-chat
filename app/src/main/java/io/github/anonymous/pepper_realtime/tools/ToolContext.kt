@@ -41,43 +41,43 @@ class ToolContext(
 
     // Properties with Java-compatible getters via @get:JvmName
     val apiKeyManager: ApiKeyManager
-        @JvmName("getApiKeyManager") get() = _apiKeyManager
+        get() = _apiKeyManager
     
     val movementController: MovementController
-        @JvmName("getMovementController") get() = _movementController
+        get() = _movementController
     
     val navigationServiceManager: NavigationServiceManager
-        @JvmName("getNavigationServiceManager") get() = _navigationServiceManager
+        get() = _navigationServiceManager
     
     val perceptionService: PerceptionService
-        @JvmName("getPerceptionService") get() = _perceptionService
+        get() = _perceptionService
     
     val dashboardManager: DashboardManager?
-        @JvmName("getDashboardManager") get() = _dashboardManager
+        get() = _dashboardManager
     
     val touchSensorManager: TouchSensorManager
-        @JvmName("getTouchSensorManager") get() = _touchSensorManager
+        get() = _touchSensorManager
     
     val gestureController: GestureController
-        @JvmName("getGestureController") get() = _gestureController
+        get() = _gestureController
     
     val locationProvider: LocationProvider
-        @JvmName("getLocationProvider") get() = _locationProvider
+        get() = _locationProvider
     
     val toolHost: ToolHost
-        @JvmName("getToolHost") get() = _toolHost
+        get() = _toolHost
     
     val appContext: Context
-        @JvmName("getAppContext") get() = _toolHost.getAppContext()
+        get() = _toolHost.getAppContext()
     
     val activity: Activity?
-        @JvmName("getActivity") get() = _toolHost.getActivity()
+        get() = _toolHost.getActivity()
     
     val qiContext: Any?
-        @JvmName("getQiContext") get() = _qiContext
+        get() = _qiContext
     
     val messageSender: RealtimeMessageSender?
-        @JvmName("getMessageSender") get() = _messageSender
+        get() = _messageSender
 
     /**
      * Check if QiContext is not ready
@@ -114,3 +114,4 @@ class ToolContext(
         _toolHost.handleServiceStateChange(mode)
     }
 }
+

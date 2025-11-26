@@ -31,7 +31,6 @@ class RealtimeEventHandler(val listener: Listener) {
         /**
          * Reset latency measurement for new response
          */
-        @JvmStatic
         fun resetLatencyMeasurement() {
             latencyMeasured = false
         }
@@ -230,4 +229,5 @@ class RealtimeEventHandler(val listener: Listener) {
         }
     }
 }
+
 

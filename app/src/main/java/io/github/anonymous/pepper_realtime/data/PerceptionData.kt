@@ -12,32 +12,32 @@ class PerceptionData {
      * Information about a detected human
      */
     class HumanInfo {
-        @JvmField var id: Int = 0
-        @JvmField var estimatedAge: Int = -1
-        @JvmField var gender: String = "Unknown"
-        @JvmField var pleasureState: String = "Unknown"
-        @JvmField var excitementState: String = "Unknown"
-        @JvmField var engagementState: String = "Unknown"
-        @JvmField var attentionState: String = "Unknown"
-        @JvmField var smileState: String = "Unknown"
-        @JvmField var distanceMeters: Double = -1.0
-        @JvmField var basicEmotion: BasicEmotion = BasicEmotion.UNKNOWN
-        @JvmField var facePicture: Bitmap? = null // Face picture from QiSDK
+        var id: Int = 0
+        var estimatedAge: Int = -1
+        var gender: String = "Unknown"
+        var pleasureState: String = "Unknown"
+        var excitementState: String = "Unknown"
+        var engagementState: String = "Unknown"
+        var attentionState: String = "Unknown"
+        var smileState: String = "Unknown"
+        var distanceMeters: Double = -1.0
+        var basicEmotion: BasicEmotion = BasicEmotion.UNKNOWN
+        var facePicture: Bitmap? = null // Face picture from QiSDK
 
         // --- Data from Azure Face API (generic REST fields) ---
-        @JvmField var recognizedName: String? = null // Reserved for Phase 2 (Identify)
-        @JvmField var estimatedAgeAzure: Int? = null // Reserved for Phase 2
-        @JvmField var primaryEmotion: String? = null // Reserved for Phase 2
+        var recognizedName: String? = null // Reserved for Phase 2 (Identify)
+        var estimatedAgeAzure: Int? = null // Reserved for Phase 2
+        var primaryEmotion: String? = null // Reserved for Phase 2
 
         // Attributes available now (generic)
-        @JvmField var azureYawDeg: Double? = null
-        @JvmField var azurePitchDeg: Double? = null
-        @JvmField var azureRollDeg: Double? = null
-        @JvmField var glassesType: String = "N/A"
-        @JvmField var isMasked: Boolean? = null
-        @JvmField var imageQuality: String = "N/A"
-        @JvmField var blurLevel: Double? = null
-        @JvmField var exposureLevel: String? = null
+        var azureYawDeg: Double? = null
+        var azurePitchDeg: Double? = null
+        var azureRollDeg: Double? = null
+        var glassesType: String = "N/A"
+        var isMasked: Boolean? = null
+        var imageQuality: String = "N/A"
+        var blurLevel: Double? = null
+        var exposureLevel: String? = null
 
         /**
          * Get attention level for UI display
@@ -168,7 +168,6 @@ class PerceptionData {
              * Compute basic emotion from excitement and pleasure states
              * Based on James Russell's emotion model as used in QiSDK
              */
-            @JvmStatic
             fun computeBasicEmotion(excitementState: String, pleasureState: String): BasicEmotion {
                 if (excitementState.equals("UNKNOWN", ignoreCase = true) || 
                     pleasureState.equals("UNKNOWN", ignoreCase = true)) {
@@ -202,4 +201,5 @@ class PerceptionData {
 
     // Snapshot and status classes removed for now; can be reintroduced when dashboard requires them
 }
+
 

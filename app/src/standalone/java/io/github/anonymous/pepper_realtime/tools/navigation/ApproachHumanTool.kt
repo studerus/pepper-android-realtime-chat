@@ -1,7 +1,7 @@
 package io.github.anonymous.pepper_realtime.tools.navigation
 
 import android.util.Log
-import io.github.anonymous.pepper_realtime.tools.BaseTool
+import io.github.anonymous.pepper_realtime.tools.Tool
 import io.github.anonymous.pepper_realtime.tools.ToolContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -10,7 +10,7 @@ import java.util.Locale
 /**
  * Stub implementation of ApproachHumanTool for standalone mode.
  */
-class ApproachHumanTool : BaseTool() {
+class ApproachHumanTool : Tool {
 
     companion object {
         private const val TAG = "ApproachHumanTool[STUB]"
@@ -51,4 +51,5 @@ class ApproachHumanTool : BaseTool() {
 
     override fun getApiKeyType(): String? = null
 }
+
 

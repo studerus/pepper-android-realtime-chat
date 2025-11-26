@@ -5,7 +5,7 @@ import com.aldebaran.qi.sdk.QiContext
 import com.aldebaran.qi.sdk.builder.AnimateBuilder
 import com.aldebaran.qi.sdk.builder.AnimationBuilder
 import io.github.anonymous.pepper_realtime.R
-import io.github.anonymous.pepper_realtime.tools.BaseTool
+import io.github.anonymous.pepper_realtime.tools.Tool
 import io.github.anonymous.pepper_realtime.tools.ToolContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -14,7 +14,7 @@ import org.json.JSONObject
  * Tool for playing preinstalled Pepper animations.
  * Supports various emotional and gestural animations.
  */
-class PlayAnimationTool : BaseTool() {
+class PlayAnimationTool : Tool {
 
     companion object {
         private const val TAG = "PlayAnimationTool"
@@ -122,4 +122,5 @@ class PlayAnimationTool : BaseTool() {
         }
     }
 }
+
 
