@@ -106,8 +106,8 @@ class MapUiManager(
         activity.runOnUiThread {
             val state = when {
                 !navigationServiceManager.isMapSavedOnDisk(activity) -> MapState.NO_MAP
-                !navigationServiceManager.isMapLoaded -> MapState.MAP_LOADED_NOT_LOCALIZED
-                !navigationServiceManager.isLocalizationReady -> {
+                !navigationServiceManager.isMapLoaded() -> MapState.MAP_LOADED_NOT_LOCALIZED
+                !navigationServiceManager.isLocalizationReady() -> {
                     // Determine if it's localizing or failed
                     val locStatus = localizationStatusTextView?.text?.toString() ?: ""
                     if (locStatus.contains("Failed")) {
@@ -122,8 +122,8 @@ class MapUiManager(
             mapPreviewView.updateData(
                 locationProvider.getSavedLocations(),
                 state,
-                navigationServiceManager.mapBitmap,
-                navigationServiceManager.mapTopGraphicalRepresentation
+                navigationServiceManager.getMapBitmap(),
+                navigationServiceManager.getMapTopGraphicalRepresentation()
             )
         }
     }

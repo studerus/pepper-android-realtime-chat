@@ -78,7 +78,7 @@ class ChatTurnListener @Inject constructor(
                                 && robotFocusManager.qiContext != null
                                 && (navigationServiceManager == null || !navigationServiceManager.areGesturesSuppressed())
                     },
-                    { gestureController.randomExplainAnimationResId }
+                    { gestureController.getRandomExplainAnimationResId() }
                 )
             }
         }
