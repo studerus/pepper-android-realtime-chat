@@ -5,6 +5,7 @@ import com.aldebaran.qi.sdk.QiContext
 import com.aldebaran.qi.sdk.`object`.touch.Touch
 import com.aldebaran.qi.sdk.`object`.touch.TouchSensor
 import com.aldebaran.qi.sdk.`object`.touch.TouchState
+import kotlinx.coroutines.*
 
 /**
  * Manages all touch sensors on the Pepper robot
@@ -210,8 +211,8 @@ class TouchSensorManager {
             // Remove listeners off the main thread to avoid NetworkOnMainThreadException
             val sensorsSnapshot = HashMap(touchSensors)
 
-            // Run cleanup in a new thread if ThreadManager is no longer available
-            val cleanupTask = Runnable {
+            // Run cleanup in a coroutine
+            CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
                 for ((key, sensor) in sensorsSnapshot) {
                     try {
                         sensor.removeAllOnStateChangedListeners()
@@ -221,14 +222,6 @@ class TouchSensorManager {
                     }
                 }
                 Log.i(TAG, "TouchSensorManager listeners removal completed")
-            }
-
-            try {
-                ThreadManager.getInstance().executeNetwork(cleanupTask)
-            } catch (e: IllegalStateException) {
-                // ThreadManager already shut down, run cleanup directly on a new thread
-                Log.d(TAG, "ThreadManager unavailable, running cleanup on new thread")
-                Thread(cleanupTask, "touch-sensor-cleanup").start()
             }
 
             touchSensors.clear()

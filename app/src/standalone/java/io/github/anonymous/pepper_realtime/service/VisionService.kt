@@ -16,8 +16,8 @@ import android.util.Base64
 import android.util.Log
 import android.view.Surface
 import androidx.core.content.ContextCompat
-import io.github.anonymous.pepper_realtime.manager.ThreadManager
 import io.github.anonymous.pepper_realtime.network.HttpClientManager
+import kotlinx.coroutines.*
 import io.github.anonymous.pepper_realtime.ui.ChatActivity
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
@@ -54,7 +54,7 @@ class VisionService(context: Context) {
     private val context: Context = context.applicationContext
     private val activityRef: ChatActivity? = if (context is ChatActivity) context else null
     private val http = HttpClientManager.getInstance().getApiClient()
-    private val threadManager = ThreadManager.getInstance()
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     @Volatile private var working = false
     private var cameraDevice: CameraDevice? = null
@@ -361,7 +361,7 @@ class VisionService(context: Context) {
      * Process captured bitmap and send to vision API
      */
     private fun processBitmapAndAnalyze(bitmap: Bitmap, prompt: String?, apiKey: String?, callback: Callback) {
-        threadManager.executeComputation {
+        serviceScope.launch {
             try {
                 // Optimize bitmap for API upload
                 val optimizedBitmap = optimizeBitmapForApi(bitmap)
@@ -374,7 +374,7 @@ class VisionService(context: Context) {
                 }
 
                 // Save to cache file (async, non-blocking)
-                threadManager.executeComputation {
+                serviceScope.launch {
                     try {
                         val out = File(context.cacheDir, "vision_${System.currentTimeMillis()}.jpg")
                         FileOutputStream(out).use { fos ->

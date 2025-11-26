@@ -10,8 +10,8 @@ import com.aldebaran.qi.sdk.QiContext
 import com.aldebaran.qi.sdk.`object`.camera.TakePicture
 import com.aldebaran.qi.sdk.`object`.image.TimestampedImageHandle
 import com.aldebaran.qi.sdk.builder.TakePictureBuilder
-import io.github.anonymous.pepper_realtime.manager.ThreadManager
 import io.github.anonymous.pepper_realtime.network.HttpClientManager
+import kotlinx.coroutines.*
 import io.github.anonymous.pepper_realtime.ui.ChatActivity
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -48,7 +48,7 @@ class VisionService(context: Context) {
     private val context: Context = context.applicationContext
     private val activityRef: ChatActivity? = if (context is ChatActivity) context else null
     private val http: OkHttpClient = HttpClientManager.getInstance().getApiClient()
-    private val threadManager: ThreadManager = ThreadManager.getInstance()
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private var qiContext: QiContext? = null
     private var takePictureAction: Future<TakePicture>? = null
@@ -101,8 +101,8 @@ class VisionService(context: Context) {
 
         Log.i(TAG, "Taking picture with robot head camera...")
 
-        // Execute on realtime thread to avoid blocking QiSDK MainEventLoop
-        threadManager.executeRealtime {
+        // Execute on IO dispatcher to avoid blocking QiSDK MainEventLoop
+        serviceScope.launch {
             try {
                 action.andThenCompose { takePicture -> takePicture.async().run() }
                     .andThenConsume { timestampedImageHandle ->
@@ -125,7 +125,7 @@ class VisionService(context: Context) {
                             }
 
                             // Save to cache file (async, non-blocking)
-                            threadManager.executeComputation {
+                            serviceScope.launch {
                                 try {
                                     val out = File(context.cacheDir, "vision_${System.currentTimeMillis()}.jpg")
                                     FileOutputStream(out).use { fos ->
@@ -143,7 +143,7 @@ class VisionService(context: Context) {
                             // Decide path: if GA gpt-realtime is active, send image directly via WS
                             val useGaImagePath = shouldSendImageDirectToRealtime()
                             if (useGaImagePath) {
-                                threadManager.executeComputation {
+                                serviceScope.launch {
                                     try {
                                         val activity = activityRef
                                             ?: throw IllegalStateException("Activity reference not available")
@@ -160,8 +160,8 @@ class VisionService(context: Context) {
                                     }
                                 }
                             } else {
-                                // Offload network analysis to computation thread (Groq path)
-                                threadManager.executeComputation {
+                                // Offload network analysis to coroutine (Groq path)
+                                serviceScope.launch {
                                     analyzeWithGroq(base64, prompt, apiKey, callback)
                                 }
                             }

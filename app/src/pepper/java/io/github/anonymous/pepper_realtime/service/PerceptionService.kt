@@ -14,7 +14,7 @@ import com.aldebaran.qi.sdk.`object`.humanawareness.HumanAwareness
 import com.aldebaran.qi.sdk.`object`.image.TimestampedImageHandle
 import com.aldebaran.qi.sdk.builder.TakePictureBuilder
 import io.github.anonymous.pepper_realtime.data.PerceptionData
-import io.github.anonymous.pepper_realtime.manager.ThreadManager
+import kotlinx.coroutines.*
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.atan2
 import kotlin.math.sqrt
@@ -83,6 +83,8 @@ class PerceptionService {
 
     private var lastUiPushMs = 0L
     private var lastUiIds: List<Int> = emptyList()
+    
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     val isInitialized: Boolean
         get() = qiContext != null
@@ -265,7 +267,7 @@ class PerceptionService {
                 lastAzureAnalysisTime = System.currentTimeMillis()
                 triggerAzureNow = false
                 // Decouple Qi action start from this scheduler thread
-                ThreadManager.getInstance().executeRealtime {
+                serviceScope.launch {
                     takePictureAndAnalyze(humansSnapshot, humanInfoList)
                 }
             } else {

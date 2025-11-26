@@ -2,8 +2,8 @@ package io.github.anonymous.pepper_realtime.tools.navigation
 
 import android.util.Log
 import com.aldebaran.qi.sdk.QiContext
-import io.github.anonymous.pepper_realtime.manager.ThreadManager
 import io.github.anonymous.pepper_realtime.tools.BaseTool
+import kotlinx.coroutines.*
 import io.github.anonymous.pepper_realtime.tools.ToolContext
 import org.json.JSONObject
 import java.io.File
@@ -57,8 +57,8 @@ class FinishEnvironmentMapTool : BaseTool() {
             ), false
         )
 
-        // Implement mapping finalization on background I/O thread
-        ThreadManager.getInstance().executeIO {
+        // Implement mapping finalization on background I/O coroutine
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
                 // 1) Get current mapping action and its future
                 val lam = CreateEnvironmentMapTool.currentLocalizeAndMap
@@ -67,7 +67,7 @@ class FinishEnvironmentMapTool : BaseTool() {
                 if (lam == null || mappingFuture == null) {
                     Log.w(TAG, "No active mapping process to finish.")
                     context.sendAsyncUpdate("[MAPPING ERROR] No active mapping process was found to finish.", true)
-                    return@executeIO
+                    return@launch
                 }
 
                 // 2) Attach the map dumping and saving logic to the future of the mapping action

@@ -34,9 +34,8 @@ annotation class ApplicationScope
 /**
  * Hilt module providing coroutine dispatchers and scopes.
  * 
- * This module replaces the custom ThreadManager with standard Kotlin coroutines:
- * - IoDispatcher: For network calls, file I/O (replaces networkExecutor, ioExecutor)
- * - DefaultDispatcher: For CPU-intensive work (replaces computationExecutor)
+ * - IoDispatcher: For network calls, file I/O
+ * - DefaultDispatcher: For CPU-intensive work
  * - MainDispatcher: For UI updates
  * - ApplicationScope: Long-lived scope for app-wide operations
  */

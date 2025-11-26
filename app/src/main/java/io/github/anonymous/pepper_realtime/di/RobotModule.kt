@@ -32,9 +32,6 @@ object RobotModule {
         return AudioPlayer()
     }
 
-    // ThreadManager is now provided via @Inject constructor with coroutine dispatchers
-    // See ThreadManager.kt - it uses constructor injection from CoroutineModule
-
     @Provides
     @Singleton
     fun provideToolRegistry(): ToolRegistry {

@@ -11,7 +11,7 @@ import com.aldebaran.qi.sdk.QiContext
 import com.aldebaran.qi.sdk.builder.ExplorationMapBuilder
 import com.aldebaran.qi.sdk.`object`.actuation.ExplorationMap
 import com.aldebaran.qi.sdk.`object`.actuation.MapTopGraphicalRepresentation
-import io.github.anonymous.pepper_realtime.manager.ThreadManager
+import kotlinx.coroutines.*
 import java.io.BufferedInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -50,6 +50,8 @@ class NavigationMapCache(
     private val cachedMap = AtomicReference<ExplorationMap>()
     private val cachedMapGfx = AtomicReference<MapTopGraphicalRepresentation>()
     private val cachedMapBitmap = AtomicReference<Bitmap>()
+    
+    private val cacheScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     fun isMapLoaded(): Boolean = mapLoadedFlag && cachedMap.get() != null
 
@@ -122,7 +124,7 @@ class NavigationMapCache(
             return
         }
 
-        ThreadManager.getInstance().executeIO {
+        cacheScope.launch {
             val success = cacheMapGraphics(newMap)
             if (success) {
                 cachedMap.set(newMap)
@@ -148,36 +150,32 @@ class NavigationMapCache(
     private fun loadMapInternal(qiContext: QiContext, appContext: Context, onMapLoaded: Runnable?) {
         reset()
 
-        ThreadManager.getInstance().executeIO {
+        cacheScope.launch {
             val mapData = loadMapFileToString(appContext)
             if (mapData == null) {
                 Log.e(TAG, "Map data could not be loaded from file.")
                 finishLoad(false, null)
-                return@executeIO
+                return@launch
             }
 
-            ThreadManager.getInstance().executeNetwork {
-                try {
-                    val map = ExplorationMapBuilder
-                        .with(qiContext)
-                        .withMapString(mapData)
-                        .build()
-                    
-                    ThreadManager.getInstance().executeIO {
-                        val success = cacheMapGraphics(map)
-                        val mainThreadWork = if (success) {
-                            cachedMap.set(map)
-                            mapLoadedFlag = true
-                            onMapLoaded
-                        } else {
-                            null
-                        }
-                        finishLoad(success, mainThreadWork)
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to build ExplorationMap", e)
-                    finishLoad(false, null)
+            try {
+                val map = ExplorationMapBuilder
+                    .with(qiContext)
+                    .withMapString(mapData)
+                    .build()
+                
+                val success = cacheMapGraphics(map)
+                val mainThreadWork = if (success) {
+                    cachedMap.set(map)
+                    mapLoadedFlag = true
+                    onMapLoaded
+                } else {
+                    null
                 }
+                finishLoad(success, mainThreadWork)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to build ExplorationMap", e)
+                finishLoad(false, null)
             }
         }
     }
