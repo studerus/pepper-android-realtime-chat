@@ -1,10 +1,10 @@
-package io.github.anonymous.pepper_realtime.data;
+package io.github.anonymous.pepper_realtime.data
 
 /**
  * Represents a basic emotion derived from excitement and pleasure states.
  * Based on James Russell's emotion model as implemented in QiSDK.
  */
-public enum BasicEmotion {
+enum class BasicEmotion(private val emoji: String, private val displayName: String) {
     UNKNOWN("❓", "Unknown"),
     NEUTRAL("😐", "Neutral"),
     CONTENT("😊", "Content"),
@@ -12,19 +12,11 @@ public enum BasicEmotion {
     SAD("😢", "Sad"),
     ANGRY("😠", "Angry");
 
-    private final String emoji;
-    private final String displayName;
-
-    BasicEmotion(String emoji, String displayName) {
-        this.emoji = emoji;
-        this.displayName = displayName;
-    }
-
     /**
      * Get formatted string for dashboard display
      */
-    public String getFormattedDisplay() {
-        return emoji + " " + displayName;
+    fun getFormattedDisplay(): String {
+        return "$emoji $displayName"
     }
 }
 

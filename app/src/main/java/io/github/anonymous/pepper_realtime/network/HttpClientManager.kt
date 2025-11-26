@@ -1,0 +1,266 @@
+package io.github.anonymous.pepper_realtime.network
+
+import android.os.Looper
+import android.util.Log
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
+import okhttp3.*
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
+import java.io.IOException
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
+import javax.inject.Inject
+import javax.inject.Singleton
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+
+/**
+ * Singleton HTTP Client Manager for optimized network performance
+ *
+ * Performance optimizations:
+ * - Shared connection pool across all services
+ * - HTTP/2 support for multiplexing
+ * - Optimized timeouts and retry policies
+ * - Connection keep-alive and reuse
+ * - Reduced resource allocation and improved latency
+ * - Coroutine-based suspend functions for async operations
+ */
+@Singleton
+class HttpClientManager @Inject constructor() {
+
+    companion object {
+        private const val TAG = "OptimizedHttpClient"
+        
+        // Singleton instance for Java interop (legacy support)
+        @Volatile
+        private var instance: HttpClientManager? = null
+        
+        @JvmStatic
+        fun getInstance(): HttpClientManager {
+            return instance ?: synchronized(this) {
+                instance ?: HttpClientManager().also { instance = it }
+            }
+        }
+    }
+
+    // Shared clients for different use cases
+    private val webSocketClient: OkHttpClient
+    private val apiClient: OkHttpClient
+    private val quickApiClient: OkHttpClient
+    private val shutdownInitiated = AtomicBoolean(false)
+
+    init {
+        Log.i(TAG, "Initializing optimized HTTP client manager")
+
+        // Shared connection pool for maximum efficiency
+        val sharedPool = ConnectionPool(
+            10,  // maxIdleConnections - keep more connections alive
+            5,   // keepAliveDuration in minutes
+            TimeUnit.MINUTES
+        )
+
+        // Optimized dispatcher for better concurrency
+        val optimizedDispatcher = Dispatcher().apply {
+            maxRequests = 64           // Increased from default 64
+            maxRequestsPerHost = 8     // Increased from default 5
+        }
+
+        // WebSocket client - optimized for real-time communication
+        webSocketClient = OkHttpClient.Builder()
+            .connectionPool(sharedPool)
+            .dispatcher(optimizedDispatcher)
+            .retryOnConnectionFailure(true)
+            .protocols(listOf(Protocol.HTTP_2, Protocol.HTTP_1_1))
+            // WebSocket optimized timeouts
+            .connectTimeout(10, TimeUnit.SECONDS)    // Quick connection for real-time
+            .readTimeout(0, TimeUnit.SECONDS)        // No read timeout for persistent connection
+            .writeTimeout(10, TimeUnit.SECONDS)
+            .pingInterval(30, TimeUnit.SECONDS)      // Keep-alive for WebSocket
+            .build()
+
+        // API client - optimized for HTTP API calls (Vision, Tools)
+        apiClient = OkHttpClient.Builder()
+            .connectionPool(sharedPool)
+            .dispatcher(optimizedDispatcher)
+            .retryOnConnectionFailure(true)
+            .protocols(listOf(Protocol.HTTP_2, Protocol.HTTP_1_1))
+            // API optimized timeouts
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(45, TimeUnit.SECONDS)       // Generous for image analysis
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .callTimeout(90, TimeUnit.SECONDS)       // Total timeout for complex operations
+            .build()
+
+        // Quick API client - optimized for fast API calls (Weather, Search)
+        quickApiClient = OkHttpClient.Builder()
+            .connectionPool(sharedPool)
+            .dispatcher(optimizedDispatcher)
+            .retryOnConnectionFailure(true)
+            .protocols(listOf(Protocol.HTTP_2, Protocol.HTTP_1_1))
+            // Quick API optimized timeouts
+            .connectTimeout(8, TimeUnit.SECONDS)
+            .readTimeout(20, TimeUnit.SECONDS)
+            .writeTimeout(15, TimeUnit.SECONDS)
+            .callTimeout(30, TimeUnit.SECONDS)
+            .build()
+
+        Log.i(TAG, "HTTP clients initialized with shared connection pool")
+        
+        // Set singleton instance for Java interop
+        instance = this
+    }
+
+    /**
+     * Get WebSocket client optimized for real-time communication
+     */
+    fun getWebSocketClient(): OkHttpClient = webSocketClient
+
+    /**
+     * Get API client optimized for longer operations (Vision analysis)
+     */
+    fun getApiClient(): OkHttpClient = apiClient
+
+    /**
+     * Get quick API client optimized for fast operations (Weather, Search)
+     */
+    fun getQuickApiClient(): OkHttpClient = quickApiClient
+
+    // ==================== COROUTINE-BASED API ====================
+
+    /**
+     * Execute a request using the API client as a suspend function.
+     * This is the preferred way to make network calls in Kotlin code.
+     */
+    suspend fun executeApiRequest(request: Request): Response {
+        return apiClient.executeAsync(request)
+    }
+
+    /**
+     * Execute a request using the quick API client as a suspend function.
+     */
+    suspend fun executeQuickApiRequest(request: Request): Response {
+        return quickApiClient.executeAsync(request)
+    }
+
+    /**
+     * Convenience method to POST JSON and get response body as string.
+     */
+    suspend fun postJson(url: String, json: String, headers: Map<String, String> = emptyMap()): String {
+        val mediaType = "application/json; charset=utf-8".toMediaType()
+        val body = json.toRequestBody(mediaType)
+        
+        val requestBuilder = Request.Builder()
+            .url(url)
+            .post(body)
+        
+        headers.forEach { (key, value) ->
+            requestBuilder.addHeader(key, value)
+        }
+        
+        val response = executeApiRequest(requestBuilder.build())
+        return response.use { it.body?.string() ?: "" }
+    }
+
+    /**
+     * Convenience method to GET and return response body as string.
+     */
+    suspend fun get(url: String, headers: Map<String, String> = emptyMap()): String {
+        val requestBuilder = Request.Builder()
+            .url(url)
+            .get()
+        
+        headers.forEach { (key, value) ->
+            requestBuilder.addHeader(key, value)
+        }
+        
+        val response = executeQuickApiRequest(requestBuilder.build())
+        return response.use { it.body?.string() ?: "" }
+    }
+
+    /**
+     * Extension function to convert OkHttp's callback-based API to a suspend function.
+     */
+    private suspend fun OkHttpClient.executeAsync(request: Request): Response {
+        return suspendCancellableCoroutine { continuation ->
+            val call = this.newCall(request)
+            
+            continuation.invokeOnCancellation {
+                call.cancel()
+            }
+            
+            call.enqueue(object : Callback {
+                override fun onFailure(call: Call, e: IOException) {
+                    if (continuation.isActive) {
+                        continuation.resumeWithException(e)
+                    }
+                }
+
+                override fun onResponse(call: Call, response: Response) {
+                    if (continuation.isActive) {
+                        continuation.resume(response)
+                    }
+                }
+            })
+        }
+    }
+
+    // ==================== MONITORING & LIFECYCLE ====================
+
+    /**
+     * Get connection pool statistics for monitoring
+     */
+    @Suppress("unused") // May be used for debugging/monitoring
+    fun getConnectionPoolStats(): String {
+        val pool = apiClient.connectionPool
+        return String.format(
+            java.util.Locale.US,
+            "Connections: %d idle, %d total",
+            pool.idleConnectionCount(),
+            pool.connectionCount()
+        )
+    }
+
+    /**
+     * Cleanup resources - call on app shutdown
+     */
+    fun shutdown() {
+        if (!shutdownInitiated.compareAndSet(false, true)) {
+            Log.d(TAG, "Shutdown already in progress - ignoring duplicate request")
+            return
+        }
+
+        synchronized(HttpClientManager::class.java) {
+            if (instance == this) {
+                instance = null
+            }
+        }
+
+        val task = Runnable { shutdownInternal() }
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            Log.d(TAG, "Shutdown requested on main thread - offloading to background thread")
+            Thread(task, "http-client-shutdown").start()
+        } else {
+            task.run()
+        }
+    }
+
+    private fun shutdownInternal() {
+        try {
+            webSocketClient.dispatcher.executorService.shutdown()
+            apiClient.dispatcher.executorService.shutdown()
+            quickApiClient.dispatcher.executorService.shutdown()
+
+            webSocketClient.connectionPool.evictAll()
+
+            Log.i(TAG, "HTTP client manager shutdown completed")
+        } catch (e: Exception) {
+            Log.w(TAG, "Error during HTTP client shutdown", e)
+        } finally {
+            Log.i(TAG, "HTTP client manager instance reset for clean restart")
+            shutdownInitiated.set(false)
+        }
+    }
+}
+

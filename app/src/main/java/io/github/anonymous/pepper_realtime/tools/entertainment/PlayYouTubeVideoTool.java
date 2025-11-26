@@ -69,7 +69,7 @@ public class PlayYouTubeVideoTool implements Tool {
             YouTubeSearchService youtubeService = new YouTubeSearchService(context.getApiKeyManager().getYouTubeApiKey());
             
             // Search for video
-            YouTubeSearchService.YouTubeVideo video = youtubeService.searchFirstVideo(query);
+            YouTubeSearchService.YouTubeVideo video = youtubeService.searchFirstVideoBlocking(query);
             
             if (video == null) {
                 return new JSONObject().put("error", "No videos found for query: " + query).toString();

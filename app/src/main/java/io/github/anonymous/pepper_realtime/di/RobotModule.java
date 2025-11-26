@@ -13,7 +13,6 @@ import io.github.anonymous.pepper_realtime.controller.GestureController;
 import io.github.anonymous.pepper_realtime.controller.MovementController;
 import io.github.anonymous.pepper_realtime.manager.AudioPlayer;
 import io.github.anonymous.pepper_realtime.manager.NavigationServiceManager;
-import io.github.anonymous.pepper_realtime.manager.ThreadManager;
 import io.github.anonymous.pepper_realtime.manager.TouchSensorManager;
 import io.github.anonymous.pepper_realtime.service.PerceptionService;
 import io.github.anonymous.pepper_realtime.service.VisionService;
@@ -35,11 +34,8 @@ public class RobotModule {
         return new AudioPlayer();
     }
 
-    @Provides
-    @Singleton
-    public ThreadManager provideThreadManager() {
-        return ThreadManager.getInstance();
-    }
+    // ThreadManager is now provided via @Inject constructor with coroutine dispatchers
+    // See ThreadManager.kt - it uses constructor injection from CoroutineModule
 
     @Provides
     @Singleton

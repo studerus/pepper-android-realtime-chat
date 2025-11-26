@@ -222,7 +222,10 @@ public class TouchSensorManager {
         try {
             // Remove listeners off the main thread to avoid NetworkOnMainThreadException
             final Map<String, TouchSensor> sensorsSnapshot = new java.util.HashMap<>(touchSensors);
-            ThreadManager.getInstance().executeNetwork(() -> {
+            
+            // Run cleanup in a new thread if ThreadManager is no longer available
+            // (can happen during app shutdown when ThreadManager is destroyed first)
+            Runnable cleanupTask = () -> {
                 for (Map.Entry<String, TouchSensor> entry : sensorsSnapshot.entrySet()) {
                     try {
                         TouchSensor sensor = entry.getValue();
@@ -235,7 +238,15 @@ public class TouchSensorManager {
                     }
                 }
                 Log.i(TAG, "TouchSensorManager listeners removal completed");
-            });
+            };
+            
+            try {
+                ThreadManager.getInstance().executeNetwork(cleanupTask);
+            } catch (IllegalStateException e) {
+                // ThreadManager already shut down, run cleanup directly on a new thread
+                Log.d(TAG, "ThreadManager unavailable, running cleanup on new thread");
+                new Thread(cleanupTask, "touch-sensor-cleanup").start();
+            }
 
             touchSensors.clear();
             Log.i(TAG, "TouchSensorManager shutdown scheduled");
