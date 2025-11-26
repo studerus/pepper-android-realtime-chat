@@ -3,14 +3,18 @@ package io.github.anonymous.pepper_realtime.controller
 import android.util.Log
 import dagger.hilt.android.scopes.ActivityScoped
 import io.github.anonymous.pepper_realtime.R
+import io.github.anonymous.pepper_realtime.di.ApplicationScope
+import io.github.anonymous.pepper_realtime.di.IoDispatcher
 import io.github.anonymous.pepper_realtime.manager.ApiKeyManager
 import io.github.anonymous.pepper_realtime.manager.RealtimeAudioInputManager
 import io.github.anonymous.pepper_realtime.manager.SettingsRepository
 import io.github.anonymous.pepper_realtime.manager.SpeechRecognizerManager
-import io.github.anonymous.pepper_realtime.manager.ThreadManager
 import io.github.anonymous.pepper_realtime.network.RealtimeSessionManager
 import io.github.anonymous.pepper_realtime.ui.ChatMessage
 import io.github.anonymous.pepper_realtime.ui.ChatViewModel
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @ActivityScoped
@@ -19,7 +23,8 @@ class AudioInputController @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val keyManager: ApiKeyManager,
     private val sessionManager: RealtimeSessionManager,
-    private val threadManager: ThreadManager
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+    @ApplicationScope private val applicationScope: CoroutineScope
 ) {
 
     companion object {
@@ -80,7 +85,7 @@ class AudioInputController @Inject constructor(
         if (settingsRepository.isUsingRealtimeAudioInput) {
             // MUTUAL EXCLUSION: Stop Azure STT if it's running before starting Realtime API
             if (sttManager != null) {
-                threadManager.executeAudio { cleanupSttForReinit() }
+                applicationScope.launch(ioDispatcher) { cleanupSttForReinit() }
                 Log.i(TAG, "Stopped and cleaned up Azure STT to prevent interference with Realtime API audio")
             }
 
@@ -88,7 +93,7 @@ class AudioInputController @Inject constructor(
                 realtimeAudioInput = RealtimeAudioInputManager(sessionManager)
                 Log.i(TAG, "Created RealtimeAudioInputManager")
             }
-            threadManager.executeAudio {
+            applicationScope.launch(ioDispatcher) {
                 val started = realtimeAudioInput!!.start()
                 if (started) {
                     Log.i(TAG, "Realtime API audio capture started (server VAD enabled)")
@@ -108,7 +113,7 @@ class AudioInputController @Inject constructor(
 
         // MUTUAL EXCLUSION: Stop Realtime API audio if it's running before starting Azure STT
         if (realtimeAudioInput?.isCapturing == true) {
-            threadManager.executeAudio { realtimeAudioInput?.stop() }
+            applicationScope.launch(ioDispatcher) { realtimeAudioInput?.stop() }
             Log.i(TAG, "Stopped Realtime API audio to prevent interference with Azure STT")
         }
 
@@ -117,20 +122,20 @@ class AudioInputController @Inject constructor(
             viewModel.setStatusText(getString(R.string.status_recognizer_not_ready))
             return
         }
-        threadManager.executeAudio { sttManager?.start() }
+        applicationScope.launch(ioDispatcher) { sttManager?.start() }
     }
 
     fun stopContinuousRecognition() {
         if (settingsRepository.isUsingRealtimeAudioInput) {
             if (realtimeAudioInput?.isCapturing == true) {
-                threadManager.executeAudio {
+                applicationScope.launch(ioDispatcher) {
                     realtimeAudioInput?.stop()
                     Log.i(TAG, "Realtime API audio capture stopped")
                 }
             }
             return
         }
-        sttManager?.let { threadManager.executeAudio { it.stop() } }
+        sttManager?.let { applicationScope.launch(ioDispatcher) { it.stop() } }
     }
 
     fun shutdown() {
@@ -146,7 +151,7 @@ class AudioInputController @Inject constructor(
             Log.i(TAG, "Stopped Realtime audio capture")
         }
         if (sttManager != null && isSttRunning) {
-            threadManager.executeAudio { sttManager?.stop() }
+            applicationScope.launch(ioDispatcher) { sttManager?.stop() }
             Log.i(TAG, "Stopped Azure Speech recognizer")
         }
     }
@@ -190,7 +195,7 @@ class AudioInputController @Inject constructor(
             Log.i(TAG, "Realtime API audio mode - no STT re-initialization needed")
             return
         }
-        threadManager.executeAudio {
+        applicationScope.launch(ioDispatcher) {
             try {
                 ensureSttManager()
                 configureSpeechRecognizer()
@@ -247,4 +252,3 @@ class AudioInputController @Inject constructor(
         return viewModel.getApplication<android.app.Application>().getString(resId)
     }
 }
-

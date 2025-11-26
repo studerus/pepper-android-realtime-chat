@@ -5,8 +5,9 @@ import android.os.Looper
 import android.util.Log
 import com.google.gson.JsonObject
 import io.github.anonymous.pepper_realtime.R
+import io.github.anonymous.pepper_realtime.di.ApplicationScope
+import io.github.anonymous.pepper_realtime.di.IoDispatcher
 import io.github.anonymous.pepper_realtime.manager.AudioPlayer
-import io.github.anonymous.pepper_realtime.manager.ThreadManager
 import io.github.anonymous.pepper_realtime.manager.TurnManager
 import io.github.anonymous.pepper_realtime.network.RealtimeEventHandler
 import io.github.anonymous.pepper_realtime.network.RealtimeEvents
@@ -14,13 +15,17 @@ import io.github.anonymous.pepper_realtime.tools.ToolContext
 import io.github.anonymous.pepper_realtime.tools.ToolRegistry
 import io.github.anonymous.pepper_realtime.ui.ChatMessage
 import io.github.anonymous.pepper_realtime.ui.ChatViewModel
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import org.json.JSONObject
 
 class ChatRealtimeHandler(
     private val viewModel: ChatViewModel,
     private val audioPlayer: AudioPlayer,
     private val turnManager: TurnManager?,
-    @Suppress("UNUSED_PARAMETER") threadManager: ThreadManager, // Kept for DI compatibility but not stored
+    private val ioDispatcher: CoroutineDispatcher,
+    private val applicationScope: CoroutineScope,
     private val toolRegistry: ToolRegistry,
     private var toolContext: ToolContext?
 ) : RealtimeEventHandler.Listener {
@@ -34,12 +39,6 @@ class ChatRealtimeHandler(
     fun setToolContext(context: ToolContext?) {
         this.toolContext = context
     }
-
-    /**
-     * Always get the current ThreadManager instance to avoid using a shutdown instance
-     * after app restart.
-     */
-    private fun getThreadManager(): ThreadManager = ThreadManager.getInstance()
 
     override fun onSessionUpdated(event: RealtimeEvents.SessionUpdated) {
         Log.i(TAG, "Session configured successfully - completing connection promise.")
@@ -174,7 +173,9 @@ class ChatRealtimeHandler(
                     viewModel.addMessage(functionCall)
 
                     viewModel.isExpectingFinalAnswerAfterToolCall = true
-                    getThreadManager().executeNetwork {
+                    
+                    // Use coroutines instead of ThreadManager
+                    applicationScope.launch(ioDispatcher) {
                         var toolResult: String?
                         try {
                             toolResult = toolRegistry.executeTool(toolName ?: "", args, toolContext!!)
@@ -320,4 +321,3 @@ class ChatRealtimeHandler(
         // Default: no action needed
     }
 }
-

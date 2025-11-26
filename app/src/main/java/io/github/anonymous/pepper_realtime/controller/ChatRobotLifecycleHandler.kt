@@ -8,11 +8,16 @@ import io.github.anonymous.pepper_realtime.network.WebSocketConnectionCallback
 import io.github.anonymous.pepper_realtime.ui.ChatActivity
 import io.github.anonymous.pepper_realtime.ui.ChatMessage
 import io.github.anonymous.pepper_realtime.ui.ChatViewModel
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import java.io.File
 
 class ChatRobotLifecycleHandler(
     private val activity: ChatActivity,
-    private val viewModel: ChatViewModel
+    private val viewModel: ChatViewModel,
+    private val ioDispatcher: CoroutineDispatcher,
+    private val applicationScope: CoroutineScope
 ) : RobotFocusManager.Listener {
 
     companion object {
@@ -103,7 +108,7 @@ class ChatRobotLifecycleHandler(
                             // Azure Speech Mode - perform STT warmup
                             Log.i(TAG, "WebSocket connected successfully, starting STT warmup...")
                             activity.audioInputController.startWarmup()
-                            activity.threadManager.executeAudio {
+                            applicationScope.launch(ioDispatcher) {
                                 try {
                                     activity.audioInputController.setupSpeechRecognizer()
                                     // LISTENING state will be set by ChatSpeechListener.onStarted()
@@ -190,4 +195,3 @@ class ChatRobotLifecycleHandler(
         return true // Placeholder until RobotFocusManager is exposed via ChatActivity
     }
 }
-

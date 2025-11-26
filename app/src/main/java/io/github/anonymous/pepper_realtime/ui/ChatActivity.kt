@@ -33,7 +33,11 @@ import io.github.anonymous.pepper_realtime.tools.ToolContext
 import io.github.anonymous.pepper_realtime.tools.ToolContextFactory
 import io.github.anonymous.pepper_realtime.tools.ToolRegistry
 import io.github.anonymous.pepper_realtime.tools.interfaces.ToolHost
+import io.github.anonymous.pepper_realtime.di.ApplicationScope
+import io.github.anonymous.pepper_realtime.di.IoDispatcher
 import io.github.anonymous.pepper_realtime.ui.settings.SettingsViewModel
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -51,7 +55,6 @@ class ChatActivity : AppCompatActivity(), ToolHost {
     @Inject internal lateinit var _sessionManager: RealtimeSessionManager
     @Inject internal lateinit var _gestureController: GestureController
     @Inject internal lateinit var _audioPlayer: AudioPlayer
-    @Inject internal lateinit var _threadManager: ThreadManager
     @Inject internal lateinit var _toolRegistry: ToolRegistry
     @Inject internal lateinit var _perceptionService: PerceptionService
     @Inject internal lateinit var _visionService: VisionService
@@ -60,6 +63,8 @@ class ChatActivity : AppCompatActivity(), ToolHost {
     @Inject internal lateinit var _navigationServiceManager: NavigationServiceManager
     @Inject internal lateinit var _settingsRepository: SettingsRepository
     @Inject internal lateinit var toolContextFactory: ToolContextFactory
+    @Inject @IoDispatcher internal lateinit var ioDispatcher: CoroutineDispatcher
+    @Inject @ApplicationScope internal lateinit var applicationScope: CoroutineScope
 
     // UI Components
     private var statusTextView: TextView? = null
@@ -98,7 +103,6 @@ class ChatActivity : AppCompatActivity(), ToolHost {
     val sessionManager: RealtimeSessionManager get() = _sessionManager
     val gestureController: GestureController get() = _gestureController
     val audioPlayer: AudioPlayer get() = _audioPlayer
-    val threadManager: ThreadManager get() = _threadManager
     val perceptionService: PerceptionService get() = _perceptionService
     val visionService: VisionService get() = _visionService
     val touchSensorManager: TouchSensorManager get() = _touchSensorManager
@@ -259,7 +263,7 @@ class ChatActivity : AppCompatActivity(), ToolHost {
         this.chatMenuController = chatMenuController
 
         // Robot Focus Manager - Listener
-        val lifecycleHandler = ChatRobotLifecycleHandler(this, viewModel)
+        val lifecycleHandler = ChatRobotLifecycleHandler(this, viewModel, ioDispatcher, applicationScope)
         _robotFocusManager.setListener(lifecycleHandler)
 
         // Turn Manager - Listener
@@ -384,8 +388,6 @@ class ChatActivity : AppCompatActivity(), ToolHost {
 
     private fun shutdown() {
         _audioInputController.shutdown()
-        // Note: ThreadManager is an Application-scoped singleton managed by Hilt.
-        // It should NOT be shutdown when Activity is destroyed, only when the app process ends.
 
         _audioPlayer.setListener(null)
         _sessionManager.listener = null

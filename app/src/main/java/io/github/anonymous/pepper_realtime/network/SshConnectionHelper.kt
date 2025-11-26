@@ -2,7 +2,9 @@ package io.github.anonymous.pepper_realtime.network
 
 import android.util.Log
 import io.github.anonymous.pepper_realtime.BuildConfig
-import io.github.anonymous.pepper_realtime.manager.ThreadManager
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import net.schmizz.sshj.DefaultConfig
 import net.schmizz.sshj.SSHClient
 import net.schmizz.sshj.transport.verification.PromiscuousVerifier
@@ -11,9 +13,14 @@ import java.util.concurrent.TimeUnit
 object SshConnectionHelper {
     private const val TAG = "SshConnectionHelper"
 
-    @JvmStatic
-    fun testFixedIpSshConnect(threadManager: ThreadManager) {
-        threadManager.executeNetwork {
+    /**
+     * Test SSH connection to Pepper robot head.
+     * 
+     * @param ioDispatcher Dispatcher for IO operations
+     * @param scope CoroutineScope to launch the test in
+     */
+    fun testFixedIpSshConnect(ioDispatcher: CoroutineDispatcher, scope: CoroutineScope) {
+        scope.launch(ioDispatcher) {
             val host = "198.18.0.1" // Known working IP
 
             try {
@@ -70,4 +77,3 @@ object SshConnectionHelper {
         return config
     }
 }
-

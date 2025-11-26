@@ -10,12 +10,13 @@ import dagger.hilt.android.scopes.ActivityScoped
 import io.github.anonymous.pepper_realtime.controller.ChatRealtimeHandler
 import io.github.anonymous.pepper_realtime.controller.RobotFocusManager
 import io.github.anonymous.pepper_realtime.manager.AudioPlayer
-import io.github.anonymous.pepper_realtime.manager.ThreadManager
 import io.github.anonymous.pepper_realtime.manager.TurnManager
 import io.github.anonymous.pepper_realtime.network.RealtimeEventHandler
 import io.github.anonymous.pepper_realtime.tools.ToolRegistry
 import io.github.anonymous.pepper_realtime.ui.ChatActivity
 import io.github.anonymous.pepper_realtime.ui.ChatViewModel
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 
 @Module
 @InstallIn(ActivityComponent::class)
@@ -52,15 +53,15 @@ object ControllerModule {
         viewModel: ChatViewModel,
         audioPlayer: AudioPlayer,
         turnManager: TurnManager,
-        threadManager: ThreadManager,
+        @IoDispatcher ioDispatcher: CoroutineDispatcher,
+        @ApplicationScope applicationScope: CoroutineScope,
         toolRegistry: ToolRegistry
     ): RealtimeEventHandler {
         // ToolContext is set later
         val handler = ChatRealtimeHandler(
             viewModel, audioPlayer, turnManager,
-            threadManager, toolRegistry, null
+            ioDispatcher, applicationScope, toolRegistry, null
         )
         return RealtimeEventHandler(handler)
     }
 }
-

@@ -2,11 +2,12 @@ package io.github.anonymous.pepper_realtime.controller
 
 import android.util.Log
 import io.github.anonymous.pepper_realtime.R
+import io.github.anonymous.pepper_realtime.di.ApplicationScope
+import io.github.anonymous.pepper_realtime.di.IoDispatcher
 import io.github.anonymous.pepper_realtime.manager.ApiKeyManager
 import io.github.anonymous.pepper_realtime.manager.AudioPlayer
 import io.github.anonymous.pepper_realtime.manager.SessionImageManager
 import io.github.anonymous.pepper_realtime.manager.SettingsRepository
-import io.github.anonymous.pepper_realtime.manager.ThreadManager
 import io.github.anonymous.pepper_realtime.manager.TurnManager
 import io.github.anonymous.pepper_realtime.network.RealtimeEventHandler
 import io.github.anonymous.pepper_realtime.network.RealtimeSessionManager
@@ -14,6 +15,10 @@ import io.github.anonymous.pepper_realtime.network.WebSocketConnectionCallback
 import io.github.anonymous.pepper_realtime.tools.interfaces.RealtimeMessageSender
 import io.github.anonymous.pepper_realtime.ui.ChatMessage
 import io.github.anonymous.pepper_realtime.ui.ChatViewModel
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import okhttp3.Response
 import okio.ByteString
 import javax.inject.Inject
@@ -24,7 +29,8 @@ class ChatSessionController @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val keyManager: ApiKeyManager,
     private val audioInputController: AudioInputController,
-    threadManager: ThreadManager, // Kept for DI compatibility but not stored
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+    @ApplicationScope private val applicationScope: CoroutineScope,
     private val gestureController: GestureController,
     private val turnManager: TurnManager?,
     private val interruptController: ChatInterruptController,
@@ -38,12 +44,6 @@ class ChatSessionController @Inject constructor(
     }
 
     private var connectionCallback: WebSocketConnectionCallback? = null
-
-    /**
-     * Always get the current ThreadManager instance to avoid using a shutdown instance
-     * after app restart.
-     */
-    private fun getThreadManager(): ThreadManager = ThreadManager.getInstance()
 
     init {
         setupSessionManagerListeners()
@@ -74,10 +74,10 @@ class ChatSessionController @Inject constructor(
         // Capture for use in lambda
         val shouldRequestResponse = requestResponse
 
-        getThreadManager().executeNetwork {
+        applicationScope.launch(ioDispatcher) {
             try {
                 // Set THINKING state inside the network task to ensure it only happens
-                // when the task actually runs (not if ThreadManager is shutdown)
+                // when the task actually runs
                 if (shouldRequestResponse) {
                     turnManager?.setState(TurnManager.State.THINKING)
                 }
@@ -92,16 +92,13 @@ class ChatSessionController @Inject constructor(
                         )
                     )
                     turnManager?.setState(TurnManager.State.LISTENING)
-                    return@executeNetwork
+                    return@launch
                 }
 
                 if (requestResponse) {
                     if (viewModel.isResponseGenerating.value == true) {
                         interruptController.interruptSpeech()
-                        try {
-                            Thread.sleep(50)
-                        } catch (_: InterruptedException) {
-                        }
+                        delay(50)
                     } else if (viewModel.isAudioPlaying.value == true && allowInterrupt) {
                         audioPlayer.interruptNow()
                         viewModel.setAudioPlaying(false)
@@ -171,8 +168,10 @@ class ChatSessionController @Inject constructor(
         viewModel.setStatusText(viewModel.getApplication<android.app.Application>().getString(R.string.status_starting_new_session))
         viewModel.clearMessages()
 
-        getThreadManager().executeNetwork {
-            getThreadManager().executeIO { sessionImageManager.deleteAllImages() }
+        applicationScope.launch(ioDispatcher) {
+            // Delete images in background
+            launch { sessionImageManager.deleteAllImages() }
+            
             audioInputController.cleanupForRestart()
             gestureController.stopNow()
             turnManager?.setState(TurnManager.State.IDLE)
@@ -186,10 +185,7 @@ class ChatSessionController @Inject constructor(
             viewModel.isExpectingFinalAnswerAfterToolCall = false
 
             disconnectWebSocketGracefully()
-            try {
-                Thread.sleep(500)
-            } catch (_: InterruptedException) {
-            }
+            delay(500)
 
             connectWebSocket(object : WebSocketConnectionCallback {
                 override fun onSuccess() {
@@ -199,7 +195,7 @@ class ChatSessionController @Inject constructor(
                         Log.i(TAG, "Azure Speech mode - starting STT warmup...")
                         viewModel.setWarmingUp(true)
                         audioInputController.startWarmup()
-                        getThreadManager().executeAudio {
+                        applicationScope.launch(ioDispatcher) {
                             try {
                                 audioInputController.setupSpeechRecognizer()
                                 // Don't set LISTENING state here - it will be set by
@@ -364,4 +360,3 @@ class ChatSessionController @Inject constructor(
         connectionCallback = null
     }
 }
-
