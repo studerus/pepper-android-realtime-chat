@@ -72,16 +72,27 @@ class ChatRealtimeHandler(
             viewModel.setStatusText(currentStatus + (delta ?: ""))
         }
 
+        // Fix for double bubble creation:
+        // Check if we are already handling this response ID.
+        // If so, unconditionally append to the last message, ignoring potential LiveData latency
+        // in isLastMessageFromRobot().
+        if (responseId != null && responseId == viewModel.lastChatBubbleResponseId) {
+            viewModel.appendToLastMessage(delta ?: "")
+            return
+        }
+
         val needNew = viewModel.isExpectingFinalAnswerAfterToolCall
                 || isMessageListEmpty()
                 || !isLastMessageFromRobot()
                 || responseId != viewModel.lastChatBubbleResponseId
+
         if (needNew) {
-            Log.d(TAG, "Creating new chat bubble for transcript (needNew=true)")
+            Log.d(TAG, "Creating new chat bubble for transcript (needNew=true, responseId=$responseId)")
             viewModel.addMessage(ChatMessage(delta ?: "", ChatMessage.Sender.ROBOT))
             viewModel.isExpectingFinalAnswerAfterToolCall = false
             viewModel.lastChatBubbleResponseId = responseId
         } else {
+            // Fallback (should be covered by first check, but kept for safety)
             viewModel.appendToLastMessage(delta ?: "")
         }
     }
