@@ -6,7 +6,7 @@ import com.aldebaran.qi.sdk.QiContext;
 import com.aldebaran.qi.sdk.object.actuation.ExplorationMap;
 import com.aldebaran.qi.sdk.object.actuation.LocalizeAndMap;
 import java.nio.charset.StandardCharsets;
-import io.github.anonymous.pepper_realtime.tools.Tool;
+import io.github.anonymous.pepper_realtime.tools.BaseTool;
 import io.github.anonymous.pepper_realtime.tools.ToolContext;
 import io.github.anonymous.pepper_realtime.manager.ThreadManager;
 import io.github.anonymous.pepper_realtime.manager.NavigationServiceManager;
@@ -19,7 +19,7 @@ import java.util.Locale;
  * Tool for finishing and saving environment maps.
  * Completes the mapping process and saves the map for navigation.
  */
-public class FinishEnvironmentMapTool implements Tool {
+public class FinishEnvironmentMapTool extends BaseTool {
     
     private static final String TAG = "FinishEnvironmentMapTool";
     private static final String ACTIVE_MAP_NAME = "default_map";

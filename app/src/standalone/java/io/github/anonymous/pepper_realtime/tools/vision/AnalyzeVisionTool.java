@@ -6,7 +6,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 import io.github.anonymous.pepper_realtime.R;
 import io.github.anonymous.pepper_realtime.service.VisionService;
-import io.github.anonymous.pepper_realtime.tools.Tool;
+import io.github.anonymous.pepper_realtime.tools.BaseTool;
 import io.github.anonymous.pepper_realtime.tools.ToolContext;
 
 import org.json.JSONObject;
@@ -16,7 +16,7 @@ import org.json.JSONObject;
  * Uses Groq API or Realtime API to analyze what the camera sees.
  */
 @SuppressWarnings("SpellCheckingInspection") // "Groq" is the correct API provider name
-public class AnalyzeVisionTool implements Tool {
+public class AnalyzeVisionTool extends BaseTool {
 
     private static final String TAG = "AnalyzeVisionTool[Standalone]";
 

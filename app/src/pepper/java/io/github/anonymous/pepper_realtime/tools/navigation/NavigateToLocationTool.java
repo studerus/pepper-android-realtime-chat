@@ -8,7 +8,7 @@ import com.aldebaran.qi.sdk.QiContext;
 import io.github.anonymous.pepper_realtime.manager.NavigationServiceManager;
 import io.github.anonymous.pepper_realtime.robot.RobotSafetyGuard;
 import io.github.anonymous.pepper_realtime.data.SavedLocation;
-import io.github.anonymous.pepper_realtime.tools.Tool;
+import io.github.anonymous.pepper_realtime.tools.BaseTool;
 import io.github.anonymous.pepper_realtime.tools.ToolContext;
 
 import org.json.JSONArray;
@@ -25,7 +25,7 @@ import java.util.Locale;
  * Tool for navigating to previously saved locations.
  * Handles lazy map loading and localization if needed.
  */
-public class NavigateToLocationTool implements Tool {
+public class NavigateToLocationTool extends BaseTool {
     
     private static final String TAG = "NavigateToLocationTool";
 

@@ -6,7 +6,7 @@ import com.aldebaran.qi.sdk.builder.AnimateBuilder;
 import com.aldebaran.qi.sdk.builder.AnimationBuilder;
 import com.aldebaran.qi.sdk.object.actuation.Animation;
 import io.github.anonymous.pepper_realtime.R;
-import io.github.anonymous.pepper_realtime.tools.Tool;
+import io.github.anonymous.pepper_realtime.tools.BaseTool;
 import io.github.anonymous.pepper_realtime.tools.ToolContext;
 
 import org.json.JSONArray;
@@ -16,7 +16,7 @@ import org.json.JSONObject;
  * Tool for playing preinstalled Pepper animations.
  * Supports various emotional and gestural animations.
  */
-public class PlayAnimationTool implements Tool {
+public class PlayAnimationTool extends BaseTool {
     
     private static final String TAG = "PlayAnimationTool";
 

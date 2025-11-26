@@ -4,7 +4,7 @@ import android.util.Log;
 import com.aldebaran.qi.sdk.builder.TransformBuilder;
 import com.aldebaran.qi.sdk.object.actuation.Frame;
 import com.aldebaran.qi.sdk.object.geometry.Transform;
-import io.github.anonymous.pepper_realtime.tools.Tool;
+import io.github.anonymous.pepper_realtime.tools.BaseTool;
 import io.github.anonymous.pepper_realtime.tools.ToolContext;
 
 import org.json.JSONArray;
@@ -19,7 +19,7 @@ import java.util.Locale;
  * Tool for saving robot's current location for future navigation.
  * Captures current position and orientation with optional description.
  */
-public class SaveCurrentLocationTool implements Tool {
+public class SaveCurrentLocationTool extends BaseTool {
     
     private static final String TAG = "SaveCurrentLocationTool";
 

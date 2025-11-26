@@ -1,7 +1,7 @@
 package io.github.anonymous.pepper_realtime.tools.entertainment;
 
 import android.util.Log;
-import io.github.anonymous.pepper_realtime.tools.Tool;
+import io.github.anonymous.pepper_realtime.tools.BaseTool;
 import io.github.anonymous.pepper_realtime.tools.ToolContext;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -9,7 +9,7 @@ import org.json.JSONObject;
 /**
  * Stub implementation of PlayAnimationTool for standalone mode.
  */
-public class PlayAnimationTool implements Tool {
+public class PlayAnimationTool extends BaseTool {
     
     private static final String TAG = "PlayAnimationTool[STUB]";
 

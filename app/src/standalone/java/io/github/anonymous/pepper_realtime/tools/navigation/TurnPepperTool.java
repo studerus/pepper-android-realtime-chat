@@ -1,7 +1,7 @@
 package io.github.anonymous.pepper_realtime.tools.navigation;
 
 import android.util.Log;
-import io.github.anonymous.pepper_realtime.tools.Tool;
+import io.github.anonymous.pepper_realtime.tools.BaseTool;
 import io.github.anonymous.pepper_realtime.tools.ToolContext;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -10,7 +10,7 @@ import org.json.JSONObject;
  * Stub implementation of TurnPepperTool for standalone mode.
  * Logs turn commands without executing them.
  */
-public class TurnPepperTool implements Tool {
+public class TurnPepperTool extends BaseTool {
     
     private static final String TAG = "TurnPepperTool[STUB]";
 

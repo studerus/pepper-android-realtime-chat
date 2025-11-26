@@ -60,17 +60,13 @@ class ApiKeyManager @Inject constructor(context: Context) {
     fun hasValidYouTubeKey(): Boolean = isValidKey(youTubeApiKey)
 
     // Feature availability checks
-    val isVisionAnalysisAvailable: Boolean
-        get() = true // Always available now (gpt-realtime has built-in vision)
+    fun isVisionAnalysisAvailable(): Boolean = true // Always available now (gpt-realtime has built-in vision)
 
-    val isInternetSearchAvailable: Boolean
-        get() = hasValidTavilyKey()
+    fun isInternetSearchAvailable(): Boolean = hasValidTavilyKey()
 
-    val isWeatherAvailable: Boolean
-        get() = hasValidOpenWeatherKey()
+    fun isWeatherAvailable(): Boolean = hasValidOpenWeatherKey()
 
-    val isYouTubeAvailable: Boolean
-        get() = hasValidYouTubeKey()
+    fun isYouTubeAvailable(): Boolean = hasValidYouTubeKey()
 
     // Error messages for missing keys
     val searchSetupMessage: String

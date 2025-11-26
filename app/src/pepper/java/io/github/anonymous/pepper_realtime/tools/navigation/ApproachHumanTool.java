@@ -10,7 +10,7 @@ import com.aldebaran.qi.sdk.builder.ApproachHumanBuilder;
 
 import io.github.anonymous.pepper_realtime.service.PerceptionService;
 import io.github.anonymous.pepper_realtime.robot.RobotSafetyGuard;
-import io.github.anonymous.pepper_realtime.tools.Tool;
+import io.github.anonymous.pepper_realtime.tools.BaseTool;
 import io.github.anonymous.pepper_realtime.tools.ToolContext;
 
 import org.json.JSONObject;
@@ -21,7 +21,7 @@ import java.util.Locale;
  * Tool for making Pepper approach a detected human to initiate interaction.
  * Uses QiSDK's ApproachHuman action with safety checks and status updates.
  */
-public class ApproachHumanTool implements Tool {
+public class ApproachHumanTool extends BaseTool {
     
     private static final String TAG = "ApproachHumanTool";
 

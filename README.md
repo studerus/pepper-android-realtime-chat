@@ -145,9 +145,9 @@ Both flavors share the same core conversational AI system but differ in hardware
 - **Build Configuration**:
   - Gradle: `8.13`
   - Android Gradle Plugin: `8.13.0`
+  - Kotlin: `2.0.21`
   - CompileSdk / TargetSdk: `35`
   - MinSdk: `23` (Android 6.0)
-  - Java Version: `17`
 - **API Keys**: For full functionality, API keys for various services are required (see "Configure API Keys" section below)
 
 #### For Standalone Mode (Testing on any Android Device)
@@ -158,10 +158,18 @@ Both flavors share the same core conversational AI system but differ in hardware
 - **Limitations**: Robot-specific features (navigation, gestures, camera, sensors) are simulated with log output
 
 ### Modern Development Without the Plugin
-This project uses modern Android Studio versions **without** the deprecated Pepper SDK plugin. The plugin is no longer maintained and incompatible with recent Android Studio versions. Instead, we configure the project manually following the approach documented here: **[Pepper with Android Studio in 2024](https://github.com/unitedroboticsgroup-france/MyPepperApplication)**. This enables the use of the latest Android Studio versions, modern AndroidX libraries, Java 17 language features, and the latest Gradle and build tools with improved IDE performance.
+This project uses modern Android Studio versions **without** the deprecated Pepper SDK plugin. The plugin is no longer maintained and incompatible with recent Android Studio versions. Instead, we configure the project manually following the approach documented here: **[Pepper with Android Studio in 2024](https://github.com/unitedroboticsgroup-france/MyPepperApplication)**. This enables the use of the latest Android Studio versions, modern AndroidX libraries, **Kotlin** as the primary language, and the latest Gradle and build tools with improved IDE performance.
+
+### 100% Kotlin Codebase
+The entire application is written in **Kotlin**, leveraging modern language features:
+- **Null Safety** - Compile-time null checks prevent NullPointerExceptions
+- **Coroutines** - Structured concurrency for asynchronous operations
+- **Data Classes** - Concise model definitions with automatic equals/hashCode/toString
+- **Extension Functions** - Clean API extensions without inheritance
+- **Hilt Dependency Injection** - Type-safe DI with KSP annotation processing
 
 **Note on API 23 (Android 6.0) Compatibility:**
-Pepper v1.8 runs Android 6.0 (API Level 23). This limits some third-party libraries to older versions, as many newer releases require Android 8.0+ (API 26+) for features like `java.util.Base64` and `MethodHandle`. Despite this constraint, the project uses the latest compatible versions of all dependencies and modern development tools (Gradle 8.13, Java 17, Android Studio latest).
+Pepper v1.8 runs Android 6.0 (API Level 23). This limits some third-party libraries to older versions, as many newer releases require Android 8.0+ (API 26+) for features like `java.util.Base64` and `MethodHandle`. Despite this constraint, the project uses the latest compatible versions of all dependencies and modern development tools (Gradle 8.13, Kotlin 2.0, Android Studio latest).
 
 ### Setup Steps
 
@@ -1264,106 +1272,109 @@ This approach provides natural-looking robot behavior even when using external a
 ### Project Structure
 ```
 app/src/
-├── main/java/io/github/anonymous/pepper_realtime/    # Shared code for all flavors
+├── main/java/io/github/anonymous/pepper_realtime/    # Shared Kotlin code for all flavors
 │   ├── controller/                      # Application logic controllers
-│   │   ├── AudioInputController.java    # Audio input & STT management
-│   │   ├── AudioVolumeController.java   # System volume control
-│   │   ├── ChatInterruptController.java # Interruption logic
-│   │   ├── ChatLifecycleController.java # App lifecycle orchestration
-│   │   ├── ChatRealtimeHandler.java     # WebSocket event bridging
-│   │   ├── ChatRobotLifecycleHandler.java # Robot lifecycle events
-│   │   ├── ChatSessionController.java   # Session management
-│   │   ├── ChatSpeechListener.java      # Speech recognition callbacks
-│   │   ├── ChatTurnListener.java        # Turn state management
-│   │   └── RobotFocusManager.java       # Robot lifecycle focus management
+│   │   ├── AudioInputController.kt      # Audio input & STT management
+│   │   ├── AudioVolumeController.kt     # System volume control
+│   │   ├── ChatInterruptController.kt   # Interruption logic
+│   │   ├── ChatLifecycleController.kt   # App lifecycle orchestration
+│   │   ├── ChatRealtimeHandler.kt       # WebSocket event bridging
+│   │   ├── ChatRobotLifecycleHandler.kt # Robot lifecycle events
+│   │   ├── ChatSessionController.kt     # Session management
+│   │   ├── ChatSpeechListener.kt        # Speech recognition callbacks
+│   │   ├── ChatTurnListener.kt          # Turn state management
+│   │   └── RobotFocusManager.kt         # Robot lifecycle focus management
 │   ├── di/                              # Dependency Injection (Hilt)
-│   │   ├── AppModule.java               # App-level bindings
-│   │   └── ControllerModule.java        # Controller bindings
+│   │   ├── AppModule.kt                 # App-level bindings
+│   │   ├── ControllerModule.kt          # Controller bindings
+│   │   └── CoroutineModule.kt           # Coroutine dispatcher bindings
 │   ├── manager/                         # Application managers
-│   │   ├── ApiKeyManager.java           # API key management
-│   │   ├── AudioPlayer.java             # Audio playback engine
-│   │   ├── DashboardManager.java        # Perception dashboard overlay
-│   │   ├── PermissionManager.java       # Android permission handling
-│   │   ├── QuizDialogManager.java       # Quiz UI management
-│   │   ├── RealtimeAudioInputManager.java # Audio input for Realtime API
-│   │   ├── SessionImageManager.java     # Temporary image cleanup
-│   │   ├── SettingsManager.java         # App settings & preferences
-│   │   ├── SettingsRepository.java      # Settings data repository
-│   │   ├── SpeechRecognizerManager.java # Azure Speech integration
-│   │   ├── ThreadManager.java           # Thread pooling & execution
-│   │   ├── TurnManager.java             # Conversation turn state machine
-│   │   └── YouTubePlayerManager.java    # YouTube playback management
+│   │   ├── ApiKeyManager.kt             # API key management
+│   │   ├── AudioPlayer.kt               # Audio playback engine
+│   │   ├── DashboardManager.kt          # Perception dashboard overlay
+│   │   ├── PermissionManager.kt         # Android permission handling
+│   │   ├── QuizDialogManager.kt         # Quiz UI management
+│   │   ├── RealtimeAudioInputManager.kt # Audio input for Realtime API
+│   │   ├── SessionImageManager.kt       # Temporary image cleanup
+│   │   ├── SettingsManager.kt           # App settings & preferences
+│   │   ├── SettingsRepository.kt        # Settings data repository
+│   │   ├── SpeechRecognizerManager.kt   # Azure Speech integration
+│   │   ├── ThreadManager.kt             # Coroutine dispatchers & execution
+│   │   ├── TurnManager.kt               # Conversation turn state machine
+│   │   └── YouTubePlayerManager.kt      # YouTube playback management
 │   ├── network/                         # Network & API communication
-│   │   ├── HttpClientManager.java       # Shared HTTP client
-│   │   ├── RealtimeApiProvider.java     # API provider definitions
-│   │   ├── RealtimeEventHandler.java    # WebSocket event parsing
-│   │   ├── RealtimeSessionManager.java  # WebSocket connection handling
-│   │   └── SshConnectionHelper.java     # SSH utilities
+│   │   ├── HttpClientManager.kt         # Shared HTTP client with suspend functions
+│   │   ├── RealtimeApiProvider.kt       # API provider definitions
+│   │   ├── RealtimeEventHandler.kt      # WebSocket event parsing
+│   │   ├── RealtimeEvents.kt            # WebSocket event data classes
+│   │   ├── RealtimeSessionManager.kt    # WebSocket connection handling
+│   │   └── SshConnectionHelper.kt       # SSH utilities
 │   ├── service/                         # Background services (shared)
-│   │   ├── FaceRecognitionService.java  # Azure Face API client
-│   │   └── YouTubeSearchService.java    # YouTube Data API client
+│   │   ├── FaceRecognitionService.kt    # Azure Face API client
+│   │   └── YouTubeSearchService.kt      # YouTube Data API client
 │   ├── robot/                           # Robot abstraction interfaces
-│   │   ├── RobotController.java         # Interface for robot control
-│   │   └── RobotLifecycleBridge.java    # Interface for lifecycle events
+│   │   ├── RobotController.kt           # Interface for robot control
+│   │   └── RobotLifecycleBridge.kt      # Interface for lifecycle events
 │   ├── data/                            # Data models and providers
-│   │   ├── BasicEmotion.java            # Emotion definitions
-│   │   ├── LocationProvider.java        # Map location management
-│   │   ├── PerceptionData.java          # Human perception data models
-│   │   └── SavedLocation.java           # Location data structure
+│   │   ├── BasicEmotion.kt              # Emotion definitions
+│   │   ├── LocationProvider.kt          # Map location management
+│   │   ├── PerceptionData.kt            # Human perception data classes
+│   │   └── SavedLocation.kt             # Location data class
 │   ├── ui/                              # UI Components and Helpers
-│   │   ├── ChatActivity.java            # Main UI entry point
-│   │   ├── ChatMenuController.java      # Menu handling
-│   │   ├── ChatMessage.java             # Message model
-│   │   ├── ChatMessageAdapter.java      # RecyclerView adapter
-│   │   ├── ChatUiHelper.java            # UI update helpers
-│   │   ├── ChatViewModel.java           # MVVM ViewModel (State & Logic)
-│   │   ├── MapUiManager.java            # Map UI management
-│   │   └── YouTubePlayerDialog.java     # YouTube player UI
+│   │   ├── ChatActivity.kt              # Main UI entry point
+│   │   ├── ChatMenuController.kt        # Menu handling
+│   │   ├── ChatMessage.kt               # Message data class
+│   │   ├── ChatMessageAdapter.kt        # RecyclerView adapter
+│   │   ├── ChatUiHelper.kt              # UI update helpers
+│   │   ├── ChatViewModel.kt             # MVVM ViewModel (State & Logic)
+│   │   ├── MapUiManager.kt              # Map UI management
+│   │   └── YouTubePlayerDialog.kt       # YouTube player UI
 │   └── tools/                           # Tool implementations (shared logic)
-│       ├── ToolContext.java             # Shared tool context
-│       ├── ToolRegistry.java            # Tool registration system
-│       └── [categories]/...             # Tools organized by category
+│       ├── Tool.kt                      # Tool interface
+│       ├── BaseTool.kt                  # Base class for tools
+│       ├── ToolContext.kt               # Shared tool context
+│       ├── ToolRegistry.kt              # Tool registration system
+│       └── [categories]/...             # Tools organized by category (all .kt)
 │
 ├── pepper/java/io/github/anonymous/pepper_realtime/    # Pepper-specific implementations
 │   ├── controller/
-│   │   ├── GestureController.java       # Real Pepper animations
-│   │   └── MovementController.java      # Real robot movement
+│   │   ├── GestureController.kt         # Real Pepper animations
+│   │   └── MovementController.kt        # Real robot movement
 │   ├── manager/
-│   │   ├── NavigationServiceManager.java # Real navigation system
-│   │   ├── LocalizationCoordinator.java  # Real localization logic
-│   │   └── TouchSensorManager.java       # Real touch sensor handling
+│   │   ├── NavigationServiceManager.kt  # Real navigation system
+│   │   ├── LocalizationCoordinator.kt   # Real localization logic
+│   │   └── TouchSensorManager.kt        # Real touch sensor handling
 │   ├── service/
-│   │   ├── PerceptionService.java       # Real human detection (QiSDK)
-│   │   └── VisionService.java           # Pepper head camera implementation
+│   │   ├── PerceptionService.kt         # Real human detection (QiSDK)
+│   │   └── VisionService.kt             # Pepper head camera
 │   ├── robot/
-│   │   ├── RobotControllerImpl.java     # Real QiContext implementation
-│   │   ├── RobotLifecycleBridgeImpl.java # QiSDK lifecycle integration
-│   │   └── RobotSafetyGuard.java        # Movement safety checks
+│   │   ├── RobotControllerImpl.kt       # Real QiContext implementation
+│   │   ├── RobotLifecycleBridgeImpl.kt  # QiSDK lifecycle integration
+│   │   └── RobotSafetyGuard.kt          # Movement safety checks
 │   ├── data/
-│   │   └── NavigationMapCache.java      # Real map data caching
-│   ├── ui/
-│   │   └── MapPreviewView.java          # Real map visualization view
-│   └── tools/                           # Flavor-specific tool overrides
+│   │   └── NavigationMapCache.kt        # Real map data caching
+│   └── ui/
+│       └── MapPreviewView.kt            # Real map visualization view
 │
 └── standalone/java/io/github/anonymous/pepper_realtime/   # Standalone stub implementations
     ├── controller/
-    │   ├── GestureController.java       # Stub (log only)
-    │   └── MovementController.java      # Stub (log only)
+    │   ├── GestureController.kt         # Stub (log only)
+    │   └── MovementController.kt        # Stub (log only)
     ├── manager/
-    │   ├── NavigationServiceManager.java # Stub (simulated navigation)
-    │   ├── LocalizationCoordinator.java  # Stub (simulated localization)
-    │   └── TouchSensorManager.java       # Stub (log only)
+    │   ├── NavigationServiceManager.kt  # Stub (simulated navigation)
+    │   ├── LocalizationCoordinator.kt   # Stub (simulated localization)
+    │   └── TouchSensorManager.kt        # Stub (log only)
     ├── service/
-    │   ├── PerceptionService.java       # Stub (simulated detection)
-    │   └── VisionService.java           # Android Camera2 API implementation
+    │   ├── PerceptionService.kt         # Stub (simulated detection)
+    │   └── VisionService.kt             # Android Camera2 API implementation
     ├── robot/
-    │   ├── RobotControllerImpl.java     # Stub implementation
-    │   ├── RobotLifecycleBridgeImpl.java # Simulated lifecycle
-    │   └── RobotSafetyGuard.java        # Stub implementation
+    │   ├── RobotControllerImpl.kt       # Stub implementation
+    │   ├── RobotLifecycleBridgeImpl.kt  # Simulated lifecycle
+    │   └── RobotSafetyGuard.kt          # Stub implementation
     ├── data/
-    │   └── NavigationMapCache.java      # Stub (no map data)
+    │   └── NavigationMapCache.kt        # Stub (no map data)
     └── ui/
-    │   └── MapPreviewView.java          # Stub (empty view)
+        └── MapPreviewView.kt            # Stub (empty view)
 ```
 
 ### Key Configuration Files
@@ -1441,8 +1452,9 @@ adb logcat | grep -E "(LocalizeAndMap|mapping|create_environment_map)"
 5. **Submit** a pull request
 
 ### Development Guidelines
-- Follow existing code style
-- Add proper error handling
+- Follow existing Kotlin code style and conventions
+- Use Kotlin idioms (null safety, extension functions, data classes)
+- Add proper error handling with Result types or sealed classes
 - Update documentation
 - Test with missing API keys
 

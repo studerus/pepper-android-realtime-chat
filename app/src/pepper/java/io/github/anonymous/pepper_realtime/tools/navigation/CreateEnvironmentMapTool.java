@@ -9,7 +9,7 @@ import com.aldebaran.qi.sdk.object.power.FlapSensor;
 import com.aldebaran.qi.sdk.object.power.FlapState;
 import com.aldebaran.qi.sdk.object.power.Power;
 import io.github.anonymous.pepper_realtime.manager.NavigationServiceManager;
-import io.github.anonymous.pepper_realtime.tools.Tool;
+import io.github.anonymous.pepper_realtime.tools.BaseTool;
 import io.github.anonymous.pepper_realtime.tools.ToolContext;
 
 import org.json.JSONObject;
@@ -22,7 +22,7 @@ import java.util.List;
  * Tool for creating environment maps for robot navigation.
  * Uses manual mapping process where user guides robot through the environment.
  */
-public class CreateEnvironmentMapTool implements Tool {
+public class CreateEnvironmentMapTool extends BaseTool {
     
     private static final String TAG = "CreateEnvironmentMapTool";
     private static final String ACTIVE_MAP_NAME = "default_map";

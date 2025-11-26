@@ -1,7 +1,7 @@
 package io.github.anonymous.pepper_realtime.tools.navigation;
 
 import android.util.Log;
-import io.github.anonymous.pepper_realtime.tools.Tool;
+import io.github.anonymous.pepper_realtime.tools.BaseTool;
 import io.github.anonymous.pepper_realtime.tools.ToolContext;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -9,7 +9,7 @@ import org.json.JSONObject;
 /**
  * Stub implementation of SaveCurrentLocationTool for standalone mode.
  */
-public class SaveCurrentLocationTool implements Tool {
+public class SaveCurrentLocationTool extends BaseTool {
     
     private static final String TAG = "SaveCurrentLocationTool[STUB]";
 

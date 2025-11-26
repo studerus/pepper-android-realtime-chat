@@ -1,14 +1,14 @@
 package io.github.anonymous.pepper_realtime.tools.navigation;
 
 import android.util.Log;
-import io.github.anonymous.pepper_realtime.tools.Tool;
+import io.github.anonymous.pepper_realtime.tools.BaseTool;
 import io.github.anonymous.pepper_realtime.tools.ToolContext;
 import org.json.JSONObject;
 
 /**
  * Stub implementation of CreateEnvironmentMapTool for standalone mode.
  */
-public class CreateEnvironmentMapTool implements Tool {
+public class CreateEnvironmentMapTool extends BaseTool {
     
     private static final String TAG = "CreateEnvironmentMapTool[STUB]";
 

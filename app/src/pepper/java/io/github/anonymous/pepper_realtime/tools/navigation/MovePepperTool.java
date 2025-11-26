@@ -3,7 +3,7 @@ package io.github.anonymous.pepper_realtime.tools.navigation;
 import android.util.Log;
 import io.github.anonymous.pepper_realtime.robot.RobotSafetyGuard;
 import io.github.anonymous.pepper_realtime.manager.NavigationServiceManager;
-import io.github.anonymous.pepper_realtime.tools.Tool;
+import io.github.anonymous.pepper_realtime.tools.BaseTool;
 import io.github.anonymous.pepper_realtime.tools.ToolContext;
 
 import org.json.JSONObject;
@@ -13,7 +13,7 @@ import org.json.JSONObject;
  * Tool for moving Pepper robot in specific directions.
  * Supports forward, backward, left, right movement with safety checks.
  */
-public class MovePepperTool implements Tool {
+public class MovePepperTool extends BaseTool {
     
     private static final String TAG = "MovePepperTool";
 

@@ -5,7 +5,7 @@ import com.aldebaran.qi.sdk.object.power.FlapSensor;
 import com.aldebaran.qi.sdk.object.power.FlapState;
 import com.aldebaran.qi.sdk.object.power.Power;
 import io.github.anonymous.pepper_realtime.manager.NavigationServiceManager;
-import io.github.anonymous.pepper_realtime.tools.Tool;
+import io.github.anonymous.pepper_realtime.tools.BaseTool;
 import io.github.anonymous.pepper_realtime.tools.ToolContext;
 
 import org.json.JSONArray;
@@ -20,7 +20,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * Tool for turning Pepper robot left or right by specific degrees.
  * This is a synchronous tool that waits for turn completion.
  */
-public class TurnPepperTool implements Tool {
+public class TurnPepperTool extends BaseTool {
     
     private static final String TAG = "TurnPepperTool";
 

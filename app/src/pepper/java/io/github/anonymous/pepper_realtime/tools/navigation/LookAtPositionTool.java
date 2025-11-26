@@ -13,7 +13,7 @@ import com.aldebaran.qi.sdk.object.geometry.Transform;
 import com.aldebaran.qi.sdk.object.power.FlapSensor;
 import com.aldebaran.qi.sdk.object.power.FlapState;
 import com.aldebaran.qi.sdk.object.power.Power;
-import io.github.anonymous.pepper_realtime.tools.Tool;
+import io.github.anonymous.pepper_realtime.tools.BaseTool;
 import io.github.anonymous.pepper_realtime.tools.ToolContext;
 
 import org.json.JSONArray;
@@ -30,7 +30,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * Tool for making Pepper look at a specific 3D position relative to the robot's base frame.
  * Returns success immediately when gaze is aligned, then automatically cancels after specified duration.
  */
-public class LookAtPositionTool implements Tool {
+public class LookAtPositionTool extends BaseTool {
     
     private static final String TAG = "LookAtPositionTool";
 
