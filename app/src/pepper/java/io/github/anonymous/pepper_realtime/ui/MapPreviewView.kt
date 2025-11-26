@@ -13,7 +13,7 @@ import io.github.anonymous.pepper_realtime.data.SavedLocation
 import kotlin.math.cos
 import kotlin.math.sin
 
-class MapPreviewView constructor(
+class MapPreviewView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0

@@ -10,7 +10,7 @@ import android.view.View
  * Stub implementation of MapPreviewView for standalone mode (no robot hardware).
  * Simulates map preview functionality.
  */
-class MapPreviewView constructor(
+class MapPreviewView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0
