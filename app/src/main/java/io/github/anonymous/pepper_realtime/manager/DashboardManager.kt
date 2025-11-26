@@ -75,7 +75,7 @@ class DashboardManager(
         this.perceptionService = perceptionService
 
         perceptionService?.setListener(object : PerceptionService.PerceptionListener {
-            override fun onHumansDetected(humans: List<PerceptionData.HumanInfo>?) {
+            override fun onHumansDetected(humans: List<PerceptionData.HumanInfo>) {
                 uiHandler.post { updateHumanDetection(humans) }
             }
 
