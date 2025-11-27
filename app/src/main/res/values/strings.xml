@@ -4,7 +4,6 @@
     <!-- Status Messages -->
     <string name="status_listening">Listening…</string>
     <string name="status_thinking">Thinking…</string>
-    <string name="status_ready">Ready.</string>
     <string name="app_paused">App paused</string>
     <string name="status_speaking_tap_to_interrupt">Speaking — tap to interrupt: </string>
     <string name="status_updating_recognizer">Updating recognizer…</string>
@@ -228,14 +227,10 @@ Closings: \"Happy to help!\" | \"Anything else?\" | \"I\'m here if you need me\"
     <string name="close_symbol">✕</string>
     <string name="youtube_loading">Loading video…</string>
     <string name="youtube_close">Close Video</string>
-    <string name="function_call_icon">🔧</string>
-    <string name="function_arguments_label">Arguments:</string>
-    <string name="function_result_label">Result:</string>
+    <!-- Function call strings are now in Compose (FunctionCallCard.kt) -->
     <string name="perception_dashboard_title">👁️ Human Perception Dashboard</string>
     <string name="close_dashboard">Close Dashboard</string>
-    <string name="zero">0</string>
-    <string name="no_humans_detected">No humans detected</string>
-    <string name="last_update_never">Last update: Never</string>
+    <!-- Dashboard labels are hardcoded in layout XML -->
     <string name="settings_header_title">PepperDialog Settings</string>
     <string name="system_prompt_label">System Prompt</string>
     <string name="system_prompt_hint">e.g., You are a helpful assistant.</string>
@@ -279,13 +274,5 @@ Closings: \"Happy to help!\" | \"Anything else?\" | \"I\'m here if you need me\"
     <string name="glasses_na">Glasses: N/A</string>
     <string name="mask_na">Mask: N/A</string>
     <string name="quality_na">Quality: N/A</string>
-    <string name="picture_label">Picture</string>
-    <string name="demographics_label">Demographics</string>
-    <string name="distance_label">Distance</string>
-    <string name="emotion_label">Emotion</string>
-    <string name="pleasure_label">Pleasure</string>
-    <string name="excitement_label">Excitement</string>
-    <string name="smile_label">Smile</string>
-    <string name="attention_label">Attention</string>
-    <string name="engagement_label">Engagement</string>
+    <!-- Table column labels are hardcoded in perception_dashboard_overlay.xml -->
 </resources>
