@@ -298,6 +298,7 @@ class PerceptionService {
                     return@andThenConsume
                 }
 
+                @Suppress("DEPRECATION") // Using async version for callback-based flow
                 faceRecognitionService?.detectFacesAsync(bitmap, object : FaceRecognitionService.FaceCallback {
                     override fun onResult(faces: List<FaceRecognitionService.FaceInfo>) {
                         val fusedList = fuseHumanAndFaceData(pepperHumans, initialHumanInfo, faces)

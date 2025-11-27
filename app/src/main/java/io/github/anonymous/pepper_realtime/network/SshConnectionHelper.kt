@@ -32,7 +32,7 @@ object SshConnectionHelper {
                     ssh.addHostKeyVerifier(PromiscuousVerifier())
                     ssh.connect(host, 22)
 
-                    val password = BuildConfig.PEPPER_SSH_PASSWORD ?: ""
+                    val password = BuildConfig.PEPPER_SSH_PASSWORD
                     if (password.isEmpty()) {
                         Log.w(TAG, "[SSH-TEST] PEPPER_SSH_PASSWORD empty - please set in local.properties")
                     }

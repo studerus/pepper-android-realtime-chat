@@ -253,6 +253,7 @@ class AudioPlayer {
                 .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                @Suppress("DEPRECATION")
                 attributesBuilder.setFlags(AudioAttributes.FLAG_LOW_LATENCY)
             }
 

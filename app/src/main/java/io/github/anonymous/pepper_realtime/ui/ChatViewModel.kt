@@ -240,6 +240,7 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    @Suppress("UNUSED_PARAMETER")
     fun handleUserTranscriptFailed(itemId: String, error: JSONObject?) {
         val placeholder = pendingUserTranscripts.remove(itemId)
         if (placeholder != null) {

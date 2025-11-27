@@ -148,7 +148,6 @@ class VisionService(context: Context) {
                                         val activity = activityRef
                                             ?: throw IllegalStateException("Activity reference not available")
                                         val sm = activity.sessionManager
-                                            ?: throw IllegalStateException("Realtime session not connected")
                                         if (!sm.isConnected) throw IllegalStateException("Realtime session not connected")
                                         val sentItem = sm.sendUserImageMessage(base64, "image/jpeg")
                                         if (!sentItem) throw IllegalStateException("Failed to send image message")

@@ -28,6 +28,7 @@ class GestureController {
     /**
      * Simulates starting gesture loop
      */
+    @Suppress("UNUSED_PARAMETER")
     fun start(qiContext: Any?, keepRunning: BoolSupplier, nextResId: IntSupplier) {
         if (running) {
             Log.d(TAG, "🤖 [SIMULATED] GestureController already running")
@@ -52,6 +53,7 @@ class GestureController {
     /**
      * Simulates playing a single animation
      */
+    @Suppress("UNUSED_PARAMETER")
     fun playAnimation(qiContext: Any?, animationResourceId: Int, onComplete: Runnable?) {
         Log.i(TAG, "🤖 [SIMULATED] Playing animation with resource ID: $animationResourceId")
 

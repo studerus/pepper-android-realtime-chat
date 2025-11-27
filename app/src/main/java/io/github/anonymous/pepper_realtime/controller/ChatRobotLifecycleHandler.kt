@@ -32,7 +32,7 @@ class ChatRobotLifecycleHandler(
         synchronized(robotLifecycleLock) {
             Log.i(TAG, "handleRobotReady: Acquired lifecycle lock")
 
-            activity.locationProvider?.refreshLocations(activity)
+            activity.locationProvider.refreshLocations(activity)
 
             activity.runOnUiThread {
                 val hasMap = File(activity.filesDir, "maps/default_map.map").exists()
@@ -46,11 +46,11 @@ class ChatRobotLifecycleHandler(
 
             activity.dashboardManager?.initialize(activity.perceptionService)
 
-            activity.perceptionService?.initialize(robotContext)
+            activity.perceptionService.initialize(robotContext)
 
-            activity.visionService?.initialize(robotContext)
+            activity.visionService.initialize(robotContext)
 
-            activity.touchSensorManager?.let { tsm ->
+            activity.touchSensorManager.let { tsm ->
                 tsm.setListener(object : TouchSensorManager.TouchEventListener {
                     override fun onSensorTouched(sensorName: String, touchState: Any?) {
                         Log.i(TAG, "Touch sensor $sensorName touched")
@@ -66,7 +66,7 @@ class ChatRobotLifecycleHandler(
                 tsm.initialize(robotContext)
             }
 
-            activity.navigationServiceManager?.setDependencies(
+            activity.navigationServiceManager.setDependencies(
                 activity.perceptionService,
                 activity.touchSensorManager,
                 activity.gestureController
@@ -103,7 +103,7 @@ class ChatRobotLifecycleHandler(
                             // Realtime API Mode - no STT warmup needed
                             Log.i(TAG, "WebSocket connected successfully (Realtime API mode)")
                             viewModel.setStatusText(activity.getString(R.string.status_listening))
-                            activity.turnManager?.setState(TurnManager.State.LISTENING)
+                            activity.turnManager.setState(TurnManager.State.LISTENING)
                         } else {
                             // Azure Speech Mode - perform STT warmup
                             Log.i(TAG, "WebSocket connected successfully, starting STT warmup...")
@@ -122,7 +122,7 @@ class ChatRobotLifecycleHandler(
                                         )
                                     )
                                     viewModel.setStatusText(activity.getString(R.string.ready_sr_lazy_init))
-                                    activity.turnManager?.setState(TurnManager.State.LISTENING)
+                                    activity.turnManager.setState(TurnManager.State.LISTENING)
                                 }
                             }
                         }
@@ -162,16 +162,16 @@ class ChatRobotLifecycleHandler(
             activity.toolContext?.updateQiContext(null)
 
             // Shutdown services only if they are initialized
-            if (activity.perceptionService?.isInitialized == true) {
-                activity.perceptionService?.shutdown()
+            if (activity.perceptionService.isInitialized) {
+                activity.perceptionService.shutdown()
             }
             activity.dashboardManager?.shutdown()
-            activity.touchSensorManager?.shutdown()
-            activity.navigationServiceManager?.shutdown()
+            activity.touchSensorManager.shutdown()
+            activity.navigationServiceManager.shutdown()
 
             // Pause gestures but don't shutdown the executor
             try {
-                activity.gestureController?.stopNow()
+                activity.gestureController.stopNow()
             } catch (e: Exception) {
                 Log.w(TAG, "Error stopping GestureController", e)
             }

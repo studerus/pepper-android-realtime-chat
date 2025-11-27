@@ -68,7 +68,7 @@ class GestureController {
         consecutiveFailures = 0
 
         running = true
-        Log.i(TAG, "GestureController starting with qiContext: ${qiContext != null}")
+        Log.i(TAG, "GestureController starting")
         gestureExecutor?.submit {
             Log.i(TAG, "Gesture thread started, entering main loop")
             runNextGestureNonBlocking(qiContext, keepRunning, nextResId)

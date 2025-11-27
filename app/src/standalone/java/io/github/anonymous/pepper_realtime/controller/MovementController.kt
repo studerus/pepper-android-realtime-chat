@@ -28,6 +28,7 @@ class MovementController {
     /**
      * Simulates moving Pepper in a specified direction
      */
+    @Suppress("UNUSED_PARAMETER")
     fun movePepper(qiContext: Any?, distanceForward: Double, distanceSideways: Double, speed: Double) {
         Log.i(TAG, "🤖 [SIMULATED] Move - Forward: %.2fm, Sideways: %.2fm, Speed: %.2fm/s".format(
             distanceForward, distanceSideways, speed))
@@ -44,6 +45,7 @@ class MovementController {
     /**
      * Simulates turning Pepper
      */
+    @Suppress("UNUSED_PARAMETER")
     fun turnPepper(qiContext: Any?, direction: String, degrees: Double, speed: Double) {
         Log.i(TAG, "🤖 [SIMULATED] Turn - Direction: $direction, Angle: %.1f°, Speed: %.2f".format(degrees, speed))
 
@@ -58,6 +60,7 @@ class MovementController {
     /**
      * Simulates looking at a position
      */
+    @Suppress("UNUSED_PARAMETER")
     fun lookAtPosition(qiContext: Any?, x: Double, y: Double, z: Double) {
         Log.i(TAG, "🤖 [SIMULATED] Look at position - X: %.2f, Y: %.2f, Z: %.2f".format(x, y, z))
 
@@ -72,6 +75,7 @@ class MovementController {
     /**
      * Simulates navigation to a saved location
      */
+    @Suppress("UNUSED_PARAMETER")
     fun navigateToLocation(qiContext: Any?, savedLocation: Any?, speed: Float) {
         Log.i(TAG, "🤖 [SIMULATED] Navigate to location with speed: $speed m/s")
 

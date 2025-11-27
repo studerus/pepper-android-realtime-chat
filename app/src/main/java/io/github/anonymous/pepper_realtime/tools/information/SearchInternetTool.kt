@@ -55,8 +55,8 @@ class SearchInternetTool : Tool {
         payload.put("api_key", apiKey)
         payload.put("query", query)
         payload.put("search_depth", "basic")
-        payload.put("include_answer", true as Boolean)
-        payload.put("max_results", 3 as Int)
+        payload.put("include_answer", true)
+        payload.put("max_results", 3)
 
         val body = payload.toString().toRequestBody("application/json".toMediaType())
         val request = Request.Builder()

@@ -71,7 +71,7 @@ class FinishEnvironmentMapTool : Tool {
                 }
 
                 // 2) Attach the map dumping and saving logic to the future of the mapping action
-                mappingFuture.thenConsume { f ->
+                mappingFuture.thenConsume { _ ->
                     // This block executes AFTER the mapping action has terminated (either normally or via cancellation)
                     try {
                         Log.i(TAG, "Mapping action has terminated. Proceeding to dump and save the map.")

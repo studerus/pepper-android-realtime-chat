@@ -158,6 +158,7 @@ class YouTubePlayerDialog(
 
         // Disable problematic features for embedded systems
         webSettings.setGeolocationEnabled(false)
+        @Suppress("DEPRECATION")
         webSettings.databaseEnabled = false
 
         // Accept cookies (and third-party cookies) for YouTube playback

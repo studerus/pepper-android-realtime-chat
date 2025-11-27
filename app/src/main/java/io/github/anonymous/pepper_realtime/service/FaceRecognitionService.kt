@@ -274,7 +274,7 @@ class FaceRecognitionService @Inject constructor() {
                     }
 
                     val responseBody = body.string()
-                    val arr = JSONArray(responseBody as String)
+                    val arr = JSONArray(responseBody)
                     val results = mutableListOf<FaceInfo>()
 
                     for (i in 0 until arr.length()) {

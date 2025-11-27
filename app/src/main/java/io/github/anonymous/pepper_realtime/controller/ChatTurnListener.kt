@@ -25,9 +25,7 @@ class ChatTurnListener @Inject constructor(
             // Check robot readiness
             val qiContext = robotFocusManager.qiContext
 
-            if (robotFocusManager.robotController != null
-                && robotFocusManager.robotController!!.isRobotHardwareAvailable() && qiContext == null
-            ) {
+            if (robotFocusManager.robotController.isRobotHardwareAvailable() && qiContext == null) {
                 Log.w(TAG, "Pepper robot focus lost, aborting onEnterListening to prevent crashes")
                 return
             }

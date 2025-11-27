@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package io.github.anonymous.pepper_realtime.service
 
 import android.Manifest

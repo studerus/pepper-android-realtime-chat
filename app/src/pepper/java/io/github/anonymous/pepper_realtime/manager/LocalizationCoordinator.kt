@@ -44,7 +44,7 @@ internal class LocalizationCoordinator(
     fun reset() {
         try {
             val future = stopCurrentLocalization()
-            if (future != null && !future.isDone) {
+            if (!future.isDone) {
                 try {
                     future.requestCancellation()
                 } catch (ignored: Exception) {
