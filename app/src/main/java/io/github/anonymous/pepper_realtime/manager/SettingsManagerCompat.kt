@@ -1,69 +1,29 @@
 package io.github.anonymous.pepper_realtime.manager
 
-import android.view.View
 import io.github.anonymous.pepper_realtime.network.RealtimeApiProvider
-import io.github.anonymous.pepper_realtime.ui.ChatActivity
-import io.github.anonymous.pepper_realtime.ui.settings.AzureSettingsUiController
-import io.github.anonymous.pepper_realtime.ui.settings.GeneralSettingsUiController
 import io.github.anonymous.pepper_realtime.ui.settings.LanguageOption
-import io.github.anonymous.pepper_realtime.ui.settings.RealtimeSettingsUiController
 import io.github.anonymous.pepper_realtime.ui.settings.SettingsViewModel
-import io.github.anonymous.pepper_realtime.ui.settings.ToolsSettingsUiController
 
-@Suppress("SpellCheckingInspection")
-class SettingsManager(
-    activity: ChatActivity,
-    settingsView: View,
+/**
+ * Compatibility wrapper for SettingsManager that delegates to SettingsViewModel.
+ * Used during the transition from XML-based settings to Compose.
+ */
+class SettingsManagerCompat(
     private val viewModel: SettingsViewModel
 ) {
-    private val generalSettings = GeneralSettingsUiController(activity, settingsView, viewModel)
-    private val realtimeSettings = RealtimeSettingsUiController(activity, settingsView, viewModel)
-    private val azureSettings = AzureSettingsUiController(activity, settingsView, viewModel)
-    private val toolsSettings = ToolsSettingsUiController(activity, settingsView, viewModel)
-
-    init {
-        // Register callback to update visibility when audio input mode changes
-        generalSettings.setVisibilityUpdateCallback { updateVisibility() }
-
-        // Initial visibility setup
-        updateVisibility()
-    }
-
     fun onDrawerClosed() {
-        // Apply changes from all controllers
-        generalSettings.applyChanges()
-        realtimeSettings.applyChanges()
-        azureSettings.applyChanges()
-        toolsSettings.applyChanges()
-
-        // Update visibility based on new settings
-        updateVisibility()
-
-        // Note: The ViewModel events will trigger the actual logic in ChatActivity.
-        // The listener here is kept if we want to manually trigger things,
-        // but ideally ChatActivity should observe the ViewModel.
-        // However, to maintain backward compatibility during refactoring,
-        // we might want to trigger listener methods if we can detect changes here,
-        // OR we rely on ChatActivity observing ViewModel.
-        // Given the plan, we should rely on ViewModel events.
-        // But ChatActivity still expects this listener to be called for some things?
-        // Let's assume ChatActivity will be updated to observe ViewModel events.
+        // Settings are now applied via Compose's DisposableEffect
+        // No action needed here
     }
 
-    private fun updateVisibility() {
-        val isRealtime = generalSettings.isRealtimeAudioModeSelected
-        realtimeSettings.setVisibility(isRealtime)
-        azureSettings.setVisibility(!isRealtime)
-    }
-
-    // Getter methods that delegate to ViewModel for backward compatibility
     fun getApiProvider(): RealtimeApiProvider {
         return RealtimeApiProvider.fromString(viewModel.getApiProvider())
     }
 
     fun getVolume(): Int = viewModel.getVolume()
 
-    fun isUsingRealtimeAudioInput(): Boolean = generalSettings.isRealtimeAudioModeSelected
+    fun isUsingRealtimeAudioInput(): Boolean = 
+        viewModel.getAudioInputMode() == SettingsRepository.MODE_REALTIME_API
 
     fun getModel(): String = viewModel.getModel()
 
@@ -71,7 +31,6 @@ class SettingsManager(
         const val MODE_REALTIME_API = "realtime_api"
         const val MODE_AZURE_SPEECH = "azure_speech"
 
-        // Legacy helper for languages
         fun getAvailableLanguages(): List<LanguageOption> {
             return listOf(
                 // German variants
@@ -113,5 +72,4 @@ class SettingsManager(
         }
     }
 }
-
 

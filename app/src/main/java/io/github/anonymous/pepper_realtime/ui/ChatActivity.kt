@@ -19,9 +19,9 @@ import androidx.drawerlayout.widget.DrawerLayout
 import androidx.lifecycle.ViewModelProvider
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.floatingactionbutton.FloatingActionButton
-import com.google.android.material.navigation.NavigationView
 import dagger.hilt.android.AndroidEntryPoint
 import io.github.anonymous.pepper_realtime.ui.compose.ChatScreen
+import io.github.anonymous.pepper_realtime.ui.compose.settings.SettingsScreen
 import io.github.anonymous.pepper_realtime.R
 import io.github.anonymous.pepper_realtime.controller.*
 import io.github.anonymous.pepper_realtime.data.LocationProvider
@@ -85,7 +85,7 @@ class ChatActivity : AppCompatActivity(), ToolHost {
 
     // Controllers & Managers (Initialized in onCreate)
     private var mapUiManager: MapUiManager? = null
-    var settingsManager: SettingsManager? = null
+    var settingsManager: SettingsManagerCompat? = null
         private set
     var dashboardManager: DashboardManager? = null
         private set
@@ -240,9 +240,18 @@ class ChatActivity : AppCompatActivity(), ToolHost {
             )
         }
 
-        // Settings Manager
-        val navigationView: NavigationView = findViewById(R.id.navigation_view)
-        this.settingsManager = SettingsManager(this, navigationView, settingsViewModel)
+        // Settings Compose View
+        val settingsComposeView: ComposeView = findViewById(R.id.settingsComposeView)
+        settingsComposeView.setContent {
+            SettingsScreen(
+                viewModel = settingsViewModel,
+                apiKeyManager = keyManager,
+                onSettingsChanged = { /* Settings are applied via ViewModel events */ }
+            )
+        }
+        
+        // Initialize SettingsManager for backward compatibility (will be removed later)
+        this.settingsManager = SettingsManagerCompat(settingsViewModel)
 
         // Dashboard Manager
         val dashboardOverlay: View? = findViewById(R.id.dashboard_overlay)

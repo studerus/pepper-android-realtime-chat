@@ -9,14 +9,14 @@ import androidx.core.view.GravityCompat
 import androidx.drawerlayout.widget.DrawerLayout
 import io.github.anonymous.pepper_realtime.R
 import io.github.anonymous.pepper_realtime.manager.DashboardManager
-import io.github.anonymous.pepper_realtime.manager.SettingsManager
+import io.github.anonymous.pepper_realtime.manager.SettingsManagerCompat
 
 class ChatMenuController(
     private val activity: ChatActivity,
     private val drawerLayout: DrawerLayout,
     private val mapUiManager: MapUiManager,
     private val dashboardManager: DashboardManager?,
-    private val settingsManager: SettingsManager?
+    private val settingsManager: SettingsManagerCompat?
 ) {
 
     fun interface Listener {

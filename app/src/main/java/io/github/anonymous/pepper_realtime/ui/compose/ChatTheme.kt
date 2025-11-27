@@ -27,9 +27,9 @@ object ChatColors {
     val FunctionCallCode = Color(0xFF1F2937)
     val CodeBackground = Color(0xFFF8FAFC)
     
-    // Primary theme colors
-    val Primary = Color(0xFF6200EE)
-    val PrimaryVariant = Color(0xFF3700B3)
+    // Primary theme colors - Professional Blue
+    val Primary = Color(0xFF1E40AF)
+    val PrimaryVariant = Color(0xFF1E3A8A)
 }
 
 private val LightColorScheme = lightColorScheme(

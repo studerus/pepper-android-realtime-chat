@@ -18,7 +18,7 @@
             android:id="@+id/topAppBar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            android:background="@color/purple_500"
+            android:background="?attr/colorPrimary"
             android:theme="@style/ThemeOverlay.MaterialComponents.Dark.ActionBar" />
             
         <!-- Hidden status TextViews for internal state tracking -->
@@ -165,21 +165,13 @@
     </RelativeLayout>
 
     <!-- Settings Drawer -->
-    <com.google.android.material.navigation.NavigationView
-        android:id="@+id/navigation_view"
-        android:layout_width="320dp"
+    <androidx.compose.ui.platform.ComposeView
+        android:id="@+id/settingsComposeView"
+        android:layout_width="360dp"
         android:layout_height="match_parent"
         android:layout_gravity="end"
-        app:headerLayout="@layout/settings_header" >
-
-        <ScrollView
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_marginTop="?attr/actionBarSize">
-            <include layout="@layout/view_settings" />
-        </ScrollView>
-
-    </com.google.android.material.navigation.NavigationView>
+        android:background="@android:color/white"
+        tools:ignore="MissingClass" />
 
 </androidx.drawerlayout.widget.DrawerLayout>
 

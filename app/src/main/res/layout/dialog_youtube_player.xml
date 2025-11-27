@@ -50,7 +50,7 @@
             android:layout_marginStart="16dp"
             android:text="@string/youtube_close"
             android:textColor="@android:color/white"
-            android:backgroundTint="@color/purple_500"
+            android:backgroundTint="@color/professional_blue"
             android:textSize="14sp"
             android:minWidth="100dp" />
 

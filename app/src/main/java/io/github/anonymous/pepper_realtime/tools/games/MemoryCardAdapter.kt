@@ -54,7 +54,7 @@ class MemoryCardAdapter(
             } else {
                 // Face down card
                 cardText.text = itemView.context.getString(R.string.memory_card_face_down)
-                cardView.setCardBackgroundColor(ContextCompat.getColor(itemView.context, R.color.purple_500))
+                cardView.setCardBackgroundColor(ContextCompat.getColor(itemView.context, R.color.professional_blue))
                 cardText.setTextColor(ContextCompat.getColor(itemView.context, android.R.color.white))
             }
 
