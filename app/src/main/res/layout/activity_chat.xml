@@ -36,13 +36,12 @@
             android:text="@string/localization_waiting"
             android:visibility="gone" />
 
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/chatRecyclerView"
+        <androidx.compose.ui.platform.ComposeView
+            android:id="@+id/chatComposeView"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:layout_below="@id/topAppBar"
-            android:layout_above="@+id/statusTextView"
-            android:padding="8dp" />
+            android:layout_above="@+id/statusTextView" />
 
         <TextView
             android:id="@+id/statusTextView"

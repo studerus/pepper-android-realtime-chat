@@ -114,7 +114,7 @@ A multimodal AI system for the Pepper robot powered by OpenAI's Realtime API. It
   - **Azure Speech Services STT** - Streaming transcription with superior dialect recognition and confidence scores (warns AI when transcription quality is low)
 - **Synchronized Gestures** - Automatic body language during speech output for natural communication
 - **Expressive Animations** - Rich library of robot animations triggered by voice commands (wave, bow, applause, kisses, laugh, etc.)
-- **Modern Tablet UI** - Clean chat interface with interactive function cards, real-time overlays, and adaptive toolbar
+- **Modern Tablet UI** - Clean Jetpack Compose chat interface with interactive function cards, real-time overlays, and adaptive toolbar
 - **Gaze Control** - Precise 3D head/eye positioning with duration control and automatic return
 - **Vision Analysis** - Camera-based image understanding and analysis with intelligent obstacle detection
 - **Touch Interaction** - Responds to touches on head, hands, and bumpers with contextual AI reactions
@@ -167,6 +167,7 @@ The entire application is written in **Kotlin**, leveraging modern language feat
 - **Data Classes** - Concise model definitions with automatic equals/hashCode/toString
 - **Extension Functions** - Clean API extensions without inheritance
 - **Hilt Dependency Injection** - Type-safe DI with KSP annotation processing
+- **Jetpack Compose** - Modern declarative UI for the chat interface with LazyColumn, Material 3, and Coil image loading
 
 **Note on API 23 (Android 6.0) Compatibility:**
 Pepper v1.8 runs Android 6.0 (API Level 23). This limits some third-party libraries to older versions, as many newer releases require Android 8.0+ (API 26+) for features like `java.util.Base64` and `MethodHandle`. Despite this constraint, the project uses the latest compatible versions of all dependencies and modern development tools (Gradle 8.13, Kotlin 2.0, Android Studio latest).
@@ -695,6 +696,8 @@ Certain events automatically interrupt ongoing responses to provide immediate fe
 
 <a id="advanced-chat"></a>
 ## 💬 Advanced Chat Interface
+
+The chat interface is built with **Jetpack Compose**, providing a modern declarative UI with smooth animations and efficient list rendering via `LazyColumn`.
 
 ### Function Call Transparency
 The chat interface provides **complete transparency** into AI function calling with professional expandable UI elements.
@@ -1323,11 +1326,15 @@ app/src/
 │   │   ├── ChatActivity.kt              # Main UI entry point
 │   │   ├── ChatMenuController.kt        # Menu handling
 │   │   ├── ChatMessage.kt               # Message data class
-│   │   ├── ChatMessageAdapter.kt        # RecyclerView adapter
-│   │   ├── ChatUiHelper.kt              # UI update helpers
 │   │   ├── ChatViewModel.kt             # MVVM ViewModel (State & Logic)
 │   │   ├── MapUiManager.kt              # Map UI management
-│   │   └── YouTubePlayerDialog.kt       # YouTube player UI
+│   │   ├── YouTubePlayerDialog.kt       # YouTube player UI
+│   │   └── compose/                     # Jetpack Compose UI
+│   │       ├── ChatScreen.kt            # Main chat LazyColumn
+│   │       ├── MessageBubble.kt         # User/Robot message bubbles
+│   │       ├── FunctionCallCard.kt      # Expandable function call cards
+│   │       ├── ChatImage.kt             # Image messages with Coil
+│   │       └── ChatTheme.kt             # Material 3 theme & colors
 │   └── tools/                           # Tool implementations (shared logic)
 │       ├── Tool.kt                      # Tool interface
 │       ├── BaseTool.kt                  # Base class for tools

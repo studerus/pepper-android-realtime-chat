@@ -3,23 +3,25 @@ package io.github.anonymous.pepper_realtime.ui
 import android.app.Activity
 import android.content.Context
 import android.content.res.Configuration
+import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.ui.platform.ComposeView
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.lifecycle.ViewModelProvider
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.navigation.NavigationView
 import dagger.hilt.android.AndroidEntryPoint
+import io.github.anonymous.pepper_realtime.ui.compose.ChatScreen
 import io.github.anonymous.pepper_realtime.R
 import io.github.anonymous.pepper_realtime.controller.*
 import io.github.anonymous.pepper_realtime.data.LocationProvider
@@ -83,7 +85,6 @@ class ChatActivity : AppCompatActivity(), ToolHost {
 
     // Controllers & Managers (Initialized in onCreate)
     private var mapUiManager: MapUiManager? = null
-    private var chatAdapter: ChatMessageAdapter? = null
     var settingsManager: SettingsManager? = null
         private set
     var dashboardManager: DashboardManager? = null
@@ -157,13 +158,7 @@ class ChatActivity : AppCompatActivity(), ToolHost {
             fabInterrupt?.visibility = if (isVisible) View.VISIBLE else View.GONE
         }
 
-        viewModel.messageList.observe(this) { messages ->
-            chatAdapter?.setMessages(messages)
-            if (messages.isNotEmpty()) {
-                val chatRecyclerView: RecyclerView? = findViewById(R.id.chatRecyclerView)
-                chatRecyclerView?.scrollToPosition(messages.size - 1)
-            }
-        }
+        // Note: messageList observation is handled by Compose's observeAsState
 
         viewModel.mapStatus.observe(this) { status ->
             mapUiManager?.updateMapStatus(status)
@@ -236,12 +231,14 @@ class ChatActivity : AppCompatActivity(), ToolHost {
             mapPreviewContainer, mapPreviewView, drawerLayout, topAppBar
         )
 
-        // Chat Adapter
-        this.chatAdapter = ChatMessageAdapter(viewModel.messageList.value ?: emptyList())
-        val chatRecyclerView: RecyclerView = findViewById(R.id.chatRecyclerView)
-        val layoutManager = LinearLayoutManager(this)
-        chatRecyclerView.layoutManager = layoutManager
-        chatRecyclerView.adapter = chatAdapter
+        // Chat Compose View
+        val chatComposeView: ComposeView = findViewById(R.id.chatComposeView)
+        chatComposeView.setContent {
+            ChatScreen(
+                messagesLiveData = viewModel.messageList,
+                onImageClick = { imagePath -> showImageOverlay(imagePath) }
+            )
+        }
 
         // Settings Manager
         val navigationView: NavigationView = findViewById(R.id.navigation_view)
@@ -469,4 +466,47 @@ class ChatActivity : AppCompatActivity(), ToolHost {
     override fun getAppContext(): Context = applicationContext
 
     override fun getActivity(): Activity = this
+
+    /**
+     * Shows the image overlay with the given image path.
+     * Called from Compose when an image is clicked.
+     */
+    private fun showImageOverlay(imagePath: String) {
+        val imageOverlay = findViewById<View>(R.id.image_overlay)
+        val overlayImage = imageOverlay?.findViewById<ImageView>(R.id.overlay_image)
+
+        if (imageOverlay != null && overlayImage != null) {
+            // Load image with sampling to avoid OOM
+            val options = BitmapFactory.Options().apply {
+                inJustDecodeBounds = true
+            }
+            BitmapFactory.decodeFile(imagePath, options)
+            options.inSampleSize = calculateInSampleSize(options, 2048, 2048)
+            options.inJustDecodeBounds = false
+            val bitmap = BitmapFactory.decodeFile(imagePath, options)
+            overlayImage.setImageBitmap(bitmap)
+
+            imageOverlay.visibility = View.VISIBLE
+            imageOverlay.setOnClickListener { hideImageOverlay() }
+        }
+    }
+
+    private fun hideImageOverlay() {
+        val imageOverlay = findViewById<View>(R.id.image_overlay)
+        imageOverlay?.visibility = View.GONE
+    }
+
+    private fun calculateInSampleSize(options: BitmapFactory.Options, reqWidth: Int, reqHeight: Int): Int {
+        val height = options.outHeight
+        val width = options.outWidth
+        var inSampleSize = 1
+        if (height > reqHeight || width > reqWidth) {
+            val halfHeight = height / 2
+            val halfWidth = width / 2
+            while ((halfHeight / inSampleSize) >= reqHeight && (halfWidth / inSampleSize) >= reqWidth) {
+                inSampleSize *= 2
+            }
+        }
+        return inSampleSize
+    }
 }
