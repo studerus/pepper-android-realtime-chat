@@ -41,7 +41,8 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:layout_below="@id/topAppBar"
-            android:layout_above="@+id/statusTextView" />
+            android:layout_above="@+id/statusTextView"
+            tools:ignore="MissingClass" />
 
         <TextView
             android:id="@+id/statusTextView"
