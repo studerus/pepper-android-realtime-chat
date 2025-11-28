@@ -1295,6 +1295,7 @@ app/src/
 │   │   ├── ApiKeyManager.kt             # API key management
 │   │   ├── AudioPlayer.kt               # Audio playback engine
 │   │   ├── DashboardManager.kt          # Perception dashboard overlay
+│   │   ├── MapUiManager.kt              # Map UI state management
 │   │   ├── PermissionManager.kt         # Android permission handling
 │   │   ├── QuizDialogManager.kt         # Quiz UI management
 │   │   ├── RealtimeAudioInputManager.kt # Audio input for Realtime API
@@ -1324,17 +1325,23 @@ app/src/
 │   │   └── SavedLocation.kt             # Location data class
 │   ├── ui/                              # UI Components and Helpers
 │   │   ├── ChatActivity.kt              # Main UI entry point
-│   │   ├── ChatMenuController.kt        # Menu handling
 │   │   ├── ChatMessage.kt               # Message data class
 │   │   ├── ChatViewModel.kt             # MVVM ViewModel (State & Logic)
-│   │   ├── MapUiManager.kt              # Map UI management
 │   │   ├── YouTubePlayerDialog.kt       # YouTube player UI
 │   │   └── compose/                     # Jetpack Compose UI
+│   │       ├── MainScreen.kt            # Main app scaffold & navigation
 │   │       ├── ChatScreen.kt            # Main chat LazyColumn
 │   │       ├── MessageBubble.kt         # User/Robot message bubbles
 │   │       ├── FunctionCallCard.kt      # Expandable function call cards
 │   │       ├── ChatImage.kt             # Image messages with Coil
-│   │       └── ChatTheme.kt             # Material 3 theme & colors
+│   │       ├── DashboardOverlay.kt      # Perception dashboard
+│   │       ├── NavigationOverlay.kt     # Map & navigation overlay
+│   │       ├── games/                   # Game UI components
+│   │       │   ├── TicTacToeDialog.kt
+│   │       │   ├── QuizDialog.kt
+│   │       │   └── MemoryGameDialog.kt
+│   │       └── settings/                # Settings UI
+│   │           └── SettingsScreen.kt
 │   └── tools/                           # Tool implementations (shared logic)
 │       ├── Tool.kt                      # Tool interface
 │       ├── BaseTool.kt                  # Base class for tools
