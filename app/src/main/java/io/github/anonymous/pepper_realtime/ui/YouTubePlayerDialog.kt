@@ -115,7 +115,7 @@ class YouTubePlayerDialog(
         titleLayout.addView(channelTitle)
 
         val closeButton = Button(context).apply {
-            text = "Schliessen"
+            text = "Close"
             setTextColor(Color.WHITE)
             setBackgroundColor(Color.RED)
             setOnClickListener { closePlayer() }

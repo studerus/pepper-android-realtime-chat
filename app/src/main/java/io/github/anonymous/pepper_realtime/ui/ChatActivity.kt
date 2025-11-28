@@ -22,6 +22,7 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton
 import dagger.hilt.android.AndroidEntryPoint
 import io.github.anonymous.pepper_realtime.ui.compose.ChatScreen
 import io.github.anonymous.pepper_realtime.ui.compose.DashboardOverlay
+import io.github.anonymous.pepper_realtime.ui.compose.NavigationOverlay
 import io.github.anonymous.pepper_realtime.ui.compose.games.MemoryGameDialog
 import io.github.anonymous.pepper_realtime.ui.compose.games.QuizDialog
 import io.github.anonymous.pepper_realtime.ui.compose.games.TicTacToeDialog
@@ -31,6 +32,7 @@ import io.github.anonymous.pepper_realtime.tools.games.TicTacToeGameManager
 import io.github.anonymous.pepper_realtime.R
 import io.github.anonymous.pepper_realtime.controller.*
 import io.github.anonymous.pepper_realtime.data.LocationProvider
+import io.github.anonymous.pepper_realtime.data.MapGraphInfo
 import io.github.anonymous.pepper_realtime.manager.*
 import io.github.anonymous.pepper_realtime.network.RealtimeEventHandler
 import io.github.anonymous.pepper_realtime.network.RealtimeSessionManager
@@ -90,7 +92,6 @@ class ChatActivity : AppCompatActivity(), ToolHost {
     @Inject internal lateinit var lifecycleController: ChatLifecycleController
 
     // Controllers & Managers (Initialized in onCreate)
-    private var mapUiManager: MapUiManager? = null
     var settingsManager: SettingsManagerCompat? = null
         private set
     var toolContext: ToolContext? = null
@@ -165,11 +166,11 @@ class ChatActivity : AppCompatActivity(), ToolHost {
         // Note: messageList observation is handled by Compose's observeAsState
 
         viewModel.mapStatus.observe(this) { status ->
-            mapUiManager?.updateMapStatus(status)
+            MapUiManager.updateMapStatus(status)
         }
 
         viewModel.localizationStatus.observe(this) { status ->
-            mapUiManager?.updateLocalizationStatus(status)
+            MapUiManager.updateLocalizationStatus(status)
         }
 
         // Observe SettingsViewModel events
@@ -222,18 +223,8 @@ class ChatActivity : AppCompatActivity(), ToolHost {
     private fun initializeControllers() {
         Log.i(TAG, "Initializing Controllers...")
 
-        // Map UI Manager
-        val mapStatusTextView: TextView = findViewById(R.id.mapStatusTextView)
-        val localizationStatusTextView: TextView = findViewById(R.id.localizationStatusTextView)
-        val mapPreviewContainer: FrameLayout = findViewById(R.id.map_preview_container)
-        val mapPreviewView: MapPreviewView = findViewById(R.id.map_preview_view)
-        val drawerLayout: DrawerLayout = findViewById(R.id.drawer_layout)
-        val topAppBar: MaterialToolbar = findViewById(R.id.topAppBar)
-
-        this.mapUiManager = MapUiManager(
-            this, mapStatusTextView, localizationStatusTextView,
-            mapPreviewContainer, mapPreviewView, drawerLayout, topAppBar
-        )
+        // Map UI Manager (Now handled by Singleton and Compose)
+        // XML views removed
 
         // Chat Compose View
         val chatComposeView: ComposeView = findViewById(R.id.chatComposeView)
@@ -293,6 +284,13 @@ class ChatActivity : AppCompatActivity(), ToolHost {
                 state = dashboardState,
                 onClose = { DashboardManager.hideDashboard() }
             )
+
+            // Navigation Overlay (Combined Map & Status)
+            val navigationState = MapUiManager.state
+            NavigationOverlay(
+                state = navigationState,
+                onClose = { MapUiManager.hide() }
+            )
         }
 
         // Settings Compose View
@@ -312,8 +310,9 @@ class ChatActivity : AppCompatActivity(), ToolHost {
         DashboardManager.initialize(_perceptionService)
 
         // Chat Menu Controller
+        val drawerLayout: DrawerLayout = findViewById(R.id.drawer_layout)
         val chatMenuController = ChatMenuController(
-            this, drawerLayout, mapUiManager!!,
+            this, drawerLayout,
             settingsManager!!
         )
         chatMenuController.setupSettingsMenu()
@@ -479,7 +478,31 @@ class ChatActivity : AppCompatActivity(), ToolHost {
     }
 
     override fun updateMapPreview() {
-        mapUiManager?.updateMapPreview(_navigationServiceManager, _locationProvider)
+        val navManager = _navigationServiceManager
+        val locProvider = _locationProvider
+
+        val mapState = when {
+            !navManager.isMapSavedOnDisk(this) -> MapState.NO_MAP
+            !navManager.isMapLoaded() -> MapState.MAP_LOADED_NOT_LOCALIZED
+            !navManager.isLocalizationReady() -> {
+                val locStatus = viewModel.localizationStatus.value ?: ""
+                if (locStatus.contains("Failed")) {
+                    MapState.LOCALIZATION_FAILED
+                } else {
+                    MapState.LOCALIZING
+                }
+            }
+            else -> MapState.LOCALIZED
+        }
+
+        val mapGfx = navManager.getMapGraphInfo()
+
+        MapUiManager.updateMapData(
+            mapState,
+            navManager.getMapBitmap(),
+            mapGfx,
+            locProvider.getSavedLocations()
+        )
     }
 
     // Additional getters for ToolHost interface and specific uses

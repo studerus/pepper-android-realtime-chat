@@ -348,6 +348,19 @@ class NavigationServiceManager(private val movementController: MovementControlle
     fun getMapTopGraphicalRepresentation(): MapTopGraphicalRepresentation? = mapCache.getMapTopGraphicalRepresentation()
 
     /**
+     * Get platform-independent map graph info.
+     */
+    fun getMapGraphInfo(): io.github.anonymous.pepper_realtime.data.MapGraphInfo? {
+        val gfx = getMapTopGraphicalRepresentation() ?: return null
+        return io.github.anonymous.pepper_realtime.data.MapGraphInfo(
+            x = gfx.x.toFloat(),
+            y = gfx.y.toFloat(),
+            theta = gfx.theta.toFloat(),
+            scale = gfx.scale.toFloat()
+        )
+    }
+
+    /**
      * Directly caches a new ExplorationMap and its graphical representation.
      */
     fun cacheNewMap(newMap: ExplorationMap?, onCached: Runnable? = null) {

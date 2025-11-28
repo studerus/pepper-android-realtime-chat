@@ -9,12 +9,12 @@ import androidx.core.view.GravityCompat
 import androidx.drawerlayout.widget.DrawerLayout
 import io.github.anonymous.pepper_realtime.R
 import io.github.anonymous.pepper_realtime.manager.DashboardManager
+import io.github.anonymous.pepper_realtime.manager.MapUiManager
 import io.github.anonymous.pepper_realtime.manager.SettingsManagerCompat
 
 class ChatMenuController(
     private val activity: ChatActivity,
     private val drawerLayout: DrawerLayout,
-    private val mapUiManager: MapUiManager,
     private val settingsManager: SettingsManagerCompat?
 ) {
 
@@ -69,8 +69,7 @@ class ChatMenuController(
     fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             R.id.action_navigation_status -> {
-                mapUiManager.togglePreviewVisibility()
-                mapUiManager.showNavigationStatusPopup()
+                MapUiManager.toggle()
                 true
             }
             R.id.action_new_chat -> {
@@ -89,4 +88,3 @@ class ChatMenuController(
         }
     }
 }
-

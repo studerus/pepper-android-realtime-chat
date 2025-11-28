@@ -87,6 +87,11 @@ class NavigationServiceManager(@Suppress("UNUSED_PARAMETER") movementController:
     fun getMapTopGraphicalRepresentation(): Any? = null
 
     /**
+     * Gets platform-independent map graph info (returns null in standalone)
+     */
+    fun getMapGraphInfo(): io.github.anonymous.pepper_realtime.data.MapGraphInfo? = null
+
+    /**
      * Checks if gestures are suppressed
      */
     fun areGesturesSuppressed(): Boolean = false
