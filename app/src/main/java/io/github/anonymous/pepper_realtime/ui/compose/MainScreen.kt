@@ -56,6 +56,7 @@ fun MainScreen(
     val statusText by viewModel.statusText.collectAsStateWithLifecycle()
     val isMuted by viewModel.isMuted.collectAsStateWithLifecycle()
     val messages by viewModel.messageList.collectAsStateWithLifecycle()
+    val isWarmingUp by viewModel.isWarmingUp.collectAsStateWithLifecycle()
     
     // Local State for Image Overlay
     var overlayImageUrl by remember { mutableStateOf<String?>(null) }
@@ -225,8 +226,8 @@ fun MainScreen(
                     }
                 }
                 
-                // 5. Warmup Indicator (Simple overlay if needed, based on status text)
-                if (statusText.contains("Please wait", ignoreCase = true) || statusText.contains("Initializing", ignoreCase = true)) {
+                // 5. Warmup Indicator (shown when isWarmingUp is true)
+                if (isWarmingUp) {
                      Box(
                         modifier = Modifier
                             .fillMaxSize()

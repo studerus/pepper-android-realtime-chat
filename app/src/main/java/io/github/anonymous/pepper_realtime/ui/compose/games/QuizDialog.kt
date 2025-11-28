@@ -1,8 +1,11 @@
 package io.github.anonymous.pepper_realtime.ui.compose.games
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -73,7 +76,8 @@ fun QuizDialog(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(24.dp),
+                    .padding(24.dp)
+                    .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
@@ -83,6 +87,7 @@ fun QuizDialog(
                     fontSize = 34.sp,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,
+                    lineHeight = 42.sp,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(bottom = 24.dp)
@@ -204,14 +209,13 @@ private fun QuizOptionButton(
             disabledContainerColor = backgroundColor,
             disabledContentColor = textColor
         ),
-        border = ButtonDefaults.outlinedButtonBorder.copy(
-            brush = androidx.compose.ui.graphics.SolidColor(QuizColors.Stroke)
-        )
+        border = BorderStroke(1.dp, QuizColors.Stroke)
     ) {
         Text(
             text = text,
             fontSize = 28.sp,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            lineHeight = 34.sp
         )
     }
 }

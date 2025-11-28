@@ -186,22 +186,18 @@ class ChatRealtimeHandler(
                     viewModel.isExpectingFinalAnswerAfterToolCall = true
                     
                     applicationScope.launch(ioDispatcher) {
-                        var toolResult: String?
-                        try {
-                            toolResult = toolRegistry.executeTool(toolName.orEmpty(), args, toolContext!!)
+                        val toolResult: String = try {
+                            toolRegistry.executeTool(toolName.orEmpty(), args, toolContext!!)
+                                ?: "{\"error\":\"Tool returned no result.\"}"
                         } catch (toolEx: Exception) {
                             Log.e(TAG, "Tool execution crashed for $toolName", toolEx)
-                            toolResult = try {
+                            try {
                                 JSONObject()
                                     .put("error", "Tool execution failed: ${toolEx.message ?: "Unknown error"}")
                                     .toString()
                             } catch (_: Exception) {
                                 "{\"error\":\"Tool execution failed.\"}"
                             }
-                        }
-
-                        if (toolResult == null) {
-                            toolResult = "{\"error\":\"Tool returned no result.\"}"
                         }
 
                         val fResult = toolResult

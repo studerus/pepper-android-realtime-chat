@@ -93,6 +93,7 @@ class ChatRobotLifecycleHandler(
                 val isRealtimeMode = activity.settingsManager?.isUsingRealtimeAudioInput() ?: true
                 if (!isRealtimeMode) {
                     viewModel.setWarmingUp(true)
+                    viewModel.setStatusText(activity.getString(R.string.status_warming_up))
                 } else {
                     viewModel.setStatusText(activity.getString(R.string.status_reconnecting))
                 }
