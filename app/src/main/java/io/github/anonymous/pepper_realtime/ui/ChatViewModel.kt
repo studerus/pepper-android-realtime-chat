@@ -3,13 +3,27 @@ package io.github.anonymous.pepper_realtime.ui
 import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.anonymous.pepper_realtime.controller.ChatSessionController
 import io.github.anonymous.pepper_realtime.network.WebSocketConnectionCallback
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import org.json.JSONObject
 import javax.inject.Inject
+
+/**
+ * Internal response state for tracking conversation flow.
+ * Replaces individual @Volatile variables with a single atomic state object.
+ */
+data class ResponseState(
+    val currentResponseId: String? = null,
+    val cancelledResponseId: String? = null,
+    val lastChatBubbleResponseId: String? = null,
+    val isExpectingFinalAnswerAfterToolCall: Boolean = false,
+    val lastAssistantItemId: String? = null
+)
 
 @HiltViewModel
 class ChatViewModel @Inject constructor(
@@ -20,100 +34,98 @@ class ChatViewModel @Inject constructor(
         private const val TAG = "ChatViewModel"
     }
 
-    // State LiveData
-    private val _isWarmingUp = MutableLiveData(false)
-    private val _isResponseGenerating = MutableLiveData(false)
-    private val _isAudioPlaying = MutableLiveData(false)
-    private val _statusText = MutableLiveData("")
-    private val _messageList = MutableLiveData<List<ChatMessage>>(ArrayList())
-    private val _isMuted = MutableLiveData(false)
-    private val _isInterruptFabVisible = MutableLiveData(false)
+    // State using StateFlow - thread-safe, no manual locking needed
+    private val _isWarmingUp = MutableStateFlow(false)
+    private val _isResponseGenerating = MutableStateFlow(false)
+    private val _isAudioPlaying = MutableStateFlow(false)
+    private val _statusText = MutableStateFlow("")
+    private val _messageList = MutableStateFlow<List<ChatMessage>>(emptyList())
+    private val _isMuted = MutableStateFlow(false)
+    private val _isInterruptFabVisible = MutableStateFlow(false)
 
     // Connection State
-    private val _isConnected = MutableLiveData(false)
+    private val _isConnected = MutableStateFlow(false)
 
     // Navigation State
-    private val _mapStatus = MutableLiveData("")
-    private val _localizationStatus = MutableLiveData("")
+    private val _mapStatus = MutableStateFlow("")
+    private val _localizationStatus = MutableStateFlow("")
 
-    // Synchronized backing field for message list to avoid postValue() race conditions
-    // postValue() is async and getValue() doesn't reflect the new value immediately
-    private val messageListLock = Any()
-    private var currentMessageList: MutableList<ChatMessage> = ArrayList()
+    // Internal Response State - atomic updates replace @Volatile variables
+    private val _responseState = MutableStateFlow(ResponseState())
 
-    // Internal State
-    @Volatile var currentResponseId: String? = null
-    @Volatile var cancelledResponseId: String? = null
-    @Volatile var lastChatBubbleResponseId: String? = null
-    @Volatile var isExpectingFinalAnswerAfterToolCall: Boolean = false
-    @Volatile var lastAssistantItemId: String? = null
+    // Public read-only StateFlows
+    val isWarmingUp: StateFlow<Boolean> = _isWarmingUp.asStateFlow()
+    val isResponseGenerating: StateFlow<Boolean> = _isResponseGenerating.asStateFlow()
+    val isAudioPlaying: StateFlow<Boolean> = _isAudioPlaying.asStateFlow()
+    val statusText: StateFlow<String> = _statusText.asStateFlow()
+    val messageList: StateFlow<List<ChatMessage>> = _messageList.asStateFlow()
+    val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
+    val isMuted: StateFlow<Boolean> = _isMuted.asStateFlow()
+    val isInterruptFabVisible: StateFlow<Boolean> = _isInterruptFabVisible.asStateFlow()
+    val mapStatus: StateFlow<String> = _mapStatus.asStateFlow()
+    val localizationStatus: StateFlow<String> = _localizationStatus.asStateFlow()
 
-    // Getters for LiveData (read-only) - @JvmName for Java interop
-    val isWarmingUp: LiveData<Boolean> get() = _isWarmingUp
+    // Response state accessors (for compatibility with existing code)
+    var currentResponseId: String?
+        get() = _responseState.value.currentResponseId
+        set(value) = _responseState.update { it.copy(currentResponseId = value) }
 
-    val isResponseGenerating: LiveData<Boolean> get() = _isResponseGenerating
+    var cancelledResponseId: String?
+        get() = _responseState.value.cancelledResponseId
+        set(value) = _responseState.update { it.copy(cancelledResponseId = value) }
 
-    val isAudioPlaying: LiveData<Boolean> get() = _isAudioPlaying
+    var lastChatBubbleResponseId: String?
+        get() = _responseState.value.lastChatBubbleResponseId
+        set(value) = _responseState.update { it.copy(lastChatBubbleResponseId = value) }
 
-    val statusText: LiveData<String> get() = _statusText
+    var isExpectingFinalAnswerAfterToolCall: Boolean
+        get() = _responseState.value.isExpectingFinalAnswerAfterToolCall
+        set(value) = _responseState.update { it.copy(isExpectingFinalAnswerAfterToolCall = value) }
 
-    val messageList: LiveData<List<ChatMessage>> get() = _messageList
+    var lastAssistantItemId: String?
+        get() = _responseState.value.lastAssistantItemId
+        set(value) = _responseState.update { it.copy(lastAssistantItemId = value) }
 
-    val isConnected: LiveData<Boolean> get() = _isConnected
-
-    val isMuted: LiveData<Boolean> get() = _isMuted
-
-    val isInterruptFabVisible: LiveData<Boolean> get() = _isInterruptFabVisible
-
-    val mapStatus: LiveData<String> get() = _mapStatus
-
-    val localizationStatus: LiveData<String> get() = _localizationStatus
-
-    // Setters
+    // Setters - StateFlow.value is thread-safe
     fun setWarmingUp(warmingUp: Boolean) {
-        _isWarmingUp.postValue(warmingUp)
+        _isWarmingUp.value = warmingUp
     }
 
     fun setResponseGenerating(generating: Boolean) {
-        _isResponseGenerating.postValue(generating)
+        _isResponseGenerating.value = generating
     }
 
     fun setAudioPlaying(playing: Boolean) {
-        _isAudioPlaying.postValue(playing)
+        _isAudioPlaying.value = playing
     }
 
     fun setStatusText(text: String) {
-        _statusText.postValue(text)
+        _statusText.value = text
     }
 
     fun setConnected(connected: Boolean) {
-        _isConnected.postValue(connected)
+        _isConnected.value = connected
     }
 
     fun setMuted(muted: Boolean) {
-        _isMuted.postValue(muted)
+        _isMuted.value = muted
     }
 
     fun setInterruptFabVisible(visible: Boolean) {
-        _isInterruptFabVisible.postValue(visible)
+        _isInterruptFabVisible.value = visible
     }
 
     fun setMapStatus(status: String) {
-        _mapStatus.postValue(status)
+        _mapStatus.value = status
     }
 
     fun setLocalizationStatus(status: String) {
-        _localizationStatus.postValue(status)
+        _localizationStatus.value = status
     }
 
-    // Message Management
+    // Message Management - using StateFlow.update for atomic operations
     fun addMessage(message: ChatMessage) {
-        synchronized(messageListLock) {
-            val newList = ArrayList(currentMessageList)
-            newList.add(message)
-            currentMessageList = newList
-            _messageList.postValue(newList)
-        }
+        _messageList.update { current -> current + message }
     }
 
     fun addImageMessage(imagePath: String) {
@@ -122,90 +134,78 @@ class ChatViewModel @Inject constructor(
     }
 
     fun appendToLastMessage(text: String) {
-        synchronized(messageListLock) {
-            if (currentMessageList.isNotEmpty()) {
-                val lastIndex = currentMessageList.size - 1
-                val lastMsg = currentMessageList[lastIndex]
+        _messageList.update { current ->
+            if (current.isEmpty()) return@update current
 
-                if (lastMsg.sender == ChatMessage.Sender.ROBOT &&
-                    lastMsg.type == ChatMessage.Type.REGULAR_MESSAGE
-                ) {
-                    val newList = ArrayList(currentMessageList)
-                    val updatedMsg = lastMsg.copyWithNewText(lastMsg.message + text)
-                    newList[lastIndex] = updatedMsg
-                    currentMessageList = newList
-                    _messageList.postValue(newList)
+            val lastIndex = current.size - 1
+            val lastMsg = current[lastIndex]
+
+            if (lastMsg.sender == ChatMessage.Sender.ROBOT &&
+                lastMsg.type == ChatMessage.Type.REGULAR_MESSAGE
+            ) {
+                current.toMutableList().apply {
+                    this[lastIndex] = lastMsg.copyWithNewText(lastMsg.message + text)
                 }
+            } else {
+                current
             }
         }
     }
 
     fun updateLastRobotMessage(newText: String) {
-        synchronized(messageListLock) {
-            if (currentMessageList.isNotEmpty()) {
-                val lastIndex = currentMessageList.size - 1
-                val lastMsg = currentMessageList[lastIndex]
+        _messageList.update { current ->
+            if (current.isEmpty()) return@update current
 
-                if (lastMsg.sender == ChatMessage.Sender.ROBOT &&
-                    lastMsg.type == ChatMessage.Type.REGULAR_MESSAGE
-                ) {
-                    val newList = ArrayList(currentMessageList)
-                    val updatedMsg = lastMsg.copyWithNewText(newText)
-                    newList[lastIndex] = updatedMsg
-                    currentMessageList = newList
-                    _messageList.postValue(newList)
+            val lastIndex = current.size - 1
+            val lastMsg = current[lastIndex]
+
+            if (lastMsg.sender == ChatMessage.Sender.ROBOT &&
+                lastMsg.type == ChatMessage.Type.REGULAR_MESSAGE
+            ) {
+                current.toMutableList().apply {
+                    this[lastIndex] = lastMsg.copyWithNewText(newText)
                 }
+            } else {
+                current
             }
         }
     }
 
     fun updateMessageByItemId(itemId: String?, newText: String): Boolean {
-        synchronized(messageListLock) {
-            var indexToUpdate = -1
-            var msgToUpdate: ChatMessage? = null
+        if (itemId == null) {
+            Log.w(TAG, "Cannot update message with null itemId")
+            return false
+        }
 
-            for (i in currentMessageList.indices) {
-                val msg = currentMessageList[i]
-                if (itemId != null && itemId == msg.itemId) {
-                    indexToUpdate = i
-                    msgToUpdate = msg
-                    break
+        var found = false
+        _messageList.update { current ->
+            val index = current.indexOfFirst { it.itemId == itemId }
+            if (index != -1) {
+                found = true
+                Log.d(TAG, "Updated message at index $index with itemId $itemId to text: $newText")
+                current.toMutableList().apply {
+                    this[index] = current[index].copyWithNewText(newText)
                 }
-            }
-
-            if (indexToUpdate != -1 && msgToUpdate != null) {
-                val newList = ArrayList(currentMessageList)
-                val updatedMsg = msgToUpdate.copyWithNewText(newText)
-                newList[indexToUpdate] = updatedMsg
-                currentMessageList = newList
-                _messageList.postValue(newList)
-                Log.d(TAG, "Updated message at index $indexToUpdate with itemId $itemId to text: $newText")
-                return true
             } else {
-                Log.w(TAG, "Could not find message with itemId: $itemId in list of ${currentMessageList.size} messages")
+                Log.w(TAG, "Could not find message with itemId: $itemId in list of ${current.size} messages")
+                current
             }
         }
-        return false
+        return found
     }
 
     fun clearMessages() {
-        synchronized(messageListLock) {
-            currentMessageList = ArrayList()
-            _messageList.postValue(currentMessageList)
-        }
+        _messageList.value = emptyList()
         // Clear cached item ID to prevent truncate errors on non-existent items
         lastAssistantItemId = null
     }
 
     /**
-     * Force a UI refresh by re-posting the current message list.
+     * Force a UI refresh by creating a new list instance.
      * Useful when UI updates were missed due to overlays (e.g., YouTube player).
      */
     fun refreshMessages() {
-        synchronized(messageListLock) {
-            // Re-post the current list to trigger UI update
-            _messageList.postValue(ArrayList(currentMessageList))
-        }
+        _messageList.update { current -> current.toList() }
     }
 
     // Transcript Management
@@ -221,17 +221,15 @@ class ChatViewModel @Inject constructor(
     fun handleUserTranscriptCompleted(itemId: String, transcript: String) {
         val placeholder = pendingUserTranscripts.remove(itemId)
         if (placeholder != null) {
-            synchronized(messageListLock) {
-                val newList = ArrayList(currentMessageList)
-                val index = newList.indexOf(placeholder)
+            _messageList.update { current ->
+                val index = current.indexOf(placeholder)
                 if (index != -1) {
-                    val updatedMsg = placeholder.copyWithNewText(transcript)
-                    newList[index] = updatedMsg
-                    currentMessageList = newList
-                    _messageList.postValue(newList)
+                    current.toMutableList().apply {
+                        this[index] = placeholder.copyWithNewText(transcript)
+                    }
                 } else {
                     // Fallback: just add if not found (shouldn't happen if logic is correct)
-                    addMessage(ChatMessage(transcript, ChatMessage.Sender.USER))
+                    current + ChatMessage(transcript, ChatMessage.Sender.USER)
                 }
             }
         } else {
@@ -244,41 +242,31 @@ class ChatViewModel @Inject constructor(
     fun handleUserTranscriptFailed(itemId: String, error: JSONObject?) {
         val placeholder = pendingUserTranscripts.remove(itemId)
         if (placeholder != null) {
-            synchronized(messageListLock) {
-                val newList = ArrayList(currentMessageList)
-                val index = newList.indexOf(placeholder)
+            _messageList.update { current ->
+                val index = current.indexOf(placeholder)
                 if (index != -1) {
-                    val updatedMsg = placeholder.copyWithNewText("🎤 [Transcription failed]")
-                    newList[index] = updatedMsg
-                    currentMessageList = newList
-                    _messageList.postValue(newList)
+                    current.toMutableList().apply {
+                        this[index] = placeholder.copyWithNewText("🎤 [Transcription failed]")
+                    }
+                } else {
+                    current
                 }
             }
         }
     }
 
     fun updateLatestFunctionCallResult(result: String) {
-        synchronized(messageListLock) {
-            var indexToUpdate = -1
-            var msgToUpdate: ChatMessage? = null
-
-            for (i in currentMessageList.indices.reversed()) {
-                val message = currentMessageList[i]
-                if (message.type == ChatMessage.Type.FUNCTION_CALL &&
-                    message.functionResult == null
-                ) {
-                    indexToUpdate = i
-                    msgToUpdate = message
-                    break
-                }
+        _messageList.update { current ->
+            val index = current.indexOfLast { message ->
+                message.type == ChatMessage.Type.FUNCTION_CALL && message.functionResult == null
             }
 
-            if (indexToUpdate != -1 && msgToUpdate != null) {
-                val newList = ArrayList(currentMessageList)
-                val updatedMsg = msgToUpdate.copyWithFunctionResult(result)
-                newList[indexToUpdate] = updatedMsg
-                currentMessageList = newList
-                _messageList.postValue(newList)
+            if (index != -1) {
+                current.toMutableList().apply {
+                    this[index] = current[index].copyWithFunctionResult(result)
+                }
+            } else {
+                current
             }
         }
     }
@@ -314,5 +302,3 @@ class ChatViewModel @Inject constructor(
         sessionController?.disconnectWebSocketGracefully()
     }
 }
-
-

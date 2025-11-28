@@ -44,6 +44,12 @@ import io.github.anonymous.pepper_realtime.di.IoDispatcher
 import io.github.anonymous.pepper_realtime.ui.settings.SettingsViewModel
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -150,12 +156,20 @@ class ChatActivity : AppCompatActivity(), ToolHost {
         // Observe ViewModel Events (Non-UI logic like restarting session)
         observeViewModelEvents()
 
-        viewModel.mapStatus.observe(this) { status ->
-            MapUiManager.updateMapStatus(status)
-        }
-
-        viewModel.localizationStatus.observe(this) { status ->
-            MapUiManager.updateLocalizationStatus(status)
+        // Collect StateFlows for navigation status updates
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch {
+                    viewModel.mapStatus.collect { status ->
+                        MapUiManager.updateMapStatus(status)
+                    }
+                }
+                launch {
+                    viewModel.localizationStatus.collect { status ->
+                        MapUiManager.updateLocalizationStatus(status)
+                    }
+                }
+            }
         }
 
         // Register Robot Lifecycle
@@ -333,7 +347,7 @@ class ChatActivity : AppCompatActivity(), ToolHost {
             !navManager.isMapSavedOnDisk(this) -> MapState.NO_MAP
             !navManager.isMapLoaded() -> MapState.MAP_LOADED_NOT_LOCALIZED
             !navManager.isLocalizationReady() -> {
-                val locStatus = viewModel.localizationStatus.value ?: ""
+                val locStatus = viewModel.localizationStatus.value
                 if (locStatus.contains("Failed")) {
                     MapState.LOCALIZATION_FAILED
                 } else {

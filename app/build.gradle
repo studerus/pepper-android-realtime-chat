@@ -138,6 +138,9 @@ dependencies {
     // Coil for Compose (image loading)
     implementation 'io.coil-kt:coil-compose:2.5.0'
 
+    // Lifecycle for StateFlow collection in Compose
+    implementation 'androidx.lifecycle:lifecycle-runtime-compose:2.8.7'
+
     // SSH client for Android (locked to 0.37.0 due to minSdk 23 compatibility)
     implementation 'com.hierynomus:sshj:0.37.0'
 

@@ -11,7 +11,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.livedata.observeAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -51,10 +51,11 @@ fun MainScreen(
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
-    // Observe ViewModel states
-    val isInterruptVisible by viewModel.isInterruptFabVisible.observeAsState(false)
-    val statusText by viewModel.statusText.observeAsState("Initializing...")
-    val isMuted by viewModel.isMuted.observeAsState(false)
+    // Observe ViewModel states using StateFlow
+    val isInterruptVisible by viewModel.isInterruptFabVisible.collectAsStateWithLifecycle()
+    val statusText by viewModel.statusText.collectAsStateWithLifecycle()
+    val isMuted by viewModel.isMuted.collectAsStateWithLifecycle()
+    val messages by viewModel.messageList.collectAsStateWithLifecycle()
     
     // Local State for Image Overlay
     var overlayImageUrl by remember { mutableStateOf<String?>(null) }
@@ -139,7 +140,7 @@ fun MainScreen(
             Box(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
                 // Main Chat Content
                 ChatScreen(
-                    messages = viewModel.messageList.observeAsState(emptyList()).value,
+                    messages = messages,
                     onImageClick = { url -> overlayImageUrl = url }
                 )
 

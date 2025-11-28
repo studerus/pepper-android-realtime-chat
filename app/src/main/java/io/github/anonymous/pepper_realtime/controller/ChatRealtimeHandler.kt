@@ -64,7 +64,7 @@ class ChatRealtimeHandler(
         // Update status bar with streaming transcript (like LISTENING shows partial recognition)
         val speakingPrefix = viewModel.getApplication<android.app.Application>().getString(R.string.status_speaking_tap_to_interrupt) + " "
         val currentStatus = viewModel.statusText.value
-        if (currentStatus == null || !currentStatus.startsWith(speakingPrefix)) {
+        if (!currentStatus.startsWith(speakingPrefix)) {
             // First delta - set initial status with this delta
             viewModel.setStatusText(speakingPrefix + (delta ?: ""))
         } else {
@@ -178,9 +178,9 @@ class ChatRealtimeHandler(
                     val argsString = fc.arguments
 
                     // Convert to JSONObject for ToolRegistry compatibility
-                    val args = JSONObject(argsString)
+                    val args = JSONObject(argsString ?: "{}")
 
-                    val functionCall = ChatMessage.createFunctionCall(toolName ?: "", args.toString(), ChatMessage.Sender.ROBOT)
+                    val functionCall = ChatMessage.createFunctionCall(toolName.orEmpty(), args.toString(), ChatMessage.Sender.ROBOT)
                     viewModel.addMessage(functionCall)
 
                     viewModel.isExpectingFinalAnswerAfterToolCall = true
@@ -188,7 +188,7 @@ class ChatRealtimeHandler(
                     applicationScope.launch(ioDispatcher) {
                         var toolResult: String?
                         try {
-                            toolResult = toolRegistry.executeTool(toolName ?: "", args, toolContext!!)
+                            toolResult = toolRegistry.executeTool(toolName.orEmpty(), args, toolContext!!)
                         } catch (toolEx: Exception) {
                             Log.e(TAG, "Tool execution crashed for $toolName", toolEx)
                             toolResult = try {

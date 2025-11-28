@@ -45,7 +45,7 @@ class ChatSpeechListener(
         }
 
         val currentText = viewModel.statusText.value
-        if (currentText != null && currentText.startsWith("Listening")) {
+        if (currentText.startsWith("Listening")) {
             viewModel.setStatusText(getString(R.string.status_listening_partial, partialText))
         }
     }
