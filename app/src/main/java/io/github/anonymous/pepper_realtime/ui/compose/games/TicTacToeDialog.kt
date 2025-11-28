@@ -169,7 +169,7 @@ fun TicTacToeDialog(
                         modifier = Modifier.height(36.dp)
                     ) {
                         Text(
-                            text = "✕",
+                            text = stringResource(R.string.close_symbol),
                             fontSize = 16.sp,
                             color = Color.White
                         )

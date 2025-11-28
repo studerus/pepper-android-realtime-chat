@@ -275,4 +275,57 @@ Closings: \"Happy to help!\" | \"Anything else?\" | \"I\'m here if you need me\"
     <string name="mask_na">Mask: N/A</string>
     <string name="quality_na">Quality: N/A</string>
     <!-- Table column labels are hardcoded in perception_dashboard_overlay.xml -->
+    
+    <!-- New Compose Strings -->
+    <string name="main_title">Pepper Chat</string>
+    <string name="content_desc_perception_dashboard">Perception Dashboard</string>
+    <string name="content_desc_new_chat">New Chat</string>
+    <string name="content_desc_settings">Settings</string>
+    <string name="content_desc_navigation_status">Navigation Status</string>
+    <string name="content_desc_interrupt">Interrupt</string>
+    <string name="content_desc_full_screen_image">Full screen image</string>
+    <string name="content_desc_close">Close</string>
+    <string name="please_wait">Please wait…</string>
+    
+    <string name="nav_overlay_title">Navigation &amp; Map</string>
+    <string name="nav_overlay_map_label">Map:</string>
+    <string name="nav_overlay_localization_label">Localization:</string>
+    <string name="nav_status_no_map">No Map Available</string>
+    <string name="nav_status_localizing">Localizing…</string>
+    <string name="nav_status_localization_failed">Localization Failed</string>
+    <string name="nav_status_map_loaded_not_localized">Map Loaded (Not Localized)</string>
+    <string name="nav_status_default_map">No Map</string>
+    <string name="nav_status_default_localization">Waiting for localization…</string>
+
+    <string name="dashboard_header_picture">Picture</string>
+    <string name="dashboard_header_demographics">Demographics</string>
+    <string name="dashboard_header_distance">Distance</string>
+    <string name="dashboard_header_emotions">Emotions</string>
+    <string name="dashboard_header_face_analysis">Face Analysis</string>
+    <string name="dashboard_unknown">Unknown</string>
+    <string name="dashboard_looking_at_robot">Looking at Robot</string>
+    <string name="dashboard_looking_away">Looking Away</string>
+    <string name="dashboard_looking_up">Looking Up</string>
+    <string name="dashboard_masked">Masked</string>
+    <string name="dashboard_no_mask">No Mask</string>
+    <string name="dashboard_sunglasses">Sunglasses</string>
+    <string name="dashboard_reading_glasses">Reading Glasses</string>
+    <string name="dashboard_no_glasses">No Glasses</string>
+    <string name="dashboard_glasses_unknown">Unknown</string>
+    
+    <string name="no_humans_detected">No humans detected</string>
+    <string name="content_desc_face">Face</string>
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
+    
+    <string name="dashboard_pose_format">Pose: %s  </string>
+    <string name="dashboard_glasses_format">Glasses: %s  </string>
+    <string name="dashboard_mask_format">Mask: %s  </string>
+    <string name="dashboard_quality_format">Quality: %s</string>
+    <string name="dashboard_pose_right">Right</string>
+    <string name="dashboard_pose_left">Left</string>
+    <string name="dashboard_pose_forward">Forward</string>
+    
+    <string name="memory_time_label">Time: %s</string>
+    <string name="close_button_label">Close</string>
 </resources>

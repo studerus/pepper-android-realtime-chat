@@ -17,12 +17,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import io.github.anonymous.pepper_realtime.R
 import io.github.anonymous.pepper_realtime.tools.games.MemoryCard
 import io.github.anonymous.pepper_realtime.tools.games.MemoryGameManager
 
@@ -88,17 +90,17 @@ private fun MemoryGameHeader(
         // Stats
         Column {
             Text(
-                text = "Time: ${state.timeString}",
+                text = stringResource(R.string.memory_time_label, state.timeString),
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold
             )
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text(
-                    text = "Moves: ${state.moves}",
+                    text = stringResource(R.string.memory_moves_format, state.moves),
                     fontSize = 16.sp
                 )
                 Text(
-                    text = "Pairs: ${state.matchedPairs}/${state.totalPairs}",
+                    text = stringResource(R.string.memory_pairs_format, state.matchedPairs, state.totalPairs),
                     fontSize = 16.sp
                 )
             }
@@ -109,7 +111,7 @@ private fun MemoryGameHeader(
             onClick = onDismiss,
             colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
         ) {
-            Text("Close")
+            Text(stringResource(R.string.close_button_label))
         }
     }
 }

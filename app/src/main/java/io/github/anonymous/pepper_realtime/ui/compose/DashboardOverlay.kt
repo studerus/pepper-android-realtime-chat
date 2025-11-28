@@ -14,12 +14,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import io.github.anonymous.pepper_realtime.R
 import io.github.anonymous.pepper_realtime.data.PerceptionData
 import io.github.anonymous.pepper_realtime.manager.DashboardManager
 import java.util.Locale
@@ -33,7 +35,6 @@ private object DashboardColors {
 }
 
 private val ColWeights = listOf(0.12f, 0.12f, 0.08f, 0.1f, 0.1f, 0.1f, 0.1f, 0.14f, 0.14f)
-private val Headers = listOf("Picture", "Demographics", "Distance", "Emotion", "Pleasure", "Excitement", "Smile", "Attention", "Engagement")
 
 @Composable
 fun DashboardOverlay(
@@ -65,14 +66,14 @@ fun DashboardOverlay(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "Human Perception Dashboard",
+                                text = stringResource(R.string.perception_dashboard_title),
                                 color = DashboardColors.TextDark,
                                 fontSize = 24.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         }
                         IconButton(onClick = onClose) {
-                            Icon(Icons.Default.Close, contentDescription = "Close", tint = DashboardColors.TextLight)
+                            Icon(Icons.Default.Close, contentDescription = stringResource(R.string.content_desc_close), tint = DashboardColors.TextLight)
                         }
                     }
                     
@@ -86,7 +87,15 @@ fun DashboardOverlay(
                             .padding(vertical = 8.dp, horizontal = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Headers.forEachIndexed { index, title ->
+                        // Use hardcoded list here to match column count, but with stringResources where available
+                        val displayHeaders = listOf(
+                            stringResource(R.string.dashboard_header_picture),
+                            stringResource(R.string.dashboard_header_demographics),
+                            stringResource(R.string.dashboard_header_distance),
+                            "Emotion", "Pleasure", "Excitement", "Smile", "Attention", "Engagement"
+                        )
+                        
+                        displayHeaders.forEachIndexed { index, title ->
                             Text(
                                 text = title,
                                 fontWeight = FontWeight.Bold,
@@ -101,7 +110,7 @@ fun DashboardOverlay(
                     // Humans List
                     if (state.humans.isEmpty()) {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text("No humans detected", color = DashboardColors.TextLight, fontSize = 18.sp)
+                            Text(stringResource(R.string.no_humans_detected), color = DashboardColors.TextLight, fontSize = 18.sp)
                         }
                     } else {
                         LazyColumn(
@@ -117,7 +126,7 @@ fun DashboardOverlay(
                     
                     // Footer
                     Text(
-                        text = "Last update: ${state.lastUpdate}",
+                        text = stringResource(R.string.last_update_format, state.lastUpdate),
                         color = DashboardColors.TextLight,
                         fontSize = 14.sp,
                         textAlign = TextAlign.Center,
@@ -147,7 +156,7 @@ fun HumanDetectionItem(human: PerceptionData.HumanInfo) {
                     if (human.facePicture != null) {
                         Image(
                             bitmap = human.facePicture!!.asImageBitmap(),
-                            contentDescription = "Face",
+                            contentDescription = stringResource(R.string.content_desc_face),
                             modifier = Modifier.size(50.dp).background(Color.LightGray)
                         )
                     } else {
@@ -177,24 +186,32 @@ fun HumanDetectionItem(human: PerceptionData.HumanInfo) {
             
             // Azure Details Row
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                Text("🤖 Azure: ", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF1976D2)) // Blue
+                Text(stringResource(R.string.azure_label) + " ", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF1976D2))
                 human.azureYawDeg?.let {
-                    Text("Pose: ${formatHeadPose(it)}  ", fontSize = 12.sp, color = DashboardColors.TextLight)
+                    val poseText = formatHeadPose(it, 
+                        stringResource(R.string.dashboard_pose_right),
+                        stringResource(R.string.dashboard_pose_left),
+                        stringResource(R.string.dashboard_pose_forward)
+                    )
+                    Text(stringResource(R.string.dashboard_pose_format, poseText), fontSize = 12.sp, color = DashboardColors.TextLight)
                 }
-                Text("Glasses: ${human.glassesType}  ", fontSize = 12.sp, color = DashboardColors.TextLight)
-                Text("Mask: ${if (human.isMasked == true) "Yes" else "No"}  ", fontSize = 12.sp, color = DashboardColors.TextLight)
-                Text("Quality: ${human.imageQuality}", fontSize = 12.sp, color = DashboardColors.TextLight)
+                Text(stringResource(R.string.dashboard_glasses_format, human.glassesType), fontSize = 12.sp, color = DashboardColors.TextLight)
+                
+                val maskText = if (human.isMasked == true) stringResource(R.string.yes) else stringResource(R.string.no)
+                Text(stringResource(R.string.dashboard_mask_format, maskText), fontSize = 12.sp, color = DashboardColors.TextLight)
+                
+                Text(stringResource(R.string.dashboard_quality_format, human.imageQuality), fontSize = 12.sp, color = DashboardColors.TextLight)
             }
         }
     }
 }
 
 // Helper for Head Pose
-private fun formatHeadPose(yawDeg: Double): String {
+private fun formatHeadPose(yawDeg: Double, right: String, left: String, forward: String): String {
     val direction = when {
-        yawDeg < -10.0 -> "Right"
-        yawDeg > 10.0 -> "Left"
-        else -> "Forward"
+        yawDeg < -10.0 -> right
+        yawDeg > 10.0 -> left
+        else -> forward
     }
     return String.format(Locale.US, "%s (%.0f°)", direction, yawDeg)
 }

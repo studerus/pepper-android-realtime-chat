@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
@@ -24,6 +25,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import io.github.anonymous.pepper_realtime.R
 import io.github.anonymous.pepper_realtime.data.MapGraphInfo
 import io.github.anonymous.pepper_realtime.data.SavedLocation
 import io.github.anonymous.pepper_realtime.manager.MapState
@@ -67,7 +69,7 @@ fun NavigationOverlay(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Navigation & Map",
+                            text = stringResource(R.string.nav_overlay_title),
                             style = MaterialTheme.typography.titleLarge,
                             color = Color.White
                         )
@@ -75,7 +77,7 @@ fun NavigationOverlay(
                     IconButton(onClick = onClose) {
                         Icon(
                             imageVector = Icons.Default.Close,
-                            contentDescription = "Close",
+                            contentDescription = stringResource(R.string.content_desc_close),
                             tint = Color.White
                         )
                     }
@@ -87,9 +89,9 @@ fun NavigationOverlay(
                         .fillMaxWidth()
                         .padding(16.dp)
                 ) {
-                    StatusRow("Map:", state.mapStatus)
+                    StatusRow(stringResource(R.string.nav_overlay_map_label), state.mapStatus)
                     Spacer(modifier = Modifier.height(8.dp))
-                    StatusRow("Localization:", state.localizationStatus)
+                    StatusRow(stringResource(R.string.nav_overlay_localization_label), state.localizationStatus)
                 }
 
                 // Map Canvas
@@ -138,6 +140,12 @@ fun MapCanvas(
     mapState: MapState
 ) {
     val textMeasurer = rememberTextMeasurer()
+    
+    // Resolve strings outside DrawScope
+    val noMapText = stringResource(R.string.nav_status_no_map)
+    val localizingText = stringResource(R.string.nav_status_localizing)
+    val locFailedText = stringResource(R.string.nav_status_localization_failed)
+    val mapLoadedText = stringResource(R.string.nav_status_map_loaded_not_localized)
 
     Canvas(modifier = Modifier.fillMaxSize()) {
         val canvasWidth = size.width
@@ -206,8 +214,7 @@ fun MapCanvas(
         } else {
             // No Map
             drawRect(color = Color.DarkGray)
-            val text = "No Map Available"
-            val textResult = textMeasurer.measure(text, TextStyle(color = Color.White))
+            val textResult = textMeasurer.measure(noMapText, TextStyle(color = Color.White))
             drawText(
                 textResult,
                 topLeft = Offset(
@@ -220,9 +227,9 @@ fun MapCanvas(
         // Draw Status Overlay on Canvas if needed
         if (mapState != MapState.LOCALIZED && mapState != MapState.NO_MAP) {
             val statusText = when (mapState) {
-                MapState.LOCALIZING -> "Localizing..."
-                MapState.LOCALIZATION_FAILED -> "Localization Failed"
-                MapState.MAP_LOADED_NOT_LOCALIZED -> "Map Loaded (Not Localized)"
+                MapState.LOCALIZING -> localizingText
+                MapState.LOCALIZATION_FAILED -> locFailedText
+                MapState.MAP_LOADED_NOT_LOCALIZED -> mapLoadedText
                 else -> ""
             }
             if (statusText.isNotEmpty()) {

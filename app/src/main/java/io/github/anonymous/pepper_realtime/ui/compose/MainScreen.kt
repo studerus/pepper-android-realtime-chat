@@ -21,7 +21,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.res.stringResource
 import coil.compose.AsyncImage
+import io.github.anonymous.pepper_realtime.R
 import io.github.anonymous.pepper_realtime.manager.ApiKeyManager
 import io.github.anonymous.pepper_realtime.manager.DashboardManager
 import io.github.anonymous.pepper_realtime.manager.MapUiManager
@@ -77,7 +79,7 @@ fun MainScreen(
         Scaffold(
             topBar = {
                 CenterAlignedTopAppBar(
-                    title = { Text("Pepper Chat") },
+                    title = { Text(stringResource(R.string.main_title)) },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                         containerColor = Color(0xFF1E40AF),
                         titleContentColor = MaterialTheme.colorScheme.onPrimary,
@@ -86,19 +88,19 @@ fun MainScreen(
                     ),
                     actions = {
                         IconButton(onClick = { MapUiManager.toggle() }) {
-                            Icon(Icons.Default.LocationOn, contentDescription = "Navigation Status")
+                            Icon(Icons.Default.LocationOn, contentDescription = stringResource(R.string.content_desc_navigation_status))
                         }
                         IconButton(onClick = { DashboardManager.toggleDashboard() }) {
-                            Icon(Icons.Default.Visibility, contentDescription = "Perception Dashboard")
+                            Icon(Icons.Default.Visibility, contentDescription = stringResource(R.string.content_desc_perception_dashboard))
                         }
                         IconButton(onClick = onNewChat) {
-                            Icon(Icons.Default.Refresh, contentDescription = "New Chat")
+                            Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.content_desc_new_chat))
                         }
                         IconButton(onClick = {
                             scope.launch { drawerState.open() }
                             settingsViewModel.beginEditing()
                         }) {
-                            Icon(Icons.Default.Build, contentDescription = "Settings")
+                            Icon(Icons.Default.Build, contentDescription = stringResource(R.string.content_desc_settings))
                         }
                     }
                 )
@@ -109,7 +111,7 @@ fun MainScreen(
                         onClick = onInterrupt,
                         containerColor = MaterialTheme.colorScheme.secondaryContainer
                     ) {
-                        Icon(Icons.Default.Close, contentDescription = "Interrupt")
+                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.content_desc_interrupt))
                     }
                 }
             },
@@ -208,7 +210,7 @@ fun MainScreen(
                         ) {
                             AsyncImage(
                                 model = url,
-                                contentDescription = "Full screen image",
+                                contentDescription = stringResource(R.string.content_desc_full_screen_image),
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Fit
                             )
@@ -216,7 +218,7 @@ fun MainScreen(
                                 onClick = { overlayImageUrl = null },
                                 modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)
                             ) {
-                                Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
+                                Icon(Icons.Default.Close, contentDescription = stringResource(R.string.content_desc_close), tint = Color.White)
                             }
                         }
                     }
@@ -235,7 +237,7 @@ fun MainScreen(
                             CircularProgressIndicator()
                             Spacer(modifier = Modifier.height(16.dp))
                             Text(
-                                text = "Please wait...",
+                                text = stringResource(R.string.please_wait),
                                 style = MaterialTheme.typography.titleLarge,
                                 color = Color.Black
                             )
