@@ -18,7 +18,7 @@ class MemoryGameTool : Tool {
         return JSONObject().apply {
             put("type", "function")
             put("name", getName())
-            put("description", "Starts a memory matching game with cards that the user has to match in pairs. The user will see a grid of face-down cards and needs to find matching pairs by flipping two cards at a time.")
+            put("description", "Starts a memory matching game with cards that the user has to match in pairs. The user will see a grid of face-down cards and needs to find matching pairs by flipping two cards at a time. Call this function directly without announcing it.")
 
             put("parameters", JSONObject().apply {
                 put("type", "object")
@@ -37,19 +37,12 @@ class MemoryGameTool : Tool {
         val difficulty = args.optString("difficulty", "medium")
 
         if (context.hasUi()) {
-            // Execute UI operation on main thread
-            context.activity?.runOnUiThread {
-                val activity = context.activity
-                if (activity != null && !activity.isFinishing) {
-                    val memoryGame = MemoryGameDialog(
-                        activity,
-                        context
-                    ) { context.sendAsyncUpdate("Memory game closed", false) }
-                    memoryGame.show(difficulty)
-                } else {
-                    Log.w(TAG, "Not showing memory game dialog because activity is finishing.")
-                }
+            val started = MemoryGameManager.startGame(difficulty, context)
+            if (!started) {
+                return JSONObject().put("error", "Could not start game").toString()
             }
+        } else {
+            return JSONObject().put("error", "No UI available").toString()
         }
 
         return JSONObject()
@@ -66,5 +59,3 @@ class MemoryGameTool : Tool {
         private const val TAG = "MemoryGameTool"
     }
 }
-
-

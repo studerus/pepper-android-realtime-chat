@@ -21,9 +21,11 @@ import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import dagger.hilt.android.AndroidEntryPoint
 import io.github.anonymous.pepper_realtime.ui.compose.ChatScreen
+import io.github.anonymous.pepper_realtime.ui.compose.games.MemoryGameDialog
 import io.github.anonymous.pepper_realtime.ui.compose.games.QuizDialog
 import io.github.anonymous.pepper_realtime.ui.compose.games.TicTacToeDialog
 import io.github.anonymous.pepper_realtime.ui.compose.settings.SettingsScreen
+import io.github.anonymous.pepper_realtime.tools.games.MemoryGameManager
 import io.github.anonymous.pepper_realtime.tools.games.TicTacToeGameManager
 import io.github.anonymous.pepper_realtime.R
 import io.github.anonymous.pepper_realtime.controller.*
@@ -268,6 +270,20 @@ class ChatActivity : AppCompatActivity(), ToolHost {
                     },
                     onDismiss = {
                         TicTacToeGameManager.dismissGame()
+                    }
+                )
+            }
+            
+            // Memory Game Dialog
+            val memoryState = MemoryGameManager.gameState
+            if (memoryState.isVisible) {
+                MemoryGameDialog(
+                    state = memoryState,
+                    onCardClick = { cardId ->
+                        MemoryGameManager.onCardClick(cardId)
+                    },
+                    onDismiss = {
+                        MemoryGameManager.dismissGame()
                     }
                 )
             }

@@ -210,7 +210,7 @@ private fun QuizOptionButton(
     ) {
         Text(
             text = text,
-            fontSize = 22.sp,
+            fontSize = 28.sp,
             textAlign = TextAlign.Center
         )
     }

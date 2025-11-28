@@ -44,6 +44,7 @@ class ChatSessionController @Inject constructor(
     }
 
     private var connectionCallback: WebSocketConnectionCallback? = null
+    private var isRestarting = false // Flag to suppress side effects during restart
 
     init {
         setupSessionManagerListeners()
@@ -160,6 +161,7 @@ class ChatSessionController @Inject constructor(
 
     fun startNewSession() {
         Log.i(TAG, "Starting new session...")
+        isRestarting = true
         if (audioInputController.isMuted) {
             audioInputController.resetMuteState()
         }
@@ -174,6 +176,10 @@ class ChatSessionController @Inject constructor(
             
             audioInputController.cleanupForRestart()
             gestureController.stopNow()
+            
+            // Stop and clear any ongoing audio playback immediately
+            audioPlayer.interruptNow()
+            
             turnManager?.setState(TurnManager.State.IDLE)
 
             // Reset flags via ViewModel
@@ -189,6 +195,7 @@ class ChatSessionController @Inject constructor(
 
             connectWebSocket(object : WebSocketConnectionCallback {
                 override fun onSuccess() {
+                    isRestarting = false
                     Log.i(TAG, "New session started successfully.")
                     if (!settingsRepository.isUsingRealtimeAudioInput) {
                         // Azure Speech Mode - perform warmup like initial startup
@@ -216,6 +223,7 @@ class ChatSessionController @Inject constructor(
                 }
 
                 override fun onError(error: Throwable) {
+                    isRestarting = false
                     if (error.message?.contains("WebSocket closed before session was updated") == true) {
                         Log.w(TAG, "Harmless race condition during new session start")
                     } else {
@@ -334,12 +342,14 @@ class ChatSessionController @Inject constructor(
     private fun setupAudioPlayerListener() {
         audioPlayer.setListener(object : AudioPlayer.Listener {
             override fun onPlaybackStarted() {
-                turnManager?.setState(TurnManager.State.SPEAKING)
+                if (!isRestarting) {
+                    turnManager?.setState(TurnManager.State.SPEAKING)
+                }
             }
 
             override fun onPlaybackFinished() {
                 viewModel.setAudioPlaying(false)
-                if (turnManager != null) {
+                if (turnManager != null && !isRestarting) {
                     if (!viewModel.isExpectingFinalAnswerAfterToolCall && viewModel.isResponseGenerating.value != true) {
                         turnManager.setState(TurnManager.State.LISTENING)
                     } else {
