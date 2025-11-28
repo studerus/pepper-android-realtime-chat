@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -51,19 +53,22 @@ fun FunctionCallCard(
     )
     
     val hasResult = message.functionResult != null
+    val screenWidth = LocalConfiguration.current.screenWidthDp.dp
+    val maxCardWidth = screenWidth * 0.6f  // Max 60% of screen width
     
     Row(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.Start
+        horizontalArrangement = Arrangement.Center
     ) {
-        Spacer(modifier = Modifier.width(32.dp))
-        
         Card(
             modifier = Modifier
-                .weight(1f)
-                .padding(end = 32.dp),
+                .widthIn(max = maxCardWidth)
+                .clickable {
+                    isExpanded = !isExpanded
+                    message.isExpanded = isExpanded
+                },
             shape = RoundedCornerShape(12.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
             colors = CardDefaults.cardColors(containerColor = ChatColors.FunctionCallBackground)
@@ -73,12 +78,7 @@ fun FunctionCallCard(
             ) {
                 // Header
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { 
-                            isExpanded = !isExpanded
-                            message.isExpanded = isExpanded
-                        },
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     // Function icon

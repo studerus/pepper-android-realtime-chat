@@ -31,6 +31,10 @@ class ChatMenuController(
 
     fun setupSettingsMenu() {
         drawerLayout.addDrawerListener(object : DrawerLayout.SimpleDrawerListener() {
+            override fun onDrawerOpened(drawerView: View) {
+                settingsManager?.onDrawerOpened()
+            }
+
             override fun onDrawerClosed(drawerView: View) {
                 settingsManager?.onDrawerClosed()
             }

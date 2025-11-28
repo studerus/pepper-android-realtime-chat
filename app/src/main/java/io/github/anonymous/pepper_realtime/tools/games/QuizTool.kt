@@ -57,22 +57,19 @@ class QuizTool : Tool {
         val opts = Array(4) { i -> optionsJson.getString(i) }
 
         if (context.hasUi()) {
-            // Execute UI operation on main thread
             val activity = context.activity
             activity?.runOnUiThread {
                 QuizDialogManager.showQuizDialog(
-                    activity,
                     question,
                     opts,
                     correct,
                     object : QuizDialogManager.QuizDialogCallback {
                         override fun onQuizAnswered(question: String, selectedOption: String) {
                             val feedbackMessage = activity.getString(R.string.quiz_feedback_format, question, selectedOption)
-                            context.sendAsyncUpdate(feedbackMessage, true) // Send as user input to AI
+                            context.sendAsyncUpdate(feedbackMessage, true)
                         }
 
                         override fun onInterruptRequested() {
-                            // Handle interrupt through context
                             context.sendAsyncUpdate("Quiz interrupted", false)
                         }
 
@@ -81,7 +78,6 @@ class QuizTool : Tool {
                         }
 
                         override fun shouldInterrupt(): Boolean {
-                            // Simple check - tools shouldn't need complex state management
                             return true
                         }
                     }
@@ -98,5 +94,3 @@ class QuizTool : Tool {
 
     override fun getApiKeyType(): String? = null
 }
-
-

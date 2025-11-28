@@ -24,91 +24,117 @@ class SettingsViewModel @Inject constructor(
     val restartRecognizerEvent: LiveData<Boolean> get() = _restartRecognizerEvent
     val volumeChangeEvent: LiveData<Int> get() = _volumeChangeEvent
 
+    // Batch Update Mode
+    private var isBatchMode = false
+    private var pendingRestart = false
+    private var pendingUpdate = false
+    private var pendingRecognizerRestart = false
+    
+    fun beginEditing() {
+        isBatchMode = true
+        pendingRestart = false
+        pendingUpdate = false
+        pendingRecognizerRestart = false
+    }
+    
+    fun commitChanges() {
+        isBatchMode = false
+        if (pendingRestart) _restartSessionEvent.value = true
+        else if (pendingUpdate) _updateSessionEvent.value = true
+        
+        if (pendingRecognizerRestart) _restartRecognizerEvent.value = true
+        
+        // Reset pending flags
+        pendingRestart = false
+        pendingUpdate = false
+        pendingRecognizerRestart = false
+    }
+    
     // Settings Operations
     fun setSystemPrompt(prompt: String) {
         if (prompt != settingsRepository.systemPrompt) {
             settingsRepository.systemPrompt = prompt
-            _updateSessionEvent.value = true
+            if (isBatchMode) pendingUpdate = true else _updateSessionEvent.value = true
         }
     }
 
     fun setModel(model: String) {
         if (model != settingsRepository.model) {
             settingsRepository.model = model
-            _restartSessionEvent.value = true
+            if (isBatchMode) pendingRestart = true else _restartSessionEvent.value = true
         }
     }
 
     fun setVoice(voice: String) {
         if (voice != settingsRepository.voice) {
             settingsRepository.voice = voice
-            _restartSessionEvent.value = true
+            if (isBatchMode) pendingRestart = true else _restartSessionEvent.value = true
         }
     }
 
     fun setSpeedProgress(progress: Int) {
         if (progress != settingsRepository.speedProgress) {
             settingsRepository.speedProgress = progress
-            _updateSessionEvent.value = true
+            if (isBatchMode) pendingUpdate = true else _updateSessionEvent.value = true
         }
     }
 
     fun setLanguage(language: String) {
         if (language != settingsRepository.language) {
             settingsRepository.language = language
-            _restartRecognizerEvent.value = true
+            if (isBatchMode) pendingRecognizerRestart = true else _restartRecognizerEvent.value = true
         }
     }
 
     fun setApiProvider(provider: String) {
         if (provider != settingsRepository.apiProvider) {
             settingsRepository.apiProvider = provider
-            _restartSessionEvent.value = true
+            if (isBatchMode) pendingRestart = true else _restartSessionEvent.value = true
         }
     }
 
     fun setAudioInputMode(mode: String) {
         if (mode != settingsRepository.audioInputMode) {
             settingsRepository.audioInputMode = mode
-            _restartSessionEvent.value = true
+            if (isBatchMode) pendingRestart = true else _restartSessionEvent.value = true
         }
     }
 
     fun setTemperatureProgress(progress: Int) {
         if (progress != settingsRepository.temperatureProgress) {
             settingsRepository.temperatureProgress = progress
-            _updateSessionEvent.value = true
+            if (isBatchMode) pendingUpdate = true else _updateSessionEvent.value = true
         }
     }
 
     fun setVolume(volume: Int) {
         if (volume != settingsRepository.volume) {
             settingsRepository.volume = volume
-            _volumeChangeEvent.value = volume
+            _volumeChangeEvent.value = volume // Volume should change immediately for feedback
         }
     }
 
     fun setSilenceTimeout(timeout: Int) {
         if (timeout != settingsRepository.silenceTimeout) {
             settingsRepository.silenceTimeout = timeout
-            _restartRecognizerEvent.value = true
+            if (isBatchMode) pendingRecognizerRestart = true else _restartRecognizerEvent.value = true
         }
     }
 
     fun setConfidenceThreshold(threshold: Float) {
         if (threshold != settingsRepository.confidenceThreshold) {
             settingsRepository.confidenceThreshold = threshold
-            // No immediate action needed, used by recognizer on next result
+            // No immediate action needed
         }
     }
 
     fun setEnabledTools(tools: Set<String>) {
         if (tools != settingsRepository.enabledTools) {
             settingsRepository.enabledTools = tools
-            _updateSessionEvent.value = true
+            if (isBatchMode) pendingUpdate = true else _updateSessionEvent.value = true
         }
     }
-
+    
     // Realtime API Specific Settings
     fun setTranscriptionModel(model: String) {
         if (model != settingsRepository.transcriptionModel) {
@@ -180,10 +206,10 @@ class SettingsViewModel @Inject constructor(
             triggerRealtimeSettingChange()
         }
     }
-
+    
     private fun triggerRealtimeSettingChange() {
         if (settingsRepository.isUsingRealtimeAudioInput) {
-            _updateSessionEvent.value = true
+            if (isBatchMode) pendingUpdate = true else _updateSessionEvent.value = true
         }
     }
 

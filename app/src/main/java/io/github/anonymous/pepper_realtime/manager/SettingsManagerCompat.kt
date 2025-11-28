@@ -11,9 +11,12 @@ import io.github.anonymous.pepper_realtime.ui.settings.SettingsViewModel
 class SettingsManagerCompat(
     private val viewModel: SettingsViewModel
 ) {
+    fun onDrawerOpened() {
+        viewModel.beginEditing()
+    }
+
     fun onDrawerClosed() {
-        // Settings are now applied via Compose's DisposableEffect
-        // No action needed here
+        viewModel.commitChanges()
     }
 
     fun getApiProvider(): RealtimeApiProvider {

@@ -6,6 +6,7 @@ import io.github.anonymous.pepper_realtime.tools.ToolContext
 import org.json.JSONArray
 import org.json.JSONObject
 
+
 /**
  * Tool for making moves in an active Tic Tac Toe game.
  * AI uses this tool to place its O moves on the game board.
@@ -45,27 +46,30 @@ class TicTacToeMoveTool : Tool {
                 .toString()
         }
 
-        // Get current game for validation
-        val gameDialog = TicTacToeGameManager.getCurrentDialog()
-        val game = gameDialog.getGame()
-
-        // Validate move
-        if (!game.isValidMove(position)) {
+        // Validate position range
+        if (position !in 0..8) {
             return JSONObject()
-                .put("error", "Invalid move. Position $position is already occupied or out of bounds.")
+                .put("error", "Invalid move. Position must be between 0 and 8.")
                 .toString()
         }
 
         // Make AI move using the manager
-        val success = TicTacToeGameManager.makeAIMove(position)
+        val result = TicTacToeGameManager.makeAIMove(position)
 
-        return if (success) {
-            JSONObject()
-                .put("success", "Move confirmed.")
-                .toString()
+        return if (result.success) {
+            val response = JSONObject().put("success", "Move confirmed.")
+            
+            // Include game-over information in the tool result
+            if (result.gameOver) {
+                response.put("game_over", true)
+                response.put("winner", result.winner)
+                response.put("message", result.gameOverMessage)
+            }
+            
+            response.toString()
         } else {
             JSONObject()
-                .put("error", "Failed to make move")
+                .put("error", result.error ?: "Invalid move.")
                 .toString()
         }
     }

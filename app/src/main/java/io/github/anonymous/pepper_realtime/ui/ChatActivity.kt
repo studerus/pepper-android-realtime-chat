@@ -21,7 +21,10 @@ import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import dagger.hilt.android.AndroidEntryPoint
 import io.github.anonymous.pepper_realtime.ui.compose.ChatScreen
+import io.github.anonymous.pepper_realtime.ui.compose.games.QuizDialog
+import io.github.anonymous.pepper_realtime.ui.compose.games.TicTacToeDialog
 import io.github.anonymous.pepper_realtime.ui.compose.settings.SettingsScreen
+import io.github.anonymous.pepper_realtime.tools.games.TicTacToeGameManager
 import io.github.anonymous.pepper_realtime.R
 import io.github.anonymous.pepper_realtime.controller.*
 import io.github.anonymous.pepper_realtime.data.LocationProvider
@@ -238,6 +241,36 @@ class ChatActivity : AppCompatActivity(), ToolHost {
                 messagesLiveData = viewModel.messageList,
                 onImageClick = { imagePath -> showImageOverlay(imagePath) }
             )
+            
+            // Quiz Dialog (shown when QuizDialogManager.quizState.isVisible)
+            val quizState = QuizDialogManager.quizState
+            if (quizState.isVisible) {
+                QuizDialog(
+                    question = quizState.question,
+                    options = quizState.options,
+                    correctAnswer = quizState.correctAnswer,
+                    onAnswered = { selectedOption ->
+                        QuizDialogManager.onAnswerSelected(selectedOption)
+                    },
+                    onDismiss = {
+                        QuizDialogManager.dismissQuiz()
+                    }
+                )
+            }
+            
+            // TicTacToe Dialog (shown when TicTacToeGameManager.ticTacToeState.isVisible)
+            val ticTacToeState = TicTacToeGameManager.ticTacToeState
+            if (ticTacToeState.isVisible) {
+                TicTacToeDialog(
+                    gameState = ticTacToeState.gameState,
+                    onUserMove = { position ->
+                        TicTacToeGameManager.onUserMove(position)
+                    },
+                    onDismiss = {
+                        TicTacToeGameManager.dismissGame()
+                    }
+                )
+            }
         }
 
         // Settings Compose View
