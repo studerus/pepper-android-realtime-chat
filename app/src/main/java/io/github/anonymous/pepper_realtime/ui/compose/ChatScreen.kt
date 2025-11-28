@@ -29,11 +29,10 @@ import io.github.anonymous.pepper_realtime.ui.ChatMessage
  */
 @Composable
 fun ChatScreen(
-    messagesLiveData: LiveData<List<ChatMessage>>,
+    messages: List<ChatMessage>,
     onImageClick: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val messages by messagesLiveData.observeAsState(emptyList())
     val listState = rememberLazyListState()
     
     // Track last message state to differentiate between new messages, streaming updates, and other changes (like expansion)

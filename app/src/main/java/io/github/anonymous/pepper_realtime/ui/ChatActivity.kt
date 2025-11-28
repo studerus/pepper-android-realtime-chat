@@ -14,15 +14,11 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.platform.ComposeView
-import androidx.drawerlayout.widget.DrawerLayout
 import androidx.lifecycle.ViewModelProvider
-import com.google.android.material.appbar.MaterialToolbar
-import com.google.android.material.floatingactionbutton.FloatingActionButton
 import dagger.hilt.android.AndroidEntryPoint
-import io.github.anonymous.pepper_realtime.ui.compose.ChatScreen
-import io.github.anonymous.pepper_realtime.ui.compose.DashboardOverlay
-import io.github.anonymous.pepper_realtime.ui.compose.NavigationOverlay
+import io.github.anonymous.pepper_realtime.ui.compose.MainScreen
 import io.github.anonymous.pepper_realtime.ui.compose.games.MemoryGameDialog
 import io.github.anonymous.pepper_realtime.ui.compose.games.QuizDialog
 import io.github.anonymous.pepper_realtime.ui.compose.games.TicTacToeDialog
@@ -76,11 +72,6 @@ class ChatActivity : AppCompatActivity(), ToolHost {
     @Inject @IoDispatcher internal lateinit var ioDispatcher: CoroutineDispatcher
     @Inject @ApplicationScope internal lateinit var applicationScope: CoroutineScope
 
-    // UI Components
-    private var statusTextView: TextView? = null
-    private var warmupIndicatorLayout: LinearLayout? = null
-    private var fabInterrupt: FloatingActionButton? = null
-
     // Injected Controllers - use internal visibility to avoid getter conflicts
     @Inject internal lateinit var _sessionController: ChatSessionController
     @Inject internal lateinit var _audioInputController: AudioInputController
@@ -120,50 +111,44 @@ class ChatActivity : AppCompatActivity(), ToolHost {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_chat)
-
-        // Initialize UI references
-        statusTextView = findViewById(R.id.statusTextView)
-        warmupIndicatorLayout = findViewById(R.id.warmup_indicator_layout)
-        fabInterrupt = findViewById(R.id.fab_interrupt)
-        val topAppBar: MaterialToolbar = findViewById(R.id.topAppBar)
-        setSupportActionBar(topAppBar)
-
+        
         // Initialize ViewModel
         viewModel = ViewModelProvider(this)[ChatViewModel::class.java]
         settingsViewModel = ViewModelProvider(this)[SettingsViewModel::class.java]
 
         // Set Controller on ViewModel (Break circular dependency)
         viewModel.setSessionController(_sessionController)
-
-        // Observe ViewModel
-        viewModel.statusText.observe(this) { text ->
-            statusTextView?.text = text
-        }
-
-        viewModel.isWarmingUp.observe(this) { isWarmingUp ->
-            warmupIndicatorLayout?.visibility = if (isWarmingUp) View.VISIBLE else View.GONE
-            if (isWarmingUp) {
-                viewModel.setStatusText(getString(R.string.status_warming_up))
+        
+        // Initialize Managers
+        this.settingsManager = SettingsManagerCompat(settingsViewModel)
+        DashboardManager.initialize(_perceptionService)
+        
+        // Setup Compose Content (MainScreen)
+        val composeView = ComposeView(this)
+        setContentView(composeView)
+        
+        composeView.setContent {
+            MaterialTheme {
+                MainScreen(
+                    viewModel = viewModel,
+                    settingsViewModel = settingsViewModel,
+                    keyManager = keyManager,
+                    onNewChat = { viewModel.startNewSession() },
+                    onInterrupt = { 
+                        try {
+                            interruptController.interruptSpeech()
+                            _turnManager.setState(TurnManager.State.LISTENING)
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Interrupt failed", e)
+                        }
+                    },
+                    onStatusClick = { onStatusClick() }
+                )
             }
         }
 
-        viewModel.isMuted.observe(this) { isMuted ->
-            // Change status bar background color based on mute state
-            statusTextView?.setBackgroundColor(
-                if (isMuted) {
-                    resources.getColor(R.color.muted_status_background, theme)
-                } else {
-                    resources.getColor(R.color.normal_status_background, theme)
-                }
-            )
-        }
-
-        viewModel.isInterruptFabVisible.observe(this) { isVisible ->
-            fabInterrupt?.visibility = if (isVisible) View.VISIBLE else View.GONE
-        }
-
-        // Note: messageList observation is handled by Compose's observeAsState
+        // Observe ViewModel Events (Non-UI logic like restarting session)
+        observeViewModelEvents()
 
         viewModel.mapStatus.observe(this) { status ->
             MapUiManager.updateMapStatus(status)
@@ -173,6 +158,63 @@ class ChatActivity : AppCompatActivity(), ToolHost {
             MapUiManager.updateLocalizationStatus(status)
         }
 
+        // Register Robot Lifecycle
+        val lifecycleHandler = ChatRobotLifecycleHandler(this, viewModel, ioDispatcher, applicationScope)
+        _robotFocusManager.setListener(lifecycleHandler)
+        _robotFocusManager.register()
+
+        // Turn Manager Listener
+        _turnManager.setListener(turnListener)
+
+        // Tool Context
+        this.toolContext = toolContextFactory.create(this)
+        val listener = eventHandler.listener
+        if (listener is ChatRealtimeHandler) {
+            listener.setToolContext(toolContext)
+            listener.sessionController = _sessionController
+        }
+
+        val speechListener = ChatSpeechListener(
+            _turnManager, null, _audioInputController.sttWarmupStartTime,
+            _sessionController, _audioInputController, viewModel
+        )
+        _audioInputController.setSpeechListener(speechListener)
+
+        // Session Dependencies
+        _sessionManager.setSessionDependencies(_toolRegistry, toolContext!!, _settingsRepository, keyManager)
+
+        // Volume Controller
+        this.volumeController = AudioVolumeController()
+
+        // Setup Permission Callback
+        setupPermissionCallback()
+        
+        // Request Permissions
+        permissionManager.checkAndRequestPermissions(this)
+    }
+
+    private fun onStatusClick() {
+        try {
+            val currentState = _turnManager.state
+
+            if (currentState == TurnManager.State.SPEAKING) {
+                if (viewModel.isResponseGenerating.value == true
+                    || viewModel.isAudioPlaying.value == true
+                    || _audioPlayer.isPlaying()
+                ) {
+                    interruptController.interruptAndMute()
+                }
+            } else if (_audioInputController.isMuted) {
+                unmute()
+            } else if (currentState == TurnManager.State.LISTENING) {
+                mute()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Status bar click failed", e)
+        }
+    }
+
+    private fun observeViewModelEvents() {
         // Observe SettingsViewModel events
         settingsViewModel.restartSessionEvent.observe(this) { restart ->
             if (restart == true) {
@@ -206,150 +248,7 @@ class ChatActivity : AppCompatActivity(), ToolHost {
                 volumeController?.setVolume(this@ChatActivity, volume)
             }
         }
-
-        initializeControllers()
-
-        // Setup Listeners
-        setupUiListeners()
-        setupPermissionCallback()
-
-        // Register Robot Lifecycle
-        _robotFocusManager.register()
-
-        // Request Permissions
-        permissionManager.checkAndRequestPermissions(this)
     }
-
-    private fun initializeControllers() {
-        Log.i(TAG, "Initializing Controllers...")
-
-        // Map UI Manager (Now handled by Singleton and Compose)
-        // XML views removed
-
-        // Chat Compose View
-        val chatComposeView: ComposeView = findViewById(R.id.chatComposeView)
-        chatComposeView.setContent {
-            ChatScreen(
-                messagesLiveData = viewModel.messageList,
-                onImageClick = { imagePath -> showImageOverlay(imagePath) }
-            )
-            
-            // Quiz Dialog (shown when QuizDialogManager.quizState.isVisible)
-            val quizState = QuizDialogManager.quizState
-            if (quizState.isVisible) {
-                QuizDialog(
-                    question = quizState.question,
-                    options = quizState.options,
-                    correctAnswer = quizState.correctAnswer,
-                    onAnswered = { selectedOption ->
-                        QuizDialogManager.onAnswerSelected(selectedOption)
-                    },
-                    onDismiss = {
-                        QuizDialogManager.dismissQuiz()
-                    }
-                )
-            }
-            
-            // TicTacToe Dialog (shown when TicTacToeGameManager.ticTacToeState.isVisible)
-            val ticTacToeState = TicTacToeGameManager.ticTacToeState
-            if (ticTacToeState.isVisible) {
-                TicTacToeDialog(
-                    gameState = ticTacToeState.gameState,
-                    onUserMove = { position ->
-                        TicTacToeGameManager.onUserMove(position)
-                    },
-                    onDismiss = {
-                        TicTacToeGameManager.dismissGame()
-                    }
-                )
-            }
-            
-            // Memory Game Dialog
-            val memoryState = MemoryGameManager.gameState
-            if (memoryState.isVisible) {
-                MemoryGameDialog(
-                    state = memoryState,
-                    onCardClick = { cardId ->
-                        MemoryGameManager.onCardClick(cardId)
-                    },
-                    onDismiss = {
-                        MemoryGameManager.dismissGame()
-                    }
-                )
-            }
-
-            // Dashboard Overlay
-            val dashboardState = DashboardManager.state
-            DashboardOverlay(
-                state = dashboardState,
-                onClose = { DashboardManager.hideDashboard() }
-            )
-
-            // Navigation Overlay (Combined Map & Status)
-            val navigationState = MapUiManager.state
-            NavigationOverlay(
-                state = navigationState,
-                onClose = { MapUiManager.hide() }
-            )
-        }
-
-        // Settings Compose View
-        val settingsComposeView: ComposeView = findViewById(R.id.settingsComposeView)
-        settingsComposeView.setContent {
-            SettingsScreen(
-                viewModel = settingsViewModel,
-                apiKeyManager = keyManager,
-                onSettingsChanged = { /* Settings are applied via ViewModel events */ }
-            )
-        }
-        
-        // Initialize SettingsManager for backward compatibility (will be removed later)
-        this.settingsManager = SettingsManagerCompat(settingsViewModel)
-
-        // Dashboard Manager
-        DashboardManager.initialize(_perceptionService)
-
-        // Chat Menu Controller
-        val drawerLayout: DrawerLayout = findViewById(R.id.drawer_layout)
-        val chatMenuController = ChatMenuController(
-            this, drawerLayout,
-            settingsManager!!
-        )
-        chatMenuController.setupSettingsMenu()
-        this.chatMenuController = chatMenuController
-
-        // Robot Focus Manager - Listener
-        val lifecycleHandler = ChatRobotLifecycleHandler(this, viewModel, ioDispatcher, applicationScope)
-        _robotFocusManager.setListener(lifecycleHandler)
-
-        // Turn Manager - Listener
-        _turnManager.setListener(turnListener)
-
-        // Tool Context
-        this.toolContext = toolContextFactory.create(this)
-
-        // Set ToolContext on the handler
-        val listener = eventHandler.listener
-        if (listener is ChatRealtimeHandler) {
-            listener.setToolContext(toolContext)
-            listener.sessionController = _sessionController
-        }
-
-        // Speech Listener
-        val speechListener = ChatSpeechListener(
-            _turnManager, statusTextView, _audioInputController.sttWarmupStartTime,
-            _sessionController, _audioInputController, viewModel
-        )
-        _audioInputController.setSpeechListener(speechListener)
-
-        // Session Dependencies
-        _sessionManager.setSessionDependencies(_toolRegistry, toolContext!!, _settingsRepository, keyManager)
-
-        // Volume Controller
-        this.volumeController = AudioVolumeController()
-    }
-
-    private var chatMenuController: ChatMenuController? = null
 
     private fun setupPermissionCallback() {
         permissionManager.setCallback(object : PermissionManager.PermissionCallback {
@@ -371,59 +270,8 @@ class ChatActivity : AppCompatActivity(), ToolHost {
         })
     }
 
-    private fun setupUiListeners() {
-        fabInterrupt?.setOnClickListener {
-            try {
-                interruptController.interruptSpeech()
-                _turnManager.setState(TurnManager.State.LISTENING)
-            } catch (e: Exception) {
-                Log.e(TAG, "Interrupt failed", e)
-            }
-        }
-
-        statusTextView?.setOnClickListener {
-            try {
-                val currentState = _turnManager.state
-
-                if (currentState == TurnManager.State.SPEAKING) {
-                    if (viewModel.isResponseGenerating.value == true
-                        || viewModel.isAudioPlaying.value == true
-                        || _audioPlayer.isPlaying()
-                    ) {
-                        interruptController.interruptAndMute()
-                    }
-                } else if (_audioInputController.isMuted) {
-                    unmute()
-                } else if (currentState == TurnManager.State.LISTENING) {
-                    mute()
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Status bar click handler failed", e)
-            }
-        }
-
-        chatMenuController?.setListener { viewModel.startNewSession() }
-    }
-
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-        invalidateOptionsMenu()
-    }
-
-    override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        return chatMenuController?.onCreateOptionsMenu(menu, menuInflater) ?: false
-    }
-
-    override fun onPrepareOptionsMenu(menu: Menu): Boolean {
-        return chatMenuController?.onPrepareOptionsMenu(menu) ?: false
-    }
-
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        if (item.itemId == R.id.action_new_chat) {
-            viewModel.startNewSession()
-            return true
-        }
-        return chatMenuController?.onOptionsItemSelected(item) == true || super.onOptionsItemSelected(item)
     }
 
     override fun onStop() {
@@ -549,47 +397,4 @@ class ChatActivity : AppCompatActivity(), ToolHost {
     override fun getAppContext(): Context = applicationContext
 
     override fun getActivity(): Activity = this
-
-    /**
-     * Shows the image overlay with the given image path.
-     * Called from Compose when an image is clicked.
-     */
-    private fun showImageOverlay(imagePath: String) {
-        val imageOverlay = findViewById<View>(R.id.image_overlay)
-        val overlayImage = imageOverlay?.findViewById<ImageView>(R.id.overlay_image)
-
-        if (imageOverlay != null && overlayImage != null) {
-            // Load image with sampling to avoid OOM
-            val options = BitmapFactory.Options().apply {
-                inJustDecodeBounds = true
-            }
-            BitmapFactory.decodeFile(imagePath, options)
-            options.inSampleSize = calculateInSampleSize(options, 2048, 2048)
-            options.inJustDecodeBounds = false
-            val bitmap = BitmapFactory.decodeFile(imagePath, options)
-            overlayImage.setImageBitmap(bitmap)
-
-            imageOverlay.visibility = View.VISIBLE
-            imageOverlay.setOnClickListener { hideImageOverlay() }
-        }
-    }
-
-    private fun hideImageOverlay() {
-        val imageOverlay = findViewById<View>(R.id.image_overlay)
-        imageOverlay?.visibility = View.GONE
-    }
-
-    private fun calculateInSampleSize(options: BitmapFactory.Options, reqWidth: Int, reqHeight: Int): Int {
-        val height = options.outHeight
-        val width = options.outWidth
-        var inSampleSize = 1
-        if (height > reqHeight || width > reqWidth) {
-            val halfHeight = height / 2
-            val halfWidth = width / 2
-            while ((halfHeight / inSampleSize) >= reqHeight && (halfWidth / inSampleSize) >= reqWidth) {
-                inSampleSize *= 2
-            }
-        }
-        return inSampleSize
-    }
 }
