@@ -21,6 +21,7 @@ import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import dagger.hilt.android.AndroidEntryPoint
 import io.github.anonymous.pepper_realtime.ui.compose.ChatScreen
+import io.github.anonymous.pepper_realtime.ui.compose.DashboardOverlay
 import io.github.anonymous.pepper_realtime.ui.compose.games.MemoryGameDialog
 import io.github.anonymous.pepper_realtime.ui.compose.games.QuizDialog
 import io.github.anonymous.pepper_realtime.ui.compose.games.TicTacToeDialog
@@ -91,8 +92,6 @@ class ChatActivity : AppCompatActivity(), ToolHost {
     // Controllers & Managers (Initialized in onCreate)
     private var mapUiManager: MapUiManager? = null
     var settingsManager: SettingsManagerCompat? = null
-        private set
-    var dashboardManager: DashboardManager? = null
         private set
     var toolContext: ToolContext? = null
         private set
@@ -287,6 +286,13 @@ class ChatActivity : AppCompatActivity(), ToolHost {
                     }
                 )
             }
+
+            // Dashboard Overlay
+            val dashboardState = DashboardManager.state
+            DashboardOverlay(
+                state = dashboardState,
+                onClose = { DashboardManager.hideDashboard() }
+            )
         }
 
         // Settings Compose View
@@ -303,16 +309,12 @@ class ChatActivity : AppCompatActivity(), ToolHost {
         this.settingsManager = SettingsManagerCompat(settingsViewModel)
 
         // Dashboard Manager
-        val dashboardOverlay: View? = findViewById(R.id.dashboard_overlay)
-        if (dashboardOverlay != null) {
-            this.dashboardManager = DashboardManager(this, dashboardOverlay)
-            this.dashboardManager?.initialize(_perceptionService)
-        }
+        DashboardManager.initialize(_perceptionService)
 
         // Chat Menu Controller
         val chatMenuController = ChatMenuController(
             this, drawerLayout, mapUiManager!!,
-            dashboardManager, settingsManager!!
+            settingsManager!!
         )
         chatMenuController.setupSettingsMenu()
         this.chatMenuController = chatMenuController
@@ -325,7 +327,7 @@ class ChatActivity : AppCompatActivity(), ToolHost {
         _turnManager.setListener(turnListener)
 
         // Tool Context
-        this.toolContext = toolContextFactory.create(this, dashboardManager)
+        this.toolContext = toolContextFactory.create(this)
 
         // Set ToolContext on the handler
         val listener = eventHandler.listener
@@ -449,7 +451,7 @@ class ChatActivity : AppCompatActivity(), ToolHost {
         toolContext?.updateQiContext(null)
 
         _perceptionService.shutdown()
-        dashboardManager?.shutdown()
+        DashboardManager.shutdown()
         _touchSensorManager.shutdown()
         _navigationServiceManager.shutdown()
 

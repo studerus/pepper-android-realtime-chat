@@ -28,7 +28,6 @@ class ToolContext(
     private val _movementController: MovementController,
     private val _navigationServiceManager: NavigationServiceManager,
     private val _perceptionService: PerceptionService,
-    private val _dashboardManager: DashboardManager?,
     private val _touchSensorManager: TouchSensorManager,
     private val _gestureController: GestureController,
     private val _locationProvider: LocationProvider,
@@ -51,9 +50,6 @@ class ToolContext(
     
     val perceptionService: PerceptionService
         get() = _perceptionService
-    
-    val dashboardManager: DashboardManager?
-        get() = _dashboardManager
     
     val touchSensorManager: TouchSensorManager
         get() = _touchSensorManager

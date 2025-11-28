@@ -24,7 +24,7 @@ class ToolContextFactory @Inject constructor(
     private val locationProvider: LocationProvider,
     private val sessionController: ChatSessionController
 ) {
-    fun create(toolHost: ToolHost, dashboardManager: DashboardManager?): ToolContext {
+    fun create(toolHost: ToolHost): ToolContext {
         return ToolContext(
             toolHost,
             robotFocusManager,
@@ -32,7 +32,6 @@ class ToolContextFactory @Inject constructor(
             movementController,
             navigationServiceManager,
             perceptionService,
-            dashboardManager,
             touchSensorManager,
             gestureController,
             locationProvider,

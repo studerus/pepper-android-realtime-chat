@@ -3,6 +3,7 @@ package io.github.anonymous.pepper_realtime.controller
 import android.util.Log
 import io.github.anonymous.pepper_realtime.R
 import io.github.anonymous.pepper_realtime.manager.TouchSensorManager
+import io.github.anonymous.pepper_realtime.manager.DashboardManager
 import io.github.anonymous.pepper_realtime.manager.TurnManager
 import io.github.anonymous.pepper_realtime.network.WebSocketConnectionCallback
 import io.github.anonymous.pepper_realtime.ui.ChatActivity
@@ -44,7 +45,7 @@ class ChatRobotLifecycleHandler(
 
             activity.toolContext?.updateQiContext(robotContext)
 
-            activity.dashboardManager?.initialize(activity.perceptionService)
+            DashboardManager.initialize(activity.perceptionService)
 
             activity.perceptionService.initialize(robotContext)
 
@@ -165,7 +166,7 @@ class ChatRobotLifecycleHandler(
             if (activity.perceptionService.isInitialized) {
                 activity.perceptionService.shutdown()
             }
-            activity.dashboardManager?.shutdown()
+            DashboardManager.shutdown()
             activity.touchSensorManager.shutdown()
             activity.navigationServiceManager.shutdown()
 

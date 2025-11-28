@@ -63,5 +63,3 @@ object YouTubePlayerManager {
         Log.i(TAG, "YouTube player dialog created for: ${video.title}")
     }
 }
-
-

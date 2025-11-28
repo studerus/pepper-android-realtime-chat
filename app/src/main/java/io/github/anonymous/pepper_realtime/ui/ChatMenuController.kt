@@ -15,7 +15,6 @@ class ChatMenuController(
     private val activity: ChatActivity,
     private val drawerLayout: DrawerLayout,
     private val mapUiManager: MapUiManager,
-    private val dashboardManager: DashboardManager?,
     private val settingsManager: SettingsManagerCompat?
 ) {
 
@@ -79,7 +78,7 @@ class ChatMenuController(
                 true
             }
             R.id.action_dashboard -> {
-                dashboardManager?.toggleDashboard()
+                DashboardManager.toggleDashboard()
                 true
             }
             R.id.action_settings -> {
