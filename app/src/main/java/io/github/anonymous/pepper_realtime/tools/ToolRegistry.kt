@@ -24,8 +24,12 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * Tool registry using factory pattern.
+ * Tool registry using factory pattern with instance caching.
  * Manages tool instances, definitions, and availability.
+ * 
+ * Tool instances are cached to avoid repeated object allocation.
+ * Note: Only the Tool objects are cached, not execution results.
+ * Each call to execute() still performs fresh operations.
  */
 class ToolRegistry {
 
@@ -38,6 +42,9 @@ class ToolRegistry {
 
     // Factory for creating tool instances
     private val toolFactories = mutableMapOf<String, ToolFactory>()
+    
+    // Cache for tool instances to avoid repeated object allocation
+    private val toolCache = mutableMapOf<String, Tool>()
 
     init {
         registerAllTools()
@@ -87,15 +94,33 @@ class ToolRegistry {
     }
 
     /**
-     * Create a tool instance by name
+     * Get or create a cached tool instance by name.
+     * Tool instances are reused to reduce object allocation overhead.
+     * Note: Only the instance is cached, execute() still runs fresh each time.
      */
-    fun createTool(name: String): Tool? {
+    fun getOrCreateTool(name: String): Tool? {
+        // Return cached instance if available
+        toolCache[name]?.let { return it }
+        
+        // Create new instance and cache it
         val factory = toolFactories[name]
         if (factory == null) {
             Log.w(TAG, "Unknown tool requested: $name")
             return null
         }
-        return factory.createTool()
+        
+        val tool = factory.createTool()
+        toolCache[name] = tool
+        return tool
+    }
+
+    /**
+     * Clear the tool cache.
+     * Useful when tool configurations might have changed.
+     */
+    fun clearCache() {
+        toolCache.clear()
+        Log.d(TAG, "Tool cache cleared")
     }
 
     /**
@@ -115,7 +140,7 @@ class ToolRegistry {
                 continue
             }
 
-            val tool = createTool(toolName) ?: continue
+            val tool = getOrCreateTool(toolName) ?: continue
 
             // Check if tool is available (e.g., API keys)
             if (!tool.isAvailable(context)) {
@@ -165,10 +190,11 @@ class ToolRegistry {
     }
 
     /**
-     * Execute a tool by name
+     * Execute a tool by name.
+     * Uses cached tool instance but always runs execute() fresh.
      */
     fun executeTool(toolName: String, args: JSONObject, context: ToolContext): String {
-        val tool = createTool(toolName) ?: return try {
+        val tool = getOrCreateTool(toolName) ?: return try {
             JSONObject().put("error", "Unknown tool: $toolName").toString()
         } catch (e: Exception) {
             "{\"error\":\"Unknown tool and failed to create error response\"}"

@@ -419,7 +419,7 @@ private fun ToolsSection(
     
     Column {
         toolNames.forEach { toolName ->
-            val tool = remember(toolName) { registry.createTool(toolName) }
+            val tool = remember(toolName) { registry.getOrCreateTool(toolName) }
             val description = remember(tool) {
                 tool?.getDefinition()?.optString("description", "No description available")
                     ?: "Tool not available"
