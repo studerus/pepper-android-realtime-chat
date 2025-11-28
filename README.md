@@ -170,7 +170,7 @@ The entire application is written in **Kotlin**, leveraging modern language feat
 - **Jetpack Compose** - Modern declarative UI for the chat interface with LazyColumn, Material 3, and Coil image loading
 
 **Note on API 23 (Android 6.0) Compatibility:**
-Pepper v1.8 runs Android 6.0 (API Level 23). This limits some third-party libraries to older versions, as many newer releases require Android 8.0+ (API 26+) for features like `java.util.Base64` and `MethodHandle`. Despite this constraint, the project uses the latest compatible versions of all dependencies and modern development tools (Gradle 8.13, Kotlin 2.0, Android Studio latest).
+Pepper v1.8 runs Android 6.0 (API Level 23). This limits some third-party libraries to older versions, as many newer releases require Android 8.0+ (API 26+) for features like `java.util.Base64` and `MethodHandle`. Despite this constraint, the project uses the latest compatible versions of all dependencies and modern development tools (Gradle 8.13, Kotlin 2.0.21, Android Studio latest).
 
 ### Setup Steps
 
