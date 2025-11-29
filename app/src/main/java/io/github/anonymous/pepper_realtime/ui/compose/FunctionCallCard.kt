@@ -31,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -108,7 +109,7 @@ fun FunctionCallCard(
                     // Expand icon
                     Icon(
                         painter = painterResource(id = R.drawable.ic_expand_more),
-                        contentDescription = "Expand",
+                        contentDescription = stringResource(R.string.content_desc_expand),
                         modifier = Modifier
                             .size(20.dp)
                             .rotate(rotationAngle),

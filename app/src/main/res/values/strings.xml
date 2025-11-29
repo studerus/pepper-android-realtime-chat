@@ -300,6 +300,12 @@ Closings: \"Happy to help!\" | \"Anything else?\" | \"I\'m here if you need me\"
     <string name="dashboard_header_picture">Picture</string>
     <string name="dashboard_header_demographics">Demographics</string>
     <string name="dashboard_header_distance">Distance</string>
+    <string name="dashboard_header_emotion">Emotion</string>
+    <string name="dashboard_header_pleasure">Pleasure</string>
+    <string name="dashboard_header_excitement">Excitement</string>
+    <string name="dashboard_header_smile">Smile</string>
+    <string name="dashboard_header_attention">Attention</string>
+    <string name="dashboard_header_engagement">Engagement</string>
     <string name="dashboard_header_emotions">Emotions</string>
     <string name="dashboard_header_face_analysis">Face Analysis</string>
     <string name="dashboard_unknown">Unknown</string>
@@ -328,4 +334,32 @@ Closings: \"Happy to help!\" | \"Anything else?\" | \"I\'m here if you need me\"
     
     <string name="memory_time_label">Time: %s</string>
     <string name="close_button_label">Close</string>
+    
+    <!-- Function Call Card Strings -->
+    <string name="func_arguments_label">Arguments:</string>
+    <string name="func_result_label">Result:</string>
+    <string name="func_name_search_internet">Internet Search</string>
+    <string name="func_name_get_weather">Weather</string>
+    <string name="func_name_analyze_vision">Vision Analysis</string>
+    <string name="func_name_play_animation">Animation</string>
+    <string name="func_name_get_datetime">Date/Time</string>
+    <string name="func_name_get_joke">Random Joke</string>
+    <string name="func_name_quiz">Quiz Question</string>
+    <string name="func_name_memory_game">Memory Game</string>
+    <string name="func_name_unknown">Unknown</string>
+    <string name="func_status_search_done">Internet search completed</string>
+    <string name="func_status_search_pending">Searching internet…</string>
+    <string name="func_status_weather_done">Weather information retrieved</string>
+    <string name="func_status_weather_pending">Getting weather…</string>
+    <string name="func_status_vision_done">Image analysis completed</string>
+    <string name="func_status_vision_pending">Analyzing image…</string>
+    <string name="func_status_animation_done">Animation played</string>
+    <string name="func_status_animation_pending">Playing animation…</string>
+    <string name="func_status_generic_done">Function completed</string>
+    <string name="func_status_generic_pending">Function executing…</string>
+    <string name="content_desc_expand">Expand</string>
+    <string name="content_desc_collapse">Collapse</string>
+    <string name="content_desc_chat_image">Chat image</string>
+    <string name="no_description_available">No description available</string>
+    <string name="select_tools_description">Select which tools the AI can use during conversations</string>
 </resources>

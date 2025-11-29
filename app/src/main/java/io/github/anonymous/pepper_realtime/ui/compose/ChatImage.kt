@@ -18,9 +18,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import io.github.anonymous.pepper_realtime.R
 import io.github.anonymous.pepper_realtime.ui.ChatMessage
 import java.io.File
 
@@ -64,7 +66,7 @@ fun ChatImage(
         if (imagePath != null && File(imagePath).exists()) {
             AsyncImage(
                 model = File(imagePath),
-                contentDescription = "Chat image",
+                contentDescription = stringResource(R.string.content_desc_chat_image),
                 modifier = Modifier
                     .padding(top = if (message.message.isNotEmpty()) 6.dp else 0.dp)
                     .size(220.dp)

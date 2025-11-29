@@ -87,12 +87,16 @@ fun DashboardOverlay(
                             .padding(vertical = 8.dp, horizontal = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Use hardcoded list here to match column count, but with stringResources where available
                         val displayHeaders = listOf(
                             stringResource(R.string.dashboard_header_picture),
                             stringResource(R.string.dashboard_header_demographics),
                             stringResource(R.string.dashboard_header_distance),
-                            "Emotion", "Pleasure", "Excitement", "Smile", "Attention", "Engagement"
+                            stringResource(R.string.dashboard_header_emotion),
+                            stringResource(R.string.dashboard_header_pleasure),
+                            stringResource(R.string.dashboard_header_excitement),
+                            stringResource(R.string.dashboard_header_smile),
+                            stringResource(R.string.dashboard_header_attention),
+                            stringResource(R.string.dashboard_header_engagement)
                         )
                         
                         displayHeaders.forEachIndexed { index, title ->
