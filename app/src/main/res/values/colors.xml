@@ -23,5 +23,14 @@
     <color name="muted_status_background">#FFE53935</color>
     <color name="normal_status_background">#DDDDDD</color>
     
-    <!-- Function call colors are now defined in Compose (ChatTheme.kt) -->
+    <!-- Function call colors for light theme -->
+    <color name="function_call_background">#FFF1F5F9</color>
+    <color name="function_call_title">#FF475569</color>
+    <color name="function_call_summary">#FF64748B</color>
+    <color name="function_call_status_success">#FF059669</color>
+    <color name="function_call_status_pending">#FFD97706</color>
+    <color name="function_call_icon">#FF3B82F6</color>
+    <color name="function_call_label">#FF1F2937</color>
+    <color name="function_call_code">#FF0F172A</color>
+    <color name="code_background">#FFE2E8F0</color>
 </resources>
