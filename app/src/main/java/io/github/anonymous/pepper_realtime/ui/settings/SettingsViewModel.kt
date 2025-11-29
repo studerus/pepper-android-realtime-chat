@@ -1,10 +1,11 @@
 package io.github.anonymous.pepper_realtime.ui.settings
 
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.anonymous.pepper_realtime.manager.SettingsRepository
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 
 @HiltViewModel
@@ -12,17 +13,16 @@ class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository
 ) : ViewModel() {
 
-    // Events
-    private val _restartSessionEvent = MutableLiveData<Boolean>()
-    private val _updateSessionEvent = MutableLiveData<Boolean>()
-    private val _restartRecognizerEvent = MutableLiveData<Boolean>()
-    private val _volumeChangeEvent = MutableLiveData<Int>()
+    // Events as StateFlow (modern approach, better Compose integration)
+    private val _restartSessionEvent = MutableStateFlow(false)
+    private val _updateSessionEvent = MutableStateFlow(false)
+    private val _restartRecognizerEvent = MutableStateFlow(false)
+    private val _volumeChangeEvent = MutableStateFlow<Int?>(null)
 
-    // Event Getters
-    val restartSessionEvent: LiveData<Boolean> get() = _restartSessionEvent
-    val updateSessionEvent: LiveData<Boolean> get() = _updateSessionEvent
-    val restartRecognizerEvent: LiveData<Boolean> get() = _restartRecognizerEvent
-    val volumeChangeEvent: LiveData<Int> get() = _volumeChangeEvent
+    val restartSessionEvent: StateFlow<Boolean> = _restartSessionEvent.asStateFlow()
+    val updateSessionEvent: StateFlow<Boolean> = _updateSessionEvent.asStateFlow()
+    val restartRecognizerEvent: StateFlow<Boolean> = _restartRecognizerEvent.asStateFlow()
+    val volumeChangeEvent: StateFlow<Int?> = _volumeChangeEvent.asStateFlow()
 
     // Batch Update Mode
     private var isBatchMode = false
@@ -237,7 +237,7 @@ class SettingsViewModel @Inject constructor(
     fun getEagerness(): String = settingsRepository.eagerness
     fun getNoiseReduction(): String = settingsRepository.noiseReduction
 
-    // Event consumption methods for ChatActivity
+    // Event consumption methods
     fun consumeRestartSessionEvent() {
         _restartSessionEvent.value = false
     }
@@ -250,4 +250,3 @@ class SettingsViewModel @Inject constructor(
         _restartRecognizerEvent.value = false
     }
 }
-

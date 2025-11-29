@@ -142,12 +142,10 @@ class ChatActivity : AppCompatActivity(), ToolHost {
             }
         }
 
-        // Observe ViewModel Events (Non-UI logic like restarting session)
-        observeViewModelEvents()
-
-        // Collect StateFlows for navigation status updates
+        // Collect StateFlows for ViewModel events and navigation status
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
+                // Navigation status updates
                 launch {
                     viewModel.mapStatus.collect { status ->
                         MapUiManager.updateMapStatus(status)
@@ -156,6 +154,43 @@ class ChatActivity : AppCompatActivity(), ToolHost {
                 launch {
                     viewModel.localizationStatus.collect { status ->
                         MapUiManager.updateLocalizationStatus(status)
+                    }
+                }
+                
+                // Settings events
+                launch {
+                    settingsViewModel.restartSessionEvent.collect { restart ->
+                        if (restart) {
+                            Log.i(TAG, "Core settings changed. Starting new session.")
+                            viewModel.startNewSession()
+                            settingsViewModel.consumeRestartSessionEvent()
+                        }
+                    }
+                }
+                launch {
+                    settingsViewModel.updateSessionEvent.collect { update ->
+                        if (update) {
+                            Log.i(TAG, "Tools/prompt/temperature changed. Updating session.")
+                            chatDeps.sessionManager.updateSession()
+                            settingsViewModel.consumeUpdateSessionEvent()
+                        }
+                    }
+                }
+                launch {
+                    settingsViewModel.restartRecognizerEvent.collect { restart ->
+                        if (restart) {
+                            Log.i(TAG, "Recognizer settings changed. Re-initializing speech recognizer.")
+                            viewModel.setStatusText(getString(R.string.status_updating_recognizer))
+                            chatDeps.audioInputController.stopContinuousRecognition()
+                            chatDeps.audioInputController.reinitializeSpeechRecognizerForSettings()
+                            chatDeps.audioInputController.startContinuousRecognition()
+                            settingsViewModel.consumeRestartRecognizerEvent()
+                        }
+                    }
+                }
+                launch {
+                    settingsViewModel.volumeChangeEvent.collect { volume ->
+                        volume?.let { volumeController?.setVolume(this@ChatActivity, it) }
                     }
                 }
             }
@@ -214,42 +249,6 @@ class ChatActivity : AppCompatActivity(), ToolHost {
             }
         } catch (e: Exception) {
             Log.e(TAG, "Status bar click failed", e)
-        }
-    }
-
-    private fun observeViewModelEvents() {
-        // Observe SettingsViewModel events
-        settingsViewModel.restartSessionEvent.observe(this) { restart ->
-            if (restart == true) {
-                Log.i(TAG, "Core settings changed. Starting new session.")
-                viewModel.startNewSession()
-                settingsViewModel.consumeRestartSessionEvent()
-            }
-        }
-
-        settingsViewModel.updateSessionEvent.observe(this) { update ->
-            if (update == true) {
-                Log.i(TAG, "Tools/prompt/temperature changed. Updating session.")
-                chatDeps.sessionManager.updateSession()
-                settingsViewModel.consumeUpdateSessionEvent()
-            }
-        }
-
-        settingsViewModel.restartRecognizerEvent.observe(this) { restart ->
-            if (restart == true) {
-                Log.i(TAG, "Recognizer settings changed. Re-initializing speech recognizer.")
-                runOnUiThread { viewModel.setStatusText(getString(R.string.status_updating_recognizer)) }
-                chatDeps.audioInputController.stopContinuousRecognition()
-                chatDeps.audioInputController.reinitializeSpeechRecognizerForSettings()
-                chatDeps.audioInputController.startContinuousRecognition()
-                settingsViewModel.consumeRestartRecognizerEvent()
-            }
-        }
-
-        settingsViewModel.volumeChangeEvent.observe(this) { volume ->
-            if (volume != null) {
-                volumeController?.setVolume(this@ChatActivity, volume)
-            }
         }
     }
 
