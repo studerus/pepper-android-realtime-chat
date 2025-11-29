@@ -29,6 +29,7 @@ import io.github.anonymous.pepper_realtime.ui.settings.SettingsViewModel
 fun SettingsScreen(
     viewModel: SettingsViewModel,
     apiKeyManager: ApiKeyManager,
+    toolRegistry: ToolRegistry,
     onSettingsChanged: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -400,7 +401,8 @@ fun SettingsScreen(
                         enabledTools - toolName
                     }
                 },
-                apiKeyManager = apiKeyManager
+                apiKeyManager = apiKeyManager,
+                toolRegistry = toolRegistry
             )
             
             Spacer(modifier = Modifier.height(32.dp))
@@ -412,14 +414,14 @@ fun SettingsScreen(
 private fun ToolsSection(
     enabledTools: Set<String>,
     onToolToggled: (String, Boolean) -> Unit,
-    apiKeyManager: ApiKeyManager
+    apiKeyManager: ApiKeyManager,
+    toolRegistry: ToolRegistry
 ) {
-    val registry = remember { ToolRegistry() }
-    val toolNames = remember { registry.getAllToolNames() }
+    val toolNames = remember(toolRegistry) { toolRegistry.getAllToolNames() }
     
     Column {
         toolNames.forEach { toolName ->
-            val tool = remember(toolName) { registry.getOrCreateTool(toolName) }
+            val tool = remember(toolName) { toolRegistry.getOrCreateTool(toolName) }
             val description = remember(tool) {
                 tool?.getDefinition()?.optString("description", "No description available")
                     ?: "Tool not available"

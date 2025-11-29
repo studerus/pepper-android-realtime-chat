@@ -36,6 +36,7 @@ import io.github.anonymous.pepper_realtime.ui.compose.games.QuizDialog
 import io.github.anonymous.pepper_realtime.ui.compose.games.TicTacToeDialog
 import io.github.anonymous.pepper_realtime.ui.compose.settings.SettingsScreen
 import io.github.anonymous.pepper_realtime.ui.settings.SettingsViewModel
+import io.github.anonymous.pepper_realtime.tools.ToolRegistry
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -44,6 +45,7 @@ fun MainScreen(
     viewModel: ChatViewModel,
     settingsViewModel: SettingsViewModel,
     keyManager: ApiKeyManager,
+    toolRegistry: ToolRegistry,
     onNewChat: () -> Unit,
     onInterrupt: () -> Unit,
     onStatusClick: () -> Unit
@@ -71,6 +73,7 @@ fun MainScreen(
                     SettingsScreen(
                         viewModel = settingsViewModel,
                         apiKeyManager = keyManager,
+                        toolRegistry = toolRegistry,
                         onSettingsChanged = {}
                     )
                 }

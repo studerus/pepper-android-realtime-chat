@@ -139,6 +139,7 @@ class ChatActivity : AppCompatActivity(), ToolHost {
                     viewModel = viewModel,
                     settingsViewModel = settingsViewModel,
                     keyManager = keyManager,
+                    toolRegistry = _toolRegistry,
                     onNewChat = { viewModel.startNewSession() },
                     onInterrupt = { 
                         try {

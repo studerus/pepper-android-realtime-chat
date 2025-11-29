@@ -12,7 +12,8 @@ import javax.inject.Singleton
 
 @Singleton
 class SettingsRepository @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val toolRegistry: ToolRegistry
 ) {
     private val settings: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
@@ -106,10 +107,7 @@ class SettingsRepository @Inject constructor(
         set(value) = settings.edit().putStringSet(KEY_ENABLED_TOOLS, value).apply()
 
     private val defaultEnabledTools: Set<String>
-        get() {
-            val registry = ToolRegistry()
-            return HashSet(registry.getAllToolNames())
-        }
+        get() = HashSet(toolRegistry.getAllToolNames())
 
     // Realtime API Settings
     var transcriptionModel: String
