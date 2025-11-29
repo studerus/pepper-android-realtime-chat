@@ -11,7 +11,7 @@ import io.github.anonymous.pepper_realtime.service.VisionService
  * Groups all robot hardware-related dependencies.
  * Includes sensors, movement, gestures, and perception.
  */
-data class RobotHardwareModule(
+data class RobotHardwareDependencies(
     val robotFocusManager: RobotFocusManager,
     val gestureController: GestureController,
     val movementController: MovementController,

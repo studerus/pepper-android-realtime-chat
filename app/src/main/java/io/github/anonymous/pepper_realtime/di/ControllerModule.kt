@@ -79,7 +79,7 @@ object ControllerModule {
 
     @Provides
     @ActivityScoped
-    fun provideChatModule(
+    fun provideChatDependencies(
         sessionController: ChatSessionController,
         sessionManager: RealtimeSessionManager,
         turnManager: TurnManager,
@@ -88,8 +88,8 @@ object ControllerModule {
         interruptController: ChatInterruptController,
         eventHandler: RealtimeEventHandler,
         turnListener: ChatTurnListener
-    ): ChatModule {
-        return ChatModule(
+    ): ChatDependencies {
+        return ChatDependencies(
             sessionController = sessionController,
             sessionManager = sessionManager,
             turnManager = turnManager,
@@ -103,15 +103,15 @@ object ControllerModule {
 
     @Provides
     @ActivityScoped
-    fun provideRobotHardwareModule(
+    fun provideRobotHardwareDependencies(
         robotFocusManager: RobotFocusManager,
         gestureController: GestureController,
         movementController: MovementController,
         perceptionService: PerceptionService,
         visionService: VisionService,
         touchSensorManager: TouchSensorManager
-    ): RobotHardwareModule {
-        return RobotHardwareModule(
+    ): RobotHardwareDependencies {
+        return RobotHardwareDependencies(
             robotFocusManager = robotFocusManager,
             gestureController = gestureController,
             movementController = movementController,
@@ -123,11 +123,11 @@ object ControllerModule {
 
     @Provides
     @ActivityScoped
-    fun provideNavigationModule(
+    fun provideNavigationDependencies(
         navigationServiceManager: NavigationServiceManager,
         locationProvider: LocationProvider
-    ): NavigationModule {
-        return NavigationModule(
+    ): NavigationDependencies {
+        return NavigationDependencies(
             navigationServiceManager = navigationServiceManager,
             locationProvider = locationProvider
         )

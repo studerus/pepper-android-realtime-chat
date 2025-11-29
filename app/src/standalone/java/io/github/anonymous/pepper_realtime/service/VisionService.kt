@@ -427,7 +427,7 @@ class VisionService(context: Context) {
                 Log.w(TAG, "Cannot determine model - activityRef is null")
                 return false
             }
-            val model = activity.settingsManager?.getModel()
+            val model = activity.getModel()
             Log.d(TAG, "Current model for vision decision: $model")
             model == "gpt-realtime" || model == "gpt-realtime-mini"
         } catch (e: Exception) {

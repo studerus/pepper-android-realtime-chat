@@ -11,7 +11,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.anonymous.pepper_realtime.manager.ApiKeyManager
-import io.github.anonymous.pepper_realtime.manager.SettingsManagerCompat
 import io.github.anonymous.pepper_realtime.manager.SettingsRepository
 import io.github.anonymous.pepper_realtime.network.RealtimeApiProvider
 import io.github.anonymous.pepper_realtime.tools.ToolRegistry
@@ -65,7 +64,7 @@ fun SettingsScreen(
     val models = listOf("gpt-realtime", "gpt-realtime-mini", "gpt-4o-realtime-preview", "gpt-4o-mini-realtime-preview")
     val voices = listOf("alloy", "ash", "ballad", "cedar", "coral", "echo", "marin", "sage", "shimmer", "verse")
     val configuredProviders = remember { apiKeyManager.getConfiguredProviders() }
-    val languages = SettingsManagerCompat.getAvailableLanguages()
+    val languages = SettingsRepository.getAvailableLanguages()
     val audioInputModes = listOf("Realtime API (Simple Setup)", "Azure Speech (Best for Dialects)")
     val transcriptionModels = listOf("whisper-1", "gpt-4o-mini-transcribe", "gpt-4o-transcribe", "gpt-4o-transcribe-diarize")
     val turnDetectionTypes = listOf("Server VAD (Volume-based)", "Semantic VAD (Context-aware)")

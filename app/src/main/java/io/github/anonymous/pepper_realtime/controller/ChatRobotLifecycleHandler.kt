@@ -87,10 +87,10 @@ class ChatRobotLifecycleHandler(
 
                 hasFocusInitialized = true
                 viewModel.lastChatBubbleResponseId = null
-                activity.volumeController?.setVolume(activity, activity.settingsManager?.getVolume() ?: 100)
+                activity.volumeController?.setVolume(activity, activity.getVolume())
 
                 // Only show warmup indicator for Azure Speech mode
-                val isRealtimeMode = activity.settingsManager?.isUsingRealtimeAudioInput() ?: true
+                val isRealtimeMode = activity.isUsingRealtimeAudioInput()
                 if (!isRealtimeMode) {
                     viewModel.setWarmingUp(true)
                     viewModel.setStatusText(activity.getString(R.string.status_warming_up))

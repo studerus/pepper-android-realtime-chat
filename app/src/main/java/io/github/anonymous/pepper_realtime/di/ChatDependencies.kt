@@ -13,7 +13,7 @@ import io.github.anonymous.pepper_realtime.network.RealtimeSessionManager
  * Groups all chat/conversation-related dependencies.
  * Includes session management, audio handling, and turn management.
  */
-data class ChatModule(
+data class ChatDependencies(
     val sessionController: ChatSessionController,
     val sessionManager: RealtimeSessionManager,
     val turnManager: TurnManager,
