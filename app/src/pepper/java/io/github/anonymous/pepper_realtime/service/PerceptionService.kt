@@ -298,24 +298,23 @@ class PerceptionService {
                     return@andThenConsume
                 }
 
-                @Suppress("DEPRECATION") // Using async version for callback-based flow
-                faceRecognitionService?.detectFacesAsync(bitmap, object : FaceRecognitionService.FaceCallback {
-                    override fun onResult(faces: List<FaceRecognitionService.FaceInfo>) {
+                // Use coroutine to call suspend function
+                serviceScope.launch {
+                    try {
+                        val faces = faceRecognitionService?.detectFaces(bitmap) ?: emptyList()
                         val fusedList = fuseHumanAndFaceData(pepperHumans, initialHumanInfo, faces)
                         maybePushUi(fusedList)
-                        isAzureAnalysisRunning.set(false)
-                    }
-
-                    override fun onError(e: Exception) {
-                        if (e is FaceRecognitionService.RateLimitException) {
-                            azureBackoffUntilMs = System.currentTimeMillis() + e.retryAfterMs
-                        }
-                        Log.e(TAG, "Azure face detection failed", e)
-                        // Keep showing last values: do not overwrite initialHumanInfo
+                    } catch (e: FaceRecognitionService.RateLimitException) {
+                        azureBackoffUntilMs = System.currentTimeMillis() + e.retryAfterMs
+                        Log.e(TAG, "Azure face detection rate limited", e)
                         maybePushUi(initialHumanInfo)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Azure face detection failed", e)
+                        maybePushUi(initialHumanInfo)
+                    } finally {
                         isAzureAnalysisRunning.set(false)
                     }
-                })
+                }
             }
     }
 
