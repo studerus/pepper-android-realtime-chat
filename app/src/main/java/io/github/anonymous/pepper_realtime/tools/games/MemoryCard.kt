@@ -1,37 +1,22 @@
 package io.github.anonymous.pepper_realtime.tools.games
 
 /**
- * Represents a card in the memory game
+ * Represents a card in the memory game.
+ * Immutable data class - create new instances for state changes.
+ * This enables Compose to detect changes properly.
  */
-class MemoryCard(
+data class MemoryCard(
     val id: Int,
-    val symbol: String
+    val symbol: String,
+    val isFlipped: Boolean = false,
+    val isMatched: Boolean = false
 ) {
-    var isFlipped: Boolean = false
-        private set
-
-    var isMatched: Boolean = false
-        private set
-
-    fun setMatched(matched: Boolean) {
-        isMatched = matched
-        if (matched) {
-            isFlipped = true // Matched cards stay flipped
-        }
-    }
-
     fun canFlip(): Boolean = !isFlipped && !isMatched
 
-    fun flip() {
-        if (canFlip()) {
-            isFlipped = true
-        }
-    }
+    fun flip(): MemoryCard = if (canFlip()) copy(isFlipped = true) else this
 
-    fun flipBack() {
-        if (!isMatched) {
-            isFlipped = false
-        }
-    }
+    fun flipBack(): MemoryCard = if (!isMatched) copy(isFlipped = false) else this
+
+    fun setMatched(): MemoryCard = copy(isMatched = true, isFlipped = true)
 }
 

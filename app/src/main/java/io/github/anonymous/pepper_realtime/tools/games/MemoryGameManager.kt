@@ -58,7 +58,9 @@ object MemoryGameManager {
     // Internal State
     private var startTime = 0L
     private var firstFlippedCard: MemoryCard? = null
+    private var firstFlippedCardIndex: Int = -1
     private var secondFlippedCard: MemoryCard? = null
+    private var secondFlippedCardIndex: Int = -1
     private var processingMove = false
     private var toolContext: ToolContext? = null
     
@@ -152,7 +154,7 @@ object MemoryGameManager {
     fun onCardClick(cardId: Int) {
         if (!gameState.isGameActive || processingMove) return
 
-        // Find card by ID (Compose uses list position, but ID is safer)
+        // Find card by ID
         val cards = gameState.cards
         val cardIndex = cards.indexOfFirst { it.id == cardId }
         if (cardIndex == -1) return
@@ -160,23 +162,22 @@ object MemoryGameManager {
         val clickedCard = cards[cardIndex]
         if (!clickedCard.canFlip()) return
 
-        // Flip card
-        clickedCard.flip()
-        // Trigger recomposition by creating a new list copy (since MemoryCard is mutable but list reference needs to change or we need SnapshotStateList)
-        // Ideally we should use immutable MemoryCard and copy(), but for now we'll just force update
-        // A cleaner way for Compose:
-        updateGameStateCards()
+        // Flip card - create new card instance (immutable)
+        val flippedCard = clickedCard.flip()
+        updateCard(cardIndex, flippedCard)
 
-        val cardInfo = "Position ${cardIndex + 1} (Symbol: ${clickedCard.symbol})"
+        val cardInfo = "Position ${cardIndex + 1} (Symbol: ${flippedCard.symbol})"
 
         val first = firstFlippedCard
         if (first == null) {
             // First card
-            firstFlippedCard = clickedCard
+            firstFlippedCard = flippedCard
+            firstFlippedCardIndex = cardIndex
             toolContext?.sendAsyncUpdate("User revealed the first card: $cardInfo", false)
         } else if (secondFlippedCard == null) {
             // Second card
-            secondFlippedCard = clickedCard
+            secondFlippedCard = flippedCard
+            secondFlippedCardIndex = cardIndex
             val newMoves = gameState.moves + 1
             
             // Update moves immediately
@@ -184,23 +185,26 @@ object MemoryGameManager {
             
             processingMove = true
 
-            if (first.symbol == clickedCard.symbol) {
+            if (first.symbol == flippedCard.symbol) {
                 // Match!
-                handleMatch(first, clickedCard, newMoves)
+                handleMatch(newMoves)
             } else {
                 // No Match
-                handleMismatch(first, clickedCard, newMoves)
+                handleMismatch(newMoves)
             }
         }
     }
 
-    private fun handleMatch(first: MemoryCard, second: MemoryCard, currentMoves: Int) {
-        first.setMatched(true)
-        second.setMatched(true)
+    private fun handleMatch(currentMoves: Int) {
+        val first = firstFlippedCard ?: return
+        val second = secondFlippedCard ?: return
+        
+        // Mark both cards as matched (create new instances)
+        updateCard(firstFlippedCardIndex, first.setMatched())
+        updateCard(secondFlippedCardIndex, second.setMatched())
         
         val newMatchedPairs = gameState.matchedPairs + 1
         gameState = gameState.copy(matchedPairs = newMatchedPairs)
-        updateGameStateCards() // Visual update
 
         val firstInfo = "Symbol: ${first.symbol}"
         val secondInfo = "Symbol: ${second.symbol}"
@@ -221,7 +225,12 @@ object MemoryGameManager {
         }
     }
 
-    private fun handleMismatch(first: MemoryCard, second: MemoryCard, currentMoves: Int) {
+    private fun handleMismatch(currentMoves: Int) {
+        val first = firstFlippedCard ?: return
+        val second = secondFlippedCard ?: return
+        val firstIdx = firstFlippedCardIndex
+        val secondIdx = secondFlippedCardIndex
+        
         val firstInfo = "Symbol: ${first.symbol}"
         val secondInfo = "Symbol: ${second.symbol}"
         
@@ -234,16 +243,24 @@ object MemoryGameManager {
 
         // Delay flip back
         Handler(Looper.getMainLooper()).postDelayed({
-            first.flipBack()
-            second.flipBack()
-            updateGameStateCards()
+            // Flip cards back (create new instances)
+            val currentCards = gameState.cards.toMutableList()
+            if (firstIdx in currentCards.indices) {
+                currentCards[firstIdx] = currentCards[firstIdx].flipBack()
+            }
+            if (secondIdx in currentCards.indices) {
+                currentCards[secondIdx] = currentCards[secondIdx].flipBack()
+            }
+            gameState = gameState.copy(cards = currentCards)
             resetTurn()
         }, 1500)
     }
 
     private fun resetTurn() {
         firstFlippedCard = null
+        firstFlippedCardIndex = -1
         secondFlippedCard = null
+        secondFlippedCardIndex = -1
         processingMove = false
     }
 
@@ -293,11 +310,16 @@ object MemoryGameManager {
         timerRunnable = null
     }
     
-    // Helper to force List recomposition since MemoryCard is mutable
-    private fun updateGameStateCards() {
-        // We create a shallow copy of the list to trigger State change
-        // Compose sees a new List reference and recomposes
-        gameState = gameState.copy(cards = ArrayList(gameState.cards))
+    /**
+     * Update a card at a specific index with a new instance.
+     * Creates a new list to trigger Compose recomposition.
+     */
+    private fun updateCard(index: Int, newCard: MemoryCard) {
+        val updatedCards = gameState.cards.toMutableList()
+        if (index in updatedCards.indices) {
+            updatedCards[index] = newCard
+            gameState = gameState.copy(cards = updatedCards)
+        }
     }
 }
 

@@ -40,7 +40,10 @@ import io.github.anonymous.pepper_realtime.tools.ToolContextFactory
 import io.github.anonymous.pepper_realtime.tools.ToolRegistry
 import io.github.anonymous.pepper_realtime.tools.interfaces.ToolHost
 import io.github.anonymous.pepper_realtime.di.ApplicationScope
+import io.github.anonymous.pepper_realtime.di.ChatModule
 import io.github.anonymous.pepper_realtime.di.IoDispatcher
+import io.github.anonymous.pepper_realtime.di.NavigationModule
+import io.github.anonymous.pepper_realtime.di.RobotHardwareModule
 import io.github.anonymous.pepper_realtime.ui.settings.SettingsViewModel
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -59,34 +62,21 @@ class ChatActivity : AppCompatActivity(), ToolHost {
         private const val TAG = "ChatActivity"
     }
 
-    // Injected Dependencies - use internal visibility to avoid getter conflicts
+    // Feature Modules - group related dependencies
+    @Inject internal lateinit var chatModule: ChatModule
+    @Inject internal lateinit var robotModule: RobotHardwareModule
+    @Inject internal lateinit var navigationModule: NavigationModule
+
+    // Cross-cutting dependencies that remain directly injected
     @Inject internal lateinit var keyManager: ApiKeyManager
     @Inject internal lateinit var permissionManager: PermissionManager
     @Inject internal lateinit var _sessionImageManager: SessionImageManager
-    @Inject internal lateinit var _locationProvider: LocationProvider
-    @Inject internal lateinit var _sessionManager: RealtimeSessionManager
-    @Inject internal lateinit var _gestureController: GestureController
-    @Inject internal lateinit var _audioPlayer: AudioPlayer
-    @Inject internal lateinit var _toolRegistry: ToolRegistry
-    @Inject internal lateinit var _perceptionService: PerceptionService
-    @Inject internal lateinit var _visionService: VisionService
-    @Inject internal lateinit var _touchSensorManager: TouchSensorManager
-    @Inject internal lateinit var movementController: MovementController
-    @Inject internal lateinit var _navigationServiceManager: NavigationServiceManager
     @Inject internal lateinit var _settingsRepository: SettingsRepository
+    @Inject internal lateinit var _toolRegistry: ToolRegistry
     @Inject internal lateinit var toolContextFactory: ToolContextFactory
+    @Inject internal lateinit var lifecycleController: ChatLifecycleController
     @Inject @IoDispatcher internal lateinit var ioDispatcher: CoroutineDispatcher
     @Inject @ApplicationScope internal lateinit var applicationScope: CoroutineScope
-
-    // Injected Controllers - use internal visibility to avoid getter conflicts
-    @Inject internal lateinit var _sessionController: ChatSessionController
-    @Inject internal lateinit var _audioInputController: AudioInputController
-    @Inject internal lateinit var interruptController: ChatInterruptController
-    @Inject internal lateinit var _robotFocusManager: RobotFocusManager
-    @Inject internal lateinit var _turnManager: TurnManager
-    @Inject internal lateinit var eventHandler: RealtimeEventHandler
-    @Inject internal lateinit var turnListener: ChatTurnListener
-    @Inject internal lateinit var lifecycleController: ChatLifecycleController
 
     // Controllers & Managers (Initialized in onCreate)
     var settingsManager: SettingsManagerCompat? = null
@@ -100,20 +90,20 @@ class ChatActivity : AppCompatActivity(), ToolHost {
     private lateinit var viewModel: ChatViewModel
     private lateinit var settingsViewModel: SettingsViewModel
 
-    // Public accessors for other classes
+    // Public accessors via modules
     // sessionImageManager is accessed via getSessionImageManager() override from ToolHost
-    val locationProvider: LocationProvider get() = _locationProvider
-    val sessionManager: RealtimeSessionManager get() = _sessionManager
-    val gestureController: GestureController get() = _gestureController
-    val audioPlayer: AudioPlayer get() = _audioPlayer
-    val perceptionService: PerceptionService get() = _perceptionService
-    val visionService: VisionService get() = _visionService
-    val touchSensorManager: TouchSensorManager get() = _touchSensorManager
-    val navigationServiceManager: NavigationServiceManager get() = _navigationServiceManager
-    val sessionController: ChatSessionController get() = _sessionController
-    val audioInputController: AudioInputController get() = _audioInputController
-    val turnManager: TurnManager get() = _turnManager
-    val robotFocusManager: RobotFocusManager get() = _robotFocusManager
+    val locationProvider: LocationProvider get() = navigationModule.locationProvider
+    val sessionManager: RealtimeSessionManager get() = chatModule.sessionManager
+    val gestureController: GestureController get() = robotModule.gestureController
+    val audioPlayer: AudioPlayer get() = chatModule.audioPlayer
+    val perceptionService: PerceptionService get() = robotModule.perceptionService
+    val visionService: VisionService get() = robotModule.visionService
+    val touchSensorManager: TouchSensorManager get() = robotModule.touchSensorManager
+    val navigationServiceManager: NavigationServiceManager get() = navigationModule.navigationServiceManager
+    val sessionController: ChatSessionController get() = chatModule.sessionController
+    val audioInputController: AudioInputController get() = chatModule.audioInputController
+    val turnManager: TurnManager get() = chatModule.turnManager
+    val robotFocusManager: RobotFocusManager get() = robotModule.robotFocusManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -123,11 +113,11 @@ class ChatActivity : AppCompatActivity(), ToolHost {
         settingsViewModel = ViewModelProvider(this)[SettingsViewModel::class.java]
 
         // Set Controller on ViewModel (Break circular dependency)
-        viewModel.setSessionController(_sessionController)
+        viewModel.setSessionController(chatModule.sessionController)
         
         // Initialize Managers
         this.settingsManager = SettingsManagerCompat(settingsViewModel)
-        DashboardManager.initialize(_perceptionService)
+        DashboardManager.initialize(robotModule.perceptionService)
         
         // Setup Compose Content (MainScreen)
         val composeView = ComposeView(this)
@@ -143,8 +133,8 @@ class ChatActivity : AppCompatActivity(), ToolHost {
                     onNewChat = { viewModel.startNewSession() },
                     onInterrupt = { 
                         try {
-                            interruptController.interruptSpeech()
-                            _turnManager.setState(TurnManager.State.LISTENING)
+                            chatModule.interruptController.interruptSpeech()
+                            chatModule.turnManager.setState(TurnManager.State.LISTENING)
                         } catch (e: Exception) {
                             Log.e(TAG, "Interrupt failed", e)
                         }
@@ -175,28 +165,28 @@ class ChatActivity : AppCompatActivity(), ToolHost {
 
         // Register Robot Lifecycle
         val lifecycleHandler = ChatRobotLifecycleHandler(this, viewModel, ioDispatcher, applicationScope)
-        _robotFocusManager.setListener(lifecycleHandler)
-        _robotFocusManager.register()
+        robotModule.robotFocusManager.setListener(lifecycleHandler)
+        robotModule.robotFocusManager.register()
 
         // Turn Manager Listener
-        _turnManager.setListener(turnListener)
+        chatModule.turnManager.setListener(chatModule.turnListener)
 
         // Tool Context
         this.toolContext = toolContextFactory.create(this)
-        val listener = eventHandler.listener
+        val listener = chatModule.eventHandler.listener
         if (listener is ChatRealtimeHandler) {
             listener.setToolContext(toolContext)
-            listener.sessionController = _sessionController
+            listener.sessionController = chatModule.sessionController
         }
 
         val speechListener = ChatSpeechListener(
-            _turnManager, null, _audioInputController.sttWarmupStartTime,
-            _sessionController, _audioInputController, viewModel
+            chatModule.turnManager, null, chatModule.audioInputController.sttWarmupStartTime,
+            chatModule.sessionController, chatModule.audioInputController, viewModel
         )
-        _audioInputController.setSpeechListener(speechListener)
+        chatModule.audioInputController.setSpeechListener(speechListener)
 
         // Session Dependencies
-        _sessionManager.setSessionDependencies(_toolRegistry, toolContext!!, _settingsRepository, keyManager)
+        chatModule.sessionManager.setSessionDependencies(_toolRegistry, toolContext!!, _settingsRepository, keyManager)
 
         // Volume Controller
         this.volumeController = AudioVolumeController()
@@ -210,16 +200,16 @@ class ChatActivity : AppCompatActivity(), ToolHost {
 
     private fun onStatusClick() {
         try {
-            val currentState = _turnManager.state
+            val currentState = chatModule.turnManager.state
 
             if (currentState == TurnManager.State.SPEAKING) {
                 if (viewModel.isResponseGenerating.value == true
                     || viewModel.isAudioPlaying.value == true
-                    || _audioPlayer.isPlaying()
+                    || chatModule.audioPlayer.isPlaying()
                 ) {
-                    interruptController.interruptAndMute()
+                    chatModule.interruptController.interruptAndMute()
                 }
-            } else if (_audioInputController.isMuted) {
+            } else if (chatModule.audioInputController.isMuted) {
                 unmute()
             } else if (currentState == TurnManager.State.LISTENING) {
                 mute()
@@ -242,7 +232,7 @@ class ChatActivity : AppCompatActivity(), ToolHost {
         settingsViewModel.updateSessionEvent.observe(this) { update ->
             if (update == true) {
                 Log.i(TAG, "Tools/prompt/temperature changed. Updating session.")
-                _sessionManager.updateSession()
+                chatModule.sessionManager.updateSession()
                 settingsViewModel.consumeUpdateSessionEvent()
             }
         }
@@ -251,9 +241,9 @@ class ChatActivity : AppCompatActivity(), ToolHost {
             if (restart == true) {
                 Log.i(TAG, "Recognizer settings changed. Re-initializing speech recognizer.")
                 runOnUiThread { viewModel.setStatusText(getString(R.string.status_updating_recognizer)) }
-                _audioInputController.stopContinuousRecognition()
-                _audioInputController.reinitializeSpeechRecognizerForSettings()
-                _audioInputController.startContinuousRecognition()
+                chatModule.audioInputController.stopContinuousRecognition()
+                chatModule.audioInputController.reinitializeSpeechRecognizerForSettings()
+                chatModule.audioInputController.startContinuousRecognition()
                 settingsViewModel.consumeRestartRecognizerEvent()
             }
         }
@@ -296,7 +286,7 @@ class ChatActivity : AppCompatActivity(), ToolHost {
 
     override fun onResume() {
         super.onResume()
-        lifecycleController.onResume(_robotFocusManager)
+        lifecycleController.onResume(robotModule.robotFocusManager)
     }
 
     override fun onDestroy() {
@@ -306,25 +296,25 @@ class ChatActivity : AppCompatActivity(), ToolHost {
     }
 
     private fun shutdown() {
-        _audioInputController.shutdown()
+        chatModule.audioInputController.shutdown()
 
-        _audioPlayer.setListener(null)
-        _sessionManager.listener = null
+        chatModule.audioPlayer.setListener(null)
+        chatModule.sessionManager.listener = null
         toolContext?.updateQiContext(null)
 
-        _perceptionService.shutdown()
+        robotModule.perceptionService.shutdown()
         DashboardManager.shutdown()
-        _touchSensorManager.shutdown()
-        _navigationServiceManager.shutdown()
+        robotModule.touchSensorManager.shutdown()
+        navigationModule.navigationServiceManager.shutdown()
 
         viewModel.disconnectWebSocket()
-        _audioPlayer.release()
+        chatModule.audioPlayer.release()
         try {
-            _gestureController.shutdown()
+            robotModule.gestureController.shutdown()
         } catch (_: Exception) {
         }
 
-        _robotFocusManager.unregister()
+        robotModule.robotFocusManager.unregister()
 
         viewModel.setSessionController(null)
     }
@@ -341,8 +331,8 @@ class ChatActivity : AppCompatActivity(), ToolHost {
     }
 
     override fun updateMapPreview() {
-        val navManager = _navigationServiceManager
-        val locProvider = _locationProvider
+        val navManager = navigationModule.navigationServiceManager
+        val locProvider = navigationModule.locationProvider
 
         val mapState = when {
             !navManager.isMapSavedOnDisk(this) -> MapState.NO_MAP
@@ -369,18 +359,18 @@ class ChatActivity : AppCompatActivity(), ToolHost {
     }
 
     // Additional getters for ToolHost interface and specific uses
-    fun getRobotController(): RobotController = _robotFocusManager.robotController
+    fun getRobotController(): RobotController = robotModule.robotFocusManager.robotController
 
-    fun getQiContext(): Any? = _robotFocusManager.qiContext
+    fun getQiContext(): Any? = robotModule.robotFocusManager.qiContext
 
     override fun getSessionImageManager(): SessionImageManager = _sessionImageManager
 
     private fun mute() {
-        _audioInputController.mute()
+        chatModule.audioInputController.mute()
     }
 
     private fun unmute() {
-        _audioInputController.unmute()
+        chatModule.audioInputController.unmute()
     }
 
     override fun muteMicrophone() {
@@ -392,7 +382,7 @@ class ChatActivity : AppCompatActivity(), ToolHost {
     }
 
     override fun handleServiceStateChange(mode: String) {
-        _navigationServiceManager.handleServiceStateChange(mode)
+        navigationModule.navigationServiceManager.handleServiceStateChange(mode)
     }
 
     override fun addImageMessage(imagePath: String) {
