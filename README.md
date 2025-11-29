@@ -1294,15 +1294,14 @@ app/src/
 │   ├── manager/                         # Application managers
 │   │   ├── ApiKeyManager.kt             # API key management
 │   │   ├── AudioPlayer.kt               # Audio playback engine
-│   │   ├── DashboardManager.kt          # Perception dashboard overlay
-│   │   ├── MapUiManager.kt              # Map UI state management
+│   │   ├── MemoryGameManager.kt         # Memory game state & logic
 │   │   ├── PermissionManager.kt         # Android permission handling
-│   │   ├── QuizDialogManager.kt         # Quiz UI management
+│   │   ├── QuizGameManager.kt           # Quiz game state & logic
 │   │   ├── RealtimeAudioInputManager.kt # Audio input for Realtime API
 │   │   ├── SessionImageManager.kt       # Temporary image cleanup
-│   │   ├── SettingsManager.kt           # App settings & preferences
 │   │   ├── SettingsRepository.kt        # Settings data repository
 │   │   ├── SpeechRecognizerManager.kt   # Azure Speech integration
+│   │   ├── TicTacToeGameManager.kt      # TicTacToe game state & logic
 │   │   ├── TurnManager.kt               # Conversation turn state machine
 │   │   └── YouTubePlayerManager.kt      # YouTube playback management
 │   ├── network/                         # Network & API communication
@@ -1326,28 +1325,38 @@ app/src/
 │   ├── ui/                              # UI Components and Helpers
 │   │   ├── ChatActivity.kt              # Main UI entry point
 │   │   ├── ChatMessage.kt               # Message data class
-│   │   ├── ChatViewModel.kt             # MVVM ViewModel (State & Logic)
+│   │   ├── ChatViewModel.kt             # MVVM ViewModel (UI state management)
+│   │   ├── UiState.kt                   # UI state data classes
 │   │   ├── YouTubePlayerDialog.kt       # YouTube player UI
 │   │   └── compose/                     # Jetpack Compose UI
 │   │       ├── MainScreen.kt            # Main app scaffold & navigation
 │   │       ├── ChatScreen.kt            # Main chat LazyColumn
+│   │       ├── ChatTheme.kt             # App theme & colors
 │   │       ├── MessageBubble.kt         # User/Robot message bubbles
 │   │       ├── FunctionCallCard.kt      # Expandable function call cards
 │   │       ├── ChatImage.kt             # Image messages with Coil
 │   │       ├── DashboardOverlay.kt      # Perception dashboard
 │   │       ├── NavigationOverlay.kt     # Map & navigation overlay
 │   │       ├── games/                   # Game UI components
-│   │       │   ├── TicTacToeDialog.kt
-│   │       │   ├── QuizDialog.kt
-│   │       │   └── MemoryGameDialog.kt
+│   │       │   ├── TicTacToeDialog.kt   # TicTacToe game UI
+│   │       │   ├── QuizDialog.kt        # Quiz question UI
+│   │       │   └── MemoryGameDialog.kt  # Memory game UI
 │   │       └── settings/                # Settings UI
-│   │           └── SettingsScreen.kt
+│   │           ├── SettingsScreen.kt    # Main settings screen
+│   │           └── SettingsComponents.kt # Reusable settings components
 │   └── tools/                           # Tool implementations (shared logic)
 │       ├── Tool.kt                      # Tool interface
-│       ├── BaseTool.kt                  # Base class for tools
 │       ├── ToolContext.kt               # Shared tool context
+│       ├── ToolContextFactory.kt        # Tool context creation
 │       ├── ToolRegistry.kt              # Tool registration system
-│       └── [categories]/...             # Tools organized by category (all .kt)
+│       ├── games/                       # Game tools
+│       │   ├── MemoryCard.kt            # Memory card data class
+│       │   ├── MemoryGameTool.kt        # Start memory game tool
+│       │   ├── QuizTool.kt              # Present quiz question tool
+│       │   ├── TicTacToeGame.kt         # TicTacToe game logic
+│       │   ├── TicTacToeStartTool.kt    # Start TicTacToe tool
+│       │   └── TicTacToeMoveTool.kt     # Make TicTacToe move tool
+│       └── [other categories]/...       # Other tools (entertainment, information, etc.)
 │
 ├── pepper/java/io/github/anonymous/pepper_realtime/    # Pepper-specific implementations
 │   ├── controller/
