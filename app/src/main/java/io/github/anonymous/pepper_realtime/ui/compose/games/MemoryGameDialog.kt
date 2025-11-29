@@ -128,6 +128,7 @@ private fun MemoryGameGrid(
         else -> 6 to 4 // Hard (12 pairs = 24 cards) -> 6x4
     }
 
+    @Suppress("UnusedBoxWithConstraintsScope") // maxHeight is used below
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val spacing = 8.dp
         // Calculate cell height to fit available space
@@ -173,6 +174,7 @@ private fun MemoryCardView(
     val isFaceUp = rotation >= 90f
 
     // Calculate dynamic font size based on card size
+    @Suppress("UnusedBoxWithConstraintsScope") // maxWidth/maxHeight used for fontSize
     BoxWithConstraints(
         modifier = modifier
             .padding(4.dp) // More padding for shadow

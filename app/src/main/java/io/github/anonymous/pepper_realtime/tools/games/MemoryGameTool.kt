@@ -1,6 +1,5 @@
 package io.github.anonymous.pepper_realtime.tools.games
 
-import android.util.Log
 import io.github.anonymous.pepper_realtime.tools.Tool
 import io.github.anonymous.pepper_realtime.tools.ToolContext
 import org.json.JSONArray

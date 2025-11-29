@@ -3,9 +3,6 @@ package io.github.anonymous.pepper_realtime.ui.compose.settings
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -38,22 +35,22 @@ fun SettingsScreen(
     var selectedModel by remember { mutableStateOf(viewModel.getModel()) }
     var selectedProvider by remember { mutableStateOf(viewModel.getApiProvider()) }
     var selectedVoice by remember { mutableStateOf(viewModel.getVoice()) }
-    var speedProgress by remember { mutableStateOf(viewModel.getSpeedProgress()) }
-    var temperatureProgress by remember { mutableStateOf(viewModel.getTemperatureProgress()) }
-    var volume by remember { mutableStateOf(viewModel.getVolume()) }
+    var speedProgress by remember { mutableIntStateOf(viewModel.getSpeedProgress()) }
+    var temperatureProgress by remember { mutableIntStateOf(viewModel.getTemperatureProgress()) }
+    var volume by remember { mutableIntStateOf(viewModel.getVolume()) }
     var audioInputMode by remember { mutableStateOf(viewModel.getAudioInputMode()) }
     var selectedLanguage by remember { mutableStateOf(viewModel.getLanguage()) }
-    var silenceTimeout by remember { mutableStateOf(viewModel.getSilenceTimeout()) }
-    var confidenceThreshold by remember { mutableStateOf((viewModel.getConfidenceThreshold() * 100).toInt()) }
+    var silenceTimeout by remember { mutableIntStateOf(viewModel.getSilenceTimeout()) }
+    var confidenceThreshold by remember { mutableIntStateOf((viewModel.getConfidenceThreshold() * 100).toInt()) }
     
     // Realtime API settings
     var transcriptionModel by remember { mutableStateOf(viewModel.getTranscriptionModel()) }
     var transcriptionLanguage by remember { mutableStateOf(viewModel.getTranscriptionLanguage()) }
     var transcriptionPrompt by remember { mutableStateOf(viewModel.getTranscriptionPrompt()) }
     var turnDetectionType by remember { mutableStateOf(viewModel.getTurnDetectionType()) }
-    var vadThreshold by remember { mutableStateOf(viewModel.getVadThreshold()) }
-    var prefixPadding by remember { mutableStateOf(viewModel.getPrefixPadding()) }
-    var silenceDuration by remember { mutableStateOf(viewModel.getSilenceDuration()) }
+    var vadThreshold by remember { mutableFloatStateOf(viewModel.getVadThreshold()) }
+    var prefixPadding by remember { mutableIntStateOf(viewModel.getPrefixPadding()) }
+    var silenceDuration by remember { mutableIntStateOf(viewModel.getSilenceDuration()) }
     var idleTimeout by remember { mutableStateOf(viewModel.getIdleTimeout()?.toString() ?: "") }
     var eagerness by remember { mutableStateOf(viewModel.getEagerness()) }
     var noiseReduction by remember { mutableStateOf(viewModel.getNoiseReduction()) }

@@ -40,11 +40,11 @@ private object TicTacToeColors {
  * TicTacToe game state for Compose
  */
 class TicTacToeGameState {
-    var board by mutableStateOf(IntArray(9) { TicTacToeGame.EMPTY })
+    var board by mutableStateOf(IntArray(9))
         private set
-    var currentPlayer by mutableStateOf(TicTacToeGame.PLAYER_X)
+    var currentPlayer by mutableIntStateOf(TicTacToeGame.PLAYER_X)
         private set
-    var gameResult by mutableStateOf(TicTacToeGame.GAME_CONTINUE)
+    var gameResult by mutableIntStateOf(TicTacToeGame.GAME_CONTINUE)
         private set
     var statusMessage by mutableStateOf("")
     
