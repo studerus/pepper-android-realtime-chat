@@ -188,9 +188,6 @@ class ApproachHumanTool : Tool {
         }
     }
 
-    override fun requiresApiKey(): Boolean = false
-
-    override fun getApiKeyType(): String? = null
 
     /**
      * Check if the approach error is related to obstacles that could benefit from vision analysis

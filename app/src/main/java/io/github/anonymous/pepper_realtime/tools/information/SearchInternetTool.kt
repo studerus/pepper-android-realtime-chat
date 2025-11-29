@@ -2,6 +2,8 @@ package io.github.anonymous.pepper_realtime.tools.information
 
 import android.util.Log
 import io.github.anonymous.pepper_realtime.network.HttpClientManager
+import io.github.anonymous.pepper_realtime.tools.ApiKeyRequirement
+import io.github.anonymous.pepper_realtime.tools.ApiKeyType
 import io.github.anonymous.pepper_realtime.tools.Tool
 import io.github.anonymous.pepper_realtime.tools.ToolContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -98,9 +100,7 @@ class SearchInternetTool : Tool {
         }
     }
 
-    override fun requiresApiKey(): Boolean = true
-
-    override fun getApiKeyType(): String = "Tavily"
+    override val apiKeyRequirement = ApiKeyRequirement.Required(ApiKeyType.TAVILY)
 
     companion object {
         private const val TAG = "SearchInternetTool"

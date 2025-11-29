@@ -148,9 +148,6 @@ class AnalyzeVisionTool : Tool {
         }
     }
 
-    override fun requiresApiKey(): Boolean = false // Vision now works with gpt-realtime built-in
-
-    override fun getApiKeyType(): String? = null
 }
 
 

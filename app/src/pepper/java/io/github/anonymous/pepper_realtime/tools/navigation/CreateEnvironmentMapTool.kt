@@ -118,9 +118,6 @@ class CreateEnvironmentMapTool : Tool {
         }.toString()
     }
 
-    override fun requiresApiKey(): Boolean = false
-
-    override fun getApiKeyType(): String? = null
 
     /**
      * Start LocalizeAndMap with scanning animation

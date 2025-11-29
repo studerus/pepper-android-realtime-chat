@@ -216,9 +216,6 @@ class NavigateToLocationTool : Tool {
         }
     }
 
-    override fun requiresApiKey(): Boolean = false
-
-    override fun getApiKeyType(): String? = null
 
     /**
      * Load a location from internal storage

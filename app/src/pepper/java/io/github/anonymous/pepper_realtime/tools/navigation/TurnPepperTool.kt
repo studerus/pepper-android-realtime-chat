@@ -138,9 +138,6 @@ class TurnPepperTool : Tool {
         }
     }
 
-    override fun requiresApiKey(): Boolean = false
-
-    override fun getApiKeyType(): String? = null
 
     /**
      * Check if the charging flap is open, which prevents movement for safety reasons

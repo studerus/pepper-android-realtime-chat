@@ -1,6 +1,8 @@
 package io.github.anonymous.pepper_realtime.tools.information
 
 import io.github.anonymous.pepper_realtime.network.HttpClientManager
+import io.github.anonymous.pepper_realtime.tools.ApiKeyRequirement
+import io.github.anonymous.pepper_realtime.tools.ApiKeyType
 import io.github.anonymous.pepper_realtime.tools.Tool
 import io.github.anonymous.pepper_realtime.tools.ToolContext
 import okhttp3.Request
@@ -223,9 +225,7 @@ class GetWeatherTool : Tool {
             .toString()
     }
 
-    override fun requiresApiKey(): Boolean = true
-
-    override fun getApiKeyType(): String = "OpenWeatherMap"
+    override val apiKeyRequirement = ApiKeyRequirement.Required(ApiKeyType.OPENWEATHER)
 
     private fun getReadableTime(epochSeconds: Long, tzOffsetSeconds: Int): String {
         val localMillis = (epochSeconds + tzOffsetSeconds) * 1000L

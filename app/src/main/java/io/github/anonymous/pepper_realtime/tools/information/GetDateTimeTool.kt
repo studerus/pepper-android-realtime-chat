@@ -70,9 +70,6 @@ class GetDateTimeTool : Tool {
         }.toString()
     }
 
-    override fun requiresApiKey(): Boolean = false
-
-    override fun getApiKeyType(): String? = null
 
     /**
      * Format date as RFC3339 string

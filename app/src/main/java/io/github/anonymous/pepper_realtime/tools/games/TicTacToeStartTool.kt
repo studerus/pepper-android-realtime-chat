@@ -43,9 +43,6 @@ class TicTacToeStartTool : Tool {
         }
     }
 
-    override fun requiresApiKey(): Boolean = false
-
-    override fun getApiKeyType(): String? = null
 
     companion object {
         private const val TAG = "TicTacToeStartTool"

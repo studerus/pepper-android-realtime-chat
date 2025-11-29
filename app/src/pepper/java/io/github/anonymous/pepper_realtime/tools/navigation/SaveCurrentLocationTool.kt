@@ -114,9 +114,6 @@ class SaveCurrentLocationTool : Tool {
         }
     }
 
-    override fun requiresApiKey(): Boolean = false
-
-    override fun getApiKeyType(): String? = null
 
     /**
      * Save a location to internal storage

@@ -146,9 +146,6 @@ class MovePepperTool : Tool {
         }.toString()
     }
 
-    override fun requiresApiKey(): Boolean = false
-
-    override fun getApiKeyType(): String? = null
 
     /**
      * Builds a human-readable description of the movement for logs and messages.

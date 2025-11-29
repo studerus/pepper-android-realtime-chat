@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.anonymous.pepper_realtime.controller.ChatSessionController
+import io.github.anonymous.pepper_realtime.data.ResponseState
 import io.github.anonymous.pepper_realtime.network.WebSocketConnectionCallback
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -12,18 +13,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import org.json.JSONObject
 import javax.inject.Inject
-
-/**
- * Internal response state for tracking conversation flow.
- * Replaces individual @Volatile variables with a single atomic state object.
- */
-data class ResponseState(
-    val currentResponseId: String? = null,
-    val cancelledResponseId: String? = null,
-    val lastChatBubbleResponseId: String? = null,
-    val isExpectingFinalAnswerAfterToolCall: Boolean = false,
-    val lastAssistantItemId: String? = null
-)
 
 @HiltViewModel
 class ChatViewModel @Inject constructor(

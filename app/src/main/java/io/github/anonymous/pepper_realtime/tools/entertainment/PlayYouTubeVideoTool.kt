@@ -3,6 +3,8 @@ package io.github.anonymous.pepper_realtime.tools.entertainment
 import android.util.Log
 import io.github.anonymous.pepper_realtime.manager.YouTubePlayerManager
 import io.github.anonymous.pepper_realtime.service.YouTubeSearchService
+import io.github.anonymous.pepper_realtime.tools.ApiKeyRequirement
+import io.github.anonymous.pepper_realtime.tools.ApiKeyType
 import io.github.anonymous.pepper_realtime.tools.Tool
 import io.github.anonymous.pepper_realtime.tools.ToolContext
 import org.json.JSONArray
@@ -109,9 +111,7 @@ class PlayYouTubeVideoTool : Tool {
         }
     }
 
-    override fun requiresApiKey(): Boolean = true
-
-    override fun getApiKeyType(): String = "YouTube"
+    override val apiKeyRequirement = ApiKeyRequirement.Required(ApiKeyType.YOUTUBE)
 
     companion object {
         private const val TAG = "PlayYouTubeVideoTool"

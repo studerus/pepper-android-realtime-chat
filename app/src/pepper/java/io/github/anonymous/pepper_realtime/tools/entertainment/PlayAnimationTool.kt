@@ -96,9 +96,6 @@ class PlayAnimationTool : Tool {
             .toString()
     }
 
-    override fun requiresApiKey(): Boolean = false
-
-    override fun getApiKeyType(): String? = null
 
     /**
      * Map animation name to Android resource ID

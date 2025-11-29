@@ -30,33 +30,24 @@ interface Tool {
     fun execute(args: JSONObject, context: ToolContext): String
 
     /**
-     * Check if this tool requires an API key to function
-     * @return true if API key is required, false otherwise
+     * The API key requirement for this tool.
+     * Use ApiKeyRequirement.None for tools that don't need an API key,
+     * or ApiKeyRequirement.Required(ApiKeyType.XXX) for tools that do.
      */
-    fun requiresApiKey(): Boolean
-
-    /**
-     * Get the type of API key required (if any)
-     * @return API key type (e.g., "OpenWeatherMap", "Tavily") or null if none required
-     */
-    fun getApiKeyType(): String?
+    val apiKeyRequirement: ApiKeyRequirement
+        get() = ApiKeyRequirement.None
 
     /**
      * Check if this tool is currently available based on context.
-     * Default implementation checks API key availability based on getApiKeyType().
+     * Default implementation checks API key availability based on apiKeyRequirement.
      *
      * @param context Tool context to check availability
      * @return true if tool can be executed, false if disabled/unavailable
      */
     fun isAvailable(context: ToolContext): Boolean {
-        if (!requiresApiKey()) return true
-
-        return when (getApiKeyType()) {
-            "Tavily" -> context.apiKeyManager.isInternetSearchAvailable()
-            "OpenWeatherMap" -> context.apiKeyManager.isWeatherAvailable()
-            "YouTube" -> context.apiKeyManager.isYouTubeAvailable()
-            "Groq" -> context.apiKeyManager.isVisionAnalysisAvailable()
-            else -> false // Unknown API key type
+        return when (val requirement = apiKeyRequirement) {
+            is ApiKeyRequirement.None -> true
+            is ApiKeyRequirement.Required -> requirement.type.isAvailable(context)
         }
     }
 }

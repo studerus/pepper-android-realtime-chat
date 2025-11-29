@@ -156,9 +156,6 @@ class AnalyzeVisionTool : Tool {
         }
     }
 
-    override fun requiresApiKey(): Boolean = false // Vision now works with gpt-realtime built-in, Groq is optional
-
-    override fun getApiKeyType(): String? = null // No specific API key required
 }
 
 
