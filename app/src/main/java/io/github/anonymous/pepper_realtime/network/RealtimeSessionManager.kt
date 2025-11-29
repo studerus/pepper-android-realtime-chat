@@ -37,7 +37,16 @@ class RealtimeSessionManager @Inject constructor() {
         // Latency measurement for audio response time
         @Volatile
         var responseCreateTimestamp: Long = 0
+
+        // Pre-allocated components for audio chunk payloads to reduce GC pressure
+        // Base64-encoded 4800 bytes (100ms @ 24kHz) = ~6400 chars, plus JSON wrapper ~50 chars
+        private const val AUDIO_PAYLOAD_PREFIX = """{"type":"input_audio_buffer.append","audio":""""
+        private const val AUDIO_PAYLOAD_SUFFIX = """"}"""
+        private const val ESTIMATED_AUDIO_PAYLOAD_SIZE = 6500
     }
+
+    // Reusable StringBuilder for audio chunk payloads - reduces allocations from ~10/sec to 0
+    private val audioPayloadBuilder = StringBuilder(ESTIMATED_AUDIO_PAYLOAD_SIZE)
 
     // Use optimized shared WebSocket client for better performance
     private val client = HttpClientManager.getInstance().getWebSocketClient()
@@ -200,18 +209,25 @@ class RealtimeSessionManager @Inject constructor() {
     }
 
     /**
-     * Send audio chunk to Realtime API input audio buffer
+     * Send audio chunk to Realtime API input audio buffer.
+     * 
+     * Optimized for high-frequency calls (~10/sec at 24kHz with 100ms chunks):
+     * - Reuses StringBuilder to avoid repeated allocations
+     * - Uses string template instead of JSONObject for less overhead
+     * - Reduces GC pressure on resource-constrained devices like Pepper's tablet
      *
      * @param base64Audio Base64-encoded PCM16 audio data
      * @return true if sent successfully
      */
     fun sendAudioChunk(base64Audio: String): Boolean {
         return try {
-            val payload = JSONObject().apply {
-                put("type", "input_audio_buffer.append")
-                put("audio", base64Audio)
-            }
-            send(payload.toString())
+            // Reuse StringBuilder - clear and rebuild payload
+            audioPayloadBuilder.setLength(0)
+            audioPayloadBuilder.append(AUDIO_PAYLOAD_PREFIX)
+            audioPayloadBuilder.append(base64Audio)
+            audioPayloadBuilder.append(AUDIO_PAYLOAD_SUFFIX)
+            
+            send(audioPayloadBuilder.toString())
         } catch (e: Exception) {
             Log.e(TAG, "Error creating audio chunk payload", e)
             false
