@@ -37,75 +37,44 @@ private object TicTacToeColors {
 }
 
 /**
- * TicTacToe game state for Compose
+ * TicTacToe game state for Compose.
+ * Wraps TicTacToeGame engine and exposes observable state for Compose UI.
  */
 class TicTacToeGameState {
+    // Core game engine - single source of truth for game logic
+    private val game = TicTacToeGame()
+    
+    // Observable state for Compose - updated after each move
     var board by mutableStateOf(IntArray(9))
         private set
     var currentPlayer by mutableIntStateOf(TicTacToeGame.PLAYER_X)
         private set
     var gameResult by mutableIntStateOf(TicTacToeGame.GAME_CONTINUE)
         private set
-    var statusMessage by mutableStateOf("")
     
-    private val winPatterns = arrayOf(
-        intArrayOf(0, 1, 2), intArrayOf(3, 4, 5), intArrayOf(6, 7, 8), // Rows
-        intArrayOf(0, 3, 6), intArrayOf(1, 4, 7), intArrayOf(2, 5, 8), // Columns
-        intArrayOf(0, 4, 8), intArrayOf(2, 4, 6)                       // Diagonals
-    )
-    
-    fun isValidMove(position: Int): Boolean {
-        return position in 0..8 && board[position] == TicTacToeGame.EMPTY && gameResult == TicTacToeGame.GAME_CONTINUE
-    }
+    fun isValidMove(position: Int): Boolean = game.isValidMove(position)
     
     fun makeMove(position: Int, player: Int) {
-        if (!isValidMove(position)) return
-        
-        val newBoard = board.copyOf()
-        newBoard[position] = player
-        board = newBoard
-        
-        // Check for winner
-        gameResult = checkWinner()
-        
-        if (gameResult == TicTacToeGame.GAME_CONTINUE) {
-            currentPlayer = if (player == TicTacToeGame.PLAYER_X) TicTacToeGame.PLAYER_O else TicTacToeGame.PLAYER_X
-        }
+        if (!game.isValidMove(position)) return
+        game.makeMove(position, player)
+        syncStateFromEngine()
     }
     
-    private fun checkWinner(): Int {
-        for (pattern in winPatterns) {
-            val first = board[pattern[0]]
-            if (first != TicTacToeGame.EMPTY &&
-                first == board[pattern[1]] &&
-                first == board[pattern[2]]
-            ) {
-                return first
-            }
-        }
-        
-        val boardFull = board.none { it == TicTacToeGame.EMPTY }
-        return if (boardFull) TicTacToeGame.DRAW else TicTacToeGame.GAME_CONTINUE
-    }
-    
-    fun getBoardString(): String {
-        return board.joinToString("") { cell ->
-            when (cell) {
-                TicTacToeGame.PLAYER_X -> "X"
-                TicTacToeGame.PLAYER_O -> "O"
-                else -> "-"
-            }
-        }
-    }
+    fun getBoardString(): String = game.getBoardString()
     
     val isGameOver: Boolean
-        get() = gameResult != TicTacToeGame.GAME_CONTINUE
+        get() = game.isGameOver
     
     fun reset() {
-        board = IntArray(9)
-        currentPlayer = TicTacToeGame.PLAYER_X
-        gameResult = TicTacToeGame.GAME_CONTINUE
-        statusMessage = ""
+        game.reset()
+        syncStateFromEngine()
+    }
+    
+    private fun syncStateFromEngine() {
+        // Create new array to trigger Compose recomposition
+        board = IntArray(9) { game.getBoardAt(it) }
+        currentPlayer = game.currentPlayer
+        gameResult = game.checkWinner()
     }
 }
 

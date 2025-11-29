@@ -1,10 +1,9 @@
 package io.github.anonymous.pepper_realtime.ui
 
 import android.app.Application
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import android.graphics.Bitmap
 import io.github.anonymous.pepper_realtime.controller.ChatSessionController
@@ -16,10 +15,13 @@ import io.github.anonymous.pepper_realtime.tools.games.MemoryCard
 import io.github.anonymous.pepper_realtime.tools.games.TicTacToeGame
 import io.github.anonymous.pepper_realtime.ui.compose.games.TicTacToeGameState
 import java.util.Locale
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import org.json.JSONObject
 import javax.inject.Inject
 
@@ -62,8 +64,12 @@ class ChatViewModel @Inject constructor(
     // Memory Game State (replaces MemoryGameManager singleton)
     private val _memoryGameState = MutableStateFlow(MemoryGameInternalState())
     private var memoryUpdateCallback: ((message: String, requestResponse: Boolean) -> Unit)? = null
-    private val memoryTimerHandler = Handler(Looper.getMainLooper())
-    private var memoryTimerRunnable: Runnable? = null
+    private var memoryTimerJob: Job? = null
+
+    // Coroutine jobs for auto-close timers (prevents leaks when ViewModel is cleared)
+    private var ticTacToeAutoCloseJob: Job? = null
+    private var memoryAutoCloseJob: Job? = null
+    private var memoryMismatchJob: Job? = null
 
     // Internal Response State - atomic updates replace @Volatile variables
     private val _responseState = MutableStateFlow(ResponseState())
@@ -305,6 +311,8 @@ class ChatViewModel @Inject constructor(
     }
 
     fun dismissTicTacToeGame() {
+        ticTacToeAutoCloseJob?.cancel()
+        ticTacToeAutoCloseJob = null
         _ticTacToeState.value = TicTacToeUiState()
         _ticTacToeGameState.reset()
         ticTacToeUpdateCallback = null
@@ -321,11 +329,13 @@ class ChatViewModel @Inject constructor(
     }
 
     private fun scheduleTicTacToeAutoClose() {
-        Handler(Looper.getMainLooper()).postDelayed({
+        ticTacToeAutoCloseJob?.cancel()
+        ticTacToeAutoCloseJob = viewModelScope.launch {
+            delay(5000)
             if (_ticTacToeState.value.isVisible && _ticTacToeGameState.isGameOver) {
                 dismissTicTacToeGame()
             }
-        }, 5000)
+        }
     }
 
     private fun formatBoardForAI(boardString: String): String {
@@ -514,7 +524,9 @@ class ChatViewModel @Inject constructor(
         )
         memoryUpdateCallback?.invoke(message, false)
 
-        Handler(Looper.getMainLooper()).postDelayed({
+        memoryMismatchJob?.cancel()
+        memoryMismatchJob = viewModelScope.launch {
+            delay(1500)
             _memoryGameState.update { currentState ->
                 val updatedCards = currentState.cards.toMutableList()
                 if (firstIdx in updatedCards.indices) {
@@ -530,7 +542,7 @@ class ChatViewModel @Inject constructor(
                     processingMove = false
                 )
             }
-        }, 1500)
+        }
     }
 
     private fun memoryGameComplete(finalMoves: Int) {
@@ -545,13 +557,19 @@ class ChatViewModel @Inject constructor(
         )
         memoryUpdateCallback?.invoke(message, true)
 
-        Handler(Looper.getMainLooper()).postDelayed({
+        memoryAutoCloseJob?.cancel()
+        memoryAutoCloseJob = viewModelScope.launch {
+            delay(5000)
             dismissMemoryGame()
-        }, 5000)
+        }
     }
 
     fun dismissMemoryGame() {
         stopMemoryTimer()
+        memoryAutoCloseJob?.cancel()
+        memoryAutoCloseJob = null
+        memoryMismatchJob?.cancel()
+        memoryMismatchJob = null
         _memoryGameState.value = MemoryGameInternalState()
         memoryUpdateCallback = null
         Log.i(TAG, "Memory game dismissed")
@@ -559,26 +577,25 @@ class ChatViewModel @Inject constructor(
 
     private fun startMemoryTimer() {
         stopMemoryTimer()
-        memoryTimerRunnable = object : Runnable {
-            override fun run() {
+        memoryTimerJob = viewModelScope.launch {
+            while (true) {
                 val state = _memoryGameState.value
-                if (state.isGameActive) {
-                    val elapsedSeconds = (System.currentTimeMillis() - state.startTime) / 1000
-                    val minutes = elapsedSeconds / 60
-                    val seconds = elapsedSeconds % 60
-                    val timeString = String.format(Locale.US, "%02d:%02d", minutes, seconds)
-                    
-                    _memoryGameState.update { it.copy(timeString = timeString) }
-                    memoryTimerHandler.postDelayed(this, 1000)
-                }
+                if (!state.isGameActive) break
+                
+                val elapsedSeconds = (System.currentTimeMillis() - state.startTime) / 1000
+                val minutes = elapsedSeconds / 60
+                val seconds = elapsedSeconds % 60
+                val timeString = String.format(Locale.US, "%02d:%02d", minutes, seconds)
+                
+                _memoryGameState.update { it.copy(timeString = timeString) }
+                delay(1000)
             }
         }
-        memoryTimerHandler.post(memoryTimerRunnable!!)
     }
 
     private fun stopMemoryTimer() {
-        memoryTimerRunnable?.let { memoryTimerHandler.removeCallbacks(it) }
-        memoryTimerRunnable = null
+        memoryTimerJob?.cancel()
+        memoryTimerJob = null
     }
     
     private fun updateMemoryCard(index: Int, newCard: MemoryCard) {
