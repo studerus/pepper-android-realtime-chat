@@ -2,8 +2,11 @@ package io.github.anonymous.pepper_realtime.tools.games
 
 import io.github.anonymous.pepper_realtime.tools.Tool
 import io.github.anonymous.pepper_realtime.tools.ToolContext
+import io.github.anonymous.pepper_realtime.ui.ChatActivity
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 /**
  * Tool for starting memory matching games.
@@ -35,19 +38,32 @@ class MemoryGameTool : Tool {
     override fun execute(args: JSONObject, context: ToolContext): String {
         val difficulty = args.optString("difficulty", "medium")
 
-        if (context.hasUi()) {
-            val started = MemoryGameManager.startGame(difficulty, context)
-            if (!started) {
-                return JSONObject().put("error", "Could not start game").toString()
-            }
-        } else {
+        val activity = context.activity as? ChatActivity
+        if (activity == null || !context.hasUi()) {
             return JSONObject().put("error", "No UI available").toString()
         }
 
-        return JSONObject()
-            .put("status", "Memory game started.")
-            .put("difficulty", difficulty)
-            .toString()
+        var started = false
+        val latch = CountDownLatch(1)
+        
+        activity.runOnUiThread {
+            started = activity.viewModel.startMemoryGame(difficulty) { message, requestResponse ->
+                context.sendAsyncUpdate(message, requestResponse)
+            }
+            latch.countDown()
+        }
+
+        // Wait for UI thread to complete (max 2 seconds)
+        latch.await(2, TimeUnit.SECONDS)
+
+        return if (started) {
+            JSONObject()
+                .put("status", "Memory game started.")
+                .put("difficulty", difficulty)
+                .toString()
+        } else {
+            JSONObject().put("error", "Could not start game").toString()
+        }
     }
 
 
@@ -55,3 +71,4 @@ class MemoryGameTool : Tool {
         private const val TAG = "MemoryGameTool"
     }
 }
+

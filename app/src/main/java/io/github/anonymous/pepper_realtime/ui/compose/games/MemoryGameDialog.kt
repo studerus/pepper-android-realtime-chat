@@ -26,7 +26,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import io.github.anonymous.pepper_realtime.R
 import io.github.anonymous.pepper_realtime.tools.games.MemoryCard
-import io.github.anonymous.pepper_realtime.tools.games.MemoryGameManager
+import io.github.anonymous.pepper_realtime.ui.MemoryGameInternalState
 
 private object MemoryColors {
     val CardFaceDown = Color(0xFF1E40AF) // Professional Blue
@@ -38,7 +38,7 @@ private object MemoryColors {
 
 @Composable
 fun MemoryGameDialog(
-    state: MemoryGameManager.MemoryGameState,
+    state: MemoryGameInternalState,
     onCardClick: (Int) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -79,7 +79,7 @@ fun MemoryGameDialog(
 
 @Composable
 private fun MemoryGameHeader(
-    state: MemoryGameManager.MemoryGameState,
+    state: MemoryGameInternalState,
     onDismiss: () -> Unit
 ) {
     Row(

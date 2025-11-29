@@ -7,7 +7,6 @@ import io.github.anonymous.pepper_realtime.controller.MovementController
 import io.github.anonymous.pepper_realtime.controller.RobotFocusManager
 import io.github.anonymous.pepper_realtime.data.LocationProvider
 import io.github.anonymous.pepper_realtime.manager.ApiKeyManager
-import io.github.anonymous.pepper_realtime.manager.DashboardManager
 import io.github.anonymous.pepper_realtime.manager.NavigationServiceManager
 import io.github.anonymous.pepper_realtime.manager.TouchSensorManager
 import io.github.anonymous.pepper_realtime.service.PerceptionService

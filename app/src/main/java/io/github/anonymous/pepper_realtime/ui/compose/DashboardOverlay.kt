@@ -23,7 +23,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import io.github.anonymous.pepper_realtime.R
 import io.github.anonymous.pepper_realtime.data.PerceptionData
-import io.github.anonymous.pepper_realtime.manager.DashboardManager
+import io.github.anonymous.pepper_realtime.ui.DashboardState
 import java.util.Locale
 
 private object DashboardColors {
@@ -38,7 +38,7 @@ private val ColWeights = listOf(0.12f, 0.12f, 0.08f, 0.1f, 0.1f, 0.1f, 0.1f, 0.1
 
 @Composable
 fun DashboardOverlay(
-    state: DashboardManager.DashboardState,
+    state: DashboardState,
     onClose: () -> Unit
 ) {
     if (state.isVisible) {

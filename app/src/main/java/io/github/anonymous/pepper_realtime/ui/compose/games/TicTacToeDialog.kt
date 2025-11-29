@@ -100,6 +100,13 @@ class TicTacToeGameState {
     
     val isGameOver: Boolean
         get() = gameResult != TicTacToeGame.GAME_CONTINUE
+    
+    fun reset() {
+        board = IntArray(9)
+        currentPlayer = TicTacToeGame.PLAYER_X
+        gameResult = TicTacToeGame.GAME_CONTINUE
+        statusMessage = ""
+    }
 }
 
 /**

@@ -28,8 +28,8 @@ import androidx.compose.ui.window.Dialog
 import io.github.anonymous.pepper_realtime.R
 import io.github.anonymous.pepper_realtime.data.MapGraphInfo
 import io.github.anonymous.pepper_realtime.data.SavedLocation
-import io.github.anonymous.pepper_realtime.manager.MapState
-import io.github.anonymous.pepper_realtime.manager.NavigationUiState
+import io.github.anonymous.pepper_realtime.ui.MapState
+import io.github.anonymous.pepper_realtime.ui.NavigationUiState
 import kotlin.math.cos
 import kotlin.math.sin
 

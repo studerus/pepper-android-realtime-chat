@@ -31,9 +31,6 @@ import io.github.anonymous.pepper_realtime.controller.ChatLifecycleController
 import io.github.anonymous.pepper_realtime.controller.RobotFocusManager
 import io.github.anonymous.pepper_realtime.manager.ApiKeyManager
 import io.github.anonymous.pepper_realtime.manager.AudioPlayer
-import io.github.anonymous.pepper_realtime.manager.DashboardManager
-import io.github.anonymous.pepper_realtime.manager.MapState
-import io.github.anonymous.pepper_realtime.manager.MapUiManager
 import io.github.anonymous.pepper_realtime.manager.NavigationServiceManager
 import io.github.anonymous.pepper_realtime.manager.PermissionManager
 import io.github.anonymous.pepper_realtime.manager.SessionImageManager
@@ -85,7 +82,7 @@ class ChatActivity : AppCompatActivity(), ToolHost {
         private set
 
     // ViewModels
-    private val viewModel: ChatViewModel by viewModels()
+    val viewModel: ChatViewModel by viewModels()
     private val settingsViewModel: SettingsViewModel by viewModels()
 
     // Public accessors via modules
@@ -114,9 +111,6 @@ class ChatActivity : AppCompatActivity(), ToolHost {
         // Set Controller on ViewModel (Break circular dependency)
         viewModel.setSessionController(chatDeps.sessionController)
         
-        // Initialize Managers
-        DashboardManager.initialize(robotDeps.perceptionService)
-        
         // Setup Compose Content (MainScreen)
         val composeView = ComposeView(this)
         setContentView(composeView)
@@ -142,21 +136,9 @@ class ChatActivity : AppCompatActivity(), ToolHost {
             }
         }
 
-        // Collect StateFlows for ViewModel events and navigation status
+        // Collect StateFlows for ViewModel events
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                // Navigation status updates
-                launch {
-                    viewModel.mapStatus.collect { status ->
-                        MapUiManager.updateMapStatus(status)
-                    }
-                }
-                launch {
-                    viewModel.localizationStatus.collect { status ->
-                        MapUiManager.updateLocalizationStatus(status)
-                    }
-                }
-                
                 // Settings events
                 launch {
                     settingsViewModel.restartSessionEvent.collect { restart ->
@@ -300,7 +282,7 @@ class ChatActivity : AppCompatActivity(), ToolHost {
         toolContext?.updateQiContext(null)
 
         robotDeps.perceptionService.shutdown()
-        DashboardManager.shutdown()
+        viewModel.resetDashboard()
         robotDeps.touchSensorManager.shutdown()
         navigationDeps.navigationServiceManager.shutdown()
 
@@ -335,7 +317,7 @@ class ChatActivity : AppCompatActivity(), ToolHost {
             !navManager.isMapSavedOnDisk(this) -> MapState.NO_MAP
             !navManager.isMapLoaded() -> MapState.MAP_LOADED_NOT_LOCALIZED
             !navManager.isLocalizationReady() -> {
-                val locStatus = viewModel.localizationStatus.value
+                val locStatus = viewModel.navigationState.value.localizationStatus
                 if (locStatus.contains("Failed")) {
                     MapState.LOCALIZATION_FAILED
                 } else {
@@ -347,7 +329,7 @@ class ChatActivity : AppCompatActivity(), ToolHost {
 
         val mapGfx = navManager.getMapGraphInfo()
 
-        MapUiManager.updateMapData(
+        viewModel.updateMapData(
             mapState,
             navManager.getMapBitmap(),
             mapGfx,

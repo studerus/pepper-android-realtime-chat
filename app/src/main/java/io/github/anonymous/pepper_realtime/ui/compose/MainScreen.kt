@@ -25,11 +25,6 @@ import androidx.compose.ui.res.stringResource
 import coil.compose.AsyncImage
 import io.github.anonymous.pepper_realtime.R
 import io.github.anonymous.pepper_realtime.manager.ApiKeyManager
-import io.github.anonymous.pepper_realtime.manager.DashboardManager
-import io.github.anonymous.pepper_realtime.manager.MapUiManager
-import io.github.anonymous.pepper_realtime.manager.QuizDialogManager
-import io.github.anonymous.pepper_realtime.tools.games.MemoryGameManager
-import io.github.anonymous.pepper_realtime.tools.games.TicTacToeGameManager
 import io.github.anonymous.pepper_realtime.ui.ChatViewModel
 import io.github.anonymous.pepper_realtime.ui.compose.games.MemoryGameDialog
 import io.github.anonymous.pepper_realtime.ui.compose.games.QuizDialog
@@ -59,6 +54,11 @@ fun MainScreen(
     val isMuted by viewModel.isMuted.collectAsStateWithLifecycle()
     val messages by viewModel.messageList.collectAsStateWithLifecycle()
     val isWarmingUp by viewModel.isWarmingUp.collectAsStateWithLifecycle()
+    val navigationState by viewModel.navigationState.collectAsStateWithLifecycle()
+    val dashboardState by viewModel.dashboardState.collectAsStateWithLifecycle()
+    val quizState by viewModel.quizState.collectAsStateWithLifecycle()
+    val ticTacToeState by viewModel.ticTacToeState.collectAsStateWithLifecycle()
+    val memoryState by viewModel.memoryGameState.collectAsStateWithLifecycle()
     
     // Local State for Image Overlay
     var overlayImageUrl by remember { mutableStateOf<String?>(null) }
@@ -92,10 +92,10 @@ fun MainScreen(
                         navigationIconContentColor = MaterialTheme.colorScheme.onPrimary
                     ),
                     actions = {
-                        IconButton(onClick = { MapUiManager.toggle() }) {
+                        IconButton(onClick = { viewModel.toggleNavigationOverlay() }) {
                             Icon(Icons.Default.LocationOn, contentDescription = stringResource(R.string.content_desc_navigation_status))
                         }
-                        IconButton(onClick = { DashboardManager.toggleDashboard() }) {
+                        IconButton(onClick = { viewModel.toggleDashboard() }) {
                             Icon(Icons.Default.Visibility, contentDescription = stringResource(R.string.content_desc_perception_dashboard))
                         }
                         IconButton(onClick = onNewChat) {
@@ -151,53 +151,48 @@ fun MainScreen(
                 // ---------------- Overlays & Dialogs ----------------
 
                 // 1. Dashboard
-                val dashboardState = DashboardManager.state
                 DashboardOverlay(
                     state = dashboardState,
-                    onClose = { DashboardManager.hideDashboard() }
+                    onClose = { viewModel.hideDashboard() }
                 )
 
                 // 2. Navigation / Map
-                val navigationState = MapUiManager.state
                 NavigationOverlay(
                     state = navigationState,
-                    onClose = { MapUiManager.hide() }
+                    onClose = { viewModel.hideNavigationOverlay() }
                 )
 
                 // 3. Games
                 // Quiz
-                val quizState = QuizDialogManager.quizState
                 if (quizState.isVisible) {
                     QuizDialog(
                         question = quizState.question,
                         options = quizState.options,
                         correctAnswer = quizState.correctAnswer,
                         onAnswered = { selectedOption ->
-                            QuizDialogManager.onAnswerSelected(selectedOption)
+                            viewModel.onQuizAnswerSelected(selectedOption)
                         },
                         onDismiss = {
-                            QuizDialogManager.dismissQuiz()
+                            viewModel.dismissQuiz()
                         }
                     )
                 }
                 
                 // TicTacToe
-                val ticTacToeState = TicTacToeGameManager.ticTacToeState
                 if (ticTacToeState.isVisible) {
                     TicTacToeDialog(
-                        gameState = ticTacToeState.gameState,
-                        onUserMove = { pos -> TicTacToeGameManager.onUserMove(pos) },
-                        onDismiss = { TicTacToeGameManager.dismissGame() }
+                        gameState = viewModel.ticTacToeGameState,
+                        onUserMove = { pos -> viewModel.onTicTacToeUserMove(pos) },
+                        onDismiss = { viewModel.dismissTicTacToeGame() }
                     )
                 }
 
                 // Memory
-                val memoryState = MemoryGameManager.gameState
                 if (memoryState.isVisible) {
                     MemoryGameDialog(
                         state = memoryState,
-                        onCardClick = { id -> MemoryGameManager.onCardClick(id) },
-                        onDismiss = { MemoryGameManager.dismissGame() }
+                        onCardClick = { id -> viewModel.onMemoryCardClick(id) },
+                        onDismiss = { viewModel.dismissMemoryGame() }
                     )
                 }
 

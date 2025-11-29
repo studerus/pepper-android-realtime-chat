@@ -2,9 +2,13 @@ package io.github.anonymous.pepper_realtime.controller
 
 import android.util.Log
 import io.github.anonymous.pepper_realtime.R
+import io.github.anonymous.pepper_realtime.data.PerceptionData
 import io.github.anonymous.pepper_realtime.manager.TouchSensorManager
-import io.github.anonymous.pepper_realtime.manager.DashboardManager
 import io.github.anonymous.pepper_realtime.manager.TurnManager
+import io.github.anonymous.pepper_realtime.service.PerceptionService
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import io.github.anonymous.pepper_realtime.network.WebSocketConnectionCallback
 import io.github.anonymous.pepper_realtime.ui.ChatActivity
 import io.github.anonymous.pepper_realtime.ui.ChatMessage
@@ -45,7 +49,8 @@ class ChatRobotLifecycleHandler(
 
             activity.toolContext?.updateQiContext(robotContext)
 
-            DashboardManager.initialize(activity.perceptionService)
+            // Initialize PerceptionService listener for Dashboard
+            initializeDashboardListener()
 
             activity.perceptionService.initialize(robotContext)
 
@@ -167,7 +172,7 @@ class ChatRobotLifecycleHandler(
             if (activity.perceptionService.isInitialized) {
                 activity.perceptionService.shutdown()
             }
-            DashboardManager.shutdown()
+            viewModel.resetDashboard()
             activity.touchSensorManager.shutdown()
             activity.navigationServiceManager.shutdown()
 
@@ -195,5 +200,27 @@ class ChatRobotLifecycleHandler(
 
     fun isFocusAvailable(): Boolean {
         return true // Placeholder until RobotFocusManager is exposed via ChatActivity
+    }
+
+    private val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+
+    private fun initializeDashboardListener() {
+        activity.perceptionService.setListener(object : PerceptionService.PerceptionListener {
+            override fun onHumansDetected(humans: List<PerceptionData.HumanInfo>) {
+                val timestamp = timeFormat.format(Date())
+                activity.runOnUiThread {
+                    viewModel.updateDashboardHumans(humans, timestamp)
+                }
+            }
+
+            override fun onPerceptionError(error: String) {
+                Log.w(TAG, "Perception error: $error")
+            }
+
+            override fun onServiceStatusChanged(isActive: Boolean) {
+                Log.i(TAG, "Human awareness service active: $isActive")
+            }
+        })
+        Log.i(TAG, "Dashboard listener initialized")
     }
 }

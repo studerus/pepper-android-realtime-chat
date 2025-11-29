@@ -3,6 +3,7 @@ package io.github.anonymous.pepper_realtime.tools.games
 import android.util.Log
 import io.github.anonymous.pepper_realtime.tools.Tool
 import io.github.anonymous.pepper_realtime.tools.ToolContext
+import io.github.anonymous.pepper_realtime.ui.ChatActivity
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -39,8 +40,15 @@ class TicTacToeMoveTool : Tool {
         val position = args.getInt("position")
         Log.i(TAG, "AI making Tic Tac Toe move at position: $position")
 
+        val activity = context.activity as? ChatActivity
+        if (activity == null) {
+            return JSONObject()
+                .put("error", "No active Tic Tac Toe game found")
+                .toString()
+        }
+
         // Check if there's an active game
-        if (TicTacToeGameManager.hasNoActiveGame()) {
+        if (!activity.viewModel.isTicTacToeGameActive()) {
             return JSONObject()
                 .put("error", "No active Tic Tac Toe game found")
                 .toString()
@@ -53,8 +61,8 @@ class TicTacToeMoveTool : Tool {
                 .toString()
         }
 
-        // Make AI move using the manager
-        val result = TicTacToeGameManager.makeAIMove(position)
+        // Make AI move using the ViewModel
+        val result = activity.viewModel.makeTicTacToeAIMove(position)
 
         return if (result.success) {
             val response = JSONObject().put("success", "Move confirmed.")

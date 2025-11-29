@@ -3,7 +3,10 @@ package io.github.anonymous.pepper_realtime.tools.games
 import android.util.Log
 import io.github.anonymous.pepper_realtime.tools.Tool
 import io.github.anonymous.pepper_realtime.tools.ToolContext
+import io.github.anonymous.pepper_realtime.ui.ChatActivity
 import org.json.JSONObject
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 /**
  * Tool for starting a new Tic Tac Toe game.
@@ -29,8 +32,26 @@ class TicTacToeStartTool : Tool {
     override fun execute(args: JSONObject, context: ToolContext): String {
         Log.i(TAG, "Starting Tic Tac Toe game")
 
-        // Start game using the manager
-        val success = TicTacToeGameManager.startNewGame(context)
+        val activity = context.activity as? ChatActivity
+        if (activity == null || !context.hasUi()) {
+            return JSONObject()
+                .put("error", "Failed to start Tic Tac Toe game - UI not available")
+                .toString()
+        }
+
+        var success = false
+        val latch = CountDownLatch(1)
+        
+        activity.runOnUiThread {
+            success = activity.viewModel.startTicTacToeGame { message, requestResponse ->
+                Log.i(TAG, "TicTacToe game update: $message")
+                context.sendAsyncUpdate(message, requestResponse)
+            }
+            latch.countDown()
+        }
+
+        // Wait for UI thread to complete (max 2 seconds)
+        latch.await(2, TimeUnit.SECONDS)
 
         return if (success) {
             JSONObject()

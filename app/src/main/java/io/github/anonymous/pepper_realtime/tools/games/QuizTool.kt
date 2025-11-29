@@ -1,9 +1,9 @@
 package io.github.anonymous.pepper_realtime.tools.games
 
 import io.github.anonymous.pepper_realtime.R
-import io.github.anonymous.pepper_realtime.manager.QuizDialogManager
 import io.github.anonymous.pepper_realtime.tools.Tool
 import io.github.anonymous.pepper_realtime.tools.ToolContext
+import io.github.anonymous.pepper_realtime.ui.ChatActivity
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -57,31 +57,18 @@ class QuizTool : Tool {
         val opts = Array(4) { i -> optionsJson.getString(i) }
 
         if (context.hasUi()) {
-            val activity = context.activity
+            val activity = context.activity as? ChatActivity
             activity?.runOnUiThread {
-                QuizDialogManager.showQuizDialog(
-                    question,
-                    opts,
-                    correct,
-                    object : QuizDialogManager.QuizDialogCallback {
-                        override fun onQuizAnswered(question: String, selectedOption: String) {
-                            val feedbackMessage = activity.getString(R.string.quiz_feedback_format, question, selectedOption)
-                            context.sendAsyncUpdate(feedbackMessage, true)
-                        }
-
-                        override fun onInterruptRequested() {
-                            context.sendAsyncUpdate("Quiz interrupted", false)
-                        }
-
-                        override fun isActivityFinishing(): Boolean {
-                            return activity.isFinishing
-                        }
-
-                        override fun shouldInterrupt(): Boolean {
-                            return true
-                        }
+                if (!activity.isFinishing) {
+                    activity.viewModel.showQuiz(
+                        question = question,
+                        options = opts.toList(),
+                        correctAnswer = correct
+                    ) { q, selectedOption ->
+                        val feedbackMessage = activity.getString(R.string.quiz_feedback_format, q, selectedOption)
+                        context.sendAsyncUpdate(feedbackMessage, true)
                     }
-                )
+                }
             }
         }
 
