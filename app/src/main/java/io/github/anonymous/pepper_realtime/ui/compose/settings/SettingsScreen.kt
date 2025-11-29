@@ -10,12 +10,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.anonymous.pepper_realtime.manager.ApiKeyManager
 import io.github.anonymous.pepper_realtime.manager.SettingsRepository
 import io.github.anonymous.pepper_realtime.network.RealtimeApiProvider
 import io.github.anonymous.pepper_realtime.tools.ToolRegistry
 import io.github.anonymous.pepper_realtime.ui.compose.ChatTheme
-import io.github.anonymous.pepper_realtime.ui.settings.LanguageOption
 import io.github.anonymous.pepper_realtime.ui.settings.SettingsViewModel
 
 /**
@@ -29,36 +29,19 @@ fun SettingsScreen(
     onSettingsChanged: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // State from ViewModel
-    var systemPrompt by remember { mutableStateOf(viewModel.getSystemPrompt()) }
-    var selectedModel by remember { mutableStateOf(viewModel.getModel()) }
-    var selectedProvider by remember { mutableStateOf(viewModel.getApiProvider()) }
-    var selectedVoice by remember { mutableStateOf(viewModel.getVoice()) }
-    var speedProgress by remember { mutableIntStateOf(viewModel.getSpeedProgress()) }
-    var temperatureProgress by remember { mutableIntStateOf(viewModel.getTemperatureProgress()) }
-    var volume by remember { mutableIntStateOf(viewModel.getVolume()) }
-    var audioInputMode by remember { mutableStateOf(viewModel.getAudioInputMode()) }
-    var selectedLanguage by remember { mutableStateOf(viewModel.getLanguage()) }
-    var silenceTimeout by remember { mutableIntStateOf(viewModel.getSilenceTimeout()) }
-    var confidenceThreshold by remember { mutableIntStateOf((viewModel.getConfidenceThreshold() * 100).toInt()) }
+    // Collect settings state from ViewModel
+    val settings by viewModel.settingsState.collectAsStateWithLifecycle()
     
-    // Realtime API settings
-    var transcriptionModel by remember { mutableStateOf(viewModel.getTranscriptionModel()) }
-    var transcriptionLanguage by remember { mutableStateOf(viewModel.getTranscriptionLanguage()) }
-    var transcriptionPrompt by remember { mutableStateOf(viewModel.getTranscriptionPrompt()) }
-    var turnDetectionType by remember { mutableStateOf(viewModel.getTurnDetectionType()) }
-    var vadThreshold by remember { mutableFloatStateOf(viewModel.getVadThreshold()) }
-    var prefixPadding by remember { mutableIntStateOf(viewModel.getPrefixPadding()) }
-    var silenceDuration by remember { mutableIntStateOf(viewModel.getSilenceDuration()) }
-    var idleTimeout by remember { mutableStateOf(viewModel.getIdleTimeout()?.toString() ?: "") }
-    var eagerness by remember { mutableStateOf(viewModel.getEagerness()) }
-    var noiseReduction by remember { mutableStateOf(viewModel.getNoiseReduction()) }
+    // Local state for text fields (applied on drawer close)
+    var systemPrompt by remember(settings.systemPrompt) { mutableStateOf(settings.systemPrompt) }
+    var transcriptionLanguage by remember(settings.transcriptionLanguage) { mutableStateOf(settings.transcriptionLanguage) }
+    var transcriptionPrompt by remember(settings.transcriptionPrompt) { mutableStateOf(settings.transcriptionPrompt) }
+    var idleTimeoutText by remember(settings.idleTimeout) { mutableStateOf(settings.idleTimeout?.toString() ?: "") }
+    var enabledTools by remember(settings.enabledTools) { mutableStateOf(settings.enabledTools) }
     
-    // Tools state
-    var enabledTools by remember { mutableStateOf(viewModel.getEnabledTools()) }
-    
-    val isRealtimeMode = audioInputMode == SettingsRepository.MODE_REALTIME_API
-    val isServerVad = turnDetectionType == "server_vad"
+    // Derived values
+    val isRealtimeMode = settings.audioInputMode == SettingsRepository.MODE_REALTIME_API
+    val isServerVad = settings.turnDetectionType == "server_vad"
     
     // Options
     val models = listOf("gpt-realtime", "gpt-realtime-mini", "gpt-4o-realtime-preview", "gpt-4o-mini-realtime-preview")
@@ -91,7 +74,7 @@ fun SettingsScreen(
             viewModel.setSystemPrompt(systemPrompt)
             viewModel.setTranscriptionLanguage(transcriptionLanguage)
             viewModel.setTranscriptionPrompt(transcriptionPrompt)
-            idleTimeout.toIntOrNull()?.let { viewModel.setIdleTimeout(it) }
+            idleTimeoutText.toIntOrNull()?.let { viewModel.setIdleTimeout(it) }
             viewModel.setEnabledTools(enabledTools)
             onSettingsChanged()
         }
@@ -128,11 +111,8 @@ fun SettingsScreen(
             SettingsDropdown(
                 label = "Model",
                 options = models,
-                selectedOption = selectedModel,
-                onOptionSelected = { 
-                    selectedModel = it
-                    viewModel.setModel(it)
-                }
+                selectedOption = settings.model,
+                onOptionSelected = { viewModel.setModel(it) }
             )
             
             // API Provider - apply immediately, show display names
@@ -140,10 +120,9 @@ fun SettingsScreen(
                 SettingsDropdown(
                     label = "API Provider",
                     options = configuredProviders.map { it.getDisplayName() },
-                    selectedOption = getProviderDisplayName(selectedProvider),
+                    selectedOption = getProviderDisplayName(settings.apiProvider),
                     onOptionSelected = { displayName ->
                         val enumName = getProviderEnumName(displayName)
-                        selectedProvider = enumName
                         viewModel.setApiProvider(enumName)
                     }
                 )
@@ -153,49 +132,38 @@ fun SettingsScreen(
             SettingsDropdown(
                 label = "Voice",
                 options = voices,
-                selectedOption = selectedVoice,
-                onOptionSelected = { 
-                    selectedVoice = it
-                    viewModel.setVoice(it)
-                }
+                selectedOption = settings.voice,
+                onOptionSelected = { viewModel.setVoice(it) }
             )
             
             // Speed - apply immediately
             SettingsSlider(
                 label = "Speech Speed",
-                value = speedProgress.toFloat(),
-                onValueChange = { 
-                    speedProgress = it.toInt()
-                    viewModel.setSpeedProgress(it.toInt())
-                },
+                value = settings.speedProgress.toFloat(),
+                onValueChange = { viewModel.setSpeedProgress(it.toInt()) },
                 valueRange = 25f..150f,
-                valueDisplay = "%.2fx".format(speedProgress / 100f)
+                valueDisplay = "%.2fx".format(settings.speedProgress / 100f)
             )
             
             // Temperature - apply immediately
             SettingsSlider(
                 label = "Temperature",
-                value = temperatureProgress.toFloat(),
-                onValueChange = { 
-                    temperatureProgress = it.toInt()
-                    viewModel.setTemperatureProgress(it.toInt())
-                },
+                value = settings.temperatureProgress.toFloat(),
+                onValueChange = { viewModel.setTemperatureProgress(it.toInt()) },
                 valueRange = 0f..100f,
-                valueDisplay = "%.2f".format(0.6f + (temperatureProgress / 100f) * 0.6f)
+                valueDisplay = "%.2f".format(0.6f + (settings.temperatureProgress / 100f) * 0.6f)
             )
             
             // Audio Input Mode - apply immediately
             SettingsDropdown(
                 label = "Audio Input",
                 options = audioInputModes,
-                selectedOption = if (audioInputMode == SettingsRepository.MODE_REALTIME_API) 
-                    audioInputModes[0] else audioInputModes[1],
+                selectedOption = if (isRealtimeMode) audioInputModes[0] else audioInputModes[1],
                 onOptionSelected = { 
                     val newMode = if (it == audioInputModes[0]) 
                         SettingsRepository.MODE_REALTIME_API 
                     else 
                         SettingsRepository.MODE_AZURE_SPEECH
-                    audioInputMode = newMode
                     viewModel.setAudioInputMode(newMode)
                 }
             )
@@ -207,10 +175,9 @@ fun SettingsScreen(
                 SettingsDropdown(
                     label = "Speech Language",
                     options = languages.map { it.displayName },
-                    selectedOption = languages.find { it.code == selectedLanguage }?.displayName ?: "",
+                    selectedOption = languages.find { it.code == settings.language }?.displayName ?: "",
                     onOptionSelected = { name ->
                         languages.find { it.displayName == name }?.let { 
-                            selectedLanguage = it.code
                             viewModel.setLanguage(it.code)
                         }
                     }
@@ -218,24 +185,19 @@ fun SettingsScreen(
                 
                 SettingsSlider(
                     label = "Silence Timeout (ms)",
-                    value = silenceTimeout.toFloat(),
-                    onValueChange = { 
-                        silenceTimeout = it.toInt()
-                        viewModel.setSilenceTimeout(it.toInt())
-                    },
+                    value = settings.silenceTimeout.toFloat(),
+                    onValueChange = { viewModel.setSilenceTimeout(it.toInt()) },
                     valueRange = 0f..2000f,
-                    valueDisplay = "${silenceTimeout}ms"
+                    valueDisplay = "${settings.silenceTimeout}ms"
                 )
                 
+                val confidencePercent = (settings.confidenceThreshold * 100).toInt()
                 SettingsSlider(
                     label = "ASR Confidence Threshold",
-                    value = confidenceThreshold.toFloat(),
-                    onValueChange = { 
-                        confidenceThreshold = it.toInt()
-                        viewModel.setConfidenceThreshold(it.toInt() / 100f)
-                    },
+                    value = confidencePercent.toFloat(),
+                    onValueChange = { viewModel.setConfidenceThreshold(it.toInt() / 100f) },
                     valueRange = 0f..100f,
-                    valueDisplay = "$confidenceThreshold%"
+                    valueDisplay = "$confidencePercent%"
                 )
             }
             
@@ -246,11 +208,8 @@ fun SettingsScreen(
                 SettingsDropdown(
                     label = "Transcription Model",
                     options = transcriptionModels,
-                    selectedOption = transcriptionModel,
-                    onOptionSelected = { 
-                        transcriptionModel = it
-                        viewModel.setTranscriptionModel(it)
-                    }
+                    selectedOption = settings.transcriptionModel,
+                    onOptionSelected = { viewModel.setTranscriptionModel(it) }
                 )
                 
                 SettingsTextField(
@@ -272,11 +231,9 @@ fun SettingsScreen(
                 SettingsDropdown(
                     label = "Turn Detection Type",
                     options = turnDetectionTypes,
-                    selectedOption = if (turnDetectionType == "server_vad") 
-                        turnDetectionTypes[0] else turnDetectionTypes[1],
+                    selectedOption = if (isServerVad) turnDetectionTypes[0] else turnDetectionTypes[1],
                     onOptionSelected = { 
                         val newType = if (it == turnDetectionTypes[0]) "server_vad" else "semantic_vad"
-                        turnDetectionType = newType
                         viewModel.setTurnDetectionType(newType)
                     }
                 )
@@ -285,41 +242,32 @@ fun SettingsScreen(
                 if (isServerVad) {
                     SettingsSlider(
                         label = "VAD Activation Threshold",
-                        value = vadThreshold,
-                        onValueChange = { 
-                            vadThreshold = it
-                            viewModel.setVadThreshold(it)
-                        },
+                        value = settings.vadThreshold,
+                        onValueChange = { viewModel.setVadThreshold(it) },
                         valueRange = 0f..1f,
-                        valueDisplay = "%.2f".format(vadThreshold)
+                        valueDisplay = "%.2f".format(settings.vadThreshold)
                     )
                     
                     SettingsSlider(
                         label = "Prefix Padding",
-                        value = prefixPadding.toFloat(),
-                        onValueChange = { 
-                            prefixPadding = it.toInt()
-                            viewModel.setPrefixPadding(it.toInt())
-                        },
+                        value = settings.prefixPadding.toFloat(),
+                        onValueChange = { viewModel.setPrefixPadding(it.toInt()) },
                         valueRange = 0f..1000f,
-                        valueDisplay = "${prefixPadding} ms"
+                        valueDisplay = "${settings.prefixPadding} ms"
                     )
                     
                     SettingsSlider(
                         label = "Silence Duration",
-                        value = silenceDuration.toFloat(),
-                        onValueChange = { 
-                            silenceDuration = it.toInt()
-                            viewModel.setSilenceDuration(it.toInt())
-                        },
+                        value = settings.silenceDuration.toFloat(),
+                        onValueChange = { viewModel.setSilenceDuration(it.toInt()) },
                         valueRange = 200f..2000f,
-                        valueDisplay = "${silenceDuration} ms"
+                        valueDisplay = "${settings.silenceDuration} ms"
                     )
                     
                     SettingsTextField(
                         label = "Idle Timeout (ms, Optional)",
-                        value = idleTimeout,
-                        onValueChange = { idleTimeout = it },
+                        value = idleTimeoutText,
+                        onValueChange = { idleTimeoutText = it },
                         hint = "Milliseconds - leave empty to disable"
                     )
                 } else {
@@ -327,7 +275,7 @@ fun SettingsScreen(
                     SettingsDropdown(
                         label = "Eagerness",
                         options = eagernessLevels,
-                        selectedOption = when (eagerness) {
+                        selectedOption = when (settings.eagerness) {
                             "low" -> eagernessLevels[1]
                             "medium" -> eagernessLevels[2]
                             "high" -> eagernessLevels[3]
@@ -340,7 +288,6 @@ fun SettingsScreen(
                                 eagernessLevels[3] -> "high"
                                 else -> "auto"
                             }
-                            eagerness = newEagerness
                             viewModel.setEagerness(newEagerness)
                         }
                     )
@@ -349,7 +296,7 @@ fun SettingsScreen(
                 SettingsDropdown(
                     label = "Noise Reduction",
                     options = noiseReductionTypes,
-                    selectedOption = when (noiseReduction) {
+                    selectedOption = when (settings.noiseReduction) {
                         "near_field" -> noiseReductionTypes[1]
                         "far_field" -> noiseReductionTypes[2]
                         else -> noiseReductionTypes[0]
@@ -360,7 +307,6 @@ fun SettingsScreen(
                             noiseReductionTypes[2] -> "far_field"
                             else -> "off"
                         }
-                        noiseReduction = newReduction
                         viewModel.setNoiseReduction(newReduction)
                     }
                 )
@@ -369,13 +315,10 @@ fun SettingsScreen(
             // Volume - apply immediately
             SettingsSlider(
                 label = "Volume",
-                value = volume.toFloat(),
-                onValueChange = { 
-                    volume = it.toInt()
-                    viewModel.setVolume(it.toInt())
-                },
+                value = settings.volume.toFloat(),
+                onValueChange = { viewModel.setVolume(it.toInt()) },
                 valueRange = 0f..100f,
-                valueDisplay = "$volume%"
+                valueDisplay = "${settings.volume}%"
             )
             
             // Function Calls Section

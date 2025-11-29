@@ -6,6 +6,7 @@ import io.github.anonymous.pepper_realtime.manager.SettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import javax.inject.Inject
 
 @HiltViewModel
@@ -13,7 +14,11 @@ class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository
 ) : ViewModel() {
 
-    // Events as StateFlow (modern approach, better Compose integration)
+    // Settings State as StateFlow
+    private val _settingsState = MutableStateFlow(loadSettingsFromRepository())
+    val settingsState: StateFlow<SettingsState> = _settingsState.asStateFlow()
+
+    // Events as StateFlow
     private val _restartSessionEvent = MutableStateFlow(false)
     private val _updateSessionEvent = MutableStateFlow(false)
     private val _restartRecognizerEvent = MutableStateFlow(false)
@@ -30,6 +35,33 @@ class SettingsViewModel @Inject constructor(
     private var pendingUpdate = false
     private var pendingRecognizerRestart = false
     
+    private fun loadSettingsFromRepository(): SettingsState {
+        return SettingsState(
+            systemPrompt = settingsRepository.systemPrompt,
+            model = settingsRepository.model,
+            voice = settingsRepository.voice,
+            speedProgress = settingsRepository.speedProgress,
+            language = settingsRepository.language,
+            apiProvider = settingsRepository.apiProvider,
+            audioInputMode = settingsRepository.audioInputMode,
+            temperatureProgress = settingsRepository.temperatureProgress,
+            volume = settingsRepository.volume,
+            silenceTimeout = settingsRepository.silenceTimeout,
+            confidenceThreshold = settingsRepository.confidenceThreshold,
+            enabledTools = settingsRepository.enabledTools,
+            transcriptionModel = settingsRepository.transcriptionModel,
+            transcriptionLanguage = settingsRepository.transcriptionLanguage,
+            transcriptionPrompt = settingsRepository.transcriptionPrompt,
+            turnDetectionType = settingsRepository.turnDetectionType,
+            vadThreshold = settingsRepository.vadThreshold,
+            prefixPadding = settingsRepository.prefixPadding,
+            silenceDuration = settingsRepository.silenceDuration,
+            idleTimeout = settingsRepository.idleTimeout,
+            eagerness = settingsRepository.eagerness,
+            noiseReduction = settingsRepository.noiseReduction
+        )
+    }
+    
     fun beginEditing() {
         isBatchMode = true
         pendingRestart = false
@@ -44,7 +76,6 @@ class SettingsViewModel @Inject constructor(
         
         if (pendingRecognizerRestart) _restartRecognizerEvent.value = true
         
-        // Reset pending flags
         pendingRestart = false
         pendingUpdate = false
         pendingRecognizerRestart = false
@@ -54,6 +85,7 @@ class SettingsViewModel @Inject constructor(
     fun setSystemPrompt(prompt: String) {
         if (prompt != settingsRepository.systemPrompt) {
             settingsRepository.systemPrompt = prompt
+            _settingsState.update { it.copy(systemPrompt = prompt) }
             if (isBatchMode) pendingUpdate = true else _updateSessionEvent.value = true
         }
     }
@@ -61,6 +93,7 @@ class SettingsViewModel @Inject constructor(
     fun setModel(model: String) {
         if (model != settingsRepository.model) {
             settingsRepository.model = model
+            _settingsState.update { it.copy(model = model) }
             if (isBatchMode) pendingRestart = true else _restartSessionEvent.value = true
         }
     }
@@ -68,6 +101,7 @@ class SettingsViewModel @Inject constructor(
     fun setVoice(voice: String) {
         if (voice != settingsRepository.voice) {
             settingsRepository.voice = voice
+            _settingsState.update { it.copy(voice = voice) }
             if (isBatchMode) pendingRestart = true else _restartSessionEvent.value = true
         }
     }
@@ -75,6 +109,7 @@ class SettingsViewModel @Inject constructor(
     fun setSpeedProgress(progress: Int) {
         if (progress != settingsRepository.speedProgress) {
             settingsRepository.speedProgress = progress
+            _settingsState.update { it.copy(speedProgress = progress) }
             if (isBatchMode) pendingUpdate = true else _updateSessionEvent.value = true
         }
     }
@@ -82,6 +117,7 @@ class SettingsViewModel @Inject constructor(
     fun setLanguage(language: String) {
         if (language != settingsRepository.language) {
             settingsRepository.language = language
+            _settingsState.update { it.copy(language = language) }
             if (isBatchMode) pendingRecognizerRestart = true else _restartRecognizerEvent.value = true
         }
     }
@@ -89,6 +125,7 @@ class SettingsViewModel @Inject constructor(
     fun setApiProvider(provider: String) {
         if (provider != settingsRepository.apiProvider) {
             settingsRepository.apiProvider = provider
+            _settingsState.update { it.copy(apiProvider = provider) }
             if (isBatchMode) pendingRestart = true else _restartSessionEvent.value = true
         }
     }
@@ -96,6 +133,7 @@ class SettingsViewModel @Inject constructor(
     fun setAudioInputMode(mode: String) {
         if (mode != settingsRepository.audioInputMode) {
             settingsRepository.audioInputMode = mode
+            _settingsState.update { it.copy(audioInputMode = mode) }
             if (isBatchMode) pendingRestart = true else _restartSessionEvent.value = true
         }
     }
@@ -103,6 +141,7 @@ class SettingsViewModel @Inject constructor(
     fun setTemperatureProgress(progress: Int) {
         if (progress != settingsRepository.temperatureProgress) {
             settingsRepository.temperatureProgress = progress
+            _settingsState.update { it.copy(temperatureProgress = progress) }
             if (isBatchMode) pendingUpdate = true else _updateSessionEvent.value = true
         }
     }
@@ -110,13 +149,15 @@ class SettingsViewModel @Inject constructor(
     fun setVolume(volume: Int) {
         if (volume != settingsRepository.volume) {
             settingsRepository.volume = volume
-            _volumeChangeEvent.value = volume // Volume should change immediately for feedback
+            _settingsState.update { it.copy(volume = volume) }
+            _volumeChangeEvent.value = volume
         }
     }
 
     fun setSilenceTimeout(timeout: Int) {
         if (timeout != settingsRepository.silenceTimeout) {
             settingsRepository.silenceTimeout = timeout
+            _settingsState.update { it.copy(silenceTimeout = timeout) }
             if (isBatchMode) pendingRecognizerRestart = true else _restartRecognizerEvent.value = true
         }
     }
@@ -124,13 +165,14 @@ class SettingsViewModel @Inject constructor(
     fun setConfidenceThreshold(threshold: Float) {
         if (threshold != settingsRepository.confidenceThreshold) {
             settingsRepository.confidenceThreshold = threshold
-            // No immediate action needed
+            _settingsState.update { it.copy(confidenceThreshold = threshold) }
         }
     }
 
     fun setEnabledTools(tools: Set<String>) {
         if (tools != settingsRepository.enabledTools) {
             settingsRepository.enabledTools = tools
+            _settingsState.update { it.copy(enabledTools = tools) }
             if (isBatchMode) pendingUpdate = true else _updateSessionEvent.value = true
         }
     }
@@ -139,6 +181,7 @@ class SettingsViewModel @Inject constructor(
     fun setTranscriptionModel(model: String) {
         if (model != settingsRepository.transcriptionModel) {
             settingsRepository.transcriptionModel = model
+            _settingsState.update { it.copy(transcriptionModel = model) }
             triggerRealtimeSettingChange()
         }
     }
@@ -146,6 +189,7 @@ class SettingsViewModel @Inject constructor(
     fun setTranscriptionLanguage(language: String) {
         if (language != settingsRepository.transcriptionLanguage) {
             settingsRepository.transcriptionLanguage = language
+            _settingsState.update { it.copy(transcriptionLanguage = language) }
             triggerRealtimeSettingChange()
         }
     }
@@ -153,6 +197,7 @@ class SettingsViewModel @Inject constructor(
     fun setTranscriptionPrompt(prompt: String) {
         if (prompt != settingsRepository.transcriptionPrompt) {
             settingsRepository.transcriptionPrompt = prompt
+            _settingsState.update { it.copy(transcriptionPrompt = prompt) }
             triggerRealtimeSettingChange()
         }
     }
@@ -160,6 +205,7 @@ class SettingsViewModel @Inject constructor(
     fun setTurnDetectionType(type: String) {
         if (type != settingsRepository.turnDetectionType) {
             settingsRepository.turnDetectionType = type
+            _settingsState.update { it.copy(turnDetectionType = type) }
             triggerRealtimeSettingChange()
         }
     }
@@ -167,6 +213,7 @@ class SettingsViewModel @Inject constructor(
     fun setVadThreshold(threshold: Float) {
         if (threshold != settingsRepository.vadThreshold) {
             settingsRepository.vadThreshold = threshold
+            _settingsState.update { it.copy(vadThreshold = threshold) }
             triggerRealtimeSettingChange()
         }
     }
@@ -174,6 +221,7 @@ class SettingsViewModel @Inject constructor(
     fun setPrefixPadding(padding: Int) {
         if (padding != settingsRepository.prefixPadding) {
             settingsRepository.prefixPadding = padding
+            _settingsState.update { it.copy(prefixPadding = padding) }
             triggerRealtimeSettingChange()
         }
     }
@@ -181,6 +229,7 @@ class SettingsViewModel @Inject constructor(
     fun setSilenceDuration(duration: Int) {
         if (duration != settingsRepository.silenceDuration) {
             settingsRepository.silenceDuration = duration
+            _settingsState.update { it.copy(silenceDuration = duration) }
             triggerRealtimeSettingChange()
         }
     }
@@ -189,6 +238,7 @@ class SettingsViewModel @Inject constructor(
         val current = settingsRepository.idleTimeout
         if (current == null || timeout != current) {
             settingsRepository.idleTimeout = timeout
+            _settingsState.update { it.copy(idleTimeout = timeout) }
             triggerRealtimeSettingChange()
         }
     }
@@ -196,6 +246,7 @@ class SettingsViewModel @Inject constructor(
     fun setEagerness(eagerness: String) {
         if (eagerness != settingsRepository.eagerness) {
             settingsRepository.eagerness = eagerness
+            _settingsState.update { it.copy(eagerness = eagerness) }
             triggerRealtimeSettingChange()
         }
     }
@@ -203,6 +254,7 @@ class SettingsViewModel @Inject constructor(
     fun setNoiseReduction(reduction: String) {
         if (reduction != settingsRepository.noiseReduction) {
             settingsRepository.noiseReduction = reduction
+            _settingsState.update { it.copy(noiseReduction = reduction) }
             triggerRealtimeSettingChange()
         }
     }
@@ -212,30 +264,6 @@ class SettingsViewModel @Inject constructor(
             if (isBatchMode) pendingUpdate = true else _updateSessionEvent.value = true
         }
     }
-
-    // Getters for UI Initialization
-    fun getSystemPrompt(): String = settingsRepository.systemPrompt
-    fun getModel(): String = settingsRepository.model
-    fun getVoice(): String = settingsRepository.voice
-    fun getSpeedProgress(): Int = settingsRepository.speedProgress
-    fun getLanguage(): String = settingsRepository.language
-    fun getApiProvider(): String = settingsRepository.apiProvider
-    fun getAudioInputMode(): String = settingsRepository.audioInputMode
-    fun getTemperatureProgress(): Int = settingsRepository.temperatureProgress
-    fun getVolume(): Int = settingsRepository.volume
-    fun getSilenceTimeout(): Int = settingsRepository.silenceTimeout
-    fun getConfidenceThreshold(): Float = settingsRepository.confidenceThreshold
-    fun getEnabledTools(): Set<String> = settingsRepository.enabledTools
-    fun getTranscriptionModel(): String = settingsRepository.transcriptionModel
-    fun getTranscriptionLanguage(): String = settingsRepository.transcriptionLanguage
-    fun getTranscriptionPrompt(): String = settingsRepository.transcriptionPrompt
-    fun getTurnDetectionType(): String = settingsRepository.turnDetectionType
-    fun getVadThreshold(): Float = settingsRepository.vadThreshold
-    fun getPrefixPadding(): Int = settingsRepository.prefixPadding
-    fun getSilenceDuration(): Int = settingsRepository.silenceDuration
-    fun getIdleTimeout(): Int? = settingsRepository.idleTimeout
-    fun getEagerness(): String = settingsRepository.eagerness
-    fun getNoiseReduction(): String = settingsRepository.noiseReduction
 
     // Event consumption methods
     fun consumeRestartSessionEvent() {
