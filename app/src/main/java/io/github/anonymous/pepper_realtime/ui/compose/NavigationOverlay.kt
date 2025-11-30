@@ -183,9 +183,9 @@ fun MapCanvas(
                     val yOrigin = mapGfx.y
 
                     // Convert map (meters) to bitmap pixel coordinates
-                    // Use 1f to force float division
+                    // Formula from original MapPreviewView.kt (pre-Compose)
                     val xImgRaw = (1f / mapScale * (cos(theta.toDouble()).toFloat() * (xMap - xOrigin) + sin(theta.toDouble()).toFloat() * (yMap - yOrigin)))
-                    val yImgRaw = (1f / mapScale * (-sin(theta.toDouble()).toFloat() * (xMap - xOrigin) + cos(theta.toDouble()).toFloat() * (yMap - yOrigin)))
+                    val yImgRaw = (1f / mapScale * (sin(theta.toDouble()).toFloat() * (xMap - xOrigin) - cos(theta.toDouble()).toFloat() * (yMap - yOrigin)))
 
                     // Transform bitmap pixel coordinates to Canvas coordinates
                     val xCanvas = offsetX + (xImgRaw * scale)
