@@ -6,13 +6,11 @@ import android.content.Context
 import android.graphics.Color
 import android.media.AudioManager
 import android.util.Log
-import android.view.Gravity
+import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.view.WindowManager
 import android.webkit.*
 import android.widget.Button
-import android.widget.LinearLayout
 import android.widget.TextView
 import io.github.anonymous.pepper_realtime.R
 import io.github.anonymous.pepper_realtime.service.YouTubeSearchService
@@ -44,15 +42,6 @@ class YouTubePlayerDialog(
         }
     }
 
-    // Bridge to receive events from WebView JS
-    private class JsBridge {
-        @Suppress("unused")
-        @JavascriptInterface
-        fun onReady() {
-            Log.d(TAG, "JS onReady")
-        }
-    }
-
     fun playVideo(video: YouTubeSearchService.YouTubeVideo?) {
         if (video == null) {
             Log.e(TAG, "Cannot play null video")
@@ -69,87 +58,35 @@ class YouTubePlayerDialog(
     }
 
     private fun createDialog(video: YouTubeSearchService.YouTubeVideo) {
-        // Recreating R.layout.dialog_youtube_player programmatically
-        val dialogView = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            layoutParams = ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
-            setBackgroundColor(Color.BLACK)
-        }
+        // Use XML layout like in the old working version
+        val dialogView = LayoutInflater.from(context).inflate(R.layout.dialog_youtube_player, null)
 
-        // Header Layout
-        val headerLayout = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-            setPadding(32, 24, 32, 24)
-            gravity = Gravity.CENTER_VERTICAL
-            setBackgroundColor(Color.parseColor("#202020"))
-        }
+        // Initialize UI elements
+        val videoTitle: TextView = dialogView.findViewById(R.id.youtube_video_title)
+        val channelTitle: TextView = dialogView.findViewById(R.id.youtube_channel_title)
+        val closeButton: Button = dialogView.findViewById(R.id.youtube_close_button)
+        webView = dialogView.findViewById(R.id.youtube_webview)
 
-        val titleLayout = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-        }
+        // Set video information
+        videoTitle.text = video.title
+        channelTitle.text = video.channelTitle
 
-        val videoTitle = TextView(context).apply {
-            text = video.title
-            setTextColor(Color.WHITE)
-            textSize = 18f
-            maxLines = 1
-            ellipsize = android.text.TextUtils.TruncateAt.END
-        }
-
-        val channelTitle = TextView(context).apply {
-            text = video.channelTitle
-            setTextColor(Color.LTGRAY)
-            textSize = 14f
-            maxLines = 1
-        }
-
-        titleLayout.addView(videoTitle)
-        titleLayout.addView(channelTitle)
-
-        val closeButton = Button(context).apply {
-            text = "Close"
-            setTextColor(Color.WHITE)
-            setBackgroundColor(Color.RED)
-            setOnClickListener { closePlayer() }
-        }
-
-        headerLayout.addView(titleLayout)
-        headerLayout.addView(closeButton)
-
-        // WebView
-        webView = WebView(context).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                0,
-                1f
-            )
-            setBackgroundColor(Color.BLACK)
-        }
-
-        dialogView.addView(headerLayout)
-        dialogView.addView(webView)
-
+        // Setup WebView
         setupWebView(video.videoId)
 
-        val builder = AlertDialog.Builder(context, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+        // Setup close button
+        closeButton.setOnClickListener { closePlayer() }
+
+        // Create dialog
+        val builder = AlertDialog.Builder(context)
         builder.setView(dialogView)
-        builder.setCancelable(false)
+        builder.setCancelable(false) // Force use of close button
 
         dialog = builder.create()
         dialog?.show()
 
-        dialog?.window?.apply {
-            setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-            addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        }
+        // Make dialog full-screen
+        dialog?.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
 
         try {
             webView?.onResume()
@@ -157,6 +94,7 @@ class YouTubePlayerDialog(
         } catch (ignored: Exception) {
         }
 
+        // Request transient audio focus for media playback
         try {
             @Suppress("DEPRECATION")
             audioManager?.requestAudioFocus(
@@ -172,126 +110,145 @@ class YouTubePlayerDialog(
     private fun setupWebView(videoId: String) {
         val wv = webView ?: return
 
+        // Prefer hardware acceleration for HTML5 video playback (RESTORED OLD BEHAVIOR)
         wv.setLayerType(View.LAYER_TYPE_HARDWARE, null)
 
+        // Configure WebView for YouTube embed
         val webSettings = wv.settings
         webSettings.javaScriptEnabled = true
+        webSettings.javaScriptCanOpenWindowsAutomatically = true
         webSettings.domStorageEnabled = true
         webSettings.loadWithOverviewMode = true
-        webSettings.useWideViewPort = false // Important for mobile layout
+        webSettings.useWideViewPort = true
         webSettings.builtInZoomControls = false
         webSettings.displayZoomControls = false
-        webSettings.mediaPlaybackRequiresUserGesture = false
+        webSettings.mediaPlaybackRequiresUserGesture = false // Allow autoplay
+        webSettings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
         
-        webSettings.userAgentString =
-            "Mozilla/5.0 (Linux; Android 8.0; SM-G955U Build/R16NW) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Mobile Safari/537.36"
+        // Remove "wv" from User-Agent to make YouTube think this is a real Chrome browser
+        // This prevents "Sign in to prove you're not a bot" checks
+        webSettings.userAgentString = webSettings.userAgentString.replace("; wv", "")
 
+        // Pepper-specific optimizations to prevent OpenGL errors
         webSettings.cacheMode = WebSettings.LOAD_DEFAULT
         webSettings.allowFileAccess = true
         webSettings.allowContentAccess = true
+        webSettings.loadsImagesAutomatically = true
+        webSettings.blockNetworkImage = false
+        webSettings.blockNetworkLoads = false
+
+        // Disable problematic features for embedded systems
+        webSettings.setGeolocationEnabled(false)
         @Suppress("DEPRECATION")
         webSettings.databaseEnabled = false
 
-        try {
-            val cookieManager = CookieManager.getInstance()
-            cookieManager.setAcceptCookie(true)
-            cookieManager.setAcceptThirdPartyCookies(wv, true)
-        } catch (ignored: Throwable) { }
-
+        // Accept cookies (and third-party cookies) for YouTube playback
+        // Set WebView client to handle navigation
         wv.webViewClient = object : WebViewClient() {
+            @Deprecated("Deprecated in Java")
+            override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
+                Log.d(TAG, "WebView attempting to load: $url")
+                // Keep navigation within WebView for YouTube
+                return !(url.contains("youtube.com") || url.contains("youtu.be") || url.contains("googlevideo.com"))
+            }
+
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-                return true // Keep everything in WebView
+                val url = request.url?.toString() ?: ""
+                return !(url.contains("youtube.com") || url.contains("youtu.be") || url.contains("googlevideo.com"))
+            }
+
+            override fun onPageFinished(view: WebView, url: String) {
+                super.onPageFinished(view, url)
+                Log.d(TAG, "YouTube page loaded: $url")
+            }
+
+            @Deprecated("Deprecated in Java")
+            override fun onReceivedError(view: WebView, errorCode: Int, description: String, failingUrl: String) {
+                @Suppress("DEPRECATION")
+                super.onReceivedError(view, errorCode, description, failingUrl)
+                Log.e(TAG, "WebView error: $errorCode - $description for URL: $failingUrl")
+            }
+
+            override fun onReceivedError(view: WebView, request: WebResourceRequest?, error: WebResourceError?) {
+                super.onReceivedError(view, request, error)
+                try {
+                    val url = request?.url?.toString() ?: ""
+                    val desc = error?.description ?: ""
+                    Log.e(TAG, "WebView error: $desc for URL: $url")
+                } catch (ignored: Exception) {
+                }
             }
         }
 
+        // Add WebChromeClient for better YouTube support
         wv.webChromeClient = object : WebChromeClient() {
+            override fun onConsoleMessage(message: ConsoleMessage): Boolean {
+                Log.d(TAG, "WebView console: ${message.message()} [${message.sourceId()}:${message.lineNumber()}]")
+                return true
+            }
+
             override fun onPermissionRequest(request: PermissionRequest) {
                 try {
                     request.grant(request.resources)
-                } catch (e: Exception) { }
+                    Log.d(TAG, "Granted WebView permission request")
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to grant WebView permissions", e)
+                }
             }
-            override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
-                Log.d(TAG, "WebView: ${consoleMessage?.message()}")
-                return true
+
+            override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
+                Log.d(TAG, "WebView custom view shown")
+                super.onShowCustomView(view, callback)
+            }
+
+            override fun onHideCustomView() {
+                Log.d(TAG, "WebView custom view hidden")
+                super.onHideCustomView()
             }
         }
 
-        wv.addJavascriptInterface(JsBridge(), "Android")
+        // Set black background to prevent flashing
         wv.setBackgroundColor(Color.BLACK)
 
-        // Simplified robust implementation: Direct iframe embed
-        // Using 'enablejsapi=1' to allow controlling player if needed later
-        // 'rel=0' to minimize related videos
-        // 'autoplay=1' & 'mute=0' for immediate sound
-        val html = """
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-                <style>
-                    body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; }
-                    .video-container { position: relative; width: 100%; height: 100%; }
-                    iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
-                </style>
-            </head>
-            <body>
-                <div class="video-container">
-                    <iframe 
-                        src="https://www.youtube.com/embed/$videoId?autoplay=1&rel=0&modestbranding=1&playsinline=1&controls=1&fs=0&enablejsapi=1" 
-                        allow="autoplay; encrypted-media" 
-                        allowfullscreen>
-                    </iframe>
-                </div>
-                <script>
-                    // Simple auto-unmute helper
-                    var tag = document.createElement('script');
-                    tag.src = "https://www.youtube.com/iframe_api";
-                    var firstScriptTag = document.getElementsByTagName('script')[0];
-                    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-
-                    var player;
-                    function onYouTubeIframeAPIReady() {
-                        player = new YT.Player(document.querySelector('iframe'), {
-                            events: {
-                                'onReady': onPlayerReady
-                            }
-                        });
-                    }
-                    function onPlayerReady(event) {
-                        event.target.setVolume(100);
-                        event.target.unMute();
-                        event.target.playVideo();
-                    }
-                </script>
-            </body>
-            </html>
-        """.trimIndent()
-
-        wv.loadDataWithBaseURL("https://www.youtube.com", html, "text/html", "UTF-8", null)
+        // Load mobile YouTube directly - most reliable method
+        // IFrame embedding is blocked by YouTube (Error 152), so we skip the wrapper and go straight to m.youtube.com
+        val mobileUrl = "https://m.youtube.com/watch?v=$videoId&autoplay=1"
+        Log.i(TAG, "Loading mobile YouTube directly: $mobileUrl")
+        wv.loadUrl(mobileUrl)
     }
 
     fun closePlayer() {
         Log.i(TAG, "Closing YouTube player")
+
+        // Stop WebView
         webView?.let { wv ->
             try {
                 wv.onPause()
                 wv.pauseTimers()
-            } catch (ignored: Exception) { }
+            } catch (ignored: Exception) {
+            }
             wv.stopLoading()
             wv.loadUrl("about:blank")
+            wv.clearHistory()
+            wv.clearCache(true)
             wv.destroy()
         }
-        
-        try {
-            dialog?.dismiss()
-            dialog = null
-        } catch (ignored: Exception) { }
 
+        // Release audio focus
         try {
             @Suppress("DEPRECATION")
             audioManager?.abandonAudioFocus(audioFocusChangeListener)
-        } catch (ignored: Exception) { }
+        } catch (ignored: Exception) {
+        }
 
+        // Close dialog
+        dialog?.let {
+            if (it.isShowing) {
+                it.dismiss()
+            }
+        }
+
+        // Notify listener
         eventListener?.onPlayerClosed()
     }
 }
