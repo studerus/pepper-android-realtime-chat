@@ -20,12 +20,20 @@ import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Tool for making Pepper look at a specific 3D position relative to the robot's base frame.
- * Returns success immediately when gaze is aligned, then automatically cancels after specified duration.
+ * Waits for head movement to complete before returning success, then automatically cancels after specified duration.
  */
 class LookAtPositionTool : Tool {
 
     companion object {
         private const val TAG = "LookAtPositionTool"
+        
+        // Wait time constants for head alignment
+        private const val MIN_ALIGNMENT_WAIT_MS = 300L   // Minimum wait for small movements
+        private const val MAX_ALIGNMENT_WAIT_MS = 1000L  // Maximum wait for large movements
+        
+        // Default gaze position (straight ahead at eye level)
+        private const val DEFAULT_GAZE_Y = 0.0   // Center (no left/right)
+        private const val DEFAULT_GAZE_Z = 1.2   // Eye level height
     }
 
     override fun getName(): String = "look_at_position"
@@ -137,9 +145,12 @@ class LookAtPositionTool : Tool {
             val startedLatch = CountDownLatch(1)
             val finalResult = AtomicReference<String>()
 
+            // Calculate wait time based on movement magnitude
+            val alignmentWaitMs = calculateAlignmentWaitTime(y, z)
+            
             // Add started listener - return success immediately when gaze is aligned
             lookAt.addOnStartedListener {
-                Log.i(TAG, "LookAt action started - gaze aligned to target position")
+                Log.i(TAG, "LookAt action started")
                 try {
                     val result = JSONObject().apply {
                         put("status", "LookAt aligned successfully")
@@ -148,6 +159,7 @@ class LookAtPositionTool : Tool {
                         put("z", z)
                         put("movement_policy", movementPolicy)
                         put("duration", duration)
+                        put("alignment_wait_ms", alignmentWaitMs)
                         put("message", String.format(Locale.US,
                             "Successfully looking at position (%.2f, %.2f, %.2f) for %.1f seconds.",
                             x, y, z, duration))
@@ -183,7 +195,20 @@ class LookAtPositionTool : Tool {
 
             // Wait for LookAt to START (with timeout)
             if (startedLatch.await(5, TimeUnit.SECONDS)) {
-                // LookAt has started successfully, now schedule auto-cancel
+                // Wait for head to physically move to target position
+                // The wait time is proportional to the movement magnitude
+                // We sleep here in the tool thread instead of the listener callback to avoid blocking QiSDK threads
+                Log.i(TAG, "LookAt started - waiting ${alignmentWaitMs}ms for head alignment")
+                try {
+                    Thread.sleep(alignmentWaitMs)
+                } catch (e: InterruptedException) {
+                    Log.w(TAG, "Alignment wait interrupted", e)
+                    Thread.currentThread().interrupt()
+                }
+                
+                Log.i(TAG, "Head alignment complete - returning success")
+
+                // LookAt has started successfully and aligned, now schedule auto-cancel
                 val cancelTimer = Timer()
                 cancelTimer.schedule(object : TimerTask() {
                     override fun run() {
@@ -206,6 +231,35 @@ class LookAtPositionTool : Tool {
         }
     }
 
+
+    /**
+     * Calculate how long to wait for head alignment based on movement magnitude.
+     * Larger movements (e.g., looking far left/right or up/down) require more time.
+     * 
+     * @param y Left/right position (positive = left, negative = right)
+     * @param z Height position (0 = ground, 1.2 = eye level, 2.5+ = ceiling)
+     * @return Wait time in milliseconds (300-1000ms)
+     */
+    private fun calculateAlignmentWaitTime(y: Double, z: Double): Long {
+        // Calculate deviation from default gaze position
+        val yDeviation = kotlin.math.abs(y - DEFAULT_GAZE_Y)  // How far left/right
+        val zDeviation = kotlin.math.abs(z - DEFAULT_GAZE_Z)  // How far from eye level
+        
+        // Calculate overall movement magnitude using Euclidean distance
+        val movementMagnitude = kotlin.math.sqrt(yDeviation * yDeviation + zDeviation * zDeviation)
+        
+        // Normalize to 0.0-1.0 range (2.0 is considered max practical movement)
+        val normalizedMagnitude = kotlin.math.min(movementMagnitude / 2.0, 1.0)
+        
+        // Scale linearly between MIN and MAX wait times
+        val waitTime = MIN_ALIGNMENT_WAIT_MS + (normalizedMagnitude * (MAX_ALIGNMENT_WAIT_MS - MIN_ALIGNMENT_WAIT_MS)).toLong()
+        
+        Log.d(TAG, String.format(Locale.US, 
+            "Movement magnitude: %.2f (y_dev=%.2f, z_dev=%.2f) → wait time: %dms",
+            movementMagnitude, yDeviation, zDeviation, waitTime))
+        
+        return waitTime
+    }
 
     /**
      * Check if the charging flap is open, which prevents movement for safety reasons
