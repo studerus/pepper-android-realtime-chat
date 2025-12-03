@@ -27,9 +27,12 @@ class FollowHumanTool : Tool {
 
     companion object {
         private const val TAG = "FollowHumanTool"
-        private const val FOLLOW_LOOP_DELAY_MS = 500L // Delay between GoTo restarts
+        private const val FOLLOW_LOOP_DELAY_MS = 500L
         
-        // Shared state for stop functionality
+        // Lock object for thread-safe state management
+        private val stateLock = Any()
+        
+        // Shared state for stop functionality - all access must be synchronized on stateLock
         private val shouldStop = AtomicBoolean(false)
         
         @Volatile
@@ -51,34 +54,43 @@ class FollowHumanTool : Tool {
         private var followDistance: Double = 1.0
         
         /**
-         * Check if currently following a human
+         * Check if currently following a human (thread-safe)
          */
-        fun isCurrentlyFollowing(): Boolean = isFollowing
+        fun isCurrentlyFollowing(): Boolean {
+            synchronized(stateLock) {
+                return isFollowing
+            }
+        }
         
         /**
-         * Stop the active following action
+         * Stop the active following action (thread-safe)
          * @return true if stopped successfully, false if not following
          */
         fun stopFollowing(): Boolean {
-            if (!isFollowing) {
-                return false
+            synchronized(stateLock) {
+                if (!isFollowing) {
+                    return false
+                }
+                
+                Log.i(TAG, "Stopping follow action")
+                shouldStop.set(true)
+                activeGoToFuture?.requestCancellation()
+                // Don't call cleanup() here - let the follow loop handle it
+                // This prevents the race condition where cleanup resets shouldStop
+                return true
             }
-            
-            Log.i(TAG, "Stopping follow action")
-            shouldStop.set(true)
-            activeGoToFuture?.requestCancellation()
-            cleanup()
-            return true
         }
         
         private fun cleanup() {
-            activeGoTo?.removeAllOnStartedListeners()
-            activeGoTo = null
-            activeGoToFuture = null
-            isFollowing = false
-            activeContext = null
-            activeQiContext = null
-            shouldStop.set(false)
+            synchronized(stateLock) {
+                activeGoTo?.removeAllOnStartedListeners()
+                activeGoTo = null
+                activeGoToFuture = null
+                isFollowing = false
+                activeContext = null
+                activeQiContext = null
+                // Note: shouldStop is NOT reset here - it's reset at the start of execute()
+            }
         }
     }
 
@@ -113,28 +125,19 @@ class FollowHumanTool : Tool {
             distance = 1.0
         }
 
-        // Check if already following
-        if (isFollowing) {
-            return JSONObject()
-                .put("error", "Already following a human. Call stop_follow_human first.")
-                .toString()
-        }
-
-        // Check if robot is ready
+        // Check if robot is ready (before acquiring lock to fail fast)
         if (context.isQiContextNotReady()) {
             return JSONObject().put("error", "Robot not ready").toString()
         }
 
         val qiContext = context.qiContext as QiContext
         
-        // Safety check
+        // Safety check (before acquiring lock to fail fast)
         val safety = RobotSafetyGuard.evaluateMovementSafety(qiContext)
         if (!safety.isOk()) {
             val message = safety.message ?: "Follow blocked by safety check"
             return JSONObject().put("error", message).toString()
         }
-
-        Log.i(TAG, String.format(Locale.US, "Starting follow human - distance: %.1fm", distance))
 
         val perceptionService = context.perceptionService
 
@@ -153,14 +156,29 @@ class FollowHumanTool : Tool {
                 .toString()
         }
 
-        // Store state
-        activeContext = context
-        activeQiContext = qiContext
-        followDistance = distance
-        isFollowing = true
-        shouldStop.set(false)
+        // Synchronized block for state management - prevents race conditions
+        synchronized(stateLock) {
+            // Check if already following (inside lock to prevent race)
+            if (isFollowing) {
+                return JSONObject()
+                    .put("error", "Already following a human. Call stop_follow_human first.")
+                    .toString()
+            }
 
-        // Start the follow loop in a background thread
+            Log.i(TAG, String.format(Locale.US, "Starting follow human - distance: %.1fm", distance))
+
+            // Reset shouldStop flag BEFORE setting isFollowing
+            // This ensures any previous stop request is cleared
+            shouldStop.set(false)
+            
+            // Store state atomically
+            activeContext = context
+            activeQiContext = qiContext
+            followDistance = distance
+            isFollowing = true
+        }
+
+        // Start the follow loop in a background thread (outside lock)
         Thread {
             followLoop(context, qiContext)
         }.start()
@@ -186,99 +204,106 @@ class FollowHumanTool : Tool {
         var consecutiveFailures = 0
         val maxConsecutiveFailures = 3
         
-        while (!shouldStop.get() && isFollowing) {
-            try {
-                // Find closest human
-                val humans = context.perceptionService.getDetectedHumans()
-                if (humans.isEmpty()) {
-                    consecutiveFailures++
-                    Log.w(TAG, "No humans detected (failure $consecutiveFailures/$maxConsecutiveFailures)")
-                    
-                    if (consecutiveFailures >= maxConsecutiveFailures) {
-                        Log.e(TAG, "Lost track of human after $maxConsecutiveFailures attempts")
-                        context.sendAsyncUpdate(
-                            "[FOLLOW INTERRUPTED] Pepper has lost track of the person. Ask the user if they want to restart following.",
-                            true
-                        )
-                        break
-                    }
-                    
-                    Thread.sleep(FOLLOW_LOOP_DELAY_MS)
-                    continue
-                }
-                
-                consecutiveFailures = 0 // Reset on successful detection
-                
-                val closestHuman = getClosestHuman(humans, qiContext)
-                if (closestHuman == null) {
-                    Log.w(TAG, "Could not determine closest human")
-                    Thread.sleep(FOLLOW_LOOP_DELAY_MS)
-                    continue
-                }
-
-                // Create target frame attached to human with distance offset
-                val targetFrame = createTargetFrame(closestHuman, followDistance)
-
-                // Build GoTo action
-                val goTo = GoToBuilder.with(qiContext)
-                    .withFrame(targetFrame)
-                    .build()
-
-                activeGoTo = goTo
-
-                // Execute synchronously within the loop
-                Log.d(TAG, "Starting GoTo iteration")
-                val goToFuture = goTo.async().run()
-                activeGoToFuture = goToFuture
-
-                // Wait for this GoTo to complete
+        try {
+            while (!shouldStop.get() && isCurrentlyFollowing()) {
                 try {
-                    goToFuture.get() // Block until done
-                    Log.d(TAG, "GoTo iteration completed successfully")
-                } catch (e: Exception) {
-                    if (shouldStop.get()) {
-                        Log.i(TAG, "GoTo cancelled by stop request")
-                        break
+                    // Find closest human
+                    val humans = context.perceptionService.getDetectedHumans()
+                    if (humans.isEmpty()) {
+                        consecutiveFailures++
+                        Log.w(TAG, "No humans detected (failure $consecutiveFailures/$maxConsecutiveFailures)")
+                        
+                        if (consecutiveFailures >= maxConsecutiveFailures) {
+                            Log.e(TAG, "Lost track of human after $maxConsecutiveFailures attempts")
+                            context.sendAsyncUpdate(
+                                "[FOLLOW INTERRUPTED] Pepper has lost track of the person. Ask the user if they want to restart following.",
+                                true
+                            )
+                            break
+                        }
+                        
+                        Thread.sleep(FOLLOW_LOOP_DELAY_MS)
+                        continue
                     }
                     
-                    val errorMsg = e.message ?: "Unknown error"
-                    Log.w(TAG, "GoTo iteration failed: $errorMsg")
+                    consecutiveFailures = 0 // Reset on successful detection
                     
-                    // Check for blocking errors
-                    if (errorMsg.contains("obstacle", ignoreCase = true) ||
-                        errorMsg.contains("blocked", ignoreCase = true) ||
-                        errorMsg.contains("unreachable", ignoreCase = true)) {
+                    val closestHuman = getClosestHuman(humans, qiContext)
+                    if (closestHuman == null) {
+                        Log.w(TAG, "Could not determine closest human")
+                        Thread.sleep(FOLLOW_LOOP_DELAY_MS)
+                        continue
+                    }
+
+                    // Create target frame attached to human with distance offset
+                    val targetFrame = createTargetFrame(closestHuman, followDistance)
+
+                    // Build GoTo action
+                    val goTo = GoToBuilder.with(qiContext)
+                        .withFrame(targetFrame)
+                        .build()
+
+                    synchronized(stateLock) {
+                        activeGoTo = goTo
+                    }
+
+                    // Execute synchronously within the loop
+                    Log.d(TAG, "Starting GoTo iteration")
+                    val goToFuture = goTo.async().run()
+                    
+                    synchronized(stateLock) {
+                        activeGoToFuture = goToFuture
+                    }
+
+                    // Wait for this GoTo to complete
+                    try {
+                        goToFuture.get() // Block until done
+                        Log.d(TAG, "GoTo iteration completed successfully")
+                    } catch (e: Exception) {
+                        if (shouldStop.get()) {
+                            Log.i(TAG, "GoTo cancelled by stop request")
+                            break
+                        }
+                        
+                        val errorMsg = e.message ?: "Unknown error"
+                        Log.w(TAG, "GoTo iteration failed: $errorMsg")
+                        
+                        // Check for blocking errors
+                        if (errorMsg.contains("obstacle", ignoreCase = true) ||
+                            errorMsg.contains("blocked", ignoreCase = true) ||
+                            errorMsg.contains("unreachable", ignoreCase = true)) {
+                            context.sendAsyncUpdate(
+                                "[FOLLOW BLOCKED] Path to person is obstructed. Pepper cannot continue following.",
+                                true
+                            )
+                            break
+                        }
+                    }
+
+                    // Clean up this iteration's GoTo
+                    goTo.removeAllOnStartedListeners()
+                    
+                    // Small delay before next iteration to avoid CPU spinning
+                    Thread.sleep(FOLLOW_LOOP_DELAY_MS)
+                    
+                } catch (e: InterruptedException) {
+                    Log.i(TAG, "Follow loop interrupted")
+                    break
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error in follow loop", e)
+                    if (!shouldStop.get()) {
                         context.sendAsyncUpdate(
-                            "[FOLLOW BLOCKED] Path to person is obstructed. Pepper cannot continue following.",
+                            "[FOLLOW INTERRUPTED] Pepper stopped following due to an error. Ask the user if they want to restart.",
                             true
                         )
-                        break
                     }
+                    break
                 }
-
-                // Clean up this iteration's GoTo
-                goTo.removeAllOnStartedListeners()
-                
-                // Small delay before next iteration to avoid CPU spinning
-                Thread.sleep(FOLLOW_LOOP_DELAY_MS)
-                
-            } catch (e: InterruptedException) {
-                Log.i(TAG, "Follow loop interrupted")
-                break
-            } catch (e: Exception) {
-                Log.e(TAG, "Error in follow loop", e)
-                if (!shouldStop.get()) {
-                    context.sendAsyncUpdate(
-                        "[FOLLOW INTERRUPTED] Pepper stopped following due to an error. Ask the user if they want to restart.",
-                        true
-                    )
-                }
-                break
             }
+        } finally {
+            Log.i(TAG, "Follow loop ended")
+            cleanup()
         }
-        
-        Log.i(TAG, "Follow loop ended")
-        cleanup()
     }
 
     /**

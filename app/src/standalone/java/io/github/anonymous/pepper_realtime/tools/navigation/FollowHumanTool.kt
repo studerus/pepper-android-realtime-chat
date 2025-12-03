@@ -14,18 +14,27 @@ class FollowHumanTool : Tool {
     companion object {
         private const val TAG = "FollowHumanTool[STUB]"
         
+        // Lock object for thread-safe state management
+        private val stateLock = Any()
+        
         @Volatile
         private var isFollowing: Boolean = false
         
-        fun isCurrentlyFollowing(): Boolean = isFollowing
+        fun isCurrentlyFollowing(): Boolean {
+            synchronized(stateLock) {
+                return isFollowing
+            }
+        }
         
         fun stopFollowing(): Boolean {
-            if (!isFollowing) {
-                return false
+            synchronized(stateLock) {
+                if (!isFollowing) {
+                    return false
+                }
+                isFollowing = false
+                Log.i(TAG, "🤖 [SIMULATED] Stopped following")
+                return true
             }
-            isFollowing = false
-            Log.i(TAG, "🤖 [SIMULATED] Stopped following")
-            return true
         }
     }
 
@@ -57,14 +66,16 @@ class FollowHumanTool : Tool {
             distance = 1.0
         }
 
-        if (isFollowing) {
-            return JSONObject()
-                .put("error", "Already following a human. Call stop_follow_human first.")
-                .toString()
-        }
+        synchronized(stateLock) {
+            if (isFollowing) {
+                return JSONObject()
+                    .put("error", "Already following a human. Call stop_follow_human first.")
+                    .toString()
+            }
 
-        Log.i(TAG, "🤖 [SIMULATED] Following human at %.1fm distance".format(distance))
-        isFollowing = true
+            Log.i(TAG, "🤖 [SIMULATED] Following human at %.1fm distance".format(distance))
+            isFollowing = true
+        }
 
         return JSONObject().apply {
             put("status", "following_started")
@@ -77,4 +88,3 @@ class FollowHumanTool : Tool {
         }.toString()
     }
 }
-

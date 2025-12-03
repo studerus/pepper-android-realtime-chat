@@ -95,6 +95,15 @@ fun SettingsScreen(
                 modifier = Modifier.padding(bottom = 16.dp)
             )
             
+            // Volume - apply immediately (at top for quick access)
+            SettingsSlider(
+                label = "Volume",
+                value = settings.volume.toFloat(),
+                onValueChange = { viewModel.setVolume(it.toInt()) },
+                valueRange = 0f..100f,
+                valueDisplay = "${settings.volume}%"
+            )
+            
             // System Prompt
             ExpandableSettingsCard(title = "System Prompt") {
                 OutlinedTextField(
@@ -311,15 +320,6 @@ fun SettingsScreen(
                     }
                 )
             }
-            
-            // Volume - apply immediately
-            SettingsSlider(
-                label = "Volume",
-                value = settings.volume.toFloat(),
-                onValueChange = { viewModel.setVolume(it.toInt()) },
-                valueRange = 0f..100f,
-                valueDisplay = "${settings.volume}%"
-            )
             
             // Function Calls Section
             SettingsSectionHeader(title = "Function Calls")
