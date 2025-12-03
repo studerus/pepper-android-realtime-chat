@@ -14,10 +14,12 @@ import io.github.anonymous.pepper_realtime.tools.information.SearchInternetTool
 import io.github.anonymous.pepper_realtime.tools.navigation.ApproachHumanTool
 import io.github.anonymous.pepper_realtime.tools.navigation.CreateEnvironmentMapTool
 import io.github.anonymous.pepper_realtime.tools.navigation.FinishEnvironmentMapTool
+import io.github.anonymous.pepper_realtime.tools.navigation.FollowHumanTool
 import io.github.anonymous.pepper_realtime.tools.navigation.LookAtPositionTool
 import io.github.anonymous.pepper_realtime.tools.navigation.MovePepperTool
 import io.github.anonymous.pepper_realtime.tools.navigation.NavigateToLocationTool
 import io.github.anonymous.pepper_realtime.tools.navigation.SaveCurrentLocationTool
+import io.github.anonymous.pepper_realtime.tools.navigation.StopFollowHumanTool
 import io.github.anonymous.pepper_realtime.tools.navigation.TurnPepperTool
 import io.github.anonymous.pepper_realtime.tools.vision.AnalyzeVisionTool
 import org.json.JSONArray
@@ -73,6 +75,8 @@ class ToolRegistry {
         registerTool("save_current_location") { SaveCurrentLocationTool() }
         registerTool("navigate_to_location") { NavigateToLocationTool() }
         registerTool("approach_human") { ApproachHumanTool() }
+        registerTool("follow_human") { FollowHumanTool() }
+        registerTool("stop_follow_human") { StopFollowHumanTool() }
 
         // Game tools
         registerTool("start_memory_game") { MemoryGameTool() }

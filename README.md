@@ -119,7 +119,7 @@ A multimodal AI system for the Pepper robot powered by OpenAI's Realtime API. It
 - **Vision Analysis** - Camera-based image understanding and analysis with intelligent obstacle detection
 - **Touch Interaction** - Responds to touches on head, hands, and bumpers with contextual AI reactions
 - **Navigation & Mapping** - Complete room mapping and autonomous navigation system
-- **Human Approach** - Intelligent human detection and approaching
+- **Human Approach & Following** - Intelligent human detection, approaching, and continuous following
 - **Human Perception Dashboard** - Real-time display of detected people with emotions, attention, and distance
 - **Azure Face Analysis** - Advanced facial analysis with pose, glasses, mask detection, and image quality assessment
 - **Internet Search** - Real-time web search capabilities via Tavily API
@@ -481,6 +481,12 @@ This app sends data to third-party services when features are used:
 - **"Turn [direction] [degrees]"** - Rotate in place (left/right, 15-180 degrees)
 - **"Approach him/her"** - Intelligently approach a detected person for interaction
 - **"Come to me"** - Alternative command to approach the user
+- **"Follow me"** - Continuously follow the nearest person at a specified distance
+  - *"Follow me at 1 meter distance"* - Follows the user maintaining 1m distance
+  - *"Please follow me"* - Uses default 1m distance
+  - Pepper tracks and follows the person until stopped or the person is lost
+- **"Stop following"** - Stop the active follow action
+  - *"Stop following me"* - Alternative command to stop following
 
 #### Gaze Control
 - **"Look at [target]"** - Directs Pepper's gaze towards a specific 3D position relative to robot base
