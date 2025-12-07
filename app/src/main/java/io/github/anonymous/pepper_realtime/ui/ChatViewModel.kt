@@ -10,6 +10,7 @@ import io.github.anonymous.pepper_realtime.controller.ChatSessionController
 import io.github.anonymous.pepper_realtime.data.MapGraphInfo
 import io.github.anonymous.pepper_realtime.data.ResponseState
 import io.github.anonymous.pepper_realtime.data.SavedLocation
+import io.github.anonymous.pepper_realtime.manager.DrawingGameManager
 import io.github.anonymous.pepper_realtime.manager.MemoryGameManager
 import io.github.anonymous.pepper_realtime.manager.QuizGameManager
 import io.github.anonymous.pepper_realtime.manager.TicTacToeGameManager
@@ -26,7 +27,8 @@ class ChatViewModel @Inject constructor(
     application: Application,
     private val ticTacToeGameManager: TicTacToeGameManager,
     private val memoryGameManager: MemoryGameManager,
-    private val quizGameManager: QuizGameManager
+    private val quizGameManager: QuizGameManager,
+    private val drawingGameManager: DrawingGameManager
 ) : AndroidViewModel(application) {
 
     companion object {
@@ -37,6 +39,7 @@ class ChatViewModel @Inject constructor(
         // Provide coroutine scope to game managers
         ticTacToeGameManager.setCoroutineScope(viewModelScope)
         memoryGameManager.setCoroutineScope(viewModelScope)
+        drawingGameManager.setCoroutineScope(viewModelScope)
     }
 
     // State using StateFlow - thread-safe, no manual locking needed
@@ -77,6 +80,7 @@ class ChatViewModel @Inject constructor(
     val ticTacToeState: StateFlow<TicTacToeUiState> = ticTacToeGameManager.uiState
     val ticTacToeGameState get() = ticTacToeGameManager.gameState
     val memoryGameState = memoryGameManager.state
+    val drawingGameState = drawingGameManager.state
 
     // Response state accessors (for compatibility with existing code)
     var currentResponseId: String?
@@ -234,6 +238,35 @@ class ChatViewModel @Inject constructor(
 
     fun dismissMemoryGame() {
         memoryGameManager.dismissGame()
+    }
+
+    // Drawing Game Methods - delegated to DrawingGameManager
+    fun startDrawingGame(topic: String?): Boolean {
+        return drawingGameManager.startGame(topic)
+    }
+
+    fun onDrawingChanged(bitmap: android.graphics.Bitmap) {
+        drawingGameManager.onDrawingChanged(bitmap)
+    }
+
+    fun clearDrawingCanvas() {
+        drawingGameManager.clearCanvas()
+    }
+
+    fun dismissDrawingGame() {
+        drawingGameManager.dismissGame()
+    }
+
+    /**
+     * Set up the drawing game manager with the image send callback.
+     * Should be called after sessionController is set.
+     */
+    fun setupDrawingGameCallback() {
+        sessionController?.let { controller ->
+            drawingGameManager.setImageSendCallback { base64, mime ->
+                controller.sendUserImageToContext(base64, mime)
+            }
+        }
     }
 
     // Message Management - using StateFlow.update for atomic operations

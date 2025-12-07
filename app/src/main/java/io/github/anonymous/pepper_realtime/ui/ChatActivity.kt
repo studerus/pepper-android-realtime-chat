@@ -110,6 +110,7 @@ class ChatActivity : AppCompatActivity(), ToolHost {
 
         // Set Controller on ViewModel (Break circular dependency)
         viewModel.setSessionController(chatDeps.sessionController)
+        viewModel.setupDrawingGameCallback()
         
         // Setup Compose Content (MainScreen)
         val composeView = ComposeView(this)

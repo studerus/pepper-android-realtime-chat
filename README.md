@@ -1,6 +1,6 @@
 # Pepper Realtime AI Assistant
 
-A multimodal AI system for the Pepper robot powered by OpenAI's Realtime API. It enables natural interactions through voice, touch, vision, and movement, with advanced function calling for robot control (navigation, gestures, animations), information tools (search, weather), and interactive tablet activities (quizzes, memory games, tic-tac-toe).
+A multimodal AI system for the Pepper robot powered by OpenAI's Realtime API. It enables natural interactions through voice, touch, vision, and movement, with advanced function calling for robot control (navigation, gestures, animations), information tools (search, weather), and interactive tablet activities (quizzes, memory games, tic-tac-toe, drawing game).
 
 <p align="center">
   <img src="screenshots/IMG_20251002_141923.jpg" alt="Pepper Robot with Chat Interface" width="50%">
@@ -41,6 +41,7 @@ A multimodal AI system for the Pepper robot powered by OpenAI's Realtime API. It
   - [Quiz Game](#quiz-game)
   - [Tic Tac Toe Game](#tic-tac-toe)
   - [Memory Game](#memory-game)
+  - [Drawing Game](#drawing-game)
 - [Architecture](#-architecture)
 - [Development](#-development)
 - [Troubleshooting](#-troubleshooting)
@@ -127,6 +128,7 @@ A multimodal AI system for the Pepper robot powered by OpenAI's Realtime API. It
 - **Interactive Quizzes** - Dynamic quiz generation and interaction
 - **Tic Tac Toe Game** - Play against the AI with voice commands and visual board
 - **Memory Game** - Card-matching game with multiple difficulty levels
+- **Drawing Game** - Draw on the tablet and let the AI guess what you drew
 
 ## 🚀 Quick Start
 
@@ -1034,6 +1036,25 @@ Robot: "Starting memory game! Find matching pairs by flipping two cards."
 - **🔄 Randomization**: Different symbol combinations each game
 - **📱 Touch Interface**: Responsive card flipping animations
 
+<a id="drawing-game"></a>
+### 🎨 Drawing Game
+
+Draw on the tablet and let the AI guess what you drew.
+
+```bash
+User: "Let's play a drawing game"
+# Canvas opens - draw with your finger
+# After 2 seconds of inactivity, drawing is sent to AI
+User: "What did I draw?"
+Robot: "That looks like a cat!"
+```
+
+#### Features
+- **Touch Canvas**: Freehand drawing with smooth strokes
+- **Smart Detection**: Auto-sends after 2 seconds of inactivity
+- **Parallel Chat**: Talk while drawing - ask anytime
+- **Topic Support**: AI can suggest what to draw
+
 ## 🏗️ Architecture
 
 ### Key Features
@@ -1300,6 +1321,7 @@ app/src/
 │   ├── manager/                         # Application managers
 │   │   ├── ApiKeyManager.kt             # API key management
 │   │   ├── AudioPlayer.kt               # Audio playback engine
+│   │   ├── DrawingGameManager.kt        # Drawing game state & logic
 │   │   ├── MemoryGameManager.kt         # Memory game state & logic
 │   │   ├── PermissionManager.kt         # Android permission handling
 │   │   ├── QuizGameManager.kt           # Quiz game state & logic
@@ -1344,6 +1366,7 @@ app/src/
 │   │       ├── DashboardOverlay.kt      # Perception dashboard
 │   │       ├── NavigationOverlay.kt     # Map & navigation overlay
 │   │       ├── games/                   # Game UI components
+│   │       │   ├── DrawingCanvasDialog.kt # Drawing canvas UI
 │   │       │   ├── TicTacToeDialog.kt   # TicTacToe game UI
 │   │       │   ├── QuizDialog.kt        # Quiz question UI
 │   │       │   └── MemoryGameDialog.kt  # Memory game UI
@@ -1356,6 +1379,7 @@ app/src/
 │       ├── ToolContextFactory.kt        # Tool context creation
 │       ├── ToolRegistry.kt              # Tool registration system
 │       ├── games/                       # Game tools
+│       │   ├── DrawingGameTool.kt       # Start drawing game tool
 │       │   ├── MemoryCard.kt            # Memory card data class
 │       │   ├── MemoryGameTool.kt        # Start memory game tool
 │       │   ├── QuizTool.kt              # Present quiz question tool

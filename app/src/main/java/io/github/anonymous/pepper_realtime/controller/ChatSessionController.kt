@@ -299,6 +299,21 @@ class ChatSessionController @Inject constructor(
         sessionManager.close(1000, "Provider switch")
     }
 
+    /**
+     * Send a user image to the API context without requesting a response.
+     * Used by DrawingGame to silently add drawings to the conversation context.
+     * @param base64 Base64-encoded image data
+     * @param mime MIME type (e.g., "image/png")
+     * @return true if sent successfully
+     */
+    fun sendUserImageToContext(base64: String, mime: String): Boolean {
+        if (!sessionManager.isConnected) {
+            Log.e(TAG, "Cannot send image - WebSocket not connected")
+            return false
+        }
+        return sessionManager.sendUserImageMessage(base64, mime)
+    }
+
     private fun setupSessionManagerListeners() {
         sessionManager.setSessionConfigCallback { success, error ->
             if (success) {

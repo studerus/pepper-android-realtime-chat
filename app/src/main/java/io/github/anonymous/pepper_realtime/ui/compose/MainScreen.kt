@@ -26,6 +26,7 @@ import coil.compose.AsyncImage
 import io.github.anonymous.pepper_realtime.R
 import io.github.anonymous.pepper_realtime.manager.ApiKeyManager
 import io.github.anonymous.pepper_realtime.ui.ChatViewModel
+import io.github.anonymous.pepper_realtime.ui.compose.games.DrawingCanvasDialog
 import io.github.anonymous.pepper_realtime.ui.compose.games.MemoryGameDialog
 import io.github.anonymous.pepper_realtime.ui.compose.games.QuizDialog
 import io.github.anonymous.pepper_realtime.ui.compose.games.TicTacToeDialog
@@ -59,6 +60,7 @@ fun MainScreen(
     val quizState by viewModel.quizState.collectAsStateWithLifecycle()
     val ticTacToeState by viewModel.ticTacToeState.collectAsStateWithLifecycle()
     val memoryState by viewModel.memoryGameState.collectAsStateWithLifecycle()
+    val drawingState by viewModel.drawingGameState.collectAsStateWithLifecycle()
     
     // Local State for Image Overlay
     var overlayImageUrl by remember { mutableStateOf<String?>(null) }
@@ -193,6 +195,16 @@ fun MainScreen(
                         state = memoryState,
                         onCardClick = { id -> viewModel.onMemoryCardClick(id) },
                         onDismiss = { viewModel.dismissMemoryGame() }
+                    )
+                }
+
+                // Drawing Canvas
+                if (drawingState.isVisible) {
+                    DrawingCanvasDialog(
+                        state = drawingState,
+                        onDrawingChanged = { bitmap -> viewModel.onDrawingChanged(bitmap) },
+                        onClear = { viewModel.clearDrawingCanvas() },
+                        onDismiss = { viewModel.dismissDrawingGame() }
                     )
                 }
 

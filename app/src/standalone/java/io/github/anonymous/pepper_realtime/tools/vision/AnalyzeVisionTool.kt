@@ -28,7 +28,7 @@ class AnalyzeVisionTool : Tool {
             put("type", "function")
             put("name", getName())
             put("description",
-                "Analyzes the current camera image and describes what is visible. Opens the device camera to take a photo. Use this function if the user asks what you are seeing. Tell the user to wait a moment before you perform the function.")
+                "Takes a photo with the device camera and analyzes what is visible in the real world. Use this ONLY for real-world vision: when the user asks what you see around you or what's in front of you. Do NOT use this for drawings on the tablet - drawings are automatically sent to your context and you can describe them directly without any function call. Tell the user to wait a moment before you perform this function.")
             put("parameters", JSONObject().apply {
                 put("type", "object")
                 put("properties", JSONObject().apply {

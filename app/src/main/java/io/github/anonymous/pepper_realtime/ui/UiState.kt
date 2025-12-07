@@ -79,3 +79,13 @@ data class MemoryGameInternalState(
     val startTime: Long = 0L
 )
 
+/**
+ * UI state for drawing canvas game.
+ */
+data class DrawingGameState(
+    val isVisible: Boolean = false,
+    val topic: String? = null,
+    val hasUnsavedChanges: Boolean = false,
+    val lastSentTimestamp: Long = 0L
+)
+

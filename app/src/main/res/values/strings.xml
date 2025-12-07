@@ -362,4 +362,14 @@ Closings: \"Happy to help!\" | \"Anything else?\" | \"I\'m here if you need me\"
     <string name="content_desc_chat_image">Chat image</string>
     <string name="no_description_available">No description available</string>
     <string name="select_tools_description">Select which tools the AI can use during conversations</string>
+    
+    <!-- Drawing Game Strings -->
+    <string name="drawing_title">Drawing Canvas</string>
+    <string name="drawing_clear">Clear</string>
+    <string name="drawing_status_drawing">Drawing…</string>
+    <string name="drawing_status_sent">Image sent</string>
+    <string name="drawing_status_ready">Ready</string>
+    <string name="func_name_drawing_game">Drawing Game</string>
+    <string name="func_status_drawing_done">Drawing canvas opened</string>
+    <string name="func_status_drawing_pending">Opening drawing canvas…</string>
 </resources>

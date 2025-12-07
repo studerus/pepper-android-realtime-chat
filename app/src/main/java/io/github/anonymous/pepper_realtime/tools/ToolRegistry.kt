@@ -3,6 +3,7 @@ package io.github.anonymous.pepper_realtime.tools
 import android.util.Log
 import io.github.anonymous.pepper_realtime.tools.entertainment.PlayAnimationTool
 import io.github.anonymous.pepper_realtime.tools.entertainment.PlayYouTubeVideoTool
+import io.github.anonymous.pepper_realtime.tools.games.DrawingGameTool
 import io.github.anonymous.pepper_realtime.tools.games.MemoryGameTool
 import io.github.anonymous.pepper_realtime.tools.games.QuizTool
 import io.github.anonymous.pepper_realtime.tools.games.TicTacToeMoveTool
@@ -83,6 +84,7 @@ class ToolRegistry {
         registerTool("present_quiz_question") { QuizTool() }
         registerTool("start_tic_tac_toe_game") { TicTacToeStartTool() }
         registerTool("make_tic_tac_toe_move") { TicTacToeMoveTool() }
+        registerTool("start_drawing_game") { DrawingGameTool() }
 
         // Vision tools
         registerTool("analyze_vision") { AnalyzeVisionTool() }
