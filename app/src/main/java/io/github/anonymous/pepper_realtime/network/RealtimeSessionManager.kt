@@ -18,6 +18,17 @@ import kotlin.math.min
 @Singleton
 class RealtimeSessionManager @Inject constructor() {
 
+    /**
+     * Represents the current state of the WebSocket connection.
+     * Used for robust state tracking without automatic reconnection.
+     */
+    enum class ConnectionState {
+        DISCONNECTED,  // No connection
+        CONNECTING,    // connect() called, waiting for onOpen
+        CONNECTED,     // Session active
+        CLOSING        // close() called, waiting for onClosed
+    }
+
     interface Listener {
         fun onOpen(response: Response)
         fun onTextMessage(text: String)
@@ -54,6 +65,10 @@ class RealtimeSessionManager @Inject constructor() {
     var listener: Listener? = null
     private var sessionConfigCallback: SessionConfigCallback? = null
 
+    // Connection state tracking - volatile for thread-safe access from callbacks
+    @Volatile
+    private var connectionState = ConnectionState.DISCONNECTED
+
     // Session configuration dependencies
     private var toolRegistry: ToolRegistry? = null
     private var toolContext: ToolContext? = null
@@ -79,10 +94,28 @@ class RealtimeSessionManager @Inject constructor() {
         this.keyManager = keyManager
     }
 
+    /**
+     * Returns true only when the WebSocket is fully connected and ready for communication.
+     * Unlike a simple null check, this properly handles CONNECTING and CLOSING states.
+     */
     val isConnected: Boolean
-        get() = webSocket != null
+        get() = connectionState == ConnectionState.CONNECTED
+
+    /**
+     * Current connection state for diagnostic purposes.
+     */
+    val currentConnectionState: ConnectionState
+        get() = connectionState
 
     fun connect(url: String, headers: Map<String, String>?) {
+        if (connectionState == ConnectionState.CONNECTING || connectionState == ConnectionState.CONNECTED) {
+            Log.w(TAG, "connect() called but already in state: $connectionState")
+            return
+        }
+
+        connectionState = ConnectionState.CONNECTING
+        Log.d(TAG, "Connection state: CONNECTING")
+
         val builder = okhttp3.Request.Builder().url(url)
         headers?.forEach { (key, value) ->
             builder.addHeader(key, value)
@@ -93,6 +126,8 @@ class RealtimeSessionManager @Inject constructor() {
             override fun onOpen(ws: WebSocket, response: Response) {
                 Log.i(TAG, "WebSocket onOpen: ${response.message} Code: ${response.code}")
                 webSocket = ws
+                connectionState = ConnectionState.CONNECTED
+                Log.d(TAG, "Connection state: CONNECTED")
                 listener?.onOpen(response) ?: Log.w(TAG, "WARNING: onOpen called but listener is null!")
             }
 
@@ -105,17 +140,23 @@ class RealtimeSessionManager @Inject constructor() {
             }
 
             override fun onClosing(ws: WebSocket, code: Int, reason: String) {
+                connectionState = ConnectionState.CLOSING
+                Log.d(TAG, "Connection state: CLOSING (code=$code, reason=$reason)")
                 listener?.onClosing(code, reason)
                 ws.close(1000, null)
             }
 
             override fun onClosed(ws: WebSocket, code: Int, reason: String) {
+                connectionState = ConnectionState.DISCONNECTED
+                Log.d(TAG, "Connection state: DISCONNECTED (code=$code, reason=$reason)")
                 listener?.onClosed(code, reason)
                 if (webSocket == ws) webSocket = null
             }
 
             override fun onFailure(ws: WebSocket, t: Throwable, response: Response?) {
+                connectionState = ConnectionState.DISCONNECTED
                 Log.e(TAG, "WebSocket failure: ${t.message}", t)
+                Log.d(TAG, "Connection state: DISCONNECTED (failure)")
                 listener?.onFailure(t, response) ?: Log.w(TAG, "WARNING: onFailure called but listener is null!")
                 if (webSocket == ws) webSocket = null
             }
@@ -235,30 +276,50 @@ class RealtimeSessionManager @Inject constructor() {
     }
 
     fun send(text: String): Boolean {
+        // Check connection state first for better diagnostics
+        if (connectionState != ConnectionState.CONNECTED) {
+            Log.w(TAG, "Cannot send - connection state: $connectionState")
+            return false
+        }
+
         val ws = webSocket
         if (ws == null) {
-            Log.w(TAG, "🚨 DIAGNOSTIC: Cannot send - webSocket is null")
+            // This shouldn't happen if state tracking is correct, but handle it defensively
+            Log.w(TAG, "Cannot send - webSocket is null despite CONNECTED state (race condition?)")
+            connectionState = ConnectionState.DISCONNECTED
             return false
         }
 
         return try {
             val result = ws.send(text)
             if (!result) {
-                Log.w(TAG, "🚨 DIAGNOSTIC: WebSocket.send() returned false - connection may be broken")
+                Log.w(TAG, "WebSocket.send() returned false - connection may be broken")
             }
             result
         } catch (e: Exception) {
-            Log.e(TAG, "🚨 DIAGNOSTIC: WebSocket.send() threw exception", e)
+            Log.e(TAG, "WebSocket.send() threw exception", e)
             false
         }
     }
 
     fun close(code: Int, reason: String?) {
+        if (connectionState == ConnectionState.DISCONNECTED) {
+            Log.d(TAG, "close() called but already disconnected")
+            return
+        }
+
+        connectionState = ConnectionState.CLOSING
+        Log.d(TAG, "Connection state: CLOSING (explicit close, code=$code)")
+
         try {
             webSocket?.close(code, reason)
         } catch (_: Exception) {
+            // Ignore exceptions during close
         }
+        // Note: webSocket will be set to null in onClosed callback
+        // Set it here too for immediate state consistency
         webSocket = null
+        connectionState = ConnectionState.DISCONNECTED
     }
 
     /**
@@ -267,8 +328,8 @@ class RealtimeSessionManager @Inject constructor() {
      */
     fun configureInitialSession() {
         if (!isConnected) {
-            Log.w(TAG, "Session config SKIPPED - not connected")
-            sessionConfigCallback?.onSessionConfigured(false, "Not connected")
+            Log.w(TAG, "Session config SKIPPED - connection state: $connectionState")
+            sessionConfigCallback?.onSessionConfigured(false, "Not connected (state: $connectionState)")
             return
         }
 
@@ -302,7 +363,7 @@ class RealtimeSessionManager @Inject constructor() {
      */
     fun updateSession() {
         if (!isConnected) {
-            Log.w(TAG, "Session update SKIPPED - not connected")
+            Log.w(TAG, "Session update SKIPPED - connection state: $connectionState")
             return
         }
 

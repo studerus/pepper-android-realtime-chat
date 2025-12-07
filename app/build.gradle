@@ -92,9 +92,9 @@ android {
         buildConfig true
         compose true
     }
-    composeOptions {
-        kotlinCompilerExtensionVersion '1.6.4'
-    }
+    // Note: composeOptions.kotlinCompilerExtensionVersion is not needed
+    // since Kotlin 2.0 - the 'org.jetbrains.kotlin.plugin.compose' plugin
+    // handles Compose compiler configuration automatically.
     testOptions {
         unitTests {
             // Return default values for unmocked Android methods (e.g., Log.d() returns 0)
