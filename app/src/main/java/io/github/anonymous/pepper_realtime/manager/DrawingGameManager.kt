@@ -85,6 +85,8 @@ class DrawingGameManager @Inject constructor() {
      * @param bitmap The current canvas bitmap
      */
     fun onDrawingChanged(bitmap: Bitmap) {
+        // Recycle old bitmap to prevent memory leak
+        recycleBitmap()
         currentBitmap = bitmap
         _state.update { it.copy(hasUnsavedChanges = true) }
 
@@ -101,7 +103,7 @@ class DrawingGameManager @Inject constructor() {
      */
     fun clearCanvas() {
         inactivityJob?.cancel()
-        currentBitmap = null
+        recycleBitmap()
         _state.update { it.copy(hasUnsavedChanges = false) }
         Log.i(TAG, "Canvas cleared")
     }
@@ -112,9 +114,21 @@ class DrawingGameManager @Inject constructor() {
     fun dismissGame() {
         inactivityJob?.cancel()
         inactivityJob = null
-        currentBitmap = null
+        recycleBitmap()
         _state.value = DrawingGameState()
         Log.i(TAG, "Drawing game dismissed")
+    }
+
+    /**
+     * Safely recycle the current bitmap to free native memory.
+     */
+    private fun recycleBitmap() {
+        currentBitmap?.let { bitmap ->
+            if (!bitmap.isRecycled) {
+                bitmap.recycle()
+            }
+        }
+        currentBitmap = null
     }
 
     /**
