@@ -35,10 +35,6 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-gradle-
 
-    # Clean build to avoid cache issues
-    - name: Clean
-      run: ./gradlew clean --no-daemon
-
     # Build both flavors to ensure compilation integrity
     - name: Build Standalone Debug
       run: ./gradlew assembleStandaloneDebug --no-daemon
