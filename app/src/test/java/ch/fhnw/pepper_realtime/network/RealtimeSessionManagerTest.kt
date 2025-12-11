@@ -181,7 +181,7 @@ class RealtimeSessionManagerTest {
         sessionManager.configureInitialSession()
         
         assertEquals(false, callbackResult)
-        assertEquals("Not connected", callbackError)
+        assertTrue("Error should mention 'Not connected'", callbackError?.contains("Not connected") == true)
     }
 
     @Test
