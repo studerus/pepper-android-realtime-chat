@@ -9,6 +9,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ImageFormat
 import android.graphics.Matrix
+import android.graphics.SurfaceTexture
 import android.hardware.camera2.*
 import android.media.Image
 import android.media.ImageReader
@@ -64,6 +65,10 @@ class VisionService(context: Context) {
     private var imageReader: ImageReader? = null
     private var cameraThread: HandlerThread? = null
     private var cameraHandler: Handler? = null
+    
+    // Dummy surface for preview (required by some devices like Samsung)
+    private var dummySurfaceTexture: SurfaceTexture? = null
+    private var dummySurface: Surface? = null
 
     init {
         Log.d(TAG, "VisionService created (using Android camera)")
@@ -156,8 +161,13 @@ class VisionService(context: Context) {
                 return
             }
 
-            // Setup ImageReader for capture
-            imageReader = ImageReader.newInstance(1280, 720, ImageFormat.JPEG, 1).also { reader ->
+            // Prepare dummy surface for preview (required for Samsung/some devices to init sensor)
+            dummySurfaceTexture = SurfaceTexture(10) // Random texture ID
+            dummySurfaceTexture?.setDefaultBufferSize(640, 480)
+            dummySurface = Surface(dummySurfaceTexture)
+
+            // Setup ImageReader for capture (2 buffers to prevent starvation)
+            imageReader = ImageReader.newInstance(1280, 720, ImageFormat.JPEG, 2).also { reader ->
                 reader.setOnImageAvailableListener({ r ->
                     val image = r.acquireLatestImage()
                     if (image != null) {
@@ -209,42 +219,57 @@ class VisionService(context: Context) {
     private fun takePictureNow(callback: Callback) {
         val device = cameraDevice
         val reader = imageReader
-        if (device == null || reader == null) {
+        val previewSurface = dummySurface
+        
+        if (device == null || reader == null || previewSurface == null) {
             working = false
-            callback.onError("Camera not ready")
+            callback.onError("Camera resources not ready")
             return
         }
 
         try {
-            val captureBuilder = device.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE).apply {
-                addTarget(reader.surface)
-                set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
-                set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH)
-            }
-
+            // 1. Create Capture Session with BOTH surfaces (Reader + Dummy Preview)
             device.createCaptureSession(
-                listOf(reader.surface),
+                listOf(reader.surface, previewSurface),
                 object : CameraCaptureSession.StateCallback() {
                     override fun onConfigured(session: CameraCaptureSession) {
                         captureSession = session
                         try {
-                            // Small delay for auto-focus
+                            // 2. Start Preview (activates sensor/AE/AF)
+                            val previewRequestBuilder = device.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
+                            previewRequestBuilder.addTarget(previewSurface)
+                            // Enable auto-focus/auto-exposure
+                            previewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
+                            previewRequestBuilder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH)
+                            
+                            session.setRepeatingRequest(previewRequestBuilder.build(), null, cameraHandler)
+
+                            // 3. Wait for sensor to adjust (warmup) then capture
                             cameraHandler?.postDelayed({
                                 try {
-                                    captureSession?.capture(captureBuilder.build(), null, cameraHandler)
-                                    Log.i(TAG, "Photo capture triggered")
+                                    Log.i(TAG, "Taking picture after preview warmup...")
+                                    val captureBuilder = device.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE)
+                                    captureBuilder.addTarget(reader.surface)
+                                    // Use same AF/AE settings
+                                    captureBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
+                                    captureBuilder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH)
+                                    
+                                    // Orientation is handled in bitmap processing, but we can set hint
+                                    // captureBuilder.set(CaptureRequest.JPEG_ORIENTATION, ...) 
+
+                                    session.capture(captureBuilder.build(), null, cameraHandler)
                                 } catch (e: CameraAccessException) {
                                     Log.e(TAG, "Capture failed", e)
                                     cleanupCamera()
                                     working = false
                                     callback.onError("Failed to capture photo")
                                 }
-                            }, 500) // 500ms delay for focus
+                            }, 800) // 800ms delay for sensor warmup/focus
                         } catch (e: Exception) {
-                            Log.e(TAG, "Capture delay failed", e)
+                            Log.e(TAG, "Preview/Capture sequence failed", e)
                             cleanupCamera()
                             working = false
-                            callback.onError("Failed to capture photo")
+                            callback.onError("Failed to capture photo sequence")
                         }
                     }
 
@@ -351,12 +376,21 @@ class VisionService(context: Context) {
      * Cleanup camera resources
      */
     private fun cleanupCamera() {
-        captureSession?.close()
-        captureSession = null
-        cameraDevice?.close()
-        cameraDevice = null
-        imageReader?.close()
-        imageReader = null
+        try {
+            captureSession?.close()
+            captureSession = null
+            cameraDevice?.close()
+            cameraDevice = null
+            imageReader?.close()
+            imageReader = null
+            
+            dummySurface?.release()
+            dummySurface = null
+            dummySurfaceTexture?.release()
+            dummySurfaceTexture = null
+        } catch (e: Exception) {
+            Log.w(TAG, "Error cleanup camera resources", e)
+        }
     }
 
     /**
