@@ -194,6 +194,7 @@ private fun getFunctionIcon(functionName: String?): String {
         "get_weather" -> "🌤️"
         "analyze_vision" -> "👁️"
         "play_animation" -> "🤖"
+        "play_melody" -> "🎵"
         "get_current_datetime" -> "🕐"
         "get_random_joke" -> "😄"
         "present_quiz_question" -> "❓"
@@ -209,6 +210,7 @@ private fun getFunctionDisplayName(functionName: String?): String {
         "get_weather" -> "Weather"
         "analyze_vision" -> "Vision Analysis"
         "play_animation" -> "Animation"
+        "play_melody" -> "Play Melody"
         "get_current_datetime" -> "Date/Time"
         "get_random_joke" -> "Random Joke"
         "present_quiz_question" -> "Quiz Question"
@@ -224,6 +226,7 @@ private fun generateSummary(functionName: String?, hasResult: Boolean): String {
         "get_weather" -> if (hasResult) "Weather information retrieved" else "Getting weather..."
         "analyze_vision" -> if (hasResult) "Image analysis completed" else "Analyzing image..."
         "play_animation" -> if (hasResult) "Animation played" else "Playing animation..."
+        "play_melody" -> if (hasResult) "Melody played" else "Playing melody..."
         "start_drawing_game" -> if (hasResult) "Drawing canvas opened" else "Opening drawing canvas..."
         else -> if (hasResult) "Function completed" else "Function executing..."
     }

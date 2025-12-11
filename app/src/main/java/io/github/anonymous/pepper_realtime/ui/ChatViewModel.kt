@@ -14,6 +14,9 @@ import io.github.anonymous.pepper_realtime.manager.DrawingGameManager
 import io.github.anonymous.pepper_realtime.manager.MemoryGameManager
 import io.github.anonymous.pepper_realtime.manager.QuizGameManager
 import io.github.anonymous.pepper_realtime.manager.TicTacToeGameManager
+import io.github.anonymous.pepper_realtime.manager.audio.ToneGenerator
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import io.github.anonymous.pepper_realtime.network.WebSocketConnectionCallback
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -68,6 +71,12 @@ class ChatViewModel @Inject constructor(
     // Dashboard Overlay State
     private val _dashboardState = MutableStateFlow(DashboardState())
 
+    // Melody Player State
+    private val _melodyPlayerState = MutableStateFlow(MelodyPlayerState())
+    private val toneGenerator = ToneGenerator()
+    private var melodyJob: Job? = null
+    private var onMelodyFinishedCallback: ((wasCancelled: Boolean) -> Unit)? = null
+
     // Internal Response State - atomic updates replace @Volatile variables
     private val _responseState = MutableStateFlow(ResponseState())
 
@@ -82,6 +91,7 @@ class ChatViewModel @Inject constructor(
     val isInterruptFabVisible: StateFlow<Boolean> = _isInterruptFabVisible.asStateFlow()
     val navigationState: StateFlow<NavigationUiState> = _navigationState.asStateFlow()
     val dashboardState: StateFlow<DashboardState> = _dashboardState.asStateFlow()
+    val melodyPlayerState: StateFlow<MelodyPlayerState> = _melodyPlayerState.asStateFlow()
 
     // Game state flows - delegated to managers
     val quizState: StateFlow<QuizState> = quizGameManager.state
@@ -263,6 +273,75 @@ class ChatViewModel @Inject constructor(
 
     fun dismissDrawingGame() {
         drawingGameManager.dismissGame()
+    }
+
+    // Melody Player Methods
+    /**
+     * Start playing a melody with visual overlay.
+     * @param melody The melody string to play
+     * @param onFinished Callback when playback finishes with wasCancelled parameter
+     * @return true if playback started successfully
+     */
+    fun startMelodyPlayer(melody: String, onFinished: ((wasCancelled: Boolean) -> Unit)? = null): Boolean {
+        if (_melodyPlayerState.value.isVisible) {
+            Log.w(TAG, "Melody player already active")
+            return false
+        }
+
+        onMelodyFinishedCallback = onFinished
+
+        _melodyPlayerState.update {
+            it.copy(
+                isVisible = true,
+                melody = melody,
+                isPlaying = true,
+                progress = 0f,
+                currentNote = ""
+            )
+        }
+
+        melodyJob = viewModelScope.launch {
+            toneGenerator.playMelody(melody, object : ToneGenerator.PlaybackCallback {
+                override fun onNoteChanged(note: String, noteIndex: Int, totalNotes: Int) {
+                    _melodyPlayerState.update { it.copy(currentNote = note) }
+                }
+
+                override fun onProgressChanged(progress: Float) {
+                    _melodyPlayerState.update { it.copy(progress = progress) }
+                }
+
+                override fun onPlaybackFinished(wasCancelled: Boolean) {
+                    _melodyPlayerState.update {
+                        it.copy(
+                            isPlaying = false,
+                            isVisible = false,
+                            progress = if (wasCancelled) it.progress else 1f
+                        )
+                    }
+                    melodyJob = null
+                    // Call the finish callback with cancellation status
+                    onMelodyFinishedCallback?.invoke(wasCancelled)
+                    onMelodyFinishedCallback = null
+                }
+            })
+        }
+
+        return true
+    }
+
+    /**
+     * Stop the melody player and cancel playback.
+     */
+    fun dismissMelodyPlayer() {
+        toneGenerator.cancel()
+        melodyJob?.cancel()
+        melodyJob = null
+        _melodyPlayerState.update {
+            it.copy(isVisible = false, isPlaying = false)
+        }
+        // Call the finish callback with cancelled=true
+        onMelodyFinishedCallback?.invoke(true)
+        onMelodyFinishedCallback = null
     }
 
     /**

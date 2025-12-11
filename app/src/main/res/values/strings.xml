@@ -351,6 +351,7 @@ Closings: \"Happy to help!\" | \"Anything else?\" | \"I\'m here if you need me\"
     <string name="func_name_get_joke">Random Joke</string>
     <string name="func_name_quiz">Quiz Question</string>
     <string name="func_name_memory_game">Memory Game</string>
+    <string name="func_name_play_melody">Play Melody</string>
     <string name="func_name_unknown">Unknown</string>
     <string name="func_status_search_done">Internet search completed</string>
     <string name="func_status_search_pending">Searching internet…</string>
@@ -360,6 +361,8 @@ Closings: \"Happy to help!\" | \"Anything else?\" | \"I\'m here if you need me\"
     <string name="func_status_vision_pending">Analyzing image…</string>
     <string name="func_status_animation_done">Animation played</string>
     <string name="func_status_animation_pending">Playing animation…</string>
+    <string name="func_status_melody_done">Melody played</string>
+    <string name="func_status_melody_pending">Playing melody…</string>
     <string name="func_status_generic_done">Function completed</string>
     <string name="func_status_generic_pending">Function executing…</string>
     <string name="content_desc_expand">Expand</string>

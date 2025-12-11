@@ -89,3 +89,14 @@ data class DrawingGameState(
     val lastSentTimestamp: Long = 0L
 )
 
+/**
+ * UI state for melody player overlay.
+ */
+data class MelodyPlayerState(
+    val isVisible: Boolean = false,
+    val melody: String = "",
+    val isPlaying: Boolean = false,
+    val progress: Float = 0f,
+    val currentNote: String = ""
+)
+

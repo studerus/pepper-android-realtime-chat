@@ -42,6 +42,7 @@ A multimodal AI system for the Pepper robot powered by OpenAI's Realtime API. It
   - [Tic Tac Toe Game](#tic-tac-toe)
   - [Memory Game](#memory-game)
   - [Drawing Game](#drawing-game)
+  - [Melody Player](#melody-player)
 - [Architecture](#-architecture)
 - [Development](#-development)
 - [Troubleshooting](#-troubleshooting)
@@ -129,6 +130,7 @@ A multimodal AI system for the Pepper robot powered by OpenAI's Realtime API. It
 - **Tic Tac Toe Game** - Play against the AI with voice commands and visual board
 - **Memory Game** - Card-matching game with multiple difficulty levels
 - **Drawing Game** - Draw on the tablet and let the AI guess what you drew
+- **Melody Player** - Play synthesized melodies like Happy Birthday
 
 ## 🚀 Quick Start
 
@@ -1054,6 +1056,25 @@ Robot: "That looks like a cat!"
 - **Smart Detection**: Auto-sends after 2 seconds of inactivity
 - **Parallel Chat**: Talk while drawing - ask anytime
 - **Topic Support**: AI can suggest what to draw
+
+<a id="melody-player"></a>
+### 🎵 Melody Player
+
+Play simple melodies using synthesized sine waves - perfect for singing Happy Birthday!
+
+```bash
+User: "Sing Happy Birthday for me"
+# Animated overlay appears with progress bar
+# Robot plays the melody using generated tones
+Robot: "Happy Birthday! 🎂"
+```
+
+#### Features
+- **Synthesized Audio**: Pure sine wave tones (no MP3 files needed)
+- **Visual Overlay**: Animated audio bars and progress indicator
+- **Cancellable**: User can stop anytime via Stop button
+- **Auto-Mute**: Microphone muted during playback to avoid interference
+- **Pre-configured**: Happy Birthday melody included in tool description
 
 ## 🏗️ Architecture
 

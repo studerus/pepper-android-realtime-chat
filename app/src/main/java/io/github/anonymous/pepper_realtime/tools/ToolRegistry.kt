@@ -2,6 +2,7 @@ package io.github.anonymous.pepper_realtime.tools
 
 import android.util.Log
 import io.github.anonymous.pepper_realtime.tools.entertainment.PlayAnimationTool
+import io.github.anonymous.pepper_realtime.tools.entertainment.PlayMelodyTool
 import io.github.anonymous.pepper_realtime.tools.entertainment.PlayYouTubeVideoTool
 import io.github.anonymous.pepper_realtime.tools.games.DrawingGameTool
 import io.github.anonymous.pepper_realtime.tools.games.MemoryGameTool
@@ -65,6 +66,7 @@ class ToolRegistry {
 
         // Entertainment tools
         registerTool("play_animation") { PlayAnimationTool() }
+        registerTool("play_melody") { PlayMelodyTool() }
         registerTool("play_youtube_video") { PlayYouTubeVideoTool() }
 
         // Navigation tools

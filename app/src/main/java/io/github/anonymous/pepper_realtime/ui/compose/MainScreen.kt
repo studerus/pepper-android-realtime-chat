@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Visibility
@@ -30,6 +30,7 @@ import io.github.anonymous.pepper_realtime.manager.ApiKeyManager
 import io.github.anonymous.pepper_realtime.ui.ChatViewModel
 import io.github.anonymous.pepper_realtime.ui.compose.games.DrawingCanvasDialog
 import io.github.anonymous.pepper_realtime.ui.compose.games.MemoryGameDialog
+import io.github.anonymous.pepper_realtime.ui.compose.games.MelodyPlayerDialog
 import io.github.anonymous.pepper_realtime.ui.compose.games.QuizDialog
 import io.github.anonymous.pepper_realtime.ui.compose.games.TicTacToeDialog
 import io.github.anonymous.pepper_realtime.ui.compose.settings.SettingsScreen
@@ -65,6 +66,7 @@ fun MainScreen(
     val ticTacToeState by viewModel.ticTacToeState.collectAsStateWithLifecycle()
     val memoryState by viewModel.memoryGameState.collectAsStateWithLifecycle()
     val drawingState by viewModel.drawingGameState.collectAsStateWithLifecycle()
+    val melodyPlayerState by viewModel.melodyPlayerState.collectAsStateWithLifecycle()
     
     // Local State for Image Overlay
     var overlayImageUrl by remember { mutableStateOf<String?>(null) }
@@ -156,7 +158,7 @@ fun MainScreen(
                         }
                         IconButton(onClick = { showExitDialog = true }) {
                             Icon(
-                                Icons.Default.ExitToApp,
+                                Icons.AutoMirrored.Filled.ExitToApp,
                                 contentDescription = stringResource(R.string.content_desc_exit),
                                 modifier = Modifier.size(32.dp)
                             )
@@ -247,6 +249,14 @@ fun MainScreen(
                         onDrawingChanged = { bitmap -> viewModel.onDrawingChanged(bitmap) },
                         onClear = { viewModel.clearDrawingCanvas() },
                         onDismiss = { viewModel.dismissDrawingGame() }
+                    )
+                }
+
+                // Melody Player
+                if (melodyPlayerState.isVisible) {
+                    MelodyPlayerDialog(
+                        state = melodyPlayerState,
+                        onDismiss = { viewModel.dismissMelodyPlayer() }
                     )
                 }
 
