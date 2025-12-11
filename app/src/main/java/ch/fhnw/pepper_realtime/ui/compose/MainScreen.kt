@@ -317,6 +317,8 @@ fun MainScreen(
     }
     
     // Handle settings drawer logic
+    // Text field changes are applied immediately via LaunchedEffect in SettingsScreen
+    // commitChanges() is called here when drawer closes to trigger session updates
     LaunchedEffect(drawerState.currentValue) {
         if (drawerState.isOpen) {
             settingsViewModel.beginEditing()

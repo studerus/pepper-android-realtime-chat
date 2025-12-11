@@ -32,12 +32,19 @@ fun SettingsScreen(
     // Collect settings state from ViewModel
     val settings by viewModel.settingsState.collectAsStateWithLifecycle()
     
-    // Local state for text fields (applied on drawer close)
+    // Local state for text fields - changes are applied immediately to ViewModel (batched)
     var systemPrompt by remember(settings.systemPrompt) { mutableStateOf(settings.systemPrompt) }
     var transcriptionLanguage by remember(settings.transcriptionLanguage) { mutableStateOf(settings.transcriptionLanguage) }
     var transcriptionPrompt by remember(settings.transcriptionPrompt) { mutableStateOf(settings.transcriptionPrompt) }
     var idleTimeoutText by remember(settings.idleTimeout) { mutableStateOf(settings.idleTimeout?.toString() ?: "") }
     var enabledTools by remember(settings.enabledTools) { mutableStateOf(settings.enabledTools) }
+    
+    // Apply text field changes immediately when they change (ViewModel batches them)
+    LaunchedEffect(systemPrompt) { viewModel.setSystemPrompt(systemPrompt) }
+    LaunchedEffect(transcriptionLanguage) { viewModel.setTranscriptionLanguage(transcriptionLanguage) }
+    LaunchedEffect(transcriptionPrompt) { viewModel.setTranscriptionPrompt(transcriptionPrompt) }
+    LaunchedEffect(idleTimeoutText) { idleTimeoutText.toIntOrNull()?.let { viewModel.setIdleTimeout(it) } }
+    LaunchedEffect(enabledTools) { viewModel.setEnabledTools(enabledTools) }
     
     // Derived values
     val isRealtimeMode = settings.audioInputMode == SettingsRepository.MODE_REALTIME_API
@@ -68,17 +75,8 @@ fun SettingsScreen(
         return configuredProviders.find { it.getDisplayName() == displayName }?.name ?: displayName
     }
     
-    // Apply text-based changes when drawer closes (for text fields)
-    DisposableEffect(Unit) {
-        onDispose {
-            viewModel.setSystemPrompt(systemPrompt)
-            viewModel.setTranscriptionLanguage(transcriptionLanguage)
-            viewModel.setTranscriptionPrompt(transcriptionPrompt)
-            idleTimeoutText.toIntOrNull()?.let { viewModel.setIdleTimeout(it) }
-            viewModel.setEnabledTools(enabledTools)
-            onSettingsChanged()
-        }
-    }
+    // Note: Text field changes are now applied immediately via LaunchedEffect above
+    // commitChanges() is called from MainScreen when drawer closes
     
     ChatTheme {
         Column(

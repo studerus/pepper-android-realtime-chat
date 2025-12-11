@@ -17,11 +17,21 @@ class SettingsRepository @Inject constructor(
     private val toolRegistry: ToolRegistry
 ) {
     private val settings: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    
+    // Lazy-load default system prompt from assets file (preserves formatting)
+    private val defaultSystemPrompt: String by lazy {
+        try {
+            context.assets.open("default_system_prompt.txt").bufferedReader().use { it.readText() }
+        } catch (e: Exception) {
+            Log.e("SettingsRepository", "Failed to load default system prompt from assets", e)
+            "You are Pepper, a friendly robot assistant."
+        }
+    }
 
     fun getSettings(): SharedPreferences = settings
 
     var systemPrompt: String
-        get() = settings.getString(KEY_SYSTEM_PROMPT, context.getString(R.string.default_system_prompt)) ?: ""
+        get() = settings.getString(KEY_SYSTEM_PROMPT, defaultSystemPrompt) ?: defaultSystemPrompt
         set(value) = settings.edit().putString(KEY_SYSTEM_PROMPT, value).apply()
 
     var model: String

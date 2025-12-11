@@ -1,5 +1,6 @@
 package ch.fhnw.pepper_realtime.ui.settings
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import ch.fhnw.pepper_realtime.manager.SettingsRepository
@@ -63,6 +64,7 @@ class SettingsViewModel @Inject constructor(
     }
     
     fun beginEditing() {
+        Log.d("SettingsViewModel", "beginEditing: entering batch mode")
         isBatchMode = true
         pendingRestart = false
         pendingUpdate = false
@@ -71,6 +73,7 @@ class SettingsViewModel @Inject constructor(
     
     fun commitChanges() {
         isBatchMode = false
+        Log.d("SettingsViewModel", "commitChanges: pendingRestart=$pendingRestart, pendingUpdate=$pendingUpdate")
         if (pendingRestart) _restartSessionEvent.value = true
         else if (pendingUpdate) _updateSessionEvent.value = true
         
@@ -92,6 +95,7 @@ class SettingsViewModel @Inject constructor(
 
     fun setModel(model: String) {
         if (model != settingsRepository.model) {
+            Log.d("SettingsViewModel", "setModel: $model (isBatchMode=$isBatchMode)")
             settingsRepository.model = model
             _settingsState.update { it.copy(model = model) }
             if (isBatchMode) pendingRestart = true else _restartSessionEvent.value = true
