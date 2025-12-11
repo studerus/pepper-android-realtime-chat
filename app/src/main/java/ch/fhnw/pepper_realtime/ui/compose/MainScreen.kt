@@ -182,7 +182,8 @@ fun MainScreen(
                 ChatScreen(
                     messages = messages,
                     partialSpeechResult = partialSpeechResult,
-                    onImageClick = { url -> overlayImageUrl = url }
+                    onImageClick = { url -> overlayImageUrl = url },
+                    bottomPadding = 90.dp // Extra space for StatusCapsule to prevent overlap
                 )
 
                 // Status Capsule (replacing bottom bar)
@@ -193,7 +194,7 @@ fun MainScreen(
                     onClick = onStatusClick,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(bottom = 40.dp)
+                        .padding(bottom = 24.dp) // Positioned closer to bottom edge
                 )
 
                 // ---------------- Overlays & Dialogs ----------------

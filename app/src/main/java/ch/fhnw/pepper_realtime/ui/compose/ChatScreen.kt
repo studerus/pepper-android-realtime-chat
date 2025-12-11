@@ -31,7 +31,8 @@ fun ChatScreen(
     messages: List<ChatMessage>,
     partialSpeechResult: String? = null,
     onImageClick: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    bottomPadding: androidx.compose.ui.unit.Dp = 0.dp
 ) {
     val listState = rememberLazyListState()
     
@@ -104,7 +105,12 @@ fun ChatScreen(
         ) {
             LazyColumn(
                 state = listState,
-                contentPadding = PaddingValues(vertical = 8.dp),
+                contentPadding = PaddingValues(
+                    top = 8.dp,
+                    bottom = 8.dp + bottomPadding,
+                    start = 0.dp,
+                    end = 0.dp
+                ),
                 modifier = Modifier.fillMaxSize()
             ) {
                 items(
