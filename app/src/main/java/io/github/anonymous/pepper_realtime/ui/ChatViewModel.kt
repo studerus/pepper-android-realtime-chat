@@ -289,7 +289,9 @@ class ChatViewModel @Inject constructor(
             return false
         }
 
-        onMelodyFinishedCallback = onFinished
+        synchronized(melodyCallbackLock) {
+            onMelodyFinishedCallback = onFinished
+        }
 
         _melodyPlayerState.update {
             it.copy(
