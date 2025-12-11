@@ -76,6 +76,7 @@ class ChatViewModel @Inject constructor(
     private val toneGenerator = ToneGenerator()
     private var melodyJob: Job? = null
     private var onMelodyFinishedCallback: ((wasCancelled: Boolean) -> Unit)? = null
+    private val melodyCallbackLock = Any()
 
     // Internal Response State - atomic updates replace @Volatile variables
     private val _responseState = MutableStateFlow(ResponseState())
@@ -319,9 +320,11 @@ class ChatViewModel @Inject constructor(
                         )
                     }
                     melodyJob = null
-                    // Call the finish callback with cancellation status
-                    onMelodyFinishedCallback?.invoke(wasCancelled)
-                    onMelodyFinishedCallback = null
+                    // Call the finish callback with cancellation status (atomic to prevent double-invoke)
+                    synchronized(melodyCallbackLock) {
+                        onMelodyFinishedCallback?.invoke(wasCancelled)
+                        onMelodyFinishedCallback = null
+                    }
                 }
             })
         }
@@ -339,9 +342,11 @@ class ChatViewModel @Inject constructor(
         _melodyPlayerState.update {
             it.copy(isVisible = false, isPlaying = false)
         }
-        // Call the finish callback with cancelled=true
-        onMelodyFinishedCallback?.invoke(true)
-        onMelodyFinishedCallback = null
+        // Call the finish callback with cancelled=true (atomic to prevent double-invoke)
+        synchronized(melodyCallbackLock) {
+            onMelodyFinishedCallback?.invoke(true)
+            onMelodyFinishedCallback = null
+        }
     }
 
     /**
