@@ -5,10 +5,14 @@ import android.content.Context
 import android.content.res.Configuration
 import android.os.Bundle
 import android.util.Log
+import android.view.WindowManager
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.platform.ComposeView
-import androidx.activity.viewModels
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -108,6 +112,14 @@ class ChatActivity : AppCompatActivity(), ToolHost {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // 1. Keep Screen On
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
+        // 2. Enable Immersive Sticky Mode (Hide System Bars)
+        val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
+        windowInsetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
+
         // Set Controller on ViewModel (Break circular dependency)
         viewModel.setSessionController(chatDeps.sessionController)
         viewModel.setupDrawingGameCallback()
@@ -124,6 +136,7 @@ class ChatActivity : AppCompatActivity(), ToolHost {
                     keyManager = keyManager,
                     toolRegistry = _toolRegistry,
                     onNewChat = { viewModel.startNewSession() },
+                    onExit = { finish() },
                     onInterrupt = { 
                         try {
                             chatDeps.interruptController.interruptSpeech()

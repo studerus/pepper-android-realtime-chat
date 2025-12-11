@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Visibility
@@ -43,6 +44,7 @@ fun MainScreen(
     keyManager: ApiKeyManager,
     toolRegistry: ToolRegistry,
     onNewChat: () -> Unit,
+    onExit: () -> Unit,
     onInterrupt: () -> Unit,
     onStatusClick: () -> Unit
 ) {
@@ -64,6 +66,30 @@ fun MainScreen(
     
     // Local State for Image Overlay
     var overlayImageUrl by remember { mutableStateOf<String?>(null) }
+    var showExitDialog by remember { mutableStateOf(false) }
+
+    if (showExitDialog) {
+        AlertDialog(
+            onDismissRequest = { showExitDialog = false },
+            title = { Text(stringResource(R.string.exit_confirmation_title)) },
+            text = { Text(stringResource(R.string.exit_confirmation_message)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showExitDialog = false
+                        onExit()
+                    }
+                ) {
+                    Text(stringResource(R.string.exit_confirmation_yes))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showExitDialog = false }) {
+                    Text(stringResource(R.string.exit_confirmation_no))
+                }
+            }
+        )
+    }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -108,6 +134,9 @@ fun MainScreen(
                             settingsViewModel.beginEditing()
                         }) {
                             Icon(Icons.Default.Build, contentDescription = stringResource(R.string.content_desc_settings))
+                        }
+                        IconButton(onClick = { showExitDialog = true }) {
+                            Icon(Icons.Default.ExitToApp, contentDescription = stringResource(R.string.content_desc_exit))
                         }
                     }
                 )

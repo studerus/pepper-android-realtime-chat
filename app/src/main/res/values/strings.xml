@@ -285,6 +285,11 @@ Closings: \"Happy to help!\" | \"Anything else?\" | \"I\'m here if you need me\"
     <string name="content_desc_interrupt">Interrupt</string>
     <string name="content_desc_full_screen_image">Full screen image</string>
     <string name="content_desc_close">Close</string>
+    <string name="content_desc_exit">Exit App</string>
+    <string name="exit_confirmation_title">Exit App?</string>
+    <string name="exit_confirmation_message">Are you sure you want to close the application?</string>
+    <string name="exit_confirmation_yes">Yes, Exit</string>
+    <string name="exit_confirmation_no">Cancel</string>
     <string name="please_wait">Please wait…</string>
     
     <string name="nav_overlay_title">Navigation &amp; Map</string>
