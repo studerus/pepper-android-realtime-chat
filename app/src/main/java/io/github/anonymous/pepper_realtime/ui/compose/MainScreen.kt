@@ -191,7 +191,9 @@ fun MainScreen(
                     isMuted = isMuted,
                     isListening = statusText.contains("Listening", ignoreCase = true) || statusText.contains("Zuhören", ignoreCase = true),
                     onClick = onStatusClick,
-                    modifier = Modifier.align(Alignment.BottomCenter)
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 24.dp)
                 )
 
                 // ---------------- Overlays & Dialogs ----------------
