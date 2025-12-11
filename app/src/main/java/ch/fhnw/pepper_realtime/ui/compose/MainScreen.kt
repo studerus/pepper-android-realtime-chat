@@ -177,16 +177,17 @@ fun MainScreen(
                 }
             }
         ) { innerPadding ->
-            Box(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
-                // Main Chat Content
+            Box(modifier = Modifier.fillMaxSize()) {
+                // Main Chat Content (with innerPadding for TopAppBar)
                 ChatScreen(
                     messages = messages,
                     partialSpeechResult = partialSpeechResult,
                     onImageClick = { url -> overlayImageUrl = url },
+                    modifier = Modifier.padding(innerPadding),
                     bottomPadding = 90.dp // Extra space for StatusCapsule to prevent overlap
                 )
 
-                // Status Capsule (replacing bottom bar)
+                // Status Capsule - positioned at true bottom edge (outside innerPadding)
                 StatusCapsule(
                     statusText = statusText,
                     isMuted = isMuted,
@@ -194,7 +195,7 @@ fun MainScreen(
                     onClick = onStatusClick,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(bottom = 24.dp) // Positioned closer to bottom edge
+                        .padding(bottom = 24.dp)
                 )
 
                 // ---------------- Overlays & Dialogs ----------------

@@ -102,6 +102,44 @@ fun SettingsDropdown(
 }
 
 /**
+ * Segmented button for settings with 2-4 options.
+ * Stays inline (no popup) to avoid fullscreen mode issues.
+ */
+@Composable
+fun SettingsSegmentedButton(
+    label: String,
+    options: List<String>,
+    selectedOption: String,
+    onOptionSelected: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier) {
+        SettingsLabel(text = label)
+        
+        SingleChoiceSegmentedButtonRow(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            options.forEachIndexed { index, option ->
+                SegmentedButton(
+                    shape = SegmentedButtonDefaults.itemShape(
+                        index = index,
+                        count = options.size
+                    ),
+                    onClick = { onOptionSelected(option) },
+                    selected = option == selectedOption
+                ) {
+                    Text(
+                        text = option,
+                        fontSize = 12.sp,
+                        maxLines = 1
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
  * Slider with value display
  */
 @Composable

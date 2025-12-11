@@ -48,11 +48,11 @@ fun SettingsScreen(
     val voices = listOf("alloy", "ash", "ballad", "cedar", "coral", "echo", "marin", "sage", "shimmer", "verse")
     val configuredProviders = remember { apiKeyManager.getConfiguredProviders() }
     val languages = SettingsRepository.getAvailableLanguages()
-    val audioInputModes = listOf("Realtime API (Simple Setup)", "Azure Speech (Best for Dialects)")
+    val audioInputModes = listOf("Realtime API", "Azure Speech")
     val transcriptionModels = listOf("whisper-1", "gpt-4o-mini-transcribe", "gpt-4o-transcribe", "gpt-4o-transcribe-diarize")
-    val turnDetectionTypes = listOf("Server VAD (Volume-based)", "Semantic VAD (Context-aware)")
+    val turnDetectionTypes = listOf("Server VAD", "Semantic VAD")
     val eagernessLevels = listOf("Auto (Medium)", "Low (Max 8s)", "Medium (Max 4s)", "High (Max 2s)")
-    val noiseReductionTypes = listOf("Off", "Near Field (Headset)", "Far Field (Room Mic)")
+    val noiseReductionTypes = listOf("Off", "Near Field", "Far Field")
     
     // Helper to get provider display name
     fun getProviderDisplayName(providerName: String): String {
@@ -126,7 +126,7 @@ fun SettingsScreen(
             
             // API Provider - apply immediately, show display names
             if (configuredProviders.isNotEmpty()) {
-                SettingsDropdown(
+                SettingsSegmentedButton(
                     label = "API Provider",
                     options = configuredProviders.map { it.getDisplayName() },
                     selectedOption = getProviderDisplayName(settings.apiProvider),
@@ -164,7 +164,7 @@ fun SettingsScreen(
             )
             
             // Audio Input Mode - apply immediately
-            SettingsDropdown(
+            SettingsSegmentedButton(
                 label = "Audio Input",
                 options = audioInputModes,
                 selectedOption = if (isRealtimeMode) audioInputModes[0] else audioInputModes[1],
@@ -237,7 +237,7 @@ fun SettingsScreen(
                     minLines = 2
                 )
                 
-                SettingsDropdown(
+                SettingsSegmentedButton(
                     label = "Turn Detection Type",
                     options = turnDetectionTypes,
                     selectedOption = if (isServerVad) turnDetectionTypes[0] else turnDetectionTypes[1],
@@ -302,7 +302,7 @@ fun SettingsScreen(
                     )
                 }
                 
-                SettingsDropdown(
+                SettingsSegmentedButton(
                     label = "Noise Reduction",
                     options = noiseReductionTypes,
                     selectedOption = when (settings.noiseReduction) {

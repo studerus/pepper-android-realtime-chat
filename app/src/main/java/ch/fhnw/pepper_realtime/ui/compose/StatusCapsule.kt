@@ -70,7 +70,7 @@ fun StatusCapsule(
         visible = isVisible,
         enter = slideInVertically { it } + fadeIn(),
         exit = slideOutVertically { it } + fadeOut(),
-        modifier = modifier.padding(bottom = 40.dp) // Lift from bottom
+        modifier = modifier // Padding controlled externally via MainScreen
     ) {
         Box(
             modifier = Modifier
