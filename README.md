@@ -1323,7 +1323,7 @@ This approach provides natural-looking robot behavior even when using external a
 ### Project Structure
 ```
 app/src/
-├── main/java/io/github/anonymous/pepper_realtime/    # Shared Kotlin code for all flavors
+├── main/java/ch/fhnw/pepper_realtime/    # Shared Kotlin code for all flavors
 │   ├── controller/                      # Application logic controllers
 │   │   ├── AudioInputController.kt      # Audio input & STT management
 │   │   ├── AudioVolumeController.kt     # System volume control
@@ -1409,7 +1409,7 @@ app/src/
 │       │   └── TicTacToeMoveTool.kt     # Make TicTacToe move tool
 │       └── [other categories]/...       # Other tools (entertainment, information, etc.)
 │
-├── pepper/java/io/github/anonymous/pepper_realtime/    # Pepper-specific implementations
+├── pepper/java/ch/fhnw/pepper_realtime/    # Pepper-specific implementations
 │   ├── controller/
 │   │   ├── GestureController.kt         # Real Pepper animations
 │   │   └── MovementController.kt        # Real robot movement
@@ -1429,7 +1429,7 @@ app/src/
 │   └── ui/
 │       └── MapPreviewView.kt            # Real map visualization view
 │
-└── standalone/java/io/github/anonymous/pepper_realtime/   # Standalone stub implementations
+└── standalone/java/ch/fhnw/pepper_realtime/   # Standalone stub implementations
     ├── controller/
     │   ├── GestureController.kt         # Stub (log only)
     │   └── MovementController.kt        # Stub (log only)

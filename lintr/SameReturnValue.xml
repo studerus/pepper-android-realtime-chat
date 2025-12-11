@@ -1,10 +1,10 @@
 <problems>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/main/java/io/github/anonymous/pepper_realtime/manager/ApiKeyManager.java</file>
+  <file>file://$PROJECT_DIR$/app/src/main/java/ch/fhnw/pepper_realtime/manager/ApiKeyManager.java</file>
   <line>77</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.manager</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.manager.ApiKeyManager boolean isVisionAnalysisAvailable()" />
+  <package>ch.fhnw.pepper_realtime.manager</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.manager.ApiKeyManager boolean isVisionAnalysisAvailable()" />
   <problem_class id="SameReturnValue" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Method always returns the same value</problem_class>
   <hints />
   <description>Method &lt;code&gt;isVisionAnalysisAvailable()&lt;/code&gt; always returns &lt;code&gt;true&lt;/code&gt;</description>
@@ -14,11 +14,11 @@
   <length>25</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/main/java/io/github/anonymous/pepper_realtime/manager/ApiKeyManager.java</file>
+  <file>file://$PROJECT_DIR$/app/src/main/java/ch/fhnw/pepper_realtime/manager/ApiKeyManager.java</file>
   <line>98</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.manager</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.manager.ApiKeyManager java.lang.String getSearchSetupMessage()" />
+  <package>ch.fhnw.pepper_realtime.manager</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.manager.ApiKeyManager java.lang.String getSearchSetupMessage()" />
   <problem_class id="SameReturnValue" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Method always returns the same value</problem_class>
   <hints />
   <description>Method &lt;code&gt;getSearchSetupMessage()&lt;/code&gt; always returns &lt;code&gt;🔑 Internet search requires TAVILY_API_KEY.
@@ -30,11 +30,11 @@ Add to local.properties: TAVILY_API_KEY=your_key&lt;/code&gt;</description>
   <length>21</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/main/java/io/github/anonymous/pepper_realtime/manager/ApiKeyManager.java</file>
+  <file>file://$PROJECT_DIR$/app/src/main/java/ch/fhnw/pepper_realtime/manager/ApiKeyManager.java</file>
   <line>105</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.manager</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.manager.ApiKeyManager java.lang.String getWeatherSetupMessage()" />
+  <package>ch.fhnw.pepper_realtime.manager</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.manager.ApiKeyManager java.lang.String getWeatherSetupMessage()" />
   <problem_class id="SameReturnValue" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Method always returns the same value</problem_class>
   <hints />
   <description>Method &lt;code&gt;getWeatherSetupMessage()&lt;/code&gt; always returns &lt;code&gt;🔑 Weather requires OPENWEATHER_API_KEY.
@@ -46,11 +46,11 @@ Add to local.properties: OPENWEATHER_API_KEY=your_key&lt;/code&gt;</description>
   <length>22</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/main/java/io/github/anonymous/pepper_realtime/manager/ApiKeyManager.java</file>
+  <file>file://$PROJECT_DIR$/app/src/main/java/ch/fhnw/pepper_realtime/manager/ApiKeyManager.java</file>
   <line>112</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.manager</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.manager.ApiKeyManager java.lang.String getYouTubeSetupMessage()" />
+  <package>ch.fhnw.pepper_realtime.manager</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.manager.ApiKeyManager java.lang.String getYouTubeSetupMessage()" />
   <problem_class id="SameReturnValue" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Method always returns the same value</problem_class>
   <hints />
   <description>Method &lt;code&gt;getYouTubeSetupMessage()&lt;/code&gt; always returns &lt;code&gt;🔑 YouTube video requires YOUTUBE_API_KEY.
@@ -63,11 +63,11 @@ Add to local.properties: YOUTUBE_API_KEY=your_key&lt;/code&gt;</description>
   <length>22</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/main/java/io/github/anonymous/pepper_realtime/manager/QuizDialogManager.java</file>
+  <file>file://$PROJECT_DIR$/app/src/main/java/ch/fhnw/pepper_realtime/manager/QuizDialogManager.java</file>
   <line>38</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.manager</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.manager.QuizDialogManager.QuizDialogCallback boolean shouldInterrupt()" />
+  <package>ch.fhnw.pepper_realtime.manager</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.manager.QuizDialogManager.QuizDialogCallback boolean shouldInterrupt()" />
   <problem_class id="SameReturnValue" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Method always returns the same value</problem_class>
   <hints />
   <description>All implementations of method &lt;code&gt;shouldInterrupt()&lt;/code&gt; always return &lt;code&gt;true&lt;/code&gt;</description>
@@ -77,11 +77,11 @@ Add to local.properties: YOUTUBE_API_KEY=your_key&lt;/code&gt;</description>
   <length>15</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/main/java/io/github/anonymous/pepper_realtime/robot/RobotController.java</file>
+  <file>file://$PROJECT_DIR$/app/src/main/java/ch/fhnw/pepper_realtime/robot/RobotController.java</file>
   <line>17</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.robot</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.robot.RobotController java.lang.Object getRobotContext()" />
+  <package>ch.fhnw.pepper_realtime.robot</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.robot.RobotController java.lang.Object getRobotContext()" />
   <problem_class id="SameReturnValue" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Method always returns the same value</problem_class>
   <hints />
   <description>All implementations of method &lt;code&gt;getRobotContext()&lt;/code&gt; always return &lt;code&gt;null&lt;/code&gt;</description>
@@ -91,11 +91,11 @@ Add to local.properties: YOUTUBE_API_KEY=your_key&lt;/code&gt;</description>
   <length>15</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/main/java/io/github/anonymous/pepper_realtime/robot/RobotController.java</file>
+  <file>file://$PROJECT_DIR$/app/src/main/java/ch/fhnw/pepper_realtime/robot/RobotController.java</file>
   <line>22</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.robot</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.robot.RobotController boolean isRobotHardwareAvailable()" />
+  <package>ch.fhnw.pepper_realtime.robot</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.robot.RobotController boolean isRobotHardwareAvailable()" />
   <problem_class id="SameReturnValue" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Method always returns the same value</problem_class>
   <hints />
   <description>All implementations of method &lt;code&gt;isRobotHardwareAvailable()&lt;/code&gt; always return &lt;code&gt;false&lt;/code&gt;</description>
@@ -105,11 +105,11 @@ Add to local.properties: YOUTUBE_API_KEY=your_key&lt;/code&gt;</description>
   <length>24</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/main/java/io/github/anonymous/pepper_realtime/robot/RobotController.java</file>
+  <file>file://$PROJECT_DIR$/app/src/main/java/ch/fhnw/pepper_realtime/robot/RobotController.java</file>
   <line>32</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.robot</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.robot.RobotController java.lang.String getModeName()" />
+  <package>ch.fhnw.pepper_realtime.robot</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.robot.RobotController java.lang.String getModeName()" />
   <problem_class id="SameReturnValue" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Method always returns the same value</problem_class>
   <hints />
   <description>All implementations of method &lt;code&gt;getModeName()&lt;/code&gt; always return &lt;code&gt;Standalone Mode (Simulation)&lt;/code&gt;</description>
@@ -119,11 +119,11 @@ Add to local.properties: YOUTUBE_API_KEY=your_key&lt;/code&gt;</description>
   <length>11</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/main/java/io/github/anonymous/pepper_realtime/ui/ChatMenuController.java</file>
+  <file>file://$PROJECT_DIR$/app/src/main/java/ch/fhnw/pepper_realtime/ui/ChatMenuController.java</file>
   <line>63</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.ui</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.ui.ChatMenuController boolean onCreateOptionsMenu(android.view.Menu menu, android.view.MenuInflater inflater)" />
+  <package>ch.fhnw.pepper_realtime.ui</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.ui.ChatMenuController boolean onCreateOptionsMenu(android.view.Menu menu, android.view.MenuInflater inflater)" />
   <problem_class id="SameReturnValue" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Method always returns the same value</problem_class>
   <hints />
   <description>Method &lt;code&gt;onCreateOptionsMenu()&lt;/code&gt; always returns &lt;code&gt;true&lt;/code&gt;</description>
@@ -133,11 +133,11 @@ Add to local.properties: YOUTUBE_API_KEY=your_key&lt;/code&gt;</description>
   <length>19</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/main/java/io/github/anonymous/pepper_realtime/ui/ChatMenuController.java</file>
+  <file>file://$PROJECT_DIR$/app/src/main/java/ch/fhnw/pepper_realtime/ui/ChatMenuController.java</file>
   <line>68</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.ui</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.ui.ChatMenuController boolean onPrepareOptionsMenu(android.view.Menu menu)" />
+  <package>ch.fhnw.pepper_realtime.ui</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.ui.ChatMenuController boolean onPrepareOptionsMenu(android.view.Menu menu)" />
   <problem_class id="SameReturnValue" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Method always returns the same value</problem_class>
   <hints />
   <description>Method &lt;code&gt;onPrepareOptionsMenu()&lt;/code&gt; always returns &lt;code&gt;true&lt;/code&gt;</description>
@@ -147,11 +147,11 @@ Add to local.properties: YOUTUBE_API_KEY=your_key&lt;/code&gt;</description>
   <length>20</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/data/NavigationMapCache.java</file>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/data/NavigationMapCache.java</file>
   <line>19</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.data</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.data.NavigationMapCache java.lang.Object loadMap(java.lang.Object robotContext, java.lang.String mapName)" />
+  <package>ch.fhnw.pepper_realtime.data</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.data.NavigationMapCache java.lang.Object loadMap(java.lang.Object robotContext, java.lang.String mapName)" />
   <problem_class id="SameReturnValue" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Method always returns the same value</problem_class>
   <hints />
   <description>Method &lt;code&gt;loadMap()&lt;/code&gt; always returns &lt;code&gt;null&lt;/code&gt;</description>
@@ -161,11 +161,11 @@ Add to local.properties: YOUTUBE_API_KEY=your_key&lt;/code&gt;</description>
   <length>7</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/data/NavigationMapCache.java</file>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/data/NavigationMapCache.java</file>
   <line>27</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.data</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.data.NavigationMapCache boolean isMapCached(java.lang.String mapName)" />
+  <package>ch.fhnw.pepper_realtime.data</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.data.NavigationMapCache boolean isMapCached(java.lang.String mapName)" />
   <problem_class id="SameReturnValue" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Method always returns the same value</problem_class>
   <hints />
   <description>Method &lt;code&gt;isMapCached()&lt;/code&gt; always returns &lt;code&gt;false&lt;/code&gt;</description>
@@ -175,11 +175,11 @@ Add to local.properties: YOUTUBE_API_KEY=your_key&lt;/code&gt;</description>
   <length>11</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/manager/LocalizationCoordinator.java</file>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/manager/LocalizationCoordinator.java</file>
   <line>25</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.manager</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.manager.LocalizationCoordinator java.lang.Object startLocalization(java.lang.Object robotContext, java.lang.String mapName)" />
+  <package>ch.fhnw.pepper_realtime.manager</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.manager.LocalizationCoordinator java.lang.Object startLocalization(java.lang.Object robotContext, java.lang.String mapName)" />
   <problem_class id="SameReturnValue" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Method always returns the same value</problem_class>
   <hints />
   <description>Method &lt;code&gt;startLocalization()&lt;/code&gt; always returns &lt;code&gt;null&lt;/code&gt;</description>
@@ -189,11 +189,11 @@ Add to local.properties: YOUTUBE_API_KEY=your_key&lt;/code&gt;</description>
   <length>17</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/manager/LocalizationCoordinator.java</file>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/manager/LocalizationCoordinator.java</file>
   <line>40</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.manager</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.manager.LocalizationCoordinator boolean isLocalized()" />
+  <package>ch.fhnw.pepper_realtime.manager</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.manager.LocalizationCoordinator boolean isLocalized()" />
   <problem_class id="SameReturnValue" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Method always returns the same value</problem_class>
   <hints />
   <description>Method &lt;code&gt;isLocalized()&lt;/code&gt; always returns &lt;code&gt;false&lt;/code&gt;</description>
@@ -203,11 +203,11 @@ Add to local.properties: YOUTUBE_API_KEY=your_key&lt;/code&gt;</description>
   <length>11</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/manager/NavigationServiceManager.java</file>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/manager/NavigationServiceManager.java</file>
   <line>39</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.manager</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.manager.NavigationServiceManager java.lang.Object ensureLocalizationIfNeeded(java.lang.Object robotContext, java.lang.Runnable onLocalized, java.lang.Runnable onFailed)" />
+  <package>ch.fhnw.pepper_realtime.manager</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.manager.NavigationServiceManager java.lang.Object ensureLocalizationIfNeeded(java.lang.Object robotContext, java.lang.Runnable onLocalized, java.lang.Runnable onFailed)" />
   <problem_class id="SameReturnValue" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Method always returns the same value</problem_class>
   <hints />
   <description>Method &lt;code&gt;ensureLocalizationIfNeeded()&lt;/code&gt; always returns &lt;code&gt;null&lt;/code&gt;</description>
@@ -217,11 +217,11 @@ Add to local.properties: YOUTUBE_API_KEY=your_key&lt;/code&gt;</description>
   <length>26</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/manager/NavigationServiceManager.java</file>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/manager/NavigationServiceManager.java</file>
   <line>50</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.manager</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.manager.NavigationServiceManager boolean isLocalized()" />
+  <package>ch.fhnw.pepper_realtime.manager</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.manager.NavigationServiceManager boolean isLocalized()" />
   <problem_class id="SameReturnValue" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Method always returns the same value</problem_class>
   <hints />
   <description>Method &lt;code&gt;isLocalized()&lt;/code&gt; always returns &lt;code&gt;false&lt;/code&gt;</description>
@@ -231,11 +231,11 @@ Add to local.properties: YOUTUBE_API_KEY=your_key&lt;/code&gt;</description>
   <length>11</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/manager/NavigationServiceManager.java</file>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/manager/NavigationServiceManager.java</file>
   <line>57</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.manager</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.manager.NavigationServiceManager boolean isMapSavedOnDisk(android.content.Context appContext)" />
+  <package>ch.fhnw.pepper_realtime.manager</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.manager.NavigationServiceManager boolean isMapSavedOnDisk(android.content.Context appContext)" />
   <problem_class id="SameReturnValue" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Method always returns the same value</problem_class>
   <hints />
   <description>Method &lt;code&gt;isMapSavedOnDisk()&lt;/code&gt; always returns &lt;code&gt;false&lt;/code&gt;</description>
@@ -245,11 +245,11 @@ Add to local.properties: YOUTUBE_API_KEY=your_key&lt;/code&gt;</description>
   <length>16</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/manager/NavigationServiceManager.java</file>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/manager/NavigationServiceManager.java</file>
   <line>64</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.manager</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.manager.NavigationServiceManager boolean isMapLoaded()" />
+  <package>ch.fhnw.pepper_realtime.manager</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.manager.NavigationServiceManager boolean isMapLoaded()" />
   <problem_class id="SameReturnValue" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Method always returns the same value</problem_class>
   <hints />
   <description>Method &lt;code&gt;isMapLoaded()&lt;/code&gt; always returns &lt;code&gt;false&lt;/code&gt;</description>
@@ -259,11 +259,11 @@ Add to local.properties: YOUTUBE_API_KEY=your_key&lt;/code&gt;</description>
   <length>11</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/manager/NavigationServiceManager.java</file>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/manager/NavigationServiceManager.java</file>
   <line>71</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.manager</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.manager.NavigationServiceManager boolean isLocalizationReady()" />
+  <package>ch.fhnw.pepper_realtime.manager</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.manager.NavigationServiceManager boolean isLocalizationReady()" />
   <problem_class id="SameReturnValue" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Method always returns the same value</problem_class>
   <hints />
   <description>Method &lt;code&gt;isLocalizationReady()&lt;/code&gt; always returns &lt;code&gt;false&lt;/code&gt;</description>
@@ -273,11 +273,11 @@ Add to local.properties: YOUTUBE_API_KEY=your_key&lt;/code&gt;</description>
   <length>19</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/manager/NavigationServiceManager.java</file>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/manager/NavigationServiceManager.java</file>
   <line>78</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.manager</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.manager.NavigationServiceManager android.graphics.Bitmap getMapBitmap()" />
+  <package>ch.fhnw.pepper_realtime.manager</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.manager.NavigationServiceManager android.graphics.Bitmap getMapBitmap()" />
   <problem_class id="SameReturnValue" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Method always returns the same value</problem_class>
   <hints />
   <description>Method &lt;code&gt;getMapBitmap()&lt;/code&gt; always returns &lt;code&gt;null&lt;/code&gt;</description>
@@ -287,11 +287,11 @@ Add to local.properties: YOUTUBE_API_KEY=your_key&lt;/code&gt;</description>
   <length>12</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/manager/NavigationServiceManager.java</file>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/manager/NavigationServiceManager.java</file>
   <line>85</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.manager</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.manager.NavigationServiceManager java.lang.Object getMapTopGraphicalRepresentation()" />
+  <package>ch.fhnw.pepper_realtime.manager</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.manager.NavigationServiceManager java.lang.Object getMapTopGraphicalRepresentation()" />
   <problem_class id="SameReturnValue" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Method always returns the same value</problem_class>
   <hints />
   <description>Method &lt;code&gt;getMapTopGraphicalRepresentation()&lt;/code&gt; always returns &lt;code&gt;null&lt;/code&gt;</description>
@@ -301,11 +301,11 @@ Add to local.properties: YOUTUBE_API_KEY=your_key&lt;/code&gt;</description>
   <length>32</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/manager/NavigationServiceManager.java</file>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/manager/NavigationServiceManager.java</file>
   <line>92</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.manager</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.manager.NavigationServiceManager boolean areGesturesSuppressed()" />
+  <package>ch.fhnw.pepper_realtime.manager</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.manager.NavigationServiceManager boolean areGesturesSuppressed()" />
   <problem_class id="SameReturnValue" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Method always returns the same value</problem_class>
   <hints />
   <description>Method &lt;code&gt;areGesturesSuppressed()&lt;/code&gt; always returns &lt;code&gt;false&lt;/code&gt;</description>
@@ -315,11 +315,11 @@ Add to local.properties: YOUTUBE_API_KEY=your_key&lt;/code&gt;</description>
   <length>21</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/robot/RobotSafetyGuard.java</file>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/robot/RobotSafetyGuard.java</file>
   <line>36</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.robot</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.robot.RobotSafetyGuard boolean isSafeToMove()" />
+  <package>ch.fhnw.pepper_realtime.robot</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.robot.RobotSafetyGuard boolean isSafeToMove()" />
   <problem_class id="SameReturnValue" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Method always returns the same value</problem_class>
   <hints />
   <description>Method &lt;code&gt;isSafeToMove()&lt;/code&gt; always returns &lt;code&gt;true&lt;/code&gt;</description>
@@ -329,11 +329,11 @@ Add to local.properties: YOUTUBE_API_KEY=your_key&lt;/code&gt;</description>
   <length>12</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/service/PerceptionService.java</file>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/service/PerceptionService.java</file>
   <line>93</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.service</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.service.PerceptionService int getHumanCount()" />
+  <package>ch.fhnw.pepper_realtime.service</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.service.PerceptionService int getHumanCount()" />
   <problem_class id="SameReturnValue" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Method always returns the same value</problem_class>
   <hints />
   <description>Method &lt;code&gt;getHumanCount()&lt;/code&gt; always returns &lt;code&gt;0&lt;/code&gt;</description>
@@ -343,11 +343,11 @@ Add to local.properties: YOUTUBE_API_KEY=your_key&lt;/code&gt;</description>
   <length>13</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/service/PerceptionService.java</file>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/service/PerceptionService.java</file>
   <line>100</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.service</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.service.PerceptionService boolean isInitialized()" />
+  <package>ch.fhnw.pepper_realtime.service</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.service.PerceptionService boolean isInitialized()" />
   <problem_class id="SameReturnValue" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Method always returns the same value</problem_class>
   <hints />
   <description>Method &lt;code&gt;isInitialized()&lt;/code&gt; always returns &lt;code&gt;true&lt;/code&gt;</description>
@@ -357,11 +357,11 @@ Add to local.properties: YOUTUBE_API_KEY=your_key&lt;/code&gt;</description>
   <length>13</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/service/VisionService.java</file>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/service/VisionService.java</file>
   <line>88</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.service</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.service.VisionService boolean isInitialized()" />
+  <package>ch.fhnw.pepper_realtime.service</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.service.VisionService boolean isInitialized()" />
   <problem_class id="SameReturnValue" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Method always returns the same value</problem_class>
   <hints />
   <description>Method &lt;code&gt;isInitialized()&lt;/code&gt; always returns &lt;code&gt;true&lt;/code&gt;</description>

@@ -1,10 +1,10 @@
 <problems>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/main/java/io/github/anonymous/pepper_realtime/network/SshConnectionHelper.java</file>
+  <file>file://$PROJECT_DIR$/app/src/main/java/ch/fhnw/pepper_realtime/network/SshConnectionHelper.java</file>
   <line>32</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.network</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.network.SshConnectionHelper void testFixedIpSshConnect(io.github.anonymous.pepper_realtime.manager.ThreadManager threadManager)" />
+  <package>ch.fhnw.pepper_realtime.network</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.network.SshConnectionHelper void testFixedIpSshConnect(ch.fhnw.pepper_realtime.manager.ThreadManager threadManager)" />
   <problem_class id="ConstantValue" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Constant values</problem_class>
   <description>Condition &lt;code&gt;BuildConfig.PEPPER_SSH_PASSWORD != null&lt;/code&gt; is always &lt;code&gt;true&lt;/code&gt;</description>
   <highlighted_element>BuildConfig.PEPPER_SSH_PASSWORD != null</highlighted_element>
@@ -13,11 +13,11 @@
   <length>39</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/main/java/io/github/anonymous/pepper_realtime/network/SshConnectionHelper.java</file>
+  <file>file://$PROJECT_DIR$/app/src/main/java/ch/fhnw/pepper_realtime/network/SshConnectionHelper.java</file>
   <line>33</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.network</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.network.SshConnectionHelper void testFixedIpSshConnect(io.github.anonymous.pepper_realtime.manager.ThreadManager threadManager)" />
+  <package>ch.fhnw.pepper_realtime.network</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.network.SshConnectionHelper void testFixedIpSshConnect(ch.fhnw.pepper_realtime.manager.ThreadManager threadManager)" />
   <problem_class id="ConstantValue" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Constant values</problem_class>
   <description>Condition &lt;code&gt;password.isEmpty()&lt;/code&gt; is always &lt;code&gt;false&lt;/code&gt;</description>
   <highlighted_element>password.isEmpty()</highlighted_element>

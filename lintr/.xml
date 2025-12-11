@@ -1,10 +1,10 @@
 <problems>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/main/java/io/github/anonymous/pepper_realtime/network/SshConnectionHelper.java</file>
+  <file>file://$PROJECT_DIR$/app/src/main/java/ch/fhnw/pepper_realtime/network/SshConnectionHelper.java</file>
   <line>17</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.network</package>
-  <entry_point TYPE="class" FQNAME="io.github.anonymous.pepper_realtime.network.SshConnectionHelper" />
+  <package>ch.fhnw.pepper_realtime.network</package>
+  <entry_point TYPE="class" FQNAME="ch.fhnw.pepper_realtime.network.SshConnectionHelper" />
   <language>JAVA</language>
   <offset>13</offset>
   <length>19</length>
@@ -17,11 +17,11 @@
   <description>Class is never used.</description>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/main/java/io/github/anonymous/pepper_realtime/service/FaceRecognitionService.java</file>
+  <file>file://$PROJECT_DIR$/app/src/main/java/ch/fhnw/pepper_realtime/service/FaceRecognitionService.java</file>
   <line>26</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.service</package>
-  <entry_point TYPE="class" FQNAME="io.github.anonymous.pepper_realtime.service.FaceRecognitionService" />
+  <package>ch.fhnw.pepper_realtime.service</package>
+  <entry_point TYPE="class" FQNAME="ch.fhnw.pepper_realtime.service.FaceRecognitionService" />
   <language>JAVA</language>
   <offset>13</offset>
   <length>22</length>
@@ -34,11 +34,11 @@
   <description>Class is not instantiated.</description>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/main/java/io/github/anonymous/pepper_realtime/service/FaceRecognitionService.java</file>
+  <file>file://$PROJECT_DIR$/app/src/main/java/ch/fhnw/pepper_realtime/service/FaceRecognitionService.java</file>
   <line>60</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.service</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.service.FaceRecognitionService FaceRecognitionService()" />
+  <package>ch.fhnw.pepper_realtime.service</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.service.FaceRecognitionService FaceRecognitionService()" />
   <language>JAVA</language>
   <offset>11</offset>
   <length>22</length>
@@ -51,11 +51,11 @@
   <description>Constructor is never used.</description>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/main/java/io/github/anonymous/pepper_realtime/ui/ChatActivity.java</file>
+  <file>file://$PROJECT_DIR$/app/src/main/java/ch/fhnw/pepper_realtime/ui/ChatActivity.java</file>
   <line>50</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.ui</package>
-  <entry_point TYPE="class" FQNAME="io.github.anonymous.pepper_realtime.ui.ChatActivity" />
+  <package>ch.fhnw.pepper_realtime.ui</package>
+  <entry_point TYPE="class" FQNAME="ch.fhnw.pepper_realtime.ui.ChatActivity" />
   <language>JAVA</language>
   <offset>13</offset>
   <length>12</length>
@@ -68,11 +68,11 @@
   <description>Class is not instantiated.</description>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/data/NavigationMapCache.java</file>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/data/NavigationMapCache.java</file>
   <line>9</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.data</package>
-  <entry_point TYPE="class" FQNAME="io.github.anonymous.pepper_realtime.data.NavigationMapCache" />
+  <package>ch.fhnw.pepper_realtime.data</package>
+  <entry_point TYPE="class" FQNAME="ch.fhnw.pepper_realtime.data.NavigationMapCache" />
   <language>JAVA</language>
   <offset>13</offset>
   <length>18</length>
@@ -85,11 +85,11 @@
   <description>Class is not instantiated.</description>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/data/NavigationMapCache.java</file>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/data/NavigationMapCache.java</file>
   <line>12</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.data</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.data.NavigationMapCache NavigationMapCache(java.lang.Object robotContext)" />
+  <package>ch.fhnw.pepper_realtime.data</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.data.NavigationMapCache NavigationMapCache(java.lang.Object robotContext)" />
   <language>JAVA</language>
   <offset>11</offset>
   <length>18</length>
@@ -102,11 +102,11 @@
   <description>Constructor is never used.</description>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/manager/LocalizationCoordinator.java</file>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/manager/LocalizationCoordinator.java</file>
   <line>10</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.manager</package>
-  <entry_point TYPE="class" FQNAME="io.github.anonymous.pepper_realtime.manager.LocalizationCoordinator" />
+  <package>ch.fhnw.pepper_realtime.manager</package>
+  <entry_point TYPE="class" FQNAME="ch.fhnw.pepper_realtime.manager.LocalizationCoordinator" />
   <language>JAVA</language>
   <offset>13</offset>
   <length>23</length>
@@ -119,11 +119,11 @@
   <description>Class is not instantiated.</description>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/manager/LocalizationCoordinator.java</file>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/manager/LocalizationCoordinator.java</file>
   <line>18</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.manager</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.manager.LocalizationCoordinator LocalizationCoordinator(java.lang.Object robotContext, io.github.anonymous.pepper_realtime.manager.LocalizationCoordinator.LocalizationListener listener)" />
+  <package>ch.fhnw.pepper_realtime.manager</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.manager.LocalizationCoordinator LocalizationCoordinator(java.lang.Object robotContext, ch.fhnw.pepper_realtime.manager.LocalizationCoordinator.LocalizationListener listener)" />
   <language>JAVA</language>
   <offset>11</offset>
   <length>23</length>
@@ -136,11 +136,11 @@
   <description>Constructor is never used.</description>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/robot/RobotSafetyGuard.java</file>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/robot/RobotSafetyGuard.java</file>
   <line>9</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.robot</package>
-  <entry_point TYPE="class" FQNAME="io.github.anonymous.pepper_realtime.robot.RobotSafetyGuard" />
+  <package>ch.fhnw.pepper_realtime.robot</package>
+  <entry_point TYPE="class" FQNAME="ch.fhnw.pepper_realtime.robot.RobotSafetyGuard" />
   <language>JAVA</language>
   <offset>13</offset>
   <length>16</length>
@@ -153,11 +153,11 @@
   <description>Class is not instantiated.</description>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/ui/MapPreviewView.java</file>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/ui/MapPreviewView.java</file>
   <line>12</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.ui</package>
-  <entry_point TYPE="class" FQNAME="io.github.anonymous.pepper_realtime.ui.MapPreviewView" />
+  <package>ch.fhnw.pepper_realtime.ui</package>
+  <entry_point TYPE="class" FQNAME="ch.fhnw.pepper_realtime.ui.MapPreviewView" />
   <language>JAVA</language>
   <offset>13</offset>
   <length>14</length>
@@ -170,11 +170,11 @@
   <description>Class is not instantiated.</description>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/ui/MapPreviewView.java</file>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/ui/MapPreviewView.java</file>
   <line>15</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.ui</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.ui.MapPreviewView MapPreviewView(android.content.Context context)" />
+  <package>ch.fhnw.pepper_realtime.ui</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.ui.MapPreviewView MapPreviewView(android.content.Context context)" />
   <language>JAVA</language>
   <offset>11</offset>
   <length>14</length>
@@ -187,11 +187,11 @@
   <description>Constructor is never used.</description>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/ui/MapPreviewView.java</file>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/ui/MapPreviewView.java</file>
   <line>19</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.ui</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.ui.MapPreviewView MapPreviewView(android.content.Context context, android.util.AttributeSet attrs)" />
+  <package>ch.fhnw.pepper_realtime.ui</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.ui.MapPreviewView MapPreviewView(android.content.Context context, android.util.AttributeSet attrs)" />
   <language>JAVA</language>
   <offset>11</offset>
   <length>14</length>
@@ -204,11 +204,11 @@
   <description>Constructor is never used.</description>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/ui/MapPreviewView.java</file>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/ui/MapPreviewView.java</file>
   <line>23</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.ui</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.ui.MapPreviewView MapPreviewView(android.content.Context context, android.util.AttributeSet attrs, int defStyleAttr)" />
+  <package>ch.fhnw.pepper_realtime.ui</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.ui.MapPreviewView MapPreviewView(android.content.Context context, android.util.AttributeSet attrs, int defStyleAttr)" />
   <language>JAVA</language>
   <offset>11</offset>
   <length>14</length>

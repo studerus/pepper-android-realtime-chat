@@ -1,10 +1,10 @@
 <problems>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/tools/navigation/ApproachHumanTool.java</file>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/tools/navigation/ApproachHumanTool.java</file>
   <line>58</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.tools.navigation</package>
-  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/tools/navigation/ApproachHumanTool.java" />
+  <package>ch.fhnw.pepper_realtime.tools.navigation</package>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/tools/navigation/ApproachHumanTool.java" />
   <problem_class id="AndroidLintDefaultLocale" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Implied default locale in case conversion</problem_class>
   <hints />
   <description>&lt;html&gt;Implicitly using the default locale is a common source of bugs: Use &lt;code&gt;String.format(Locale, ...)&lt;/code&gt; instead&lt;/html&gt;</description>
@@ -14,11 +14,11 @@
   <length>73</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/tools/navigation/LookAtPositionTool.java</file>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/tools/navigation/LookAtPositionTool.java</file>
   <line>57</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.tools.navigation</package>
-  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/tools/navigation/LookAtPositionTool.java" />
+  <package>ch.fhnw.pepper_realtime.tools.navigation</package>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/tools/navigation/LookAtPositionTool.java" />
   <problem_class id="AndroidLintDefaultLocale" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Implied default locale in case conversion</problem_class>
   <hints />
   <description>&lt;html&gt;Implicitly using the default locale is a common source of bugs: Use &lt;code&gt;String.format(Locale, ...)&lt;/code&gt; instead&lt;/html&gt;</description>
@@ -28,11 +28,11 @@
   <length>67</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/tools/navigation/MovePepperTool.java</file>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/tools/navigation/MovePepperTool.java</file>
   <line>74</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.tools.navigation</package>
-  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/tools/navigation/MovePepperTool.java" />
+  <package>ch.fhnw.pepper_realtime.tools.navigation</package>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/tools/navigation/MovePepperTool.java" />
   <problem_class id="AndroidLintDefaultLocale" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Implied default locale in case conversion</problem_class>
   <hints />
   <description>&lt;html&gt;Implicitly using the default locale is a common source of bugs: Use &lt;code&gt;String.format(Locale, ...)&lt;/code&gt; instead&lt;/html&gt;</description>
@@ -42,11 +42,11 @@
   <length>133</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/tools/navigation/TurnPepperTool.java</file>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/tools/navigation/TurnPepperTool.java</file>
   <line>71</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.tools.navigation</package>
-  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/tools/navigation/TurnPepperTool.java" />
+  <package>ch.fhnw.pepper_realtime.tools.navigation</package>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/tools/navigation/TurnPepperTool.java" />
   <problem_class id="AndroidLintDefaultLocale" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Implied default locale in case conversion</problem_class>
   <hints />
   <description>&lt;html&gt;Implicitly using the default locale is a common source of bugs: Use &lt;code&gt;String.format(Locale, ...)&lt;/code&gt; instead&lt;/html&gt;</description>

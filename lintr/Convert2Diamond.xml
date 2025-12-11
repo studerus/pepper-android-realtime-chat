@@ -1,10 +1,10 @@
 <problems>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/main/java/io/github/anonymous/pepper_realtime/manager/SettingsManager.java</file>
+  <file>file://$PROJECT_DIR$/app/src/main/java/ch/fhnw/pepper_realtime/manager/SettingsManager.java</file>
   <line>169</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.manager</package>
-  <entry_point TYPE="class" FQNAME="io.github.anonymous.pepper_realtime.manager.SettingsManager$1" />
+  <package>ch.fhnw.pepper_realtime.manager</package>
+  <entry_point TYPE="class" FQNAME="ch.fhnw.pepper_realtime.manager.SettingsManager$1" />
   <problem_class id="Convert2Diamond" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Explicit type can be replaced with '&lt;&gt;'</problem_class>
   <description>Explicit type argument RealtimeApiProvider can be replaced with &lt;&gt;</description>
   <highlighted_element>RealtimeApiProvider</highlighted_element>

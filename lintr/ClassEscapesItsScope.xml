@@ -1,10 +1,10 @@
 <problems>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/main/java/io/github/anonymous/pepper_realtime/ui/HumanDetectionAdapter.java</file>
+  <file>file://$PROJECT_DIR$/app/src/main/java/ch/fhnw/pepper_realtime/ui/HumanDetectionAdapter.java</file>
   <line>57</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.ui</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.ui.HumanDetectionAdapter io.github.anonymous.pepper_realtime.ui.HumanDetectionAdapter.HumanViewHolder onCreateViewHolder(android.view.ViewGroup parent, int viewType)" />
+  <package>ch.fhnw.pepper_realtime.ui</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.ui.HumanDetectionAdapter ch.fhnw.pepper_realtime.ui.HumanDetectionAdapter.HumanViewHolder onCreateViewHolder(android.view.ViewGroup parent, int viewType)" />
   <problem_class id="ClassEscapesItsScope" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Class is exposed outside of its visibility scope</problem_class>
   <description>Class &lt;code&gt;HumanViewHolder&lt;/code&gt; is exposed outside its defined visibility scope #loc</description>
   <highlighted_element>HumanViewHolder</highlighted_element>
@@ -13,11 +13,11 @@
   <length>15</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/main/java/io/github/anonymous/pepper_realtime/ui/HumanDetectionAdapter.java</file>
+  <file>file://$PROJECT_DIR$/app/src/main/java/ch/fhnw/pepper_realtime/ui/HumanDetectionAdapter.java</file>
   <line>64</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.ui</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.ui.HumanDetectionAdapter void onBindViewHolder(io.github.anonymous.pepper_realtime.ui.HumanDetectionAdapter.HumanViewHolder holder, int position)" />
+  <package>ch.fhnw.pepper_realtime.ui</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.ui.HumanDetectionAdapter void onBindViewHolder(ch.fhnw.pepper_realtime.ui.HumanDetectionAdapter.HumanViewHolder holder, int position)" />
   <problem_class id="ClassEscapesItsScope" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Class is exposed outside of its visibility scope</problem_class>
   <description>Class &lt;code&gt;HumanViewHolder&lt;/code&gt; is exposed outside its defined visibility scope #loc</description>
   <highlighted_element>HumanViewHolder</highlighted_element>

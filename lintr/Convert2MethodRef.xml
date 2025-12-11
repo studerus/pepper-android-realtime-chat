@@ -1,10 +1,10 @@
 <problems>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/main/java/io/github/anonymous/pepper_realtime/controller/ChatSessionController.java</file>
+  <file>file://$PROJECT_DIR$/app/src/main/java/ch/fhnw/pepper_realtime/controller/ChatSessionController.java</file>
   <line>88</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.controller</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.controller.ChatSessionController$1 void onSuccess()" />
+  <package>ch.fhnw.pepper_realtime.controller</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.controller.ChatSessionController$1 void onSuccess()" />
   <problem_class id="Convert2MethodRef" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Lambda can be replaced with method reference</problem_class>
   <description>Lambda can be replaced with method reference</description>
   <highlighted_element>audioInputController.startContinuousRecognition()</highlighted_element>

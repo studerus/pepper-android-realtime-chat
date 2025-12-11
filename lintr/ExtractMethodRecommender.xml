@@ -1,10 +1,10 @@
 <problems>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/main/java/io/github/anonymous/pepper_realtime/manager/SpeechRecognizerManager.java</file>
+  <file>file://$PROJECT_DIR$/app/src/main/java/ch/fhnw/pepper_realtime/manager/SpeechRecognizerManager.java</file>
   <line>180</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.manager</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.manager.SpeechRecognizerManager void start()" />
+  <package>ch.fhnw.pepper_realtime.manager</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.manager.SpeechRecognizerManager void start()" />
   <problem_class id="ExtractMethodRecommender" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Method can be extracted</problem_class>
   <description>It's possible to extract method returning 'fallbackThread' from a long surrounding method</description>
   <highlighted_element>// Fallback timer: If connection event doesn't fire within 10 seconds, call onStarted() anyway</highlighted_element>
@@ -13,11 +13,11 @@
   <length>94</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/main/java/io/github/anonymous/pepper_realtime/manager/SpeechRecognizerManager.java</file>
+  <file>file://$PROJECT_DIR$/app/src/main/java/ch/fhnw/pepper_realtime/manager/SpeechRecognizerManager.java</file>
   <line>314</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.manager</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.manager.SpeechRecognizerManager void handleStartFailure(java.lang.Exception ex)" />
+  <package>ch.fhnw.pepper_realtime.manager</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.manager.SpeechRecognizerManager void handleStartFailure(java.lang.Exception ex)" />
   <problem_class id="ExtractMethodRecommender" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Method can be extracted</problem_class>
   <description>It's possible to extract method returning 'fallbackThread' from a long surrounding method</description>
   <highlighted_element>Thread fallbackThread = new Thread(() -&gt; {</highlighted_element>
@@ -26,11 +26,11 @@
   <length>42</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/main/java/io/github/anonymous/pepper_realtime/network/RealtimeSessionManager.java</file>
+  <file>file://$PROJECT_DIR$/app/src/main/java/ch/fhnw/pepper_realtime/network/RealtimeSessionManager.java</file>
   <line>414</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.network</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.network.RealtimeSessionManager org.json.JSONObject createSessionUpdatePayload(java.lang.String contextLog)" />
+  <package>ch.fhnw.pepper_realtime.network</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.network.RealtimeSessionManager org.json.JSONObject createSessionUpdatePayload(java.lang.String contextLog)" />
   <problem_class id="ExtractMethodRecommender" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Method can be extracted</problem_class>
   <description>It's possible to extract method returning 'transcription' from a long surrounding method</description>
   <highlighted_element>// Transcription configuration</highlighted_element>
@@ -39,11 +39,11 @@
   <length>30</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/main/java/io/github/anonymous/pepper_realtime/network/RealtimeSessionManager.java</file>
+  <file>file://$PROJECT_DIR$/app/src/main/java/ch/fhnw/pepper_realtime/network/RealtimeSessionManager.java</file>
   <line>485</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.network</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.network.RealtimeSessionManager org.json.JSONObject createSessionUpdatePayload(java.lang.String contextLog)" />
+  <package>ch.fhnw.pepper_realtime.network</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.network.RealtimeSessionManager org.json.JSONObject createSessionUpdatePayload(java.lang.String contextLog)" />
   <problem_class id="ExtractMethodRecommender" severity="WEAK WARNING" attribute_key="INFO_ATTRIBUTES">Method can be extracted</problem_class>
   <description>It's possible to extract method returning 'inputTranscription' from a long surrounding method</description>
   <highlighted_element>// Enable input audio transcription</highlighted_element>

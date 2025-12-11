@@ -22920,11 +22920,11 @@
   <length>5</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/main/java/io/github/anonymous/pepper_realtime/network/SshConnectionHelper.java</file>
+  <file>file://$PROJECT_DIR$/app/src/main/java/ch/fhnw/pepper_realtime/network/SshConnectionHelper.java</file>
   <line>38</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.network</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.network.SshConnectionHelper void testFixedIpSshConnect(io.github.anonymous.pepper_realtime.manager.ThreadManager threadManager)" />
+  <package>ch.fhnw.pepper_realtime.network</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.network.SshConnectionHelper void testFixedIpSshConnect(ch.fhnw.pepper_realtime.manager.ThreadManager threadManager)" />
   <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Typo</problem_class>
   <description>Typo: In word 'sess'</description>
   <highlighted_element>sess</highlighted_element>
@@ -23245,11 +23245,11 @@
   <length>9</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/service/VisionService.java</file>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/service/VisionService.java</file>
   <line>51</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.service</package>
-  <entry_point TYPE="field" FQNAME="io.github.anonymous.pepper_realtime.service.VisionService GROQ_API_URL" />
+  <package>ch.fhnw.pepper_realtime.service</package>
+  <entry_point TYPE="field" FQNAME="ch.fhnw.pepper_realtime.service.VisionService GROQ_API_URL" />
   <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Typo</problem_class>
   <description>Typo: In word 'GROQ'</description>
   <highlighted_element>GROQ</highlighted_element>
@@ -23258,11 +23258,11 @@
   <length>4</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/service/VisionService.java</file>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/service/VisionService.java</file>
   <line>363</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.service</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.service.VisionService void processBitmapAndAnalyze(android.graphics.Bitmap bitmap, java.lang.String prompt, java.lang.String apiKey, io.github.anonymous.pepper_realtime.service.VisionService.Callback callback)" />
+  <package>ch.fhnw.pepper_realtime.service</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.service.VisionService void processBitmapAndAnalyze(android.graphics.Bitmap bitmap, java.lang.String prompt, java.lang.String apiKey, ch.fhnw.pepper_realtime.service.VisionService.Callback callback)" />
   <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Typo</problem_class>
   <description>Typo: In word 'baos'</description>
   <highlighted_element>baos</highlighted_element>
@@ -23271,11 +23271,11 @@
   <length>4</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/service/VisionService.java</file>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/service/VisionService.java</file>
   <line>381</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.service</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.service.VisionService void processBitmapAndAnalyze(android.graphics.Bitmap bitmap, java.lang.String prompt, java.lang.String apiKey, io.github.anonymous.pepper_realtime.service.VisionService.Callback callback)" />
+  <package>ch.fhnw.pepper_realtime.service</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.service.VisionService void processBitmapAndAnalyze(android.graphics.Bitmap bitmap, java.lang.String prompt, java.lang.String apiKey, ch.fhnw.pepper_realtime.service.VisionService.Callback callback)" />
   <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Typo</problem_class>
   <description>Typo: In word 'Groq'</description>
   <highlighted_element>Groq</highlighted_element>
@@ -23284,11 +23284,11 @@
   <length>4</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/service/VisionService.java</file>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/service/VisionService.java</file>
   <line>396</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.service</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.service.VisionService void processBitmapAndAnalyze(android.graphics.Bitmap bitmap, java.lang.String prompt, java.lang.String apiKey, io.github.anonymous.pepper_realtime.service.VisionService.Callback callback)" />
+  <package>ch.fhnw.pepper_realtime.service</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.service.VisionService void processBitmapAndAnalyze(android.graphics.Bitmap bitmap, java.lang.String prompt, java.lang.String apiKey, ch.fhnw.pepper_realtime.service.VisionService.Callback callback)" />
   <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Typo</problem_class>
   <description>Typo: In word 'Groq'</description>
   <highlighted_element>Groq</highlighted_element>
@@ -23297,11 +23297,11 @@
   <length>4</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/service/VisionService.java</file>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/service/VisionService.java</file>
   <line>400</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.service</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.service.VisionService void processBitmapAndAnalyze(android.graphics.Bitmap bitmap, java.lang.String prompt, java.lang.String apiKey, io.github.anonymous.pepper_realtime.service.VisionService.Callback callback)" />
+  <package>ch.fhnw.pepper_realtime.service</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.service.VisionService void processBitmapAndAnalyze(android.graphics.Bitmap bitmap, java.lang.String prompt, java.lang.String apiKey, ch.fhnw.pepper_realtime.service.VisionService.Callback callback)" />
   <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Typo</problem_class>
   <description>Typo: In word 'Groq'</description>
   <highlighted_element>Groq</highlighted_element>
@@ -23310,11 +23310,11 @@
   <length>4</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/service/VisionService.java</file>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/service/VisionService.java</file>
   <line>455</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.service</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.service.VisionService void analyzeWithGroq(java.lang.String base64Jpeg, java.lang.String prompt, java.lang.String apiKey, io.github.anonymous.pepper_realtime.service.VisionService.Callback callback)" />
+  <package>ch.fhnw.pepper_realtime.service</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.service.VisionService void analyzeWithGroq(java.lang.String base64Jpeg, java.lang.String prompt, java.lang.String apiKey, ch.fhnw.pepper_realtime.service.VisionService.Callback callback)" />
   <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Typo</problem_class>
   <description>Typo: In word 'Groq'</description>
   <highlighted_element>Groq</highlighted_element>
@@ -23323,11 +23323,11 @@
   <length>4</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/service/VisionService.java</file>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/service/VisionService.java</file>
   <line>458</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.service</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.service.VisionService void analyzeWithGroq(java.lang.String base64Jpeg, java.lang.String prompt, java.lang.String apiKey, io.github.anonymous.pepper_realtime.service.VisionService.Callback callback)" />
+  <package>ch.fhnw.pepper_realtime.service</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.service.VisionService void analyzeWithGroq(java.lang.String base64Jpeg, java.lang.String prompt, java.lang.String apiKey, ch.fhnw.pepper_realtime.service.VisionService.Callback callback)" />
   <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Typo</problem_class>
   <description>Typo: In word 'Groq'</description>
   <highlighted_element>Groq</highlighted_element>
@@ -23336,11 +23336,11 @@
   <length>4</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/service/VisionService.java</file>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/service/VisionService.java</file>
   <line>484</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.service</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.service.VisionService void analyzeWithGroq(java.lang.String base64Jpeg, java.lang.String prompt, java.lang.String apiKey, io.github.anonymous.pepper_realtime.service.VisionService.Callback callback)" />
+  <package>ch.fhnw.pepper_realtime.service</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.service.VisionService void analyzeWithGroq(java.lang.String base64Jpeg, java.lang.String prompt, java.lang.String apiKey, ch.fhnw.pepper_realtime.service.VisionService.Callback callback)" />
   <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Typo</problem_class>
   <description>Typo: In word 'Groq'</description>
   <highlighted_element>Groq</highlighted_element>
@@ -23349,11 +23349,11 @@
   <length>4</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/service/VisionService.java</file>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/service/VisionService.java</file>
   <line>490</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.service</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.service.VisionService void analyzeWithGroq(java.lang.String base64Jpeg, java.lang.String prompt, java.lang.String apiKey, io.github.anonymous.pepper_realtime.service.VisionService.Callback callback)" />
+  <package>ch.fhnw.pepper_realtime.service</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.service.VisionService void analyzeWithGroq(java.lang.String base64Jpeg, java.lang.String prompt, java.lang.String apiKey, ch.fhnw.pepper_realtime.service.VisionService.Callback callback)" />
   <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Typo</problem_class>
   <description>Typo: In word 'Groq'</description>
   <highlighted_element>Groq</highlighted_element>
@@ -23362,11 +23362,11 @@
   <length>4</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/service/VisionService.java</file>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/service/VisionService.java</file>
   <line>516</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.service</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.service.VisionService void analyzeWithGroq(java.lang.String base64Jpeg, java.lang.String prompt, java.lang.String apiKey, io.github.anonymous.pepper_realtime.service.VisionService.Callback callback)" />
+  <package>ch.fhnw.pepper_realtime.service</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.service.VisionService void analyzeWithGroq(java.lang.String base64Jpeg, java.lang.String prompt, java.lang.String apiKey, ch.fhnw.pepper_realtime.service.VisionService.Callback callback)" />
   <problem_class id="SpellCheckingInspection" severity="TYPO" attribute_key="TYPO">Typo</problem_class>
   <description>Typo: In word 'Groq'</description>
   <highlighted_element>Groq</highlighted_element>

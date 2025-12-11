@@ -1,10 +1,10 @@
 <problems>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/main/java/io/github/anonymous/pepper_realtime/network/RealtimeSessionManager.java</file>
+  <file>file://$PROJECT_DIR$/app/src/main/java/ch/fhnw/pepper_realtime/network/RealtimeSessionManager.java</file>
   <line>30</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.network</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.network.RealtimeSessionManager.Listener void onBinaryMessage(okio.ByteString bytes)" />
+  <package>ch.fhnw.pepper_realtime.network</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.network.RealtimeSessionManager.Listener void onBinaryMessage(okio.ByteString bytes)" />
   <problem_class id="EmptyMethod" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Empty method</problem_class>
   <hints>
     <hint value="true" />
@@ -16,11 +16,11 @@
   <length>15</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/manager/TouchSensorManager.java</file>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/manager/TouchSensorManager.java</file>
   <line>14</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.manager</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.manager.TouchSensorManager.TouchEventListener void onSensorReleased(java.lang.String sensorName, java.lang.Object touchState)" />
+  <package>ch.fhnw.pepper_realtime.manager</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.manager.TouchSensorManager.TouchEventListener void onSensorReleased(java.lang.String sensorName, java.lang.Object touchState)" />
   <problem_class id="EmptyMethod" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Empty method</problem_class>
   <hints>
     <hint value="true" />
@@ -32,11 +32,11 @@
   <length>16</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/standalone/java/io/github/anonymous/pepper_realtime/manager/TouchSensorManager.java</file>
+  <file>file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/manager/TouchSensorManager.java</file>
   <line>27</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.manager</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.manager.TouchSensorManager void setListener(io.github.anonymous.pepper_realtime.manager.TouchSensorManager.TouchEventListener listener)" />
+  <package>ch.fhnw.pepper_realtime.manager</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.manager.TouchSensorManager void setListener(ch.fhnw.pepper_realtime.manager.TouchSensorManager.TouchEventListener listener)" />
   <problem_class id="EmptyMethod" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Empty method</problem_class>
   <hints>
     <hint value="false" />

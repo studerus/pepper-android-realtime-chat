@@ -1,10 +1,10 @@
 <problems>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/main/java/io/github/anonymous/pepper_realtime/manager/RealtimeAudioInputManager.java</file>
+  <file>file://$PROJECT_DIR$/app/src/main/java/ch/fhnw/pepper_realtime/manager/RealtimeAudioInputManager.java</file>
   <line>188</line>
   <module>pepper_android_realtime.app.main</module>
-  <package>io.github.anonymous.pepper_realtime.manager</package>
-  <entry_point TYPE="method" FQNAME="io.github.anonymous.pepper_realtime.manager.RealtimeAudioInputManager void captureLoop()" />
+  <package>ch.fhnw.pepper_realtime.manager</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.manager.RealtimeAudioInputManager void captureLoop()" />
   <problem_class id="BusyWait" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Busy wait</problem_class>
   <description>Call to &lt;code&gt;Thread.sleep()&lt;/code&gt; in a loop, probably busy-waiting #loc</description>
   <highlighted_element>sleep</highlighted_element>

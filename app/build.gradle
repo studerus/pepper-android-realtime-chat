@@ -7,11 +7,11 @@ plugins {
 }
 
 android {
-    namespace 'io.github.anonymous.pepper_realtime'
+    namespace 'ch.fhnw.pepper_realtime'
     compileSdk 35
 
     defaultConfig {
-        applicationId "io.github.anonymous.pepper_realtime"
+        applicationId "ch.fhnw.pepper_realtime"
         minSdk 23
         targetSdk 35
         versionCode 1
