@@ -193,7 +193,7 @@ fun MainScreen(
                     onClick = onStatusClick,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(bottom = 24.dp)
+                        .padding(bottom = 40.dp)
                 )
 
                 // ---------------- Overlays & Dialogs ----------------
