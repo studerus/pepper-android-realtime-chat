@@ -15,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
@@ -114,6 +115,7 @@ fun MainScreen(
             topBar = {
                 CenterAlignedTopAppBar(
                     title = { Text(stringResource(R.string.main_title)) },
+                    modifier = Modifier.shadow(4.dp),
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                         containerColor = Color.White,
                         titleContentColor = Color(0xFF1F2937),

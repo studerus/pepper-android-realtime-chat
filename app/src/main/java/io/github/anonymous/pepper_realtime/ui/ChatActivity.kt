@@ -116,9 +116,7 @@ class ChatActivity : AppCompatActivity(), ToolHost {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         // 2. Enable Immersive Sticky Mode (Hide System Bars)
-        val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
-        windowInsetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
+        hideSystemUI()
 
         // Set Controller on ViewModel (Break circular dependency)
         viewModel.setSessionController(chatDeps.sessionController)
@@ -389,6 +387,19 @@ class ChatActivity : AppCompatActivity(), ToolHost {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         permissionManager.handlePermissionResult(requestCode, grantResults)
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            hideSystemUI()
+        }
+    }
+
+    private fun hideSystemUI() {
+        val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
+        windowInsetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
     }
 
     // ToolHost Implementation

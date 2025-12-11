@@ -1,6 +1,7 @@
 package io.github.anonymous.pepper_realtime.ui.compose
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,6 +17,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
@@ -43,7 +46,7 @@ fun ChatImage(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 4.dp),
-        horizontalAlignment = Alignment.Start
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // Text message (if any)
         if (message.message.isNotEmpty()) {
@@ -69,10 +72,12 @@ fun ChatImage(
                 contentDescription = stringResource(R.string.content_desc_chat_image),
                 modifier = Modifier
                     .padding(top = if (message.message.isNotEmpty()) 6.dp else 0.dp)
-                    .size(220.dp)
-                    .clip(RoundedCornerShape(8.dp))
+                    .size(240.dp) // Slightly larger
+                    .shadow(elevation = 6.dp, shape = RoundedCornerShape(12.dp))
+                    .border(2.dp, Color.White, RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(12.dp))
                     .clickable { onImageClick(imagePath) },
-                contentScale = ContentScale.Fit
+                contentScale = ContentScale.Crop // Crop usually looks better for thumbnails than Fit
             )
         }
     }
