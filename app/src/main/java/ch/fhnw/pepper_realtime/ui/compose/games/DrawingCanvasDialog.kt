@@ -25,8 +25,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import ch.fhnw.pepper_realtime.R
 import ch.fhnw.pepper_realtime.ui.DrawingGameState
 
@@ -67,18 +65,12 @@ fun DrawingCanvasDialog(
     var canvasWidth by remember { mutableIntStateOf(0) }
     var canvasHeight by remember { mutableIntStateOf(0) }
 
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(
-            usePlatformDefaultWidth = false,
-            dismissOnBackPress = true,
-            dismissOnClickOutside = false
-        )
+    // Fullscreen overlay instead of Dialog to preserve immersive mode
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(DrawingColors.HeaderBackground)
     ) {
-        Surface(
-            modifier = Modifier.fillMaxSize(),
-            color = DrawingColors.HeaderBackground
-        ) {
             Column(
                 modifier = Modifier.fillMaxSize()
             ) {
@@ -184,7 +176,6 @@ fun DrawingCanvasDialog(
                 }
             }
         }
-    }
 }
 
 @Composable

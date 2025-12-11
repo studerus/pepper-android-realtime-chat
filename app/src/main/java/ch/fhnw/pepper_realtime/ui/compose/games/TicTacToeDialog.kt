@@ -19,8 +19,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import ch.fhnw.pepper_realtime.R
 import ch.fhnw.pepper_realtime.tools.games.TicTacToeGame
 
@@ -105,16 +103,18 @@ fun TicTacToeDialog(
         }
     }
     
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(
-            dismissOnBackPress = true,
-            dismissOnClickOutside = true,
-            usePlatformDefaultWidth = false
-        )
+    // Fullscreen overlay with centered card to preserve immersive mode
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.5f))
+            .clickable(onClick = onDismiss),
+        contentAlignment = Alignment.Center
     ) {
         Card(
-            modifier = Modifier.wrapContentSize(),
+            modifier = Modifier
+                .wrapContentSize()
+                .clickable(enabled = false) {}, // Prevent click-through
             shape = RoundedCornerShape(12.dp),
             colors = CardDefaults.cardColors(containerColor = TicTacToeColors.CardBackground),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)

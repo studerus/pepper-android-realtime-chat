@@ -22,9 +22,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.foundation.clickable
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import ch.fhnw.pepper_realtime.R
 import ch.fhnw.pepper_realtime.data.MapGraphInfo
 import ch.fhnw.pepper_realtime.data.SavedLocation
@@ -40,12 +40,19 @@ fun NavigationOverlay(
 ) {
     if (!state.isVisible) return
 
-    Dialog(onDismissRequest = onClose) {
+    // Fullscreen overlay with centered card to preserve immersive mode
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.5f))
+            .clickable(onClick = onClose),
+        contentAlignment = Alignment.Center
+    ) {
         Card(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(500.dp) // Fixed height for the map view
-                .padding(16.dp),
+                .fillMaxWidth(0.9f)
+                .height(500.dp)
+                .clickable(enabled = false) {}, // Prevent click-through
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {

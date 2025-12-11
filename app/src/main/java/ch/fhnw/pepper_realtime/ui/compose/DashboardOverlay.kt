@@ -19,8 +19,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import ch.fhnw.pepper_realtime.R
 import ch.fhnw.pepper_realtime.data.PerceptionData
 import ch.fhnw.pepper_realtime.ui.DashboardState
@@ -42,15 +40,13 @@ fun DashboardOverlay(
     onClose: () -> Unit
 ) {
     if (state.isVisible) {
-        Dialog(
-            onDismissRequest = onClose,
-            properties = DialogProperties(usePlatformDefaultWidth = false)
+        // Fullscreen overlay instead of Dialog to preserve immersive mode
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(DashboardColors.Background)
         ) {
-            Surface(
-                modifier = Modifier.fillMaxSize(),
-                color = DashboardColors.Background
-            ) {
-                Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+            Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
                     // Header Title
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -138,7 +134,6 @@ fun DashboardOverlay(
                     )
                 }
             }
-        }
     }
 }
 

@@ -2,6 +2,7 @@ package ch.fhnw.pepper_realtime.ui.compose.games
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -14,8 +15,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import ch.fhnw.pepper_realtime.ui.MelodyPlayerState
 
 private object MelodyColors {
@@ -37,18 +36,19 @@ fun MelodyPlayerDialog(
     state: MelodyPlayerState,
     onDismiss: () -> Unit
 ) {
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(
-            usePlatformDefaultWidth = false,
-            dismissOnBackPress = true,
-            dismissOnClickOutside = true
-        )
+    // Fullscreen overlay with centered card to preserve immersive mode
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.7f))
+            .clickable(onClick = onDismiss),
+        contentAlignment = Alignment.Center
     ) {
         Surface(
             modifier = Modifier
                 .fillMaxWidth(0.85f)
-                .wrapContentHeight(),
+                .wrapContentHeight()
+                .clickable(enabled = false) {}, // Prevent click-through
             shape = RoundedCornerShape(24.dp),
             color = MelodyColors.CardBackground
         ) {

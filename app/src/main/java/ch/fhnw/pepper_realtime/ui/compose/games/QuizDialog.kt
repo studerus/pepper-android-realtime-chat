@@ -2,6 +2,7 @@ package ch.fhnw.pepper_realtime.ui.compose.games
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -15,8 +16,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.delay
 
 /**
@@ -61,108 +60,101 @@ fun QuizDialog(
         }
     }
     
-    Dialog(
-        onDismissRequest = { /* Not cancelable */ },
-        properties = DialogProperties(
-            dismissOnBackPress = false,
-            dismissOnClickOutside = false,
-            usePlatformDefaultWidth = false
-        )
+    // Fullscreen overlay instead of Dialog to preserve immersive mode
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
     ) {
-        Surface(
-            modifier = Modifier.fillMaxSize(),
-            color = MaterialTheme.colorScheme.background
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            Column(
+            // Question
+            Text(
+                text = question,
+                fontSize = 34.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                lineHeight = 42.sp,
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(24.dp)
-                    .verticalScroll(rememberScrollState()),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+                    .fillMaxWidth()
+                    .padding(bottom = 24.dp)
+            )
+            
+            // Options Grid (2x2)
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Question
-                Text(
-                    text = question,
-                    fontSize = 34.sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center,
-                    lineHeight = 42.sp,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 24.dp)
-                )
-                
-                // Options Grid (2x2)
-                Column(
+                // Row 1
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // Row 1
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        QuizOptionButton(
-                            text = options.getOrNull(0) ?: "",
-                            index = 0,
-                            answerState = answerState,
-                            correctIndex = correctIndex,
-                            enabled = answerState is AnswerState.NotAnswered,
-                            modifier = Modifier.weight(1f),
-                            onClick = {
-                                val isCorrect = options[0] == correctAnswer
-                                answerState = AnswerState.Answered(0, isCorrect)
-                                onAnswered(options[0])
-                            }
-                        )
-                        QuizOptionButton(
-                            text = options.getOrNull(1) ?: "",
-                            index = 1,
-                            answerState = answerState,
-                            correctIndex = correctIndex,
-                            enabled = answerState is AnswerState.NotAnswered,
-                            modifier = Modifier.weight(1f),
-                            onClick = {
-                                val isCorrect = options[1] == correctAnswer
-                                answerState = AnswerState.Answered(1, isCorrect)
-                                onAnswered(options[1])
-                            }
-                        )
-                    }
-                    
-                    // Row 2
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        QuizOptionButton(
-                            text = options.getOrNull(2) ?: "",
-                            index = 2,
-                            answerState = answerState,
-                            correctIndex = correctIndex,
-                            enabled = answerState is AnswerState.NotAnswered,
-                            modifier = Modifier.weight(1f),
-                            onClick = {
-                                val isCorrect = options[2] == correctAnswer
-                                answerState = AnswerState.Answered(2, isCorrect)
-                                onAnswered(options[2])
-                            }
-                        )
-                        QuizOptionButton(
-                            text = options.getOrNull(3) ?: "",
-                            index = 3,
-                            answerState = answerState,
-                            correctIndex = correctIndex,
-                            enabled = answerState is AnswerState.NotAnswered,
-                            modifier = Modifier.weight(1f),
-                            onClick = {
-                                val isCorrect = options[3] == correctAnswer
-                                answerState = AnswerState.Answered(3, isCorrect)
-                                onAnswered(options[3])
-                            }
-                        )
-                    }
+                    QuizOptionButton(
+                        text = options.getOrNull(0) ?: "",
+                        index = 0,
+                        answerState = answerState,
+                        correctIndex = correctIndex,
+                        enabled = answerState is AnswerState.NotAnswered,
+                        modifier = Modifier.weight(1f),
+                        onClick = {
+                            val isCorrect = options[0] == correctAnswer
+                            answerState = AnswerState.Answered(0, isCorrect)
+                            onAnswered(options[0])
+                        }
+                    )
+                    QuizOptionButton(
+                        text = options.getOrNull(1) ?: "",
+                        index = 1,
+                        answerState = answerState,
+                        correctIndex = correctIndex,
+                        enabled = answerState is AnswerState.NotAnswered,
+                        modifier = Modifier.weight(1f),
+                        onClick = {
+                            val isCorrect = options[1] == correctAnswer
+                            answerState = AnswerState.Answered(1, isCorrect)
+                            onAnswered(options[1])
+                        }
+                    )
+                }
+                
+                // Row 2
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    QuizOptionButton(
+                        text = options.getOrNull(2) ?: "",
+                        index = 2,
+                        answerState = answerState,
+                        correctIndex = correctIndex,
+                        enabled = answerState is AnswerState.NotAnswered,
+                        modifier = Modifier.weight(1f),
+                        onClick = {
+                            val isCorrect = options[2] == correctAnswer
+                            answerState = AnswerState.Answered(2, isCorrect)
+                            onAnswered(options[2])
+                        }
+                    )
+                    QuizOptionButton(
+                        text = options.getOrNull(3) ?: "",
+                        index = 3,
+                        answerState = answerState,
+                        correctIndex = correctIndex,
+                        enabled = answerState is AnswerState.NotAnswered,
+                        modifier = Modifier.weight(1f),
+                        onClick = {
+                            val isCorrect = options[3] == correctAnswer
+                            answerState = AnswerState.Answered(3, isCorrect)
+                            onAnswered(options[3])
+                        }
+                    )
                 }
             }
         }

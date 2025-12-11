@@ -22,8 +22,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import ch.fhnw.pepper_realtime.R
 import ch.fhnw.pepper_realtime.tools.games.MemoryCard
 import ch.fhnw.pepper_realtime.ui.MemoryGameInternalState
@@ -36,42 +34,38 @@ private object MemoryColors {
     val Background = Color(0xFFF5F5F5)
 }
 
+/**
+ * Memory Game rendered as a fullscreen overlay (not Dialog) to preserve immersive mode.
+ */
 @Composable
 fun MemoryGameDialog(
     state: MemoryGameInternalState,
     onCardClick: (Int) -> Unit,
     onDismiss: () -> Unit
 ) {
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(
-            usePlatformDefaultWidth = false,
-            dismissOnBackPress = false,
-            dismissOnClickOutside = false
-        )
+    // Fullscreen overlay instead of Dialog to preserve immersive mode
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MemoryColors.Background)
     ) {
-        Surface(
-            modifier = Modifier.fillMaxSize(),
-            color = MemoryColors.Background
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                // Header
-                MemoryGameHeader(state, onDismiss)
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                // Grid
-                Box(modifier = Modifier.weight(1f)) {
-                    MemoryGameGrid(
-                        cards = state.cards,
-                        onCardClick = onCardClick
-                    )
-                }
+            // Header
+            MemoryGameHeader(state, onDismiss)
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Grid
+            Box(modifier = Modifier.weight(1f)) {
+                MemoryGameGrid(
+                    cards = state.cards,
+                    onCardClick = onCardClick
+                )
             }
         }
     }
