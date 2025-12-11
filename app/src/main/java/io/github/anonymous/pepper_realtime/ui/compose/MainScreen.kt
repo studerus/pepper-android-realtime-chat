@@ -56,6 +56,7 @@ fun MainScreen(
     val statusText by viewModel.statusText.collectAsStateWithLifecycle()
     val isMuted by viewModel.isMuted.collectAsStateWithLifecycle()
     val messages by viewModel.messageList.collectAsStateWithLifecycle()
+    val partialSpeechResult by viewModel.partialSpeechResult.collectAsStateWithLifecycle()
     val isWarmingUp by viewModel.isWarmingUp.collectAsStateWithLifecycle()
     val navigationState by viewModel.navigationState.collectAsStateWithLifecycle()
     val dashboardState by viewModel.dashboardState.collectAsStateWithLifecycle()
@@ -170,33 +171,23 @@ fun MainScreen(
                         Icon(Icons.Default.Close, contentDescription = stringResource(R.string.content_desc_interrupt))
                     }
                 }
-            },
-            bottomBar = {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(
-                            if (isMuted) Color(0xFFE57373)
-                            else Color(0xFFDDDDDD)
-                        )
-                        .clickable(onClick = onStatusClick)
-                        .padding(16.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = statusText,
-                        color = Color.Black,
-                        fontSize = 24.sp,
-                        textAlign = TextAlign.Center
-                    )
-                }
             }
         ) { innerPadding ->
             Box(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
                 // Main Chat Content
                 ChatScreen(
                     messages = messages,
+                    partialSpeechResult = partialSpeechResult,
                     onImageClick = { url -> overlayImageUrl = url }
+                )
+
+                // Status Capsule (replacing bottom bar)
+                StatusCapsule(
+                    statusText = statusText,
+                    isMuted = isMuted,
+                    isListening = statusText.contains("Listening", ignoreCase = true) || statusText.contains("Zuhören", ignoreCase = true),
+                    onClick = onStatusClick,
+                    modifier = Modifier.align(Alignment.BottomCenter)
                 )
 
                 // ---------------- Overlays & Dialogs ----------------

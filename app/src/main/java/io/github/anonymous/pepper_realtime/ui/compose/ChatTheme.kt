@@ -13,7 +13,7 @@ object ChatColors {
     // Harmonized Clean Tech Colors
     val UserBubble = Color(0xFF1E40AF) // professional_blue
     val UserBubbleText = Color.White
-    val RobotBubble = Color(0xFFFFFFFF) // White
+    val RobotBubble = Color(0xFFE5E5EA) // Light Gray (iOS style) for contrast
     val RobotBubbleText = Color(0xFF1F2937) // Dark Grey
     val Background = Color(0xFFF3F4F6) // Cool Gray 100
     

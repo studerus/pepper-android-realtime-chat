@@ -35,6 +35,14 @@ class ChatViewModel @Inject constructor(
         private const val TAG = "ChatViewModel"
     }
 
+    // State for partial speech results (streaming STT)
+    private val _partialSpeechResult = MutableStateFlow<String?>(null)
+    val partialSpeechResult = _partialSpeechResult.asStateFlow()
+    
+    fun setPartialSpeechResult(text: String?) {
+        _partialSpeechResult.value = text
+    }
+
     init {
         // Provide coroutine scope to game managers
         ticTacToeGameManager.setCoroutineScope(viewModelScope)

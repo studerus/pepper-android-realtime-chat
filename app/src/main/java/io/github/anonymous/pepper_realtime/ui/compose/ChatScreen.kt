@@ -19,6 +19,7 @@ import androidx.compose.runtime.setValue
 import kotlinx.coroutines.delay
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.draw.alpha
 import io.github.anonymous.pepper_realtime.ui.ChatMessage
 
 /**
@@ -28,6 +29,7 @@ import io.github.anonymous.pepper_realtime.ui.ChatMessage
 @Composable
 fun ChatScreen(
     messages: List<ChatMessage>,
+    partialSpeechResult: String? = null,
     onImageClick: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -66,25 +68,28 @@ fun ChatScreen(
     }
     
     // Smart auto-scroll logic
-    LaunchedEffect(lastMessageId, lastContentLength) {
-        if (messages.isEmpty() || lastMessageId == null) return@LaunchedEffect
+    LaunchedEffect(lastMessageId, lastContentLength, partialSpeechResult) {
+        if (messages.isEmpty() && partialSpeechResult == null) return@LaunchedEffect
         
         val isNewMessage = lastMessageId != previousLastMessageId
+        val hasPartialResult = partialSpeechResult != null
         
         // Scroll condition:
         // 1. ALWAYS scroll for a NEW message
         // 2. Scroll for UPDATES (streaming) only if we were already at the bottom
-        if (isNewMessage || isAtBottom) {
-            val lastIndex = messages.size - 1
+        // 3. Scroll if partial result appears/updates
+        if (isNewMessage || isAtBottom || hasPartialResult) {
+            val lastIndex = messages.size + if (hasPartialResult) 0 else -1
             
-            if (isNewMessage) {
-                // For new messages, animate smoothly
-                delay(50) // Allow layout to calculate size
-                listState.animateScrollToItem(lastIndex)
-            } else {
-                // For streaming updates (content growing), snap to bottom to keep it visible
-                // This fixes the "long message cut off" issue
-                listState.scrollToItem(lastIndex, scrollOffset = Int.MAX_VALUE)
+            if (lastIndex >= 0) {
+                if (isNewMessage || hasPartialResult) {
+                    // For new messages or partial result, animate smoothly
+                    delay(50) // Allow layout to calculate size
+                    listState.animateScrollToItem(lastIndex)
+                } else {
+                    // For streaming updates (content growing), snap to bottom to keep it visible
+                    listState.scrollToItem(lastIndex, scrollOffset = Int.MAX_VALUE)
+                }
             }
         }
         
@@ -110,6 +115,18 @@ fun ChatScreen(
                         message = message,
                         onImageClick = onImageClick
                     )
+                }
+                
+                // Render streaming partial result
+                if (!partialSpeechResult.isNullOrBlank()) {
+                    item {
+                        Box(modifier = Modifier.alpha(0.6f)) {
+                            ChatMessageItem(
+                                message = ChatMessage(partialSpeechResult, ChatMessage.Sender.USER),
+                                onImageClick = {}
+                            )
+                        }
+                    }
                 }
             }
         }

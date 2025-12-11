@@ -2,17 +2,17 @@
     <string name="app_name">PepperDialog</string>
     
     <!-- Status Messages -->
-    <string name="status_listening">Listening…</string>
+    <string name="status_listening">Listening</string>
     <string name="status_thinking">Thinking…</string>
     <string name="app_paused">App paused</string>
-    <string name="status_speaking_tap_to_interrupt">Speaking — tap to interrupt: </string>
+    <string name="status_speaking_tap_to_interrupt">Speaking</string>
     <string name="status_updating_recognizer">Updating recognizer…</string>
     <string name="status_starting_new_session">Starting new session…</string>
     <string name="status_reconnecting">Reconnecting…</string>
     <string name="status_recognizer_not_ready">Recognizer not ready.</string>
     <string name="status_warming_up">Warming up recognizer…</string>
     <string name="status_please_wait">Please wait…</string>
-    <string name="status_muted_tap_to_unmute">Muted — tap to unmute</string>
+    <string name="status_muted_tap_to_unmute">Muted</string>
     
     <!-- Navigation Status Messages -->
     <string name="nav_map_none">🗺️ Map: none</string>

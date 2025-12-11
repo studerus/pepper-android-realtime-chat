@@ -50,7 +50,7 @@ fun MessageBubble(
             Text(
                 text = message.message,
                 color = if (isUser) ChatColors.UserBubbleText else ChatColors.RobotBubbleText,
-                fontSize = 18.sp,
+                fontSize = 24.sp,
                 textAlign = if (isUser) TextAlign.End else TextAlign.Start
             )
         }

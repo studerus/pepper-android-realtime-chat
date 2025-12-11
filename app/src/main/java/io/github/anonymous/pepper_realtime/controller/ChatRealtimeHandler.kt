@@ -59,18 +59,12 @@ class ChatRealtimeHandler(
         val isFirstDelta = responseId != viewModel.lastChatBubbleResponseId
         if (isFirstDelta) {
             Log.d(TAG, "First transcript delta received for response: $responseId, expectingFinalAnswer=${viewModel.isExpectingFinalAnswerAfterToolCall}")
+            // Set status to Speaking (without transcript)
+            val speakingText = viewModel.getApplication<android.app.Application>().getString(R.string.status_speaking_tap_to_interrupt)
+            viewModel.setStatusText(speakingText)
         }
 
-        // Update status bar with streaming transcript (like LISTENING shows partial recognition)
-        val speakingPrefix = viewModel.getApplication<android.app.Application>().getString(R.string.status_speaking_tap_to_interrupt) + " "
-        val currentStatus = viewModel.statusText.value
-        if (!currentStatus.startsWith(speakingPrefix)) {
-            // First delta - set initial status with this delta
-            viewModel.setStatusText(speakingPrefix + (delta ?: ""))
-        } else {
-            // Subsequent deltas - append to existing status
-            viewModel.setStatusText(currentStatus + (delta ?: ""))
-        }
+        // Status bar update removed to rely on streaming bubbles
 
         // Fix for double bubble creation:
         // Check if we are already handling this response ID.
@@ -101,9 +95,8 @@ class ChatRealtimeHandler(
         if (responseId == viewModel.cancelledResponseId) {
             return
         }
-        // Update status bar with complete transcript
-        val speakingPrefix = viewModel.getApplication<android.app.Application>().getString(R.string.status_speaking_tap_to_interrupt) + " "
-        viewModel.setStatusText(speakingPrefix + (transcript ?: ""))
+        
+        // Status bar update removed - transcript is in bubble
 
         // Update chat bubble with complete transcript
         if (isLastMessageFromRobot() && responseId == viewModel.lastChatBubbleResponseId) {

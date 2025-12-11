@@ -22,6 +22,9 @@ class ChatSpeechListener(
     }
 
     override fun onRecognizedText(text: String) {
+        // Clear streaming bubble immediately
+        viewModel.setPartialSpeechResult(null)
+
         // Gate STT: only accept in LISTENING state and when not muted
         if (turnManager != null && turnManager.state != TurnManager.State.LISTENING) {
             Log.i(TAG, "Ignoring STT result because state=${turnManager.state}")
@@ -43,11 +46,8 @@ class ChatSpeechListener(
         if (audioInputController?.isMuted == true) {
             return
         }
-
-        val currentText = viewModel.statusText.value
-        if (currentText.startsWith("Listening")) {
-            viewModel.setStatusText(getString(R.string.status_listening_partial, partialText))
-        }
+        // Stream text to fake bubble
+        viewModel.setPartialSpeechResult(partialText)
     }
 
     override fun onError(errorMessage: String?) {
@@ -70,6 +70,7 @@ class ChatSpeechListener(
 
     override fun onStopped() {
         audioInputController?.setSttRunning(false)
+        viewModel.setPartialSpeechResult(null)
     }
 
     override fun onReady() {
