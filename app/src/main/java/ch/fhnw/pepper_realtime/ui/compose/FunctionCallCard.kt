@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ch.fhnw.pepper_realtime.R
 import ch.fhnw.pepper_realtime.ui.ChatMessage
+import org.json.JSONObject
 
 /**
  * Composable for rendering function call messages with expandable details.
@@ -117,13 +118,28 @@ fun FunctionCallCard(
                     )
                 }
                 
-                // Summary
-                Text(
-                    text = generateSummary(message.functionName, hasResult),
-                    fontSize = 12.sp,
-                    color = ChatColors.FunctionCallSummary,
-                    modifier = Modifier.padding(start = 24.dp, top = 4.dp)
-                )
+                // Summary with duration
+                Row(
+                    modifier = Modifier.padding(start = 24.dp, top = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = generateSummary(message.functionName, hasResult),
+                        fontSize = 12.sp,
+                        color = ChatColors.FunctionCallSummary
+                    )
+                    
+                    // Show duration if completed
+                    if (hasResult && message.functionStartTime > 0 && message.functionEndTime > 0) {
+                        val durationMs = message.functionEndTime - message.functionStartTime
+                        val durationText = formatDuration(durationMs)
+                        Text(
+                            text = " • $durationText",
+                            fontSize = 12.sp,
+                            color = ChatColors.FunctionCallSummary.copy(alpha = 0.7f)
+                        )
+                    }
+                }
                 
                 // Expandable details
                 AnimatedVisibility(
@@ -232,12 +248,46 @@ private fun generateSummary(functionName: String?, hasResult: Boolean): String {
     }
 }
 
+/**
+ * Formats duration in a human-readable format.
+ */
+private fun formatDuration(durationMs: Long): String {
+    return when {
+        durationMs < 1000 -> "${durationMs}ms"
+        durationMs < 60_000 -> "%.1fs".format(durationMs / 1000.0)
+        else -> {
+            val minutes = durationMs / 60_000
+            val seconds = (durationMs % 60_000) / 1000
+            "${minutes}m ${seconds}s"
+        }
+    }
+}
+
+/**
+ * Formats JSON as readable key-value pairs, one per line.
+ * Removes JSON syntax (braces, quotes) for cleaner display.
+ */
 private fun formatJson(json: String?): String {
-    if (json.isNullOrEmpty()) return ""
+    if (json.isNullOrEmpty() || json == "{}" || json == "null") return "—"
     
-    return json.replace(",", ",\n")
-        .replace("{", "{\n  ")
-        .replace("}", "\n}")
-        .replace("\":", "\": ")
+    return try {
+        val obj = JSONObject(json)
+        val lines = mutableListOf<String>()
+        
+        for (key in obj.keys()) {
+            val value = obj.get(key)
+            val displayValue = when (value) {
+                is String -> value
+                JSONObject.NULL -> "null"
+                else -> value.toString()
+            }
+            lines.add("$key: $displayValue")
+        }
+        
+        if (lines.isEmpty()) "—" else lines.joinToString("\n")
+    } catch (e: Exception) {
+        // Fallback: return raw JSON if parsing fails
+        json
+    }
 }
 

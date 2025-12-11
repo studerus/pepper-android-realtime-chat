@@ -28,6 +28,8 @@ class ChatMessage private constructor(
     var functionArgs: String? = null
     var functionResult: String? = null
     var isExpanded: Boolean = false
+    var functionStartTime: Long = 0L  // System.currentTimeMillis() when function call starts
+    var functionEndTime: Long = 0L    // System.currentTimeMillis() when result arrives
 
     /**
      * Creates a shallow copy of the message with updated text.
@@ -42,12 +44,15 @@ class ChatMessage private constructor(
             it.functionArgs = this.functionArgs
             it.functionResult = this.functionResult
             it.isExpanded = this.isExpanded
+            it.functionStartTime = this.functionStartTime
+            it.functionEndTime = this.functionEndTime
         }
     }
 
     /**
      * Creates a shallow copy of the message with updated function result.
      * Preserves the UUID to maintain item identity for DiffUtil.
+     * Automatically sets the end time to measure execution duration.
      */
     fun copyWithFunctionResult(result: String): ChatMessage {
         return ChatMessage(sender, type, uuid).also {
@@ -58,18 +63,22 @@ class ChatMessage private constructor(
             it.functionArgs = this.functionArgs
             it.functionResult = result
             it.isExpanded = this.isExpanded
+            it.functionStartTime = this.functionStartTime
+            it.functionEndTime = System.currentTimeMillis()
         }
     }
 
     companion object {
         /**
-         * Static factory for function call messages
+         * Static factory for function call messages.
+         * Automatically sets the start time for duration measurement.
          */
         fun createFunctionCall(functionName: String, functionArgs: String, sender: Sender): ChatMessage {
             return ChatMessage(sender, Type.FUNCTION_CALL, UUID.randomUUID().toString()).also {
                 it.functionName = functionName
                 it.functionArgs = functionArgs
                 it.message = "" // Will be generated in display
+                it.functionStartTime = System.currentTimeMillis()
             }
         }
     }
