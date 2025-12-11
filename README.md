@@ -1,5 +1,7 @@
 # Pepper Realtime AI Assistant
 
+[![Android CI](https://github.com/studerus/pepper-android-realtime-chat/actions/workflows/android-ci.yml/badge.svg)](https://github.com/studerus/pepper-android-realtime-chat/actions/workflows/android-ci.yml)
+
 A multimodal AI system for the Pepper robot powered by OpenAI's Realtime API. It enables natural interactions through voice, touch, vision, and movement, with advanced function calling for robot control (navigation, gestures, animations), information tools (search, weather), and interactive tablet activities (quizzes, memory games, tic-tac-toe, drawing game).
 
 <p align="center">
