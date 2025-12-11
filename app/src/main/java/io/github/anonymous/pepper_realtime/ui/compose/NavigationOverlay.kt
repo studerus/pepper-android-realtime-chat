@@ -56,7 +56,7 @@ fun NavigationOverlay(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color(0xFF202020))
+                        .background(Color.White)
                         .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
@@ -65,20 +65,20 @@ fun NavigationOverlay(
                         Icon(
                             imageVector = Icons.Default.LocationOn,
                             contentDescription = null,
-                            tint = Color.White
+                            tint = Color(0xFF1F2937)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = stringResource(R.string.nav_overlay_title),
                             style = MaterialTheme.typography.titleLarge,
-                            color = Color.White
+                            color = Color(0xFF1F2937)
                         )
                     }
                     IconButton(onClick = onClose) {
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = stringResource(R.string.content_desc_close),
-                            tint = Color.White
+                            tint = Color(0xFF1F2937)
                         )
                     }
                 }

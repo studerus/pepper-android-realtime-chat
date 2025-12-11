@@ -27,10 +27,10 @@ import io.github.anonymous.pepper_realtime.ui.DashboardState
 import java.util.Locale
 
 private object DashboardColors {
-    val Background = Color(0xFFFFF8E1) // Beige/Cream
-    val HeaderBackground = Color(0xFFE0E0E0) // Light Gray
-    val TextDark = Color.Black
-    val TextLight = Color.DarkGray
+    val Background = Color.White
+    val HeaderBackground = Color(0xFFF3F4F6) // Very light gray for table header
+    val TextDark = Color(0xFF1F2937) // Matches top bar dark grey
+    val TextLight = Color.Gray
     val CardBackground = Color.White
 }
 
@@ -73,7 +73,7 @@ fun DashboardOverlay(
                             )
                         }
                         IconButton(onClick = onClose) {
-                            Icon(Icons.Default.Close, contentDescription = stringResource(R.string.content_desc_close), tint = DashboardColors.TextLight)
+                            Icon(Icons.Default.Close, contentDescription = stringResource(R.string.content_desc_close), tint = DashboardColors.TextDark)
                         }
                     }
                     

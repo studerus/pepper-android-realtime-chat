@@ -10,14 +10,15 @@ import androidx.compose.ui.text.font.FontWeight
 
 // Colors matching existing XML theme
 object ChatColors {
-    val UserBubble = Color(0xFF007AFF)
+    // Harmonized Clean Tech Colors
+    val UserBubble = Color(0xFF1E40AF) // professional_blue
     val UserBubbleText = Color.White
-    val RobotBubble = Color(0xFFE5E5EA)  // Light gray, distinct from background
-    val RobotBubbleText = Color.Black
-    val Background = Color(0xFFF0F0F0)
+    val RobotBubble = Color(0xFFFFFFFF) // White
+    val RobotBubbleText = Color(0xFF1F2937) // Dark Grey
+    val Background = Color(0xFFF3F4F6) // Cool Gray 100
     
     // Function call colors
-    val FunctionCallBackground = Color(0xFFF8FAFC)
+    val FunctionCallBackground = Color(0xFFFFFFFF) // White cards
     val FunctionCallTitle = Color(0xFF1E3A8A)
     val FunctionCallSummary = Color(0xFF64748B)
     val FunctionCallStatusSuccess = Color(0xFF10B981)
@@ -25,7 +26,7 @@ object ChatColors {
     val FunctionCallIcon = Color(0xFF3B82F6)
     val FunctionCallLabel = Color(0xFF374151)
     val FunctionCallCode = Color(0xFF1F2937)
-    val CodeBackground = Color(0xFFF8FAFC)
+    val CodeBackground = Color(0xFFF3F4F6) // Matches background
     
     // Primary theme colors - Professional Blue
     val Primary = Color(0xFF1E40AF)

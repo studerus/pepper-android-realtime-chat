@@ -114,29 +114,49 @@ fun MainScreen(
                 CenterAlignedTopAppBar(
                     title = { Text(stringResource(R.string.main_title)) },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                        containerColor = Color(0xFF1E40AF),
-                        titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                        actionIconContentColor = MaterialTheme.colorScheme.onPrimary,
-                        navigationIconContentColor = MaterialTheme.colorScheme.onPrimary
+                        containerColor = Color.White,
+                        titleContentColor = Color(0xFF1F2937),
+                        actionIconContentColor = Color(0xFF1F2937),
+                        navigationIconContentColor = Color(0xFF1F2937)
                     ),
                     actions = {
                         IconButton(onClick = { viewModel.toggleNavigationOverlay() }) {
-                            Icon(Icons.Default.LocationOn, contentDescription = stringResource(R.string.content_desc_navigation_status))
+                            Icon(
+                                Icons.Default.LocationOn,
+                                contentDescription = stringResource(R.string.content_desc_navigation_status),
+                                modifier = Modifier.size(32.dp)
+                            )
                         }
                         IconButton(onClick = { viewModel.toggleDashboard() }) {
-                            Icon(Icons.Default.Visibility, contentDescription = stringResource(R.string.content_desc_perception_dashboard))
+                            Icon(
+                                Icons.Default.Visibility,
+                                contentDescription = stringResource(R.string.content_desc_perception_dashboard),
+                                modifier = Modifier.size(32.dp)
+                            )
                         }
                         IconButton(onClick = onNewChat) {
-                            Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.content_desc_new_chat))
+                            Icon(
+                                Icons.Default.Refresh,
+                                contentDescription = stringResource(R.string.content_desc_new_chat),
+                                modifier = Modifier.size(32.dp)
+                            )
                         }
                         IconButton(onClick = {
                             scope.launch { drawerState.open() }
                             settingsViewModel.beginEditing()
                         }) {
-                            Icon(Icons.Default.Build, contentDescription = stringResource(R.string.content_desc_settings))
+                            Icon(
+                                Icons.Default.Build,
+                                contentDescription = stringResource(R.string.content_desc_settings),
+                                modifier = Modifier.size(32.dp)
+                            )
                         }
                         IconButton(onClick = { showExitDialog = true }) {
-                            Icon(Icons.Default.ExitToApp, contentDescription = stringResource(R.string.content_desc_exit))
+                            Icon(
+                                Icons.Default.ExitToApp,
+                                contentDescription = stringResource(R.string.content_desc_exit),
+                                modifier = Modifier.size(32.dp)
+                            )
                         }
                     }
                 )
