@@ -456,10 +456,10 @@ This app sends data to third-party services when features are used:
 1. **Launch** the app on your Pepper robot
 2. **Wait** for "Ready" status
 3. **Speak** naturally to start conversation
-4. **Tap** status bar to interrupt during robot speech
-5. **Tap** dashboard symbol in status bar to toggle Human Perception Dashboard overlay
+4. **Tap** the **Status Capsule** at the bottom to interrupt robot speech or mute/unmute
+5. **Tap** dashboard icon (👁️) in the top toolbar to toggle Human Perception Dashboard overlay
 6. **Touch** robot's head, hands, or bumpers for physical interaction
-7. **Tap** navigation icon (📍) in toolbar to show/hide the map preview with saved locations
+7. **Tap** navigation icon (📍) in top toolbar to show/hide the map preview with saved locations
 8. **Tap** function call cards in chat to view detailed arguments and results
 9. **Tap** vision analysis photos in chat to view them in full-screen overlay
 
@@ -685,8 +685,8 @@ Due to Pepper's hardware limitations (no echo cancellation), the app uses an int
 - **Open During Listening** - Microphone only active when waiting for user input
 - **Hardware Constraint** - Necessary because Pepper's older hardware lacks echo cancellation
 
-### Status Bar Interruption Controls
-- **First Tap** (during robot speech) - Immediately stops current response, clears audio queue, cancels generation, AND mutes microphone ("Muted — tap to unmute" status)
+### Status Capsule Controls
+- **First Tap** (during robot speech) - Immediately stops current response, clears audio queue, cancels generation, AND mutes microphone ("Muted" status)
 - **Second Tap** (when muted) - Unmutes and returns to listening mode
 
 ### Automatic Response Interruption
