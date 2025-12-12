@@ -1,5 +1,6 @@
 package ch.fhnw.pepper_realtime.ui.compose
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -28,11 +29,12 @@ import ch.fhnw.pepper_realtime.ui.DashboardState
 import java.util.Locale
 
 private object DashboardColors {
-    val Background = Color.White
-    val HeaderBackground = Color(0xFFF3F4F6) // Very light gray for table header
+    val Background = Color(0xFFF9FAFB) // Very light gray (almost white) for container
+    val HeaderBackground = Color(0xFFE5E7EB) // Slightly darker gray for header
     val TextDark = Color(0xFF1F2937) // Matches top bar dark grey
     val TextLight = Color.Gray
     val CardBackground = Color.White
+    val BorderColor = Color(0xFFE5E7EB)
 }
 
 private val ColWeights = listOf(0.12f, 0.12f, 0.08f, 0.1f, 0.1f, 0.1f, 0.1f, 0.14f, 0.14f)
@@ -170,6 +172,7 @@ fun HumanDetectionItem(human: PerceptionData.HumanInfo) {
     Card(
         colors = CardDefaults.cardColors(containerColor = DashboardColors.CardBackground),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = BorderStroke(1.dp, DashboardColors.BorderColor),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(8.dp)) {
