@@ -48,24 +48,24 @@ fun MemoryGameDialog(
         modifier = Modifier
             .fillMaxSize()
             .background(MemoryColors.Background)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Header
-            MemoryGameHeader(state, onDismiss)
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Grid
-            Box(modifier = Modifier.weight(1f)) {
-                MemoryGameGrid(
-                    cards = state.cards,
-                    onCardClick = onCardClick
-                )
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Header
+                MemoryGameHeader(state, onDismiss)
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Grid
+                Box(modifier = Modifier.weight(1f)) {
+                    MemoryGameGrid(
+                        cards = state.cards,
+                        onCardClick = onCardClick
+                    )
             }
         }
     }

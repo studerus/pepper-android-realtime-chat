@@ -123,9 +123,9 @@ fun FunctionCallCard(
                     modifier = Modifier.padding(start = 24.dp, top = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = generateSummary(message.functionName, hasResult),
-                        fontSize = 12.sp,
+                Text(
+                    text = generateSummary(message.functionName, hasResult),
+                    fontSize = 12.sp,
                         color = ChatColors.FunctionCallSummary
                     )
                     
@@ -137,7 +137,7 @@ fun FunctionCallCard(
                             text = " • $durationText",
                             fontSize = 12.sp,
                             color = ChatColors.FunctionCallSummary.copy(alpha = 0.7f)
-                        )
+                )
                     }
                 }
                 

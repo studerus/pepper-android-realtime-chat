@@ -2,9 +2,11 @@ package ch.fhnw.pepper_realtime.ui.compose
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Person
@@ -12,6 +14,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.res.stringResource
@@ -40,13 +43,26 @@ fun DashboardOverlay(
     onClose: () -> Unit
 ) {
     if (state.isVisible) {
-        // Fullscreen overlay instead of Dialog to preserve immersive mode
+        // Semi-transparent overlay with floating card at top
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(DashboardColors.Background)
+                .background(Color.Black.copy(alpha = 0.3f))
+                .clickable(onClick = onClose),
+            contentAlignment = Alignment.TopCenter
         ) {
-            Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+            // Floating card that takes only needed space
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 64.dp, start = 16.dp, end = 16.dp) // Below TopAppBar
+                    .heightIn(max = 400.dp) // Max height, but can be smaller
+                    .clickable(enabled = false) {}, // Prevent click-through
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = DashboardColors.Background),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
                     // Header Title
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -55,32 +71,37 @@ fun DashboardOverlay(
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
-                                Icons.Default.Person,
+                                imageVector = Icons.Default.Person,
                                 contentDescription = null,
                                 tint = DashboardColors.TextDark,
-                                modifier = Modifier.size(32.dp)
+                                modifier = Modifier.size(28.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = stringResource(R.string.perception_dashboard_title),
+                                text = "Human Perception Dashboard",
                                 color = DashboardColors.TextDark,
-                                fontSize = 24.sp,
+                                fontSize = 20.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         }
                         IconButton(onClick = onClose) {
-                            Icon(Icons.Default.Close, contentDescription = stringResource(R.string.content_desc_close), tint = DashboardColors.TextDark)
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = stringResource(R.string.content_desc_close),
+                                tint = DashboardColors.TextDark,
+                                modifier = Modifier.size(28.dp)
+                            )
                         }
                     }
                     
-                    Spacer(modifier = Modifier.height(16.dp))
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
                     // Table Header
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(DashboardColors.HeaderBackground)
-                            .padding(vertical = 8.dp, horizontal = 4.dp),
+                            .background(DashboardColors.HeaderBackground, RoundedCornerShape(4.dp))
+                            .padding(vertical = 6.dp, horizontal = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         val displayHeaders = listOf(
@@ -99,7 +120,7 @@ fun DashboardOverlay(
                             Text(
                                 text = title,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp,
+                                fontSize = 12.sp,
                                 color = DashboardColors.TextLight,
                                 modifier = Modifier.weight(ColWeights[index]),
                                 textAlign = if (index > 1) TextAlign.Center else TextAlign.Start
@@ -107,16 +128,22 @@ fun DashboardOverlay(
                         }
                     }
 
+                    Spacer(modifier = Modifier.height(8.dp))
+
                     // Humans List
                     if (state.humans.isEmpty()) {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text(stringResource(R.string.no_humans_detected), color = DashboardColors.TextLight, fontSize = 18.sp)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 24.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(stringResource(R.string.no_humans_detected), color = DashboardColors.TextLight, fontSize = 16.sp)
                         }
                     } else {
                         LazyColumn(
                             verticalArrangement = Arrangement.spacedBy(8.dp),
-                            contentPadding = PaddingValues(vertical = 8.dp),
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f, fill = false)
                         ) {
                             items(state.humans) { human ->
                                 HumanDetectionItem(human)
@@ -128,12 +155,13 @@ fun DashboardOverlay(
                     Text(
                         text = stringResource(R.string.last_update_format, state.lastUpdate),
                         color = DashboardColors.TextLight,
-                        fontSize = 14.sp,
+                        fontSize = 12.sp,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
                     )
                 }
             }
+        }
     }
 }
 
