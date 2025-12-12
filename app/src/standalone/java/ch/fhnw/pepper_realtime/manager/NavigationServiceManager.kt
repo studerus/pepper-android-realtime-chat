@@ -15,9 +15,23 @@ import ch.fhnw.pepper_realtime.service.PerceptionService
  */
 class NavigationServiceManager(@Suppress("UNUSED_PARAMETER") movementController: MovementController?) {
 
+    interface NavigationServiceListener {
+        fun onNavigationPhaseChanged(phase: NavigationPhase)
+        fun onNavigationStatusUpdate(mapStatus: String?, localizationStatus: String?)
+    }
+
+    enum class NavigationPhase {
+        NORMAL_OPERATION,
+        LOCALIZATION_MODE,
+        NAVIGATION_MODE
+    }
+
     companion object {
         private const val TAG = "NavigationServiceManager[STUB]"
     }
+
+    @Suppress("unused")
+    private var listener: NavigationServiceListener? = null
 
     // Lock to prevent parallel navigation process calls (simulated)
     @Volatile private var _isNavigationProcessActive = false
@@ -25,6 +39,14 @@ class NavigationServiceManager(@Suppress("UNUSED_PARAMETER") movementController:
 
     init {
         Log.d(TAG, "🤖 [SIMULATED] NavigationServiceManager created")
+    }
+
+    /**
+     * Set the navigation service listener (stub - does nothing in standalone)
+     */
+    fun setListener(listener: NavigationServiceListener?) {
+        this.listener = listener
+        Log.d(TAG, "🤖 [SIMULATED] Navigation listener set")
     }
 
     /**
