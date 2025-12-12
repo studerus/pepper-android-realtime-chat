@@ -118,7 +118,7 @@ fun MicrophoneButton(
     
     Box(
         modifier = modifier
-            .size(48.dp)
+            .size(60.dp) // Match height of StatusCapsule
             .shadow(8.dp, CircleShape)
             .clip(CircleShape)
             .background(backgroundColor)
@@ -130,7 +130,7 @@ fun MicrophoneButton(
             imageVector = icon,
             contentDescription = contentDescription,
             tint = iconColor,
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(28.dp) // Slightly larger icon for bigger button
         )
     }
 }
