@@ -28,7 +28,6 @@ import androidx.compose.ui.unit.sp
 import ch.fhnw.pepper_realtime.R
 import ch.fhnw.pepper_realtime.data.MapGraphInfo
 import ch.fhnw.pepper_realtime.data.SavedLocation
-import ch.fhnw.pepper_realtime.ui.MapState
 import ch.fhnw.pepper_realtime.ui.NavigationUiState
 import kotlin.math.cos
 import kotlin.math.sin
@@ -40,6 +39,18 @@ fun NavigationOverlay(
 ) {
     if (!state.isVisible) return
 
+    // Calculate card width based on map aspect ratio
+    // Map canvas height is approximately 350dp (500dp total - header - status - paddings)
+    val mapCanvasHeight = 350f
+    val cardWidth = if (state.mapBitmap != null) {
+        val aspectRatio = state.mapBitmap.width.toFloat() / state.mapBitmap.height.toFloat()
+        // Calculate map width + padding (32dp each side) + extra for UI elements
+        val calculatedWidth = (mapCanvasHeight * aspectRatio + 64f).dp
+        calculatedWidth.coerceIn(380.dp, 700.dp)
+    } else {
+        420.dp // Default when no map
+    }
+
     // Fullscreen overlay with centered card to preserve immersive mode
     Box(
         modifier = Modifier
@@ -50,7 +61,7 @@ fun NavigationOverlay(
     ) {
         Card(
             modifier = Modifier
-                .fillMaxWidth(0.9f)
+                .width(cardWidth)
                 .height(500.dp)
                 .clickable(enabled = false) {}, // Prevent click-through
             shape = RoundedCornerShape(16.dp),
@@ -96,8 +107,6 @@ fun NavigationOverlay(
                         .fillMaxWidth()
                         .padding(16.dp)
                 ) {
-                    StatusRow(stringResource(R.string.nav_overlay_map_label), state.mapStatus)
-                    Spacer(modifier = Modifier.height(8.dp))
                     StatusRow(stringResource(R.string.nav_overlay_localization_label), state.localizationStatus)
                 }
 
@@ -114,7 +123,7 @@ fun NavigationOverlay(
                         mapBitmap = state.mapBitmap,
                         mapGfx = state.mapGfx,
                         locations = state.savedLocations,
-                        mapState = state.mapState
+                        hasMapOnDisk = state.hasMapOnDisk
                     )
                 }
             }
@@ -144,15 +153,11 @@ fun MapCanvas(
     mapBitmap: Bitmap?,
     mapGfx: MapGraphInfo?,
     locations: List<SavedLocation>,
-    mapState: MapState
+    hasMapOnDisk: Boolean
 ) {
     val textMeasurer = rememberTextMeasurer()
-    
-    // Resolve strings outside DrawScope
     val noMapText = stringResource(R.string.nav_status_no_map)
-    val localizingText = stringResource(R.string.nav_status_localizing)
-    val locFailedText = stringResource(R.string.nav_status_localization_failed)
-    val mapLoadedText = stringResource(R.string.nav_status_map_loaded_not_localized)
+    val mapNotLoadedText = stringResource(R.string.nav_status_map_not_loaded)
 
     Canvas(modifier = Modifier.fillMaxSize()) {
         val canvasWidth = size.width
@@ -198,30 +203,45 @@ fun MapCanvas(
                     val xCanvas = offsetX + (xImgRaw * scale)
                     val yCanvas = offsetY + (yImgRaw * scale)
 
-                    // Draw Point
+                    // Draw Point with outline for visibility
                     drawCircle(
-                        color = Color.Cyan,
-                        radius = 6.dp.toPx(),
+                        color = Color.Black,
+                        radius = 9.dp.toPx(),
+                        center = Offset(xCanvas, yCanvas)
+                    )
+                    drawCircle(
+                        color = Color(0xFF4CAF50), // Green
+                        radius = 7.dp.toPx(),
                         center = Offset(xCanvas, yCanvas)
                     )
 
-                    // Draw Label
+                    // Draw Label with shadow for visibility
                     val textLayoutResult = textMeasurer.measure(
-                        text = loc.name, // Use name instead of label
-                        style = TextStyle(color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        text = loc.name,
+                        style = TextStyle(color = Color.Black, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     )
-                    
+                    // Shadow
                     drawText(
                         textLayoutResult = textLayoutResult,
+                        topLeft = Offset(xCanvas + 12f, yCanvas - 8f)
+                    )
+                    // Main text
+                    val textLayoutResultMain = textMeasurer.measure(
+                        text = loc.name,
+                        style = TextStyle(color = Color(0xFF4CAF50), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    )
+                    drawText(
+                        textLayoutResult = textLayoutResultMain,
                         topLeft = Offset(xCanvas + 10f, yCanvas - 10f)
                     )
                 }
             }
 
         } else {
-            // No Map
+            // No Map Bitmap - show appropriate message
             drawRect(color = Color.DarkGray)
-            val textResult = textMeasurer.measure(noMapText, TextStyle(color = Color.White))
+            val displayText = if (hasMapOnDisk) mapNotLoadedText else noMapText
+            val textResult = textMeasurer.measure(displayText, TextStyle(color = Color.White, fontSize = 16.sp))
             drawText(
                 textResult,
                 topLeft = Offset(
@@ -229,29 +249,6 @@ fun MapCanvas(
                     (canvasHeight - textResult.size.height) / 2
                 )
             )
-        }
-        
-        // Draw Status Overlay on Canvas if needed
-        if (mapState != MapState.LOCALIZED && mapState != MapState.NO_MAP) {
-            val statusText = when (mapState) {
-                MapState.LOCALIZING -> localizingText
-                MapState.LOCALIZATION_FAILED -> locFailedText
-                MapState.MAP_LOADED_NOT_LOCALIZED -> mapLoadedText
-                else -> ""
-            }
-            if (statusText.isNotEmpty()) {
-                 val textResult = textMeasurer.measure(
-                    text = statusText,
-                    style = TextStyle(color = Color.Yellow, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                )
-                 drawText(
-                    textResult,
-                    topLeft = Offset(
-                        (canvasWidth - textResult.size.width) / 2,
-                        (canvasHeight - 50.dp.toPx()) // Bottom center
-                    )
-                )
-            }
         }
     }
 }

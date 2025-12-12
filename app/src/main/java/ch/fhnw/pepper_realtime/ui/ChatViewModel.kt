@@ -152,10 +152,6 @@ class ChatViewModel @Inject constructor(
     }
 
     // Navigation/Map Overlay Methods
-    fun setMapStatus(status: String) {
-        _navigationState.update { it.copy(mapStatus = status) }
-    }
-
     fun setLocalizationStatus(status: String) {
         _navigationState.update { it.copy(localizationStatus = status) }
     }
@@ -173,14 +169,14 @@ class ChatViewModel @Inject constructor(
     }
 
     fun updateMapData(
-        mapState: MapState,
+        hasMapOnDisk: Boolean,
         mapBitmap: Bitmap?,
         mapGfx: MapGraphInfo?,
         locations: List<SavedLocation>
     ) {
         _navigationState.update {
             it.copy(
-                mapState = mapState,
+                hasMapOnDisk = hasMapOnDisk,
                 mapBitmap = mapBitmap,
                 mapGfx = mapGfx,
                 savedLocations = locations

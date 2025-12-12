@@ -40,9 +40,8 @@ class ChatRobotLifecycleHandler(
             activity.locationProvider.refreshLocations(activity)
 
             activity.runOnUiThread {
-                val hasMap = File(activity.filesDir, "maps/default_map.map").exists()
-                viewModel.setMapStatus(activity.getString(if (hasMap) R.string.nav_map_saved else R.string.nav_map_none))
-                viewModel.setLocalizationStatus(activity.getString(R.string.nav_localization_not_running))
+                // Update map preview to sync all navigation data
+                activity.updateMapPreview()
             }
 
             activity.audioInputController.cleanupSttForReinit()
@@ -77,6 +76,22 @@ class ChatRobotLifecycleHandler(
                 activity.touchSensorManager,
                 activity.gestureController
             )
+            
+            // Register navigation status listener
+            activity.navigationServiceManager.setListener(object : ch.fhnw.pepper_realtime.manager.NavigationServiceManager.NavigationServiceListener {
+                override fun onNavigationPhaseChanged(phase: ch.fhnw.pepper_realtime.manager.NavigationServiceManager.NavigationPhase) {
+                    // Phase changes are handled internally by NavigationServiceManager
+                }
+                
+                override fun onNavigationStatusUpdate(mapStatus: String?, localizationStatus: String?) {
+                    activity.runOnUiThread {
+                        activity.updateNavigationStatus(
+                            mapStatus ?: "",
+                            localizationStatus ?: ""
+                        )
+                    }
+                }
+            })
 
             // Connect WebSocket on first init OR after focus regain
             val needsReconnect = !hasFocusInitialized || hadFocusLostSinceInit
@@ -185,8 +200,6 @@ class ChatRobotLifecycleHandler(
 
             activity.runOnUiThread {
                 viewModel.setStatusText(activity.getString(R.string.robot_focus_lost_message))
-                val hasMap = File(activity.filesDir, "maps/default_map.map").exists()
-                viewModel.setMapStatus(activity.getString(if (hasMap) R.string.nav_map_saved else R.string.nav_map_none))
                 viewModel.setLocalizationStatus(activity.getString(R.string.nav_localization_stopped))
             }
 

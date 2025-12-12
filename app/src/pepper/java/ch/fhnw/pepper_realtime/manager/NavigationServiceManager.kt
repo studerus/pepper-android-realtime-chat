@@ -62,6 +62,34 @@ class NavigationServiceManager(private val movementController: MovementControlle
     private val localizationCoordinator: LocalizationCoordinator
 
     @Volatile private var pendingMovementPromise: Promise<MovementResult>? = null
+    
+    // Lock to prevent parallel navigation process calls (includes map loading + localization + navigation)
+    @Volatile private var _isNavigationProcessActive = false
+    val isNavigationProcessActive: Boolean get() = _isNavigationProcessActive
+    
+    /**
+     * Try to acquire the navigation process lock.
+     * @return true if lock was acquired, false if another navigation is already in progress
+     */
+    @Synchronized
+    fun tryStartNavigationProcess(): Boolean {
+        if (_isNavigationProcessActive) {
+            Log.w(TAG, "Navigation process lock denied - another navigation is already in progress")
+            return false
+        }
+        _isNavigationProcessActive = true
+        Log.i(TAG, "Navigation process lock acquired")
+        return true
+    }
+    
+    /**
+     * Release the navigation process lock.
+     */
+    @Synchronized
+    fun endNavigationProcess() {
+        _isNavigationProcessActive = false
+        Log.i(TAG, "Navigation process lock released")
+    }
 
     init {
         movementController?.setListener(object : MovementController.MovementListener {

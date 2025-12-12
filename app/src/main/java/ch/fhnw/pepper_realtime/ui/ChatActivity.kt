@@ -187,6 +187,15 @@ class ChatActivity : AppCompatActivity(), ToolHost {
                         volume?.let { volumeController?.setVolume(this@ChatActivity, it) }
                     }
                 }
+                // Dashboard visibility - start/stop perception monitoring
+                launch {
+                    viewModel.dashboardState.collect { dashboardState ->
+                        if (dashboardState.isVisible) {
+                            Log.d(TAG, "Dashboard opened - ensuring perception monitoring is active")
+                            robotDeps.perceptionService.startMonitoring()
+                        }
+                    }
+                }
             }
         }
 
@@ -311,9 +320,8 @@ class ChatActivity : AppCompatActivity(), ToolHost {
     }
 
     override fun updateNavigationStatus(mapStatus: String, localizationStatus: String) {
-        viewModel.setMapStatus(mapStatus)
+        // Update localization status, then refresh all map data
         viewModel.setLocalizationStatus(localizationStatus)
-        // Also update the map preview to reflect the new status
         updateMapPreview()
     }
 
@@ -325,26 +333,30 @@ class ChatActivity : AppCompatActivity(), ToolHost {
         val navManager = navigationDeps.navigationServiceManager
         val locProvider = navigationDeps.locationProvider
 
-        val mapState = when {
-            !navManager.isMapSavedOnDisk(this) -> MapState.NO_MAP
-            !navManager.isMapLoaded() -> MapState.MAP_LOADED_NOT_LOCALIZED
-            !navManager.isLocalizationReady() -> {
-                val locStatus = viewModel.navigationState.value.localizationStatus
-                if (locStatus.contains("Failed")) {
-                    MapState.LOCALIZATION_FAILED
-                } else {
-                    MapState.LOCALIZING
-                }
-            }
-            else -> MapState.LOCALIZED
-        }
+        val hasMapOnDisk = navManager.isMapSavedOnDisk(this)
+        val isMapInMemory = navManager.isMapLoaded()
+        val isLocalized = navManager.isLocalizationReady()
 
-        val mapGfx = navManager.getMapGraphInfo()
+        // Update localization status based on current state
+        // Preserve transitional states (Localizing, Navigating) - only update if definitive
+        val currentLocStatus = viewModel.navigationState.value.localizationStatus
+        val isTransitionalState = currentLocStatus.contains("Localizing") || 
+                                  currentLocStatus.contains("Navigating") ||
+                                  currentLocStatus.contains("Loading")
+        
+        val locStatusText = when {
+            !hasMapOnDisk -> "No map available"
+            !isMapInMemory -> "Not running"
+            isLocalized -> "Localized"
+            isTransitionalState -> currentLocStatus
+            else -> "Not running"
+        }
+        viewModel.setLocalizationStatus(locStatusText)
 
         viewModel.updateMapData(
-            mapState,
+            hasMapOnDisk,
             navManager.getMapBitmap(),
-            mapGfx,
+            navManager.getMapGraphInfo(),
             locProvider.getSavedLocations()
         )
     }

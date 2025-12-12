@@ -19,8 +19,36 @@ class NavigationServiceManager(@Suppress("UNUSED_PARAMETER") movementController:
         private const val TAG = "NavigationServiceManager[STUB]"
     }
 
+    // Lock to prevent parallel navigation process calls (simulated)
+    @Volatile private var _isNavigationProcessActive = false
+    val isNavigationProcessActive: Boolean get() = _isNavigationProcessActive
+
     init {
         Log.d(TAG, "🤖 [SIMULATED] NavigationServiceManager created")
+    }
+
+    /**
+     * Try to acquire the navigation process lock.
+     * @return true if lock was acquired, false if another navigation is already in progress
+     */
+    @Synchronized
+    fun tryStartNavigationProcess(): Boolean {
+        if (_isNavigationProcessActive) {
+            Log.w(TAG, "🤖 [SIMULATED] Navigation process lock denied - another navigation is already in progress")
+            return false
+        }
+        _isNavigationProcessActive = true
+        Log.i(TAG, "🤖 [SIMULATED] Navigation process lock acquired")
+        return true
+    }
+
+    /**
+     * Release the navigation process lock.
+     */
+    @Synchronized
+    fun endNavigationProcess() {
+        _isNavigationProcessActive = false
+        Log.i(TAG, "🤖 [SIMULATED] Navigation process lock released")
     }
 
     /**

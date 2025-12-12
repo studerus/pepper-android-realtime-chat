@@ -11,24 +11,12 @@ import ch.fhnw.pepper_realtime.tools.games.MemoryCard
  */
 data class NavigationUiState(
     val isVisible: Boolean = false,
-    val mapStatus: String = "No Map",
-    val localizationStatus: String = "Waiting for localization...",
-    val mapState: MapState = MapState.NO_MAP,
+    val localizationStatus: String = "Not running",
+    val hasMapOnDisk: Boolean = false,
     val mapBitmap: Bitmap? = null,
     val mapGfx: MapGraphInfo? = null,
     val savedLocations: List<SavedLocation> = emptyList()
 )
-
-/**
- * Enum for the internal state of the map system.
- */
-enum class MapState {
-    NO_MAP,
-    MAP_LOADED_NOT_LOCALIZED,
-    LOCALIZING,
-    LOCALIZATION_FAILED,
-    LOCALIZED
-}
 
 /**
  * UI state for perception dashboard overlay.

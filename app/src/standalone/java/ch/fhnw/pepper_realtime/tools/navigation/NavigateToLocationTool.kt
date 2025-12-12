@@ -36,11 +36,29 @@ class NavigateToLocationTool : Tool {
 
     override fun execute(args: JSONObject, context: ToolContext): String {
         val locationName = args.optString("location_name", "")
+        val navManager = context.navigationServiceManager
+        
+        // Lock check for consistency with pepper version
+        if (!navManager.tryStartNavigationProcess()) {
+            Log.w(TAG, "🤖 [SIMULATED] Navigation rejected - another navigation is in progress")
+            return JSONObject().apply {
+                put("status", "navigation_already_in_progress")
+                put("message", "A navigation process is already running. DO NOT call this function again. Wait for the current navigation to complete.")
+            }.toString()
+        }
+        
         Log.i(TAG, "🤖 [SIMULATED] Navigate to location: $locationName")
-        return JSONObject()
-            .put("success", true)
-            .put("message", "Would navigate to location: $locationName")
-            .toString()
+        
+        // Simulate async completion
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            navManager.endNavigationProcess()
+            Log.i(TAG, "🤖 [SIMULATED] Navigation to $locationName completed")
+        }, 2000)
+        
+        return JSONObject().apply {
+            put("status", "navigation_process_started")
+            put("message", "Navigation started. The map is loaded and Pepper is already localized. Navigation to '$locationName' is starting immediately. The process is AUTOMATIC - do NOT call any other functions. Just inform the user.")
+        }.toString()
     }
 
 }

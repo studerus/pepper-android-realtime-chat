@@ -240,6 +240,7 @@
     <string name="nav_overlay_map_label">Map:</string>
     <string name="nav_overlay_localization_label">Localization:</string>
     <string name="nav_status_no_map">No Map Available</string>
+    <string name="nav_status_map_not_loaded">Map saved but not loaded.\nStart navigation to load.</string>
     <string name="nav_status_localizing">Localizing…</string>
     <string name="nav_status_localization_failed">Localization Failed</string>
     <string name="nav_status_map_loaded_not_localized">Map Loaded (Not Localized)</string>

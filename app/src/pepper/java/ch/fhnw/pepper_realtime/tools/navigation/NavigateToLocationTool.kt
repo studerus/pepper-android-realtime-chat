@@ -78,13 +78,25 @@ class NavigateToLocationTool : Tool {
 
         Log.i(TAG, "Navigating to location: $locationName")
 
+        // Get dependencies
+        val navManager = context.navigationServiceManager
+
+        // --- LOCK CHECK: Prevent parallel navigation processes ---
+        if (!navManager.tryStartNavigationProcess()) {
+            Log.w(TAG, "Navigation rejected - another navigation process is already running")
+            return JSONObject().apply {
+                put("status", "navigation_already_in_progress")
+                put("message", "A navigation process is already running. DO NOT call this function again. Wait for the current navigation to complete - you will receive automatic status updates.")
+            }.toString()
+        }
+
         return try {
             // Load the saved location
             val savedLocation = loadLocationFromStorage(context, locationName)
-                ?: return JSONObject().put("error", "Location '$locationName' not found. Please save the location first.").toString()
-
-            // Get dependencies
-            val navManager = context.navigationServiceManager
+            if (savedLocation == null) {
+                navManager.endNavigationProcess()
+                return JSONObject().put("error", "Location '$locationName' not found. Please save the location first.").toString()
+            }
 
             // --- PRE-CHECK FOR RACE CONDITION ---
             // Check if the robot is already localized to prevent sending a redundant success message later.
@@ -94,11 +106,12 @@ class NavigateToLocationTool : Tool {
             // This part runs in the background. The initial return value is determined synchronously below.
             Log.i(TAG, "Step 1: Starting navigation preparation - ensuring map is loaded.")
             navManager.ensureMapLoadedIfNeeded(qiContext, context.appContext) {
-                context.sendAsyncUpdate("[MAP LOADED] Pepper has loaded the map into memory and will now orient itself.", true)
+                context.sendAsyncUpdate("[MAP LOADED] Pepper has loaded the map into memory and will now orient itself. DO NOT call navigate_to_location again - the process continues automatically.", true)
             }.thenConsume { mapReadyFuture ->
                 try {
                     if (mapReadyFuture.hasError() || mapReadyFuture.value != true) {
                         Log.e(TAG, "Step 1 FAILED: Map could not be loaded.", mapReadyFuture.error)
+                        navManager.endNavigationProcess()
                         context.sendAsyncUpdate("[NAVIGATION ERROR] No usable map available. Please create a new map.", true)
                         return@thenConsume
                     }
@@ -115,7 +128,7 @@ class NavigateToLocationTool : Tool {
                                     context.sendAsyncUpdate(
                                         String.format(
                                             Locale.US,
-                                            "[LOCALIZATION COMPLETED] Pepper is oriented and starting navigation to %s%s.",
+                                            "[LOCALIZATION COMPLETED] Pepper is oriented and starting navigation to %s%s. DO NOT call navigate_to_location again - navigation is now in progress.",
                                             locationName, note
                                         ), true
                                     )
@@ -171,47 +184,54 @@ class NavigateToLocationTool : Tool {
                                             message = messageBuilder.toString()
                                             Log.e(TAG, "Step 3 FAILED: Navigation to $locationName failed. Reason: $error")
                                         }
+                                        navManager.endNavigationProcess()
                                         context.sendAsyncUpdate(message, true)
                                     } catch (e: Exception) {
                                         Log.e(TAG, "Error processing navigation result future.", e)
+                                        navManager.endNavigationProcess()
                                     }
                                 }
                             } catch (e: Exception) {
                                 Log.e(TAG, "Step 3 FAILED: Error initiating navigation.", e)
+                                navManager.endNavigationProcess()
                                 context.sendAsyncUpdate("[NAVIGATION ERROR] Failed to start navigation: ${e.message}", true)
                             }
                         },
                         { // onFailed Callback
                             Log.e(TAG, "Step 2 FAILED: Localization failed. Navigation cancelled.")
+                            navManager.endNavigationProcess()
                             context.sendAsyncUpdate("[LOCALIZATION FAILED] Orientation failed. Navigation cannot start.", true)
                         }
                     )
                 } catch (e: Exception) {
                     Log.e(TAG, "Error in map loading callback chain.", e)
+                    navManager.endNavigationProcess()
                 }
             }
 
             // --- SYNCHRONOUS INITIAL RESPONSE ---
             // Determine the immediate response based on the current state, before async operations begin.
+            // IMPORTANT: These messages must clearly state that the process is AUTOMATIC and NO OTHER TOOLS should be called.
             JSONObject().apply {
                 when {
                     !navManager.isMapLoaded() -> {
-                        put("status", "starting_full_navigation_setup")
-                        put("message", "The environment map is not currently loaded. Tell the user that Pepper must first load the map, which can take up to 30 seconds. Explain that after the map is loaded, Pepper will need to localize itself, and only then will it begin navigating to the target '$locationName'.")
+                        put("status", "navigation_process_started")
+                        put("message", "The saved map is now being loaded from storage into memory, which takes up to 30 seconds. After loading, Pepper will automatically localize itself, then navigate to '$locationName'. The entire process is AUTOMATIC - do NOT call any other functions (especially not create_environment_map). Just inform the user about the steps and wait for status updates.")
                     }
                     !navManager.isLocalizationReady() -> {
-                        put("status", "starting_localization_before_navigation")
-                        put("message", "The map is loaded, but Pepper is not yet localized. Tell the user that Pepper will first orient itself within the map. Explain that once localization is complete, it will start navigating to the target '$locationName'.")
+                        put("status", "navigation_process_started")
+                        put("message", "The map is already in memory. Pepper will now automatically localize itself (orient within the map), then navigate to '$locationName'. The process is AUTOMATIC - do NOT call any other functions. Just inform the user and wait for status updates.")
                     }
                     else -> {
-                        put("status", "navigation_started_immediately")
-                        put("message", "The map is loaded and Pepper is localized. Tell the user that Pepper is now starting its navigation directly to the target location '$locationName'.")
+                        put("status", "navigation_process_started")
+                        put("message", "The map is loaded and Pepper is already localized. Navigation to '$locationName' is starting immediately. The process is AUTOMATIC - do NOT call any other functions. Just inform the user.")
                     }
                 }
             }.toString()
 
         } catch (e: Exception) {
             Log.e(TAG, "Error navigating to location", e)
+            navManager.endNavigationProcess()
             JSONObject().put("error", "Failed to navigate to location: ${e.message}").toString()
         }
     }
