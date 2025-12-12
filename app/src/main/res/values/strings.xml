@@ -5,7 +5,7 @@
     <string name="status_listening">Listening</string>
     <string name="status_thinking">Thinking…</string>
     <string name="app_paused">App paused</string>
-    <string name="status_speaking_tap_to_interrupt">Speaking</string>
+    <string name="status_speaking_tap_to_interrupt">Speaking - Tap to interrupt</string>
     <string name="status_updating_recognizer">Updating recognizer…</string>
     <string name="status_starting_new_session">Starting new session…</string>
     <string name="status_reconnecting">Reconnecting…</string>

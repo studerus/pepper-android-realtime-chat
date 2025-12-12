@@ -106,6 +106,23 @@ A multimodal AI system for the Pepper robot powered by OpenAI's Realtime API. It
       Interactive memory card game on tablet
     </td>
   </tr>
+  <tr>
+    <td width="33%" valign="top">
+      <img src="screenshots/drawing-canvas.png" alt="Drawing Canvas" width="100%">
+      <strong>Drawing Canvas</strong><br>
+      Freehand drawing with colors and stroke sizes
+    </td>
+    <td width="33%" valign="top">
+      <img src="screenshots/play-melody.png" alt="Melody Player" width="100%">
+      <strong>Melody Player</strong><br>
+      Animated music visualization with progress indicator
+    </td>
+    <td width="33%" valign="top">
+      <img src="screenshots/youtube.png" alt="YouTube Player" width="100%">
+      <strong>YouTube Player</strong><br>
+      Search and play YouTube videos via voice commands
+    </td>
+  </tr>
 </table>
 
 ## ✨ Features
