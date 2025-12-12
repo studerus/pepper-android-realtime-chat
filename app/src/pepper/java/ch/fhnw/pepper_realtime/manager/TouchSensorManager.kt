@@ -50,12 +50,12 @@ class TouchSensorManager {
          */
         fun createTouchMessage(sensorName: String): String {
             return when (sensorName) {
-                "Head/Touch" -> "[User touched my head]"
-                "LHand/Touch" -> "[User touched my left hand]"
-                "RHand/Touch" -> "[User touched my right hand]"
-                "Bumper/FrontLeft" -> "[User touched my front left bumper]"
-                "Bumper/FrontRight" -> "[User touched my front right bumper]"
-                "Bumper/Back" -> "[User touched my back bumper]"
+                "Head/Touch" -> "[User touched your head]"
+                "LHand/Touch" -> "[User touched your left hand]"
+                "RHand/Touch" -> "[User touched your right hand]"
+                "Bumper/FrontLeft" -> "[User touched your front left bumper]"
+                "Bumper/FrontRight" -> "[User touched your front right bumper]"
+                "Bumper/Back" -> "[User touched your back bumper]"
                 else -> "[User touched sensor: $sensorName]"
             }
         }

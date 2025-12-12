@@ -855,7 +855,7 @@ Pepper responds to physical touch on various sensors. When touched, the AI recei
 - **⚡ Bumper Sensors** - Front left, front right, and back bumper sensors
 
 ### Features
-- **Contextual AI Integration** - Touch events like "[User touched my head]" are sent to AI for natural responses
+- **Contextual AI Integration** - Touch events like "[User touched your head]" are sent to AI for natural responses
 - **Debounce Protection** - 500ms delay prevents multiple rapid touches
 - **Smart Pausing** - Automatically pauses during navigation/localization
 
