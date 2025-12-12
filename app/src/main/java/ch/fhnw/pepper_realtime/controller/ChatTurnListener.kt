@@ -30,10 +30,23 @@ class ChatTurnListener @Inject constructor(
                 return
             }
 
-            if (audioInputController.isMuted) {
-                // Show muted status when returning to listening while muted
+            // Check user's mute intent (persists across state changes)
+            val userWantsMicOn = viewModel.userWantsMicOn.value
+            
+            if (!userWantsMicOn) {
+                // User pre-muted - ensure mic stays off and sync state
+                if (!audioInputController.isMuted) {
+                    audioInputController.mute()
+                }
                 viewModel.setStatusText(getString(R.string.status_muted_tap_to_unmute))
+                Log.i(TAG, "Entering LISTENING but user wants mic off - staying muted")
+            } else if (audioInputController.isMuted) {
+                // User wants mic on but it's still muted - unmute
+                audioInputController.unmute()
+                viewModel.setStatusText(getString(R.string.status_listening))
+                Log.i(TAG, "Entering LISTENING - unmuting per user intent")
             } else {
+                // Normal case: mic should be on
                 viewModel.setStatusText(getString(R.string.status_listening))
                 if (!audioInputController.isSttRunning) {
                     try {
@@ -85,9 +98,13 @@ class ChatTurnListener @Inject constructor(
     }
 
     override fun onExitSpeaking() {
-        Log.i(TAG, "State: Exiting SPEAKING - stopping gestures and starting STT")
+        Log.i(TAG, "State: Exiting SPEAKING - stopping gestures")
         gestureController.stopNow()
-        if (audioInputController.isMuted) {
+        
+        // Check user's mute intent to determine status text
+        // Note: Actual mic state change happens in onEnterListening
+        val userWantsMicOn = viewModel.userWantsMicOn.value
+        if (!userWantsMicOn) {
             viewModel.setStatusText(getString(R.string.status_muted_tap_to_unmute))
         } else {
             viewModel.setStatusText(getString(R.string.status_listening))
@@ -99,4 +116,3 @@ class ChatTurnListener @Inject constructor(
         return viewModel.getApplication<android.app.Application>().getString(resId)
     }
 }
-

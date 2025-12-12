@@ -60,6 +60,7 @@ class ChatViewModel @Inject constructor(
     private val _statusText = MutableStateFlow("")
     private val _messageList = MutableStateFlow<List<ChatMessage>>(emptyList())
     private val _isMuted = MutableStateFlow(false)
+    private val _userWantsMicOn = MutableStateFlow(true) // User's desired mic state (persists across robot states)
     private val _isInterruptFabVisible = MutableStateFlow(false)
 
     // Connection State
@@ -89,6 +90,7 @@ class ChatViewModel @Inject constructor(
     val messageList: StateFlow<List<ChatMessage>> = _messageList.asStateFlow()
     val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
     val isMuted: StateFlow<Boolean> = _isMuted.asStateFlow()
+    val userWantsMicOn: StateFlow<Boolean> = _userWantsMicOn.asStateFlow()
     val isInterruptFabVisible: StateFlow<Boolean> = _isInterruptFabVisible.asStateFlow()
     val navigationState: StateFlow<NavigationUiState> = _navigationState.asStateFlow()
     val dashboardState: StateFlow<DashboardState> = _dashboardState.asStateFlow()
@@ -145,6 +147,10 @@ class ChatViewModel @Inject constructor(
 
     fun setMuted(muted: Boolean) {
         _isMuted.value = muted
+    }
+
+    fun setUserWantsMicOn(wantsMicOn: Boolean) {
+        _userWantsMicOn.value = wantsMicOn
     }
 
     fun setInterruptFabVisible(visible: Boolean) {

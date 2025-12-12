@@ -11,11 +11,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.MicOff
-import androidx.compose.material.icons.filled.VolumeOff
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -23,76 +20,85 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import ch.fhnw.pepper_realtime.R
 
+/**
+ * Status capsule showing the robot's current state.
+ * 
+ * This component only shows robot status (Listening, Thinking, Speaking).
+ * Mute control is handled by the separate MicrophoneButton.
+ * 
+ * Tap behavior:
+ * - During SPEAKING: Interrupts the robot (stops speech)
+ * - Other states: No action
+ * 
+ * @param statusText The current status text to display
+ * @param isSpeaking True when robot is speaking (shows stop icon)
+ * @param isListening True when robot is listening (blue style)
+ * @param onClick Called when tapped (only active during speaking)
+ */
 @Composable
 fun StatusCapsule(
     statusText: String,
-    isMuted: Boolean,
+    isSpeaking: Boolean,
     isListening: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Only show if there is meaningful status or if muted
-    val isVisible = isMuted || isListening || statusText.isNotEmpty()
+    // Only show if there is meaningful status
+    val isVisible = statusText.isNotEmpty()
     
     // Determine container color based on state
     val containerColor = when {
-        isMuted -> Color(0xFFFFEBEE) // Light Red for muted
-        isListening -> Color(0xFFE3F2FD) // Light Blue for listening
-        else -> Color.White
+        isSpeaking -> Color(0xFFFFF3E0) // Light orange for speaking (interruptible)
+        isListening -> Color(0xFFE3F2FD) // Light blue for listening
+        else -> Color.White // Neutral for thinking/other
     }
     
     val contentColor = when {
-        isMuted -> Color(0xFFD32F2F) // Red text
-        isListening -> ChatColors.Primary // Blue text
-        else -> ChatColors.RobotBubbleText
+        isSpeaking -> Color(0xFFE65100) // Orange text for speaking
+        isListening -> ChatColors.Primary // Blue text for listening
+        else -> ChatColors.RobotBubbleText // Gray for other states
     }
     
     val borderColor = when {
-        isMuted -> Color(0xFFEF9A9A)
+        isSpeaking -> Color(0xFFFFCC80) // Orange border for speaking
         isListening -> ChatColors.Primary.copy(alpha = 0.5f)
         else -> Color(0xFFE0E0E0)
-    }
-
-    // Icon logic
-    val icon = when {
-        isMuted -> Icons.Default.MicOff
-        isListening -> Icons.Default.Mic
-        else -> null // No icon for generic status messages unless we want one
     }
 
     AnimatedVisibility(
         visible = isVisible,
         enter = slideInVertically { it } + fadeIn(),
         exit = slideOutVertically { it } + fadeOut(),
-        modifier = modifier // Padding controlled externally via MainScreen
+        modifier = modifier
     ) {
         Box(
+            contentAlignment = Alignment.Center,
             modifier = Modifier
+                .defaultMinSize(minWidth = 220.dp) // Fixed min width to prevent jumping when state changes
                 .shadow(elevation = 8.dp, shape = RoundedCornerShape(40.dp))
                 .clip(RoundedCornerShape(40.dp))
                 .background(containerColor)
                 .border(1.dp, borderColor, RoundedCornerShape(40.dp))
-                .clickable(onClick = onClick)
+                .clickable(enabled = isSpeaking, onClick = onClick)
                 .padding(horizontal = 32.dp, vertical = 16.dp)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
-                if (icon != null) {
+                // Show stop icon during speaking to indicate it's interruptible
+                if (isSpeaking) {
                     Icon(
-                        imageVector = icon,
-                        contentDescription = null,
+                        imageVector = Icons.Default.Stop,
+                        contentDescription = "Tap to stop",
                         tint = contentColor,
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier.size(28.dp)
                     )
-                    Spacer(modifier = Modifier.width(16.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
                 }
                 
                 Text(

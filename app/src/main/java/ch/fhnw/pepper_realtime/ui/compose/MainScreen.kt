@@ -48,7 +48,8 @@ fun MainScreen(
     onNewChat: () -> Unit,
     onExit: () -> Unit,
     onInterrupt: () -> Unit,
-    onStatusClick: () -> Unit
+    onStatusClick: () -> Unit,
+    onMicToggle: () -> Unit
 ) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -56,7 +57,7 @@ fun MainScreen(
     // Observe ViewModel states using StateFlow
     val isInterruptVisible by viewModel.isInterruptFabVisible.collectAsStateWithLifecycle()
     val statusText by viewModel.statusText.collectAsStateWithLifecycle()
-    val isMuted by viewModel.isMuted.collectAsStateWithLifecycle()
+    val userWantsMicOn by viewModel.userWantsMicOn.collectAsStateWithLifecycle()
     val messages by viewModel.messageList.collectAsStateWithLifecycle()
     val partialSpeechResult by viewModel.partialSpeechResult.collectAsStateWithLifecycle()
     val isWarmingUp by viewModel.isWarmingUp.collectAsStateWithLifecycle()
@@ -187,16 +188,40 @@ fun MainScreen(
                     bottomPadding = 90.dp // Extra space for StatusCapsule to prevent overlap
                 )
 
-                // Status Capsule - positioned at true bottom edge (outside innerPadding)
-                StatusCapsule(
-                    statusText = statusText,
-                    isMuted = isMuted,
-                    isListening = statusText.contains("Listening", ignoreCase = true) || statusText.contains("Zuhören", ignoreCase = true),
-                    onClick = onStatusClick,
+                // Derive robot states from status text
+                val isSpeaking = statusText.contains("Speaking", ignoreCase = true) || 
+                                 statusText.contains("Sprechen", ignoreCase = true)
+                val isListening = statusText.contains("Listening", ignoreCase = true) || 
+                                  statusText.contains("Zuhören", ignoreCase = true)
+                val isThinking = statusText.contains("Thinking", ignoreCase = true) || 
+                                 statusText.contains("Denken", ignoreCase = true)
+                val isRobotSpeakingOrThinking = isSpeaking || isThinking
+
+                // Status Capsule + Microphone Button - positioned at bottom center
+                Row(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(bottom = 24.dp)
-                )
+                        .padding(bottom = 24.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Status Capsule (shows robot state, tap to interrupt during speaking)
+                    StatusCapsule(
+                        statusText = statusText,
+                        isSpeaking = isSpeaking,
+                        isListening = isListening,
+                        onClick = onStatusClick
+                    )
+                    
+                    // Microphone Button (always visible when there's status)
+                    if (statusText.isNotEmpty()) {
+                        MicrophoneButton(
+                            userWantsMicOn = userWantsMicOn,
+                            isRobotSpeakingOrThinking = isRobotSpeakingOrThinking,
+                            onClick = onMicToggle
+                        )
+                    }
+                }
 
                 // ---------------- Overlays & Dialogs ----------------
 

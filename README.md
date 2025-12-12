@@ -477,8 +477,9 @@ This app sends data to third-party services when features are used:
 1. **Launch** the app on your Pepper robot
 2. **Wait** for "Ready" status
 3. **Speak** naturally to start conversation
-4. **Tap** the **Status Capsule** at the bottom to interrupt robot speech or mute/unmute
-5. **Tap** dashboard icon (👁️) in the top toolbar to toggle Human Perception Dashboard overlay
+4. **Tap** the **Status Capsule** at the bottom to interrupt robot speech (only active during speaking)
+5. **Tap** the **Microphone Button** next to the capsule to toggle mute (works in any state)
+6. **Tap** dashboard icon (👁️) in the top toolbar to toggle Human Perception Dashboard overlay
 6. **Touch** robot's head, hands, or bumpers for physical interaction
 7. **Tap** navigation icon (📍) in top toolbar to show/hide the map preview with saved locations
 8. **Tap** function call cards in chat to view detailed arguments and results
@@ -706,9 +707,24 @@ Due to Pepper's hardware limitations (no echo cancellation), the app uses an int
 - **Open During Listening** - Microphone only active when waiting for user input
 - **Hardware Constraint** - Necessary because Pepper's older hardware lacks echo cancellation
 
-### Status Capsule Controls
-- **First Tap** (during robot speech) - Immediately stops current response, clears audio queue, cancels generation, AND mutes microphone ("Muted" status)
-- **Second Tap** (when muted) - Unmutes and returns to listening mode
+### Separated Controls: Status Capsule + Microphone Button
+
+The UI provides two separate controls for better user experience:
+
+#### Status Capsule (Interrupt Only)
+- Shows current robot state (Listening, Thinking, Speaking)
+- **Tap during Speaking** - Immediately stops speech (interrupt only, no mute)
+- **No action in other states** - Capsule is purely informational when not speaking
+- **Visual feedback** - Orange color with stop icon during speaking indicates it's interruptible
+
+#### Microphone Button (Mute/Unmute)
+- Always visible next to status capsule
+- **Three visual states** communicate clearly:
+  - **Blue filled** = Microphone active (listening to you)
+  - **Gray outlined** = Microphone paused (will activate when robot finishes speaking)
+  - **Red with slash** = Microphone muted (stays off until you unmute)
+- **Persistent intent** - Muting during robot speech keeps mic off after robot finishes
+- **Pre-mute feature** - Tap mute while robot is speaking to prevent auto-reactivation
 
 ### Automatic Response Interruption
 Certain events automatically interrupt ongoing responses to provide immediate feedback:

@@ -60,7 +60,7 @@ class ChatRealtimeHandler(
         if (isFirstDelta) {
             Log.d(TAG, "First transcript delta received for response: $responseId, expectingFinalAnswer=${viewModel.isExpectingFinalAnswerAfterToolCall}")
             // Set status to Speaking (without transcript)
-            val speakingText = viewModel.getApplication<android.app.Application>().getString(R.string.status_speaking_tap_to_interrupt)
+            val speakingText = viewModel.getApplication<android.app.Application>().getString(R.string.status_speaking)
             viewModel.setStatusText(speakingText)
         }
 

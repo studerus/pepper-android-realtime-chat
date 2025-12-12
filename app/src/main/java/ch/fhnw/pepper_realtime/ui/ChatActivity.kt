@@ -143,7 +143,8 @@ class ChatActivity : AppCompatActivity(), ToolHost {
                             Log.e(TAG, "Interrupt failed", e)
                         }
                     },
-                    onStatusClick = { onStatusClick() }
+                    onStatusClick = { onStatusCapsuleClick() },
+                    onMicToggle = { onMicrophoneToggle() }
                 )
             }
         }
@@ -234,24 +235,52 @@ class ChatActivity : AppCompatActivity(), ToolHost {
         permissionManager.checkAndRequestPermissions(this)
     }
 
-    private fun onStatusClick() {
+    /**
+     * Handle tap on status capsule - only interrupts robot speech, no mute.
+     */
+    private fun onStatusCapsuleClick() {
         try {
             val currentState = chatDeps.turnManager.state
 
+            // Only interrupt during SPEAKING - no mute action
             if (currentState == TurnManager.State.SPEAKING) {
                 if (viewModel.isResponseGenerating.value == true
                     || viewModel.isAudioPlaying.value == true
                     || chatDeps.audioPlayer.isPlaying()
                 ) {
-                    chatDeps.interruptController.interruptAndMute()
+                    chatDeps.interruptController.interruptSpeech() // NOT interruptAndMute()
+                    Log.i(TAG, "Speech interrupted via status capsule")
                 }
-            } else if (chatDeps.audioInputController.isMuted) {
-                unmute()
-            } else if (currentState == TurnManager.State.LISTENING) {
-                mute()
             }
+            // No action in other states - capsule just shows status
         } catch (e: Exception) {
-            Log.e(TAG, "Status bar click failed", e)
+            Log.e(TAG, "Status capsule click failed", e)
+        }
+    }
+
+    /**
+     * Handle tap on microphone button - toggles user's mute intent.
+     * This intent persists across robot state changes.
+     */
+    private fun onMicrophoneToggle() {
+        try {
+            val newIntent = !viewModel.userWantsMicOn.value
+            viewModel.setUserWantsMicOn(newIntent)
+            Log.i(TAG, "Mic intent toggled: userWantsMicOn=$newIntent")
+
+            val currentState = chatDeps.turnManager.state
+
+            // If currently LISTENING, apply immediately
+            if (currentState == TurnManager.State.LISTENING) {
+                if (newIntent) {
+                    unmute()
+                } else {
+                    mute()
+                }
+            }
+            // Otherwise, intent is stored and applied on state transition to LISTENING
+        } catch (e: Exception) {
+            Log.e(TAG, "Microphone toggle failed", e)
         }
     }
 
