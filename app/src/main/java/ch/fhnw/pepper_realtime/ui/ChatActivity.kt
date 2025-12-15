@@ -273,9 +273,9 @@ class ChatActivity : AppCompatActivity(), ToolHost {
             // If currently LISTENING, apply immediately
             if (currentState == TurnManager.State.LISTENING) {
                 if (newIntent) {
-                    unmute()
+                unmute()
                 } else {
-                    mute()
+                mute()
                 }
             }
             // Otherwise, intent is stored and applied on state transition to LISTENING
