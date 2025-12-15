@@ -261,7 +261,9 @@ fun MainScreen(
                     onDeleteRule = { ruleId -> viewModel.deleteEventRule(ruleId) },
                     onToggleRule = { ruleId -> viewModel.toggleEventRuleEnabled(ruleId) },
                     onResetDefaults = { viewModel.resetEventRulesToDefaults() },
-                    onSetEditingRule = { rule -> viewModel.setEditingRule(rule) }
+                    onSetEditingRule = { rule -> viewModel.setEditingRule(rule) },
+                    onExport = { viewModel.exportEventRules() },
+                    onImport = { json -> viewModel.importEventRules(json) }
                 )
 
                 // 5. Games

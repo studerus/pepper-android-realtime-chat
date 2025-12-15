@@ -13,10 +13,14 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,6 +30,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import ch.fhnw.pepper_realtime.data.*
 import ch.fhnw.pepper_realtime.ui.EventRulesState
 
@@ -54,11 +60,20 @@ fun EventRulesOverlay(
     onDeleteRule: (String) -> Unit,
     onToggleRule: (String) -> Unit,
     onResetDefaults: () -> Unit,
-    onSetEditingRule: (EventRule?) -> Unit
+    onSetEditingRule: (EventRule?) -> Unit,
+    onExport: () -> String,
+    onImport: (String) -> Int
 ) {
+    val clipboardManager = LocalClipboardManager.current
+    
     var showAddDialog by remember { mutableStateOf(false) }
     var ruleToDelete by remember { mutableStateOf<EventRule?>(null) }
     var showResetConfirm by remember { mutableStateOf(false) }
+    var showExportDialog by remember { mutableStateOf(false) }
+    var showImportDialog by remember { mutableStateOf(false) }
+    var exportedJson by remember { mutableStateOf("") }
+    var importJson by remember { mutableStateOf("") }
+    var importResult by remember { mutableStateOf<String?>(null) }
 
     if (state.isVisible) {
         Box(
@@ -108,6 +123,29 @@ fun EventRulesOverlay(
                         }
                         
                         Row {
+                            // Import
+                            IconButton(onClick = { 
+                                importJson = ""
+                                importResult = null
+                                showImportDialog = true 
+                            }) {
+                                Icon(
+                                    Icons.Default.FileDownload,
+                                    contentDescription = "Import rules",
+                                    tint = RulesColors.TextLight
+                                )
+                            }
+                            // Export
+                            IconButton(onClick = { 
+                                exportedJson = onExport()
+                                showExportDialog = true 
+                            }) {
+                                Icon(
+                                    Icons.Default.FileUpload,
+                                    contentDescription = "Export rules",
+                                    tint = RulesColors.TextLight
+                                )
+                            }
                             // Reset to defaults
                             IconButton(onClick = { showResetConfirm = true }) {
                                 Icon(
@@ -274,6 +312,161 @@ fun EventRulesOverlay(
                 },
                 dismissButton = {
                     TextButton(onClick = { showResetConfirm = false }) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
+
+        // Export dialog
+        if (showExportDialog) {
+            AlertDialog(
+                onDismissRequest = { showExportDialog = false },
+                title = { 
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.FileUpload,
+                            contentDescription = null,
+                            tint = RulesColors.AccentBlue,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Export Rules")
+                    }
+                },
+                text = {
+                    Column {
+                        Text(
+                            "Copy this JSON to save or share your rules:",
+                            fontSize = 14.sp,
+                            color = RulesColors.TextLight,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        OutlinedTextField(
+                            value = exportedJson,
+                            onValueChange = { },
+                            readOnly = true,
+                            minLines = 6,
+                            maxLines = 10,
+                            modifier = Modifier.fillMaxWidth(),
+                            textStyle = LocalTextStyle.current.copy(fontSize = 11.sp)
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            clipboardManager.setText(AnnotatedString(exportedJson))
+                            showExportDialog = false
+                        }
+                    ) {
+                        Icon(
+                            Icons.Default.ContentCopy,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Copy to Clipboard")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showExportDialog = false }) {
+                        Text("Close")
+                    }
+                }
+            )
+        }
+
+        // Import dialog
+        if (showImportDialog) {
+            AlertDialog(
+                onDismissRequest = { showImportDialog = false },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.FileDownload,
+                            contentDescription = null,
+                            tint = RulesColors.AccentBlue,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Import Rules")
+                    }
+                },
+                text = {
+                    Column {
+                        Text(
+                            "Paste JSON to import rules (will replace existing rules):",
+                            fontSize = 14.sp,
+                            color = RulesColors.TextLight,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        OutlinedTextField(
+                            value = importJson,
+                            onValueChange = { 
+                                importJson = it
+                                importResult = null
+                            },
+                            placeholder = { Text("Paste JSON here...") },
+                            minLines = 6,
+                            maxLines = 10,
+                            modifier = Modifier.fillMaxWidth(),
+                            textStyle = LocalTextStyle.current.copy(fontSize = 11.sp)
+                        )
+                        
+                        // Paste from clipboard button
+                        TextButton(
+                            onClick = {
+                                clipboardManager.getText()?.let { 
+                                    importJson = it.text
+                                    importResult = null
+                                }
+                            },
+                            modifier = Modifier.padding(top = 4.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.ContentCopy,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Paste from Clipboard", fontSize = 12.sp)
+                        }
+                        
+                        // Import result message
+                        importResult?.let { result ->
+                            Text(
+                                text = result,
+                                fontSize = 12.sp,
+                                color = if (result.startsWith("✓")) RulesColors.SuccessGreen else RulesColors.DeleteRed,
+                                modifier = Modifier.padding(top = 8.dp)
+                            )
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            try {
+                                val count = onImport(importJson)
+                                if (count > 0) {
+                                    importResult = "✓ Successfully imported $count rule(s)"
+                                    // Close after short delay
+                                    showImportDialog = false
+                                } else {
+                                    importResult = "✗ No rules found in JSON"
+                                }
+                            } catch (e: Exception) {
+                                importResult = "✗ Invalid JSON format"
+                            }
+                        },
+                        enabled = importJson.isNotBlank()
+                    ) {
+                        Text("Import")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showImportDialog = false }) {
                         Text("Cancel")
                     }
                 }

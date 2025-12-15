@@ -786,15 +786,14 @@ class ChatViewModel @Inject constructor(
     /**
      * Import rules from JSON string.
      */
-    fun importEventRules(json: String, merge: Boolean = false): Boolean {
+    fun importEventRules(json: String, merge: Boolean = false): Int {
         val count = rulePersistence.importFromJson(json, merge)
         if (count >= 0) {
             val rules = rulePersistence.loadRules()
             eventRuleEngine.loadRules(rules)
             _eventRulesState.update { it.copy(rules = rules) }
-            return true
         }
-        return false
+        return count
     }
 
     /**
