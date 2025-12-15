@@ -24,20 +24,8 @@ class PerceptionData {
         var basicEmotion: BasicEmotion = BasicEmotion.UNKNOWN
         var facePicture: Bitmap? = null // Face picture from QiSDK
 
-        // --- Data from Azure Face API (generic REST fields) ---
-        var recognizedName: String? = null // Reserved for Phase 2 (Identify)
-        var estimatedAgeAzure: Int? = null // Reserved for Phase 2
-        var primaryEmotion: String? = null // Reserved for Phase 2
-
-        // Attributes available now (generic)
-        var azureYawDeg: Double? = null
-        var azurePitchDeg: Double? = null
-        var azureRollDeg: Double? = null
-        var glassesType: String = "N/A"
-        var isMasked: Boolean? = null
-        var imageQuality: String = "N/A"
-        var blurLevel: Double? = null
-        var exposureLevel: String? = null
+        // --- Data from local face recognition ---
+        var recognizedName: String? = null // Name from local face recognition on Pepper's head
 
         /**
          * Get attention level for UI display

@@ -213,11 +213,6 @@
     <string name="smile_genuine">😊 Genuine</string>
     <string name="attention_focused">Focused</string>
     <string name="engagement_engaged">Engaged</string>
-    <string name="azure_label">🤖 Azure:</string>
-    <string name="pose_na">Pose: N/A</string>
-    <string name="glasses_na">Glasses: N/A</string>
-    <string name="mask_na">Mask: N/A</string>
-    <string name="quality_na">Quality: N/A</string>
     <!-- Table column labels are hardcoded in perception_dashboard_overlay.xml -->
     
     <!-- New Compose Strings -->
@@ -279,14 +274,6 @@
     <string name="content_desc_face">Face</string>
     <string name="yes">Yes</string>
     <string name="no">No</string>
-    
-    <string name="dashboard_pose_format">Pose: %s  </string>
-    <string name="dashboard_glasses_format">Glasses: %s  </string>
-    <string name="dashboard_mask_format">Mask: %s  </string>
-    <string name="dashboard_quality_format">Quality: %s</string>
-    <string name="dashboard_pose_right">Right</string>
-    <string name="dashboard_pose_left">Left</string>
-    <string name="dashboard_pose_forward">Forward</string>
     
     <string name="memory_time_label">Time: %s</string>
     <string name="close_button_label">Close</string>

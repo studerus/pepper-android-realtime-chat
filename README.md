@@ -142,7 +142,7 @@ A multimodal AI system for the Pepper robot powered by OpenAI's Realtime API. It
 - **Navigation & Mapping** - Complete room mapping and autonomous navigation system
 - **Human Approach & Following** - Intelligent human detection, approaching, and continuous following
 - **Human Perception Dashboard** - Real-time display of detected people with emotions, attention, and distance
-- **Azure Face Analysis** - Advanced facial analysis with pose, glasses, mask detection, and image quality assessment
+- **Local Face Recognition** - On-device face identification running on Pepper's head (no cloud API needed)
 - **Internet Search** - Real-time web search capabilities via Tavily API
 - **Weather Information** - Current weather and forecasts via OpenWeatherMap API
 - **Interactive Quizzes** - Dynamic quiz generation and interaction
@@ -421,12 +421,6 @@ On your Android device:
 3. Copy your API key and region
   4. In app: Settings → Audio Input → "Azure Speech (Best for Dialects)"
 
-#### Azure Face API (Advanced Face Analysis - Optional)
-- **Free Tier**: 30,000 transactions/month
-- **Get Key**: [Azure Portal](https://portal.azure.com/) → Cognitive Services → Face
-- **Enables**: Advanced facial analysis, pose detection, glasses/mask detection, image quality assessment
-- **Note**: Currently supports detection only; identification features require additional approval
-
 #### Groq API (Vision Analysis - Optional)  
 - **Free Tier**: 14,400 requests/day
 - **Get Key**: [console.groq.com](https://console.groq.com/)
@@ -459,15 +453,19 @@ On your Android device:
 This app sends data to third-party services when features are used:
 - **OpenAI/Azure (Realtime API)**: Audio, messages, images, tool results
 - **Azure Speech** (optional): Audio for transcription
-- **Azure Face** (optional): Camera images for facial analysis - ⚠️ **requires GDPR/CCPA consent for biometric data**
 - **Groq/Tavily/OpenWeather/YouTube** (optional): Search queries, images, location data
+
+**Local Face Recognition:**
+- Face recognition runs **locally on Pepper's head** - no cloud API needed
+- Face data stored only on the robot, never sent to external services
+- **GDPR/CCPA compliant** by design - biometric data stays on-device
 
 **To disable optional features:** Leave corresponding API keys empty in `local.properties` (or remove if already entered), or use Settings → Audio Input to switch modes.
 
 **Camera & Biometric Consent:**
 - Pepper (robot camera) / Standalone (front camera) used for vision analysis
-- Face analysis processes biometric data - **explicit user consent required** under GDPR/CCPA/BIPA
-- **To disable:** Leave `GROQ_API_KEY` and `AZURE_FACE_API_KEY` empty (or remove/revoke camera permission)
+- Local face recognition processes biometric data on-device only
+- **To disable vision:** Leave `GROQ_API_KEY` empty (or remove/revoke camera permission)
 
 **Local Storage:** Chat history and maps stored locally; clear via "New Chat" button or Android Settings → Clear Data.
 
@@ -815,21 +813,17 @@ For each detected person, the dashboard shows:
 - **Smile Detection** - Current smile state
 - **Basic Emotion** - Primary detected emotion
 
-#### Azure Face Analysis (when API key provided)
-- **Head Pose** - Yaw, pitch, and roll angles in degrees
-- **Glasses Detection** - No glasses, reading glasses, or sunglasses
-- **Mask Detection** - Whether person is wearing a face mask
-- **Image Quality** - Low, medium, or high quality assessment
-- **Blur Level** - Numerical blur measurement (0-1 scale)
-- **Exposure Level** - Under-exposed, good exposure, or over-exposed
+#### Local Face Recognition
+- **Person Identification** - Recognizes registered faces and displays names
+- **On-Device Processing** - Runs entirely on Pepper's head (no cloud API)
+- **Face Management** - Register and manage known faces via the UI
 
 #### Advanced Features
-- **Live Updates** - Information refreshes every 1.5 seconds
+- **Live Updates** - Information refreshes every 0.5 seconds
 - **Face Pictures** - Small profile images when available
 - **Comprehensive Tracking** - Maintains data as people move around
 - **Clean Interface** - Organized table view with clear headers
-- **Intelligent Face Analysis** - Analyzes faces when new people detected or every 10 seconds
-- **Rate Limit Handling** - Graceful degradation when Azure API limits reached
+- **Immediate Recognition** - Recognizes faces when new people appear
 
 ### Use Cases
 - **Social Interaction** - Understand who's interested in engaging
@@ -1163,8 +1157,8 @@ Robot: "Happy Birthday! 🎂"
        │            Tool Layer                  │
        ├────────────────────────────────────────┤
        │  Vision  │  Movement  │  Navigation    │
-       │  Gesture │  Face API  │  Internet      │
-       │  Weather │  Games     │  ...           │
+       │  Gesture │  Local     │  Internet      │
+       │  Weather │  Face Rec  │  Games  ...    │
        └────────────────────────────────────────┘
                │
                │
@@ -1396,7 +1390,7 @@ app/src/
 │   │   ├── RealtimeSessionManager.kt    # WebSocket connection handling
 │   │   └── SshConnectionHelper.kt       # SSH utilities
 │   ├── service/                         # Background services (shared)
-│   │   ├── FaceRecognitionService.kt    # Azure Face API client
+│   │   ├── LocalFaceRecognitionService.kt # Local face recognition (Pepper head)
 │   │   └── YouTubeSearchService.kt      # YouTube Data API client
 │   ├── robot/                           # Robot abstraction interfaces
 │   │   ├── RobotController.kt           # Interface for robot control

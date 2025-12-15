@@ -26,7 +26,6 @@ import androidx.compose.ui.unit.sp
 import ch.fhnw.pepper_realtime.R
 import ch.fhnw.pepper_realtime.data.PerceptionData
 import ch.fhnw.pepper_realtime.ui.DashboardState
-import java.util.Locale
 
 private object DashboardColors {
     val Background = Color(0xFFF9FAFB) // Very light gray (almost white) for container
@@ -228,36 +227,6 @@ fun HumanDetectionItem(human: PerceptionData.HumanInfo) {
                 Text(human.getEngagementLevel(), fontSize = 13.sp, color = DashboardColors.TextDark, textAlign = TextAlign.Center, modifier = Modifier.weight(ColWeights[8]))
             }
             
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            // Azure Details Row
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                Text(stringResource(R.string.azure_label) + " ", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF1976D2))
-                human.azureYawDeg?.let {
-                    val poseText = formatHeadPose(it, 
-                        stringResource(R.string.dashboard_pose_right),
-                        stringResource(R.string.dashboard_pose_left),
-                        stringResource(R.string.dashboard_pose_forward)
-                    )
-                    Text(stringResource(R.string.dashboard_pose_format, poseText), fontSize = 12.sp, color = DashboardColors.TextLight)
-                }
-                Text(stringResource(R.string.dashboard_glasses_format, human.glassesType), fontSize = 12.sp, color = DashboardColors.TextLight)
-                
-                val maskText = if (human.isMasked == true) stringResource(R.string.yes) else stringResource(R.string.no)
-                Text(stringResource(R.string.dashboard_mask_format, maskText), fontSize = 12.sp, color = DashboardColors.TextLight)
-                
-                Text(stringResource(R.string.dashboard_quality_format, human.imageQuality), fontSize = 12.sp, color = DashboardColors.TextLight)
-            }
         }
     }
-}
-
-// Helper for Head Pose
-private fun formatHeadPose(yawDeg: Double, right: String, left: String, forward: String): String {
-    val direction = when {
-        yawDeg < -10.0 -> right
-        yawDeg > 10.0 -> left
-        else -> forward
-    }
-    return String.format(Locale.US, "%s (%.0f°)", direction, yawDeg)
 }

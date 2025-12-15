@@ -5,29 +5,23 @@ import android.graphics.BitmapFactory
 import android.os.Handler
 import android.os.HandlerThread
 import android.util.Log
-import com.aldebaran.qi.Future
 import com.aldebaran.qi.sdk.QiContext
 import com.aldebaran.qi.sdk.`object`.actuation.Actuation
-import com.aldebaran.qi.sdk.`object`.camera.TakePicture
 import com.aldebaran.qi.sdk.`object`.human.Human
 import com.aldebaran.qi.sdk.`object`.humanawareness.HumanAwareness
-import com.aldebaran.qi.sdk.`object`.image.TimestampedImageHandle
-import com.aldebaran.qi.sdk.builder.TakePictureBuilder
 import ch.fhnw.pepper_realtime.data.PerceptionData
 import kotlinx.coroutines.*
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.math.atan2
 import kotlin.math.sqrt
 
 /**
  * Manages perception data and services for the robot.
- * Handles human detection, face recognition via Azure, and other perception capabilities.
+ * Handles human detection, local face recognition, and other perception capabilities.
  */
 class PerceptionService {
 
     companion object {
         private const val TAG = "PerceptionService"
-        private const val AZURE_ANALYSIS_INTERVAL_MS = 10000L // Analyze every 10 seconds when humans present
     }
 
     interface PerceptionListener {
@@ -44,16 +38,10 @@ class PerceptionService {
     private var humanAwareness: HumanAwareness? = null
     private var actuation: Actuation? = null
     private var robotFrame: Any? = null // Use reflection-friendly type to avoid hard dependency on geometry classes
-    private var takePictureAction: Future<TakePicture>? = null
 
     // External services
-    private var faceRecognitionService: FaceRecognitionService? = null
     private var localFaceRecognitionService: LocalFaceRecognitionService? = null
-    private val isAzureAnalysisRunning = AtomicBoolean(false)
-    private var lastAzureAnalysisTime = 0L
-    @Volatile private var azureBackoffUntilMs = 0L
     @Volatile private var lastHumansCount = 0
-    @Volatile private var triggerAzureNow = false
     
     // Local face recognition state
     private val isLocalFaceRecognitionRunning = AtomicBoolean(false)
@@ -80,18 +68,6 @@ class PerceptionService {
 
     private val humansCacheLock = Any()
     private var humansCache: MutableList<Human> = mutableListOf()
-    private val azureCacheById = mutableMapOf<Int, AzureAttrs>()
-
-    private class AzureAttrs {
-        var yaw: Double? = null
-        var pitch: Double? = null
-        var roll: Double? = null
-        var blur: Double? = null
-        var glasses: String? = null
-        var quality: String? = null
-        var exposure: String? = null
-        var masked: Boolean? = null
-    }
 
     private var lastUiPushMs = 0L
     private var lastUiIds: List<Int> = emptyList()
@@ -161,12 +137,6 @@ class PerceptionService {
             this.actuation = qiContext.actuation
             this.robotFrame = actuation?.robotFrame()
 
-            // Build the TakePicture action once for reuse
-            this.takePictureAction = TakePictureBuilder.with(qiContext).buildAsync()
-
-            // Initialize Azure Face Recognition Service
-            this.faceRecognitionService = FaceRecognitionService()
-            
             // Note: LocalFaceRecognitionService is injected via setLocalFaceRecognitionService()
 
             // Event-driven trigger: react to humansAround changes
@@ -182,8 +152,6 @@ class PerceptionService {
                                 Log.i(TAG, "New human detected! Triggering immediate face recognition.")
                             }
                             lastHumansCount = count
-                            // trigger Azure immediately when humans appear/disappear (only if there is at least one human)
-                            triggerAzureNow = count > 0
                             Log.i(TAG, "Human count changed to: $count")
                         }
                         synchronized(humansCacheLock) {
@@ -269,40 +237,13 @@ class PerceptionService {
             val humanInfoList = mutableListOf<PerceptionData.HumanInfo>()
             for (h in humansSnapshot) {
                 val info = mapHuman(h)
-                // Apply cached Azure attrs so UI does not flip back to N/A
-                azureCacheById[info.id]?.let { cached ->
-                    cached.yaw?.let { info.azureYawDeg = it }
-                    cached.pitch?.let { info.azurePitchDeg = it }
-                    cached.roll?.let { info.azureRollDeg = it }
-                    cached.glasses?.let { info.glassesType = it }
-                    cached.masked?.let { info.isMasked = it }
-                    cached.quality?.let { info.imageQuality = it }
-                    cached.blur?.let { info.blurLevel = it }
-                    cached.exposure?.let { info.exposureLevel = it }
-                }
                 humanInfoList.add(info)
             }
 
             val currentCount = humansSnapshot.size
-            val timeWindowElapsed = (System.currentTimeMillis() - lastAzureAnalysisTime) >= AZURE_ANALYSIS_INTERVAL_MS
-            val shouldRunAzureAnalysis = faceRecognitionService?.isConfigured() == true &&
-                    !isAzureAnalysisRunning.get() &&
-                    (triggerAzureNow || (timeWindowElapsed && currentCount > 0)) &&
-                    (System.currentTimeMillis() >= azureBackoffUntilMs)
-
-            if (shouldRunAzureAnalysis) {
-                isAzureAnalysisRunning.set(true)
-                lastAzureAnalysisTime = System.currentTimeMillis()
-                triggerAzureNow = false
-                // Decouple Qi action start from this scheduler thread
-                serviceScope.launch {
-                    takePictureAndAnalyze(humansSnapshot, humanInfoList)
-                }
-            } else {
-                maybePushUi(humanInfoList)
-            }
+            maybePushUi(humanInfoList)
             
-            // Run local face recognition in parallel (independent of Azure)
+            // Run local face recognition
             // Triggers: 1) Regular interval (3s), or 2) New human appeared
             val timeIntervalElapsed = (System.currentTimeMillis() - lastLocalFaceRecognitionTime) >= localFaceRecognitionIntervalMs
             val wantsToRun = localFaceRecognitionService != null &&
@@ -328,124 +269,6 @@ class PerceptionService {
         } catch (e: Exception) {
             Log.e(TAG, "Monitor tick failed", e)
             listener?.onPerceptionError("Monitor failed: ${e.message}")
-        }
-    }
-
-    private fun takePictureAndAnalyze(
-        pepperHumans: List<Human>,
-        initialHumanInfo: List<PerceptionData.HumanInfo>
-    ) {
-        val action = takePictureAction ?: run {
-            isAzureAnalysisRunning.set(false)
-            return
-        }
-
-        action.andThenCompose { takePicture -> takePicture.async().run() }
-            .andThenConsume { timestampedImageHandle ->
-                val bitmap = convertToBitmap(timestampedImageHandle)
-                if (bitmap == null) {
-                    // Send initial data if picture fails
-                    listener?.onHumansDetected(initialHumanInfo)
-                    isAzureAnalysisRunning.set(false)
-                    return@andThenConsume
-                }
-
-                // Use coroutine to call suspend function
-                serviceScope.launch {
-                    try {
-                        val faces = faceRecognitionService?.detectFaces(bitmap) ?: emptyList()
-                        val fusedList = fuseHumanAndFaceData(pepperHumans, initialHumanInfo, faces)
-                        maybePushUi(fusedList)
-                    } catch (e: FaceRecognitionService.RateLimitException) {
-                        azureBackoffUntilMs = System.currentTimeMillis() + e.retryAfterMs
-                        Log.e(TAG, "Azure face detection rate limited", e)
-                        maybePushUi(initialHumanInfo)
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Azure face detection failed", e)
-                        maybePushUi(initialHumanInfo)
-                    } finally {
-                        isAzureAnalysisRunning.set(false)
-                    }
-                }
-            }
-    }
-
-    private fun fuseHumanAndFaceData(
-        pepperHumans: List<Human>,
-        humanInfoList: List<PerceptionData.HumanInfo>,
-        azureFaces: List<FaceRecognitionService.FaceInfo>?
-    ): List<PerceptionData.HumanInfo> {
-        if (azureFaces.isNullOrEmpty() || pepperHumans.isEmpty()) {
-            return humanInfoList // Nothing to match, return original list
-        }
-
-        // --- Sort Azure faces by horizontal position (left to right) ---
-        val sortedAzureFaces = azureFaces.sortedBy { it.left }
-
-        // --- Sort Pepper humans by their angle relative to the robot's front (left to right) ---
-        val sortedPepperHumans = pepperHumans.sortedByDescending { h ->
-            try {
-                val xy = getXYTranslationReflect(h.headFrame, robotFrame)
-                if (xy != null) atan2(xy[1], xy[0]) else 0.0
-            } catch (e: Exception) {
-                0.0
-            }
-        }
-
-        // Re-create the humanInfoList in the new sorted order
-        val sortedHumanInfoList = mutableListOf<PerceptionData.HumanInfo>()
-        for (sortedHuman in sortedPepperHumans) {
-            humanInfoList.find { it.id == sortedHuman.hashCode() }?.let {
-                sortedHumanInfoList.add(it)
-            }
-        }
-
-        if (sortedHumanInfoList.size != humanInfoList.size) {
-            return humanInfoList // sort failed
-        }
-
-        // --- Match sorted lists element by element ---
-        val matchCount = minOf(sortedHumanInfoList.size, sortedAzureFaces.size)
-        for (i in 0 until matchCount) {
-            val humanInfo = sortedHumanInfoList[i]
-            val azureFace = sortedAzureFaces[i]
-
-            // --- Enrich HumanInfo with Azure Data (cache last good values) ---
-            azureFace.yawDeg?.let { humanInfo.azureYawDeg = it }
-            azureFace.pitchDeg?.let { humanInfo.azurePitchDeg = it }
-            azureFace.rollDeg?.let { humanInfo.azureRollDeg = it }
-            azureFace.glassesType?.let { humanInfo.glassesType = it }
-            azureFace.isMasked?.let { humanInfo.isMasked = it }
-            azureFace.imageQuality?.let { humanInfo.imageQuality = it }
-            azureFace.blurValue?.let { humanInfo.blurLevel = it }
-            azureFace.exposureLevel?.let { humanInfo.exposureLevel = it }
-
-            // Update cache
-            val a = azureCacheById.getOrPut(humanInfo.id) { AzureAttrs() }
-            a.yaw = humanInfo.azureYawDeg
-            a.pitch = humanInfo.azurePitchDeg
-            a.roll = humanInfo.azureRollDeg
-            a.glasses = humanInfo.glassesType
-            a.masked = humanInfo.isMasked
-            a.quality = humanInfo.imageQuality
-            a.blur = humanInfo.blurLevel
-            a.exposure = humanInfo.exposureLevel
-        }
-
-        return sortedHumanInfoList
-    }
-
-    private fun convertToBitmap(timestampedImageHandle: TimestampedImageHandle): Bitmap? {
-        return try {
-            val encodedImageHandle = timestampedImageHandle.image
-            val encodedImage = encodedImageHandle.value
-            val buffer = encodedImage.data
-            val bytes = ByteArray(buffer.remaining())
-            buffer.get(bytes)
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to convert EncodedImage to Bitmap", e)
-            null
         }
     }
 
