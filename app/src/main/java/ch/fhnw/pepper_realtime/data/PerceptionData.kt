@@ -24,6 +24,10 @@ class PerceptionData {
         var basicEmotion: BasicEmotion = BasicEmotion.UNKNOWN
         var facePicture: Bitmap? = null // Face picture from QiSDK
 
+        // --- Position relative to robot (for bird's eye view) ---
+        var positionX: Double = 0.0  // Meters in front of robot (positive = in front)
+        var positionY: Double = 0.0  // Meters to the side (positive = left of robot)
+
         // --- Data from local face recognition ---
         var recognizedName: String? = null // Name from local face recognition on Pepper's head
 

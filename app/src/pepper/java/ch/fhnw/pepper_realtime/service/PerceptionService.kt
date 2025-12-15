@@ -299,12 +299,19 @@ class PerceptionService {
 
             human.attention?.let { info.attentionState = it.toString() }
 
-            // Distance computation (robot frame vs human head frame)
+            // Distance and position computation (robot frame vs human head frame)
             try {
                 val humanFrame = human.headFrame
                 info.distanceMeters = computeDistanceMetersReflect(humanFrame, robotFrame)
+                
+                // Get XY position for bird's eye view
+                val xyPos = getXYTranslationReflect(humanFrame, robotFrame)
+                if (xyPos != null) {
+                    info.positionX = xyPos[0]  // Distance in front of robot
+                    info.positionY = xyPos[1]  // Distance to left/right of robot
+                }
             } catch (distEx: Exception) {
-                // keep default -1.0 on failure
+                // keep default values on failure
             }
 
             // Extract face picture with improved error handling and thread safety

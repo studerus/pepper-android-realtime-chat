@@ -1,6 +1,7 @@
 package ch.fhnw.pepper_realtime.ui.compose
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -11,19 +12,24 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.RadioButtonChecked
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -126,7 +132,7 @@ fun DashboardOverlay(
                         
                         Row {
                             // Action buttons based on current tab
-                            if (selectedTab == 1) {
+                            if (selectedTab == 2) {
                                 // Refresh button for Faces tab
                                 IconButton(onClick = onRefreshFaces, enabled = !faceState.isLoading) {
                                     if (faceState.isLoading) {
@@ -182,7 +188,7 @@ fun DashboardOverlay(
                                         modifier = Modifier.size(18.dp)
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    Text("Live View")
+                                    Text("Live")
                                 }
                             },
                             selectedContentColor = DashboardColors.TabSelected,
@@ -190,8 +196,25 @@ fun DashboardOverlay(
                         )
                         Tab(
                             selected = selectedTab == 1,
+                            onClick = { selectedTab = 1 },
+                            text = {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        Icons.Default.RadioButtonChecked,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Radar")
+                                }
+                            },
+                            selectedContentColor = DashboardColors.TabSelected,
+                            unselectedContentColor = DashboardColors.TabUnselected
+                        )
+                        Tab(
+                            selected = selectedTab == 2,
                             onClick = { 
-                                selectedTab = 1
+                                selectedTab = 2
                                 onRefreshFaces()
                             },
                             text = {
@@ -202,7 +225,7 @@ fun DashboardOverlay(
                                         modifier = Modifier.size(18.dp)
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    Text("Known Faces (${faceState.faces.size})")
+                                    Text("Faces (${faceState.faces.size})")
                                 }
                             },
                             selectedContentColor = DashboardColors.TabSelected,
@@ -218,9 +241,14 @@ fun DashboardOverlay(
                             humans = state.humans,
                             lastUpdate = state.lastUpdate
                         )
-                        1 -> KnownFacesContent(
+                        1 -> RadarViewContent(
+                            humans = state.humans,
+                            lastUpdate = state.lastUpdate
+                        )
+                        2 -> KnownFacesContent(
                             faceState = faceState,
                             faceService = faceService,
+                            onAddAngle = { name -> onRegisterFace(name) },
                             onDelete = { faceToDelete = it }
                         )
                     }
@@ -327,6 +355,178 @@ private fun LiveViewContent(
     }
 }
 
+// ============== TAB 2: RADAR VIEW ==============
+
+@Composable
+private fun RadarViewContent(
+    humans: List<PerceptionData.HumanInfo>,
+    lastUpdate: String
+) {
+    Box(modifier = Modifier.fillMaxWidth()) {
+        // Radar visualization (takes full space)
+        RadarCanvas(
+            humans = humans,
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight()
+                .padding(4.dp)
+        )
+        
+        // Footer overlay at bottom
+        Text(
+            text = "${humans.size} person(s) • $lastUpdate",
+            color = DashboardColors.TextLight,
+            fontSize = 11.sp,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 4.dp)
+        )
+    }
+}
+
+@Composable
+private fun RadarCanvas(
+    humans: List<PerceptionData.HumanInfo>,
+    modifier: Modifier = Modifier
+) {
+    val robotColor = DashboardColors.AccentBlue
+    val humanColor = DashboardColors.SuccessGreen
+    val unknownHumanColor = Color(0xFF6B7280)
+    val gridColor = Color(0xFFE5E7EB)
+    
+    // Maximum range in meters
+    val maxRange = 4.0f
+    
+    Card(
+        colors = CardDefaults.cardColors(containerColor = DashboardColors.CardBackground),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = BorderStroke(1.dp, DashboardColors.BorderColor),
+        modifier = modifier
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize().padding(12.dp)) {
+            val width = size.width
+            val height = size.height
+            
+            // Robot position: top center (with some margin)
+            val robotX = width / 2
+            val robotY = 40f
+            val robotRadius = 24f
+            
+            // Calculate scale based on available space
+            val usableHeight = height - robotY - 30f
+            val pixelsPerMeter = usableHeight / maxRange
+            
+            // Draw distance arcs (semicircles in front of robot)
+            for (distance in 1..4) {
+                val radius = distance * pixelsPerMeter
+                drawArc(
+                    color = gridColor,
+                    startAngle = 0f,
+                    sweepAngle = 180f,
+                    useCenter = false,
+                    topLeft = Offset(robotX - radius, robotY - radius),
+                    size = androidx.compose.ui.geometry.Size(radius * 2, radius * 2),
+                    style = Stroke(width = 1f)
+                )
+                
+                // Distance label
+                drawContext.canvas.nativeCanvas.apply {
+                    val paint = android.graphics.Paint().apply {
+                        color = android.graphics.Color.parseColor("#9CA3AF")
+                        textSize = 20f
+                        textAlign = android.graphics.Paint.Align.CENTER
+                    }
+                    drawText("${distance}m", robotX, robotY + radius + 14f, paint)
+                }
+            }
+            
+            // Draw center line (forward direction)
+            drawLine(
+                color = gridColor,
+                start = Offset(robotX, robotY),
+                end = Offset(robotX, height - 10f),
+                strokeWidth = 1f
+            )
+            
+            // Draw left/right indicator lines at 45 degrees
+            val lineLength = 3.5f * pixelsPerMeter
+            drawLine(
+                color = gridColor.copy(alpha = 0.5f),
+                start = Offset(robotX, robotY),
+                end = Offset(robotX - lineLength * 0.7f, robotY + lineLength * 0.7f),
+                strokeWidth = 1f
+            )
+            drawLine(
+                color = gridColor.copy(alpha = 0.5f),
+                start = Offset(robotX, robotY),
+                end = Offset(robotX + lineLength * 0.7f, robotY + lineLength * 0.7f),
+                strokeWidth = 1f
+            )
+            
+            // Draw the robot (triangle pointing down = forward direction)
+            val robotPath = androidx.compose.ui.graphics.Path().apply {
+                moveTo(robotX, robotY + robotRadius) // Bottom point (forward)
+                lineTo(robotX - robotRadius * 0.8f, robotY - robotRadius * 0.4f) // Top left
+                lineTo(robotX + robotRadius * 0.8f, robotY - robotRadius * 0.4f) // Top right
+                close()
+            }
+            drawPath(robotPath, robotColor)
+            
+            // Draw detected humans
+            humans.forEach { human ->
+                // Skip if no valid position data
+                if (human.positionX == 0.0 && human.positionY == 0.0) return@forEach
+                
+                // Transform coordinates
+                val humanScreenX = robotX + (human.positionY.toFloat() * pixelsPerMeter)
+                val humanScreenY = robotY + (human.positionX.toFloat() * pixelsPerMeter)
+                
+                // Check if within visible bounds
+                if (humanScreenY < height - 20 && humanScreenY > robotY && 
+                    humanScreenX > 20 && humanScreenX < width - 20) {
+                    
+                    val isRecognized = human.recognizedName != null
+                    val displayColor = if (isRecognized) humanColor else unknownHumanColor
+                    val humanRadius = 10f
+                    
+                    // Draw human circle
+                    drawCircle(
+                        color = displayColor,
+                        radius = humanRadius,
+                        center = Offset(humanScreenX, humanScreenY)
+                    )
+                    
+                    // Draw outer ring for recognized persons
+                    if (isRecognized) {
+                        drawCircle(
+                            color = displayColor,
+                            radius = humanRadius + 4f,
+                            center = Offset(humanScreenX, humanScreenY),
+                            style = Stroke(width = 2f)
+                        )
+                    }
+                    
+                    // Draw name or distance label
+                    drawContext.canvas.nativeCanvas.apply {
+                        val paint = android.graphics.Paint().apply {
+                            color = if (isRecognized) {
+                                android.graphics.Color.parseColor("#059669")
+                            } else {
+                                android.graphics.Color.parseColor("#4B5563")
+                            }
+                            textSize = 22f
+                            textAlign = android.graphics.Paint.Align.CENTER
+                            isFakeBoldText = isRecognized
+                        }
+                        val label = human.recognizedName ?: human.getDistanceString()
+                        drawText(label, humanScreenX, humanScreenY + humanRadius + 16f, paint)
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun HumanDetectionItem(human: PerceptionData.HumanInfo) {
     Card(
@@ -395,6 +595,7 @@ private fun HumanDetectionItem(human: PerceptionData.HumanInfo) {
 private fun KnownFacesContent(
     faceState: FaceManagementState,
     faceService: LocalFaceRecognitionService,
+    onAddAngle: (String) -> Unit,
     onDelete: (String) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -420,6 +621,7 @@ private fun KnownFacesContent(
                         FaceListItem(
                             face = face,
                             imageUrl = faceService.getFaceImageUrl(face.name),
+                            onAddAngle = { onAddAngle(face.name) },
                             onDelete = { onDelete(face.name) }
                         )
                     }
@@ -442,6 +644,7 @@ private fun KnownFacesContent(
 private fun FaceListItem(
     face: LocalFaceRecognitionService.RegisteredFace,
     imageUrl: String,
+    onAddAngle: () -> Unit,
     onDelete: () -> Unit
 ) {
     Card(
@@ -511,6 +714,15 @@ private fun FaceListItem(
                     text = "${face.count} encoding(s)",
                     fontSize = 12.sp,
                     color = DashboardColors.TextLight
+                )
+            }
+            
+            // Add angle button
+            IconButton(onClick = onAddAngle) {
+                Icon(
+                    Icons.Default.AddAPhoto,
+                    contentDescription = "Add angle for ${face.name}",
+                    tint = DashboardColors.AccentBlue
                 )
             }
             
