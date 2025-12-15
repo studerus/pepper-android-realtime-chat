@@ -10,7 +10,6 @@ import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -137,15 +136,8 @@ fun MainScreen(
                         }
                         IconButton(onClick = { viewModel.toggleDashboard() }) {
                             Icon(
-                                Icons.Default.Visibility,
-                                contentDescription = stringResource(R.string.content_desc_perception_dashboard),
-                                modifier = Modifier.size(32.dp)
-                            )
-                        }
-                        IconButton(onClick = { viewModel.toggleFaceManagement() }) {
-                            Icon(
                                 Icons.Default.Face,
-                                contentDescription = "Face Management",
+                                contentDescription = stringResource(R.string.content_desc_perception_dashboard),
                                 modifier = Modifier.size(32.dp)
                             )
                         }
@@ -234,26 +226,21 @@ fun MainScreen(
 
                 // ---------------- Overlays & Dialogs ----------------
 
-                // 1. Dashboard
+                // 1. Dashboard (with integrated Face Management)
                 DashboardOverlay(
                     state = dashboardState,
-                    onClose = { viewModel.hideDashboard() }
+                    faceState = faceManagementState,
+                    faceService = viewModel.localFaceRecognitionService,
+                    onClose = { viewModel.hideDashboard() },
+                    onRefreshFaces = { viewModel.refreshFaceList() },
+                    onRegisterFace = { name -> viewModel.registerFace(name) },
+                    onDeleteFace = { name -> viewModel.deleteFace(name) }
                 )
 
                 // 2. Navigation / Map
                 NavigationOverlay(
                     state = navigationState,
                     onClose = { viewModel.hideNavigationOverlay() }
-                )
-
-                // 3. Face Management
-                FaceManagementOverlay(
-                    state = faceManagementState,
-                    faceService = viewModel.localFaceRecognitionService,
-                    onClose = { viewModel.hideFaceManagement() },
-                    onRefresh = { viewModel.refreshFaceList() },
-                    onRegisterFace = { name -> viewModel.registerFace(name) },
-                    onDeleteFace = { name -> viewModel.deleteFace(name) }
                 )
 
                 // 5. Games

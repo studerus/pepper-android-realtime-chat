@@ -200,6 +200,7 @@ class ChatViewModel @Inject constructor(
     // Dashboard Overlay Methods
     fun showDashboard() {
         _dashboardState.update { it.copy(isVisible = true, isMonitoring = true) }
+        refreshFaceList() // Load faces when dashboard opens
     }
 
     fun hideDashboard() {
@@ -207,7 +208,11 @@ class ChatViewModel @Inject constructor(
     }
 
     fun toggleDashboard() {
-        _dashboardState.update { it.copy(isVisible = !it.isVisible, isMonitoring = !it.isMonitoring) }
+        val willBeVisible = !_dashboardState.value.isVisible
+        _dashboardState.update { it.copy(isVisible = willBeVisible, isMonitoring = willBeVisible) }
+        if (willBeVisible) {
+            refreshFaceList() // Load faces when dashboard opens
+        }
     }
 
     fun updateDashboardHumans(humans: List<ch.fhnw.pepper_realtime.data.PerceptionData.HumanInfo>, timestamp: String) {
@@ -218,24 +223,7 @@ class ChatViewModel @Inject constructor(
         _dashboardState.value = DashboardState()
     }
 
-    // Face Management Methods
-    fun showFaceManagement() {
-        _faceManagementState.update { it.copy(isVisible = true) }
-        refreshFaceList()
-    }
-
-    fun hideFaceManagement() {
-        _faceManagementState.update { it.copy(isVisible = false) }
-    }
-
-    fun toggleFaceManagement() {
-        val newVisible = !_faceManagementState.value.isVisible
-        _faceManagementState.update { it.copy(isVisible = newVisible) }
-        if (newVisible) {
-            refreshFaceList()
-        }
-    }
-
+    // Face Management Methods (integrated into Dashboard)
     fun refreshFaceList() {
         viewModelScope.launch {
             _faceManagementState.update { it.copy(isLoading = true, error = null) }
