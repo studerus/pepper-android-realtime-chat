@@ -194,8 +194,24 @@ fun HumanDetectionItem(human: PerceptionData.HumanInfo) {
                     }
                 }
                 
-                // Demographics
-                Text(human.getDemographics(), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = DashboardColors.TextDark, modifier = Modifier.weight(ColWeights[1]))
+                // Demographics (with recognized name if available)
+                Column(modifier = Modifier.weight(ColWeights[1])) {
+                    // Show recognized name prominently if available
+                    human.recognizedName?.let { name ->
+                        Text(
+                            text = "👤 $name",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF059669) // Green for recognized
+                        )
+                    }
+                    Text(
+                        text = human.getDemographics(),
+                        fontSize = if (human.recognizedName != null) 12.sp else 14.sp,
+                        fontWeight = if (human.recognizedName != null) FontWeight.Normal else FontWeight.Bold,
+                        color = DashboardColors.TextDark
+                    )
+                }
                 // Distance
                 Text(human.getDistanceString(), fontSize = 14.sp, color = DashboardColors.TextDark, textAlign = TextAlign.Center, modifier = Modifier.weight(ColWeights[2]))
                 // Emotion

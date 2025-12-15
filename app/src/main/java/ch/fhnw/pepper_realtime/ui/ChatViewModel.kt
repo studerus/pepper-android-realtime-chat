@@ -15,6 +15,8 @@ import ch.fhnw.pepper_realtime.manager.MemoryGameManager
 import ch.fhnw.pepper_realtime.manager.QuizGameManager
 import ch.fhnw.pepper_realtime.manager.TicTacToeGameManager
 import ch.fhnw.pepper_realtime.manager.audio.ToneGenerator
+import ch.fhnw.pepper_realtime.service.LocalFaceRecognitionService
+import ch.fhnw.pepper_realtime.ui.compose.FaceManagementState
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import ch.fhnw.pepper_realtime.network.WebSocketConnectionCallback
@@ -31,7 +33,8 @@ class ChatViewModel @Inject constructor(
     private val ticTacToeGameManager: TicTacToeGameManager,
     private val memoryGameManager: MemoryGameManager,
     private val quizGameManager: QuizGameManager,
-    private val drawingGameManager: DrawingGameManager
+    private val drawingGameManager: DrawingGameManager,
+    val localFaceRecognitionService: LocalFaceRecognitionService
 ) : AndroidViewModel(application) {
 
     companion object {
@@ -79,6 +82,9 @@ class ChatViewModel @Inject constructor(
     private var onMelodyFinishedCallback: ((wasCancelled: Boolean) -> Unit)? = null
     private val melodyCallbackLock = Any()
 
+    // Face Management State
+    private val _faceManagementState = MutableStateFlow(FaceManagementState())
+
     // Internal Response State - atomic updates replace @Volatile variables
     private val _responseState = MutableStateFlow(ResponseState())
 
@@ -95,6 +101,7 @@ class ChatViewModel @Inject constructor(
     val navigationState: StateFlow<NavigationUiState> = _navigationState.asStateFlow()
     val dashboardState: StateFlow<DashboardState> = _dashboardState.asStateFlow()
     val melodyPlayerState: StateFlow<MelodyPlayerState> = _melodyPlayerState.asStateFlow()
+    val faceManagementState: StateFlow<FaceManagementState> = _faceManagementState.asStateFlow()
 
     // Game state flows - delegated to managers
     val quizState: StateFlow<QuizState> = quizGameManager.state
@@ -209,6 +216,81 @@ class ChatViewModel @Inject constructor(
 
     fun resetDashboard() {
         _dashboardState.value = DashboardState()
+    }
+
+    // Face Management Methods
+    fun showFaceManagement() {
+        _faceManagementState.update { it.copy(isVisible = true) }
+        refreshFaceList()
+    }
+
+    fun hideFaceManagement() {
+        _faceManagementState.update { it.copy(isVisible = false) }
+    }
+
+    fun toggleFaceManagement() {
+        val newVisible = !_faceManagementState.value.isVisible
+        _faceManagementState.update { it.copy(isVisible = newVisible) }
+        if (newVisible) {
+            refreshFaceList()
+        }
+    }
+
+    fun refreshFaceList() {
+        viewModelScope.launch {
+            _faceManagementState.update { it.copy(isLoading = true, error = null) }
+            
+            // listFaces() will automatically start the server if needed
+            val faces = localFaceRecognitionService.listFaces()
+            
+            // Check if we got faces (empty list could mean server not available or no faces)
+            val isAvailable = localFaceRecognitionService.isServerAvailable()
+            
+            _faceManagementState.update { 
+                it.copy(
+                    isLoading = false, 
+                    isServerAvailable = isAvailable,
+                    faces = faces, 
+                    error = null
+                ) 
+            }
+        }
+    }
+
+    fun registerFace(name: String) {
+        viewModelScope.launch {
+            _faceManagementState.update { it.copy(isLoading = true) }
+            val success = localFaceRecognitionService.registerFace(name)
+            if (success) {
+                refreshFaceList()
+            } else {
+                _faceManagementState.update { 
+                    it.copy(isLoading = false, error = "Failed to register face") 
+                }
+            }
+        }
+    }
+
+    fun deleteFace(name: String) {
+        viewModelScope.launch {
+            _faceManagementState.update { it.copy(isLoading = true) }
+            val success = localFaceRecognitionService.deleteFace(name)
+            if (success) {
+                refreshFaceList()
+            } else {
+                _faceManagementState.update { 
+                    it.copy(isLoading = false, error = "Failed to delete face") 
+                }
+            }
+        }
+    }
+
+    /**
+     * Recognize faces from Pepper's camera.
+     * Returns the recognition result for use in chat flow.
+     */
+    suspend fun recognizeFaces(): LocalFaceRecognitionService.RecognitionResult {
+        return localFaceRecognitionService.recognize()
     }
 
     // Quiz Dialog Methods - delegated to QuizGameManager

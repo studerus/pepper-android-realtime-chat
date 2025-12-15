@@ -7,6 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Visibility
@@ -68,6 +69,7 @@ fun MainScreen(
     val memoryState by viewModel.memoryGameState.collectAsStateWithLifecycle()
     val drawingState by viewModel.drawingGameState.collectAsStateWithLifecycle()
     val melodyPlayerState by viewModel.melodyPlayerState.collectAsStateWithLifecycle()
+    val faceManagementState by viewModel.faceManagementState.collectAsStateWithLifecycle()
     
     // Local State for Image Overlay
     var overlayImageUrl by remember { mutableStateOf<String?>(null) }
@@ -137,6 +139,13 @@ fun MainScreen(
                             Icon(
                                 Icons.Default.Visibility,
                                 contentDescription = stringResource(R.string.content_desc_perception_dashboard),
+                                modifier = Modifier.size(32.dp)
+                            )
+                        }
+                        IconButton(onClick = { viewModel.toggleFaceManagement() }) {
+                            Icon(
+                                Icons.Default.Face,
+                                contentDescription = "Face Management",
                                 modifier = Modifier.size(32.dp)
                             )
                         }
@@ -237,7 +246,17 @@ fun MainScreen(
                     onClose = { viewModel.hideNavigationOverlay() }
                 )
 
-                // 3. Games
+                // 3. Face Management
+                FaceManagementOverlay(
+                    state = faceManagementState,
+                    faceService = viewModel.localFaceRecognitionService,
+                    onClose = { viewModel.hideFaceManagement() },
+                    onRefresh = { viewModel.refreshFaceList() },
+                    onRegisterFace = { name -> viewModel.registerFace(name) },
+                    onDeleteFace = { name -> viewModel.deleteFace(name) }
+                )
+
+                // 5. Games
                 // Quiz
                 if (quizState.isVisible) {
                     QuizDialog(
@@ -289,7 +308,7 @@ fun MainScreen(
                     )
                 }
 
-                // 4. Image Overlay (Full Screen)
+                // 6. Image Overlay (Full Screen)
                 overlayImageUrl?.let { url ->
                     Dialog(
                         onDismissRequest = { overlayImageUrl = null },
@@ -317,7 +336,7 @@ fun MainScreen(
                     }
                 }
                 
-                // 5. Warmup Indicator (shown when isWarmingUp is true)
+                // 7. Warmup Indicator (shown when isWarmingUp is true)
                 if (isWarmingUp) {
                      Box(
                         modifier = Modifier

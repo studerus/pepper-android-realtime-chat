@@ -48,20 +48,32 @@ class PerceptionService {
 
     // External services
     private var faceRecognitionService: FaceRecognitionService? = null
+    private var localFaceRecognitionService: LocalFaceRecognitionService? = null
     private val isAzureAnalysisRunning = AtomicBoolean(false)
     private var lastAzureAnalysisTime = 0L
     @Volatile private var azureBackoffUntilMs = 0L
     @Volatile private var lastHumansCount = 0
     @Volatile private var triggerAzureNow = false
+    
+    // Local face recognition state
+    private val isLocalFaceRecognitionRunning = AtomicBoolean(false)
+    private var lastLocalFaceRecognitionTime = 0L
+    private val localFaceRecognitionIntervalMs = 3000L // Recognize every 3 seconds
+    private val localFaceNameCache = mutableMapOf<Int, String>() // humanId -> recognized name
+    @Volatile private var triggerImmediateFaceRecognition = false // Trigger when new human appears
 
     // Threading - use background thread for QiSDK synchronous calls
     private var monitoringThread: HandlerThread? = null
     private var monitoringHandler: Handler? = null
+    // Polling interval: 500ms to catch 1Hz internal refresh with minimal latency
+    // (QiSDK refreshes PleasureState/ExcitementState/AttentionState at 1Hz)
+    private val pollingIntervalMs = 500L
+    
     private val monitoringRunnable = object : Runnable {
         override fun run() {
             if (isMonitoring) {
                 monitorOnce()
-                monitoringHandler?.postDelayed(this, 1500L)
+                monitoringHandler?.postDelayed(this, pollingIntervalMs)
             }
         }
     }
@@ -120,6 +132,15 @@ class PerceptionService {
     }
 
     /**
+     * Set the local face recognition service for identifying known faces.
+     * Should be called after the service is injected by Hilt/Dagger.
+     */
+    fun setLocalFaceRecognitionService(service: LocalFaceRecognitionService) {
+        this.localFaceRecognitionService = service
+        Log.i(TAG, "Local face recognition service configured")
+    }
+
+    /**
      * Initialize the perception service with QiContext.
      * Reinitializes internal resources if they were previously shutdown.
      */
@@ -145,6 +166,8 @@ class PerceptionService {
 
             // Initialize Azure Face Recognition Service
             this.faceRecognitionService = FaceRecognitionService()
+            
+            // Note: LocalFaceRecognitionService is injected via setLocalFaceRecognitionService()
 
             // Event-driven trigger: react to humansAround changes
             try {
@@ -153,8 +176,13 @@ class PerceptionService {
                         val count = humans?.size ?: 0
                         Log.d(TAG, "OnHumansAroundChanged: $count humans detected")
                         if (count != lastHumansCount) {
+                            // Trigger immediate face recognition when human count INCREASES
+                            if (count > lastHumansCount && count > 0) {
+                                triggerImmediateFaceRecognition = true
+                                Log.i(TAG, "New human detected! Triggering immediate face recognition.")
+                            }
                             lastHumansCount = count
-                            // trigger immediately when humans appear/disappear (only if there is at least one human)
+                            // trigger Azure immediately when humans appear/disappear (only if there is at least one human)
                             triggerAzureNow = count > 0
                             Log.i(TAG, "Human count changed to: $count")
                         }
@@ -272,6 +300,30 @@ class PerceptionService {
                 }
             } else {
                 maybePushUi(humanInfoList)
+            }
+            
+            // Run local face recognition in parallel (independent of Azure)
+            // Triggers: 1) Regular interval (3s), or 2) New human appeared
+            val timeIntervalElapsed = (System.currentTimeMillis() - lastLocalFaceRecognitionTime) >= localFaceRecognitionIntervalMs
+            val wantsToRun = localFaceRecognitionService != null &&
+                    currentCount > 0 &&
+                    (timeIntervalElapsed || triggerImmediateFaceRecognition)
+            val canRun = !isLocalFaceRecognitionRunning.get()
+                    
+            if (wantsToRun && canRun) {
+                if (triggerImmediateFaceRecognition) {
+                    Log.i(TAG, "Running immediate face recognition for new human")
+                }
+                // Only clear the trigger when we actually start the recognition
+                triggerImmediateFaceRecognition = false
+                isLocalFaceRecognitionRunning.set(true)
+                lastLocalFaceRecognitionTime = System.currentTimeMillis()
+                serviceScope.launch {
+                    runLocalFaceRecognition(humanInfoList)
+                }
+            } else if (wantsToRun && !canRun) {
+                // Recognition already running - keep the trigger for next poll cycle
+                Log.d(TAG, "Face recognition busy, will retry on next poll (trigger preserved: $triggerImmediateFaceRecognition)")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Monitor tick failed", e)
@@ -639,6 +691,13 @@ class PerceptionService {
 
     private fun maybePushUi(list: List<PerceptionData.HumanInfo>) {
         try {
+            // Apply cached recognized names before pushing to UI
+            for (info in list) {
+                localFaceNameCache[info.id]?.let { cachedName ->
+                    info.recognizedName = cachedName
+                }
+            }
+            
             val now = System.currentTimeMillis()
             val ids = list.map { it.id }
             val idsChanged = ids != lastUiIds
@@ -651,6 +710,81 @@ class PerceptionService {
             }
         } catch (e: Exception) {
             listener?.onHumansDetected(list)
+        }
+    }
+    
+    /**
+     * Run local face recognition on Pepper's head camera.
+     * Updates the face name cache with recognized names.
+     */
+    private suspend fun runLocalFaceRecognition(humanInfoList: List<PerceptionData.HumanInfo>) {
+        try {
+            val service = localFaceRecognitionService ?: return
+            
+            val result = service.recognize()
+            
+            if (result.error != null) {
+                Log.w(TAG, "Local face recognition error: ${result.error}")
+                return
+            }
+            
+            // Get known faces (exclude "Unknown")
+            val knownFaces = result.faces.filter { it.isKnown }
+            
+            if (knownFaces.isEmpty()) {
+                Log.d(TAG, "Local face recognition: no known faces detected")
+                // Clear cache for humans that are no longer recognized
+                // (but keep cache entries for humans still present)
+                return
+            }
+            
+            Log.i(TAG, "Local face recognition: found ${knownFaces.size} known face(s): ${knownFaces.map { it.name }}")
+            
+            // Match recognized faces to HumanInfo by horizontal position
+            // Similar logic to Azure face matching - sort both by horizontal position
+            val sortedKnownFaces = knownFaces.sortedBy { it.location.left }
+            val sortedHumans = humanInfoList.sortedBy { it.id } // Simple sort for now
+            
+            // Simple 1:1 matching when counts match
+            if (sortedKnownFaces.size == sortedHumans.size) {
+                for (i in sortedKnownFaces.indices) {
+                    val recognizedFace = sortedKnownFaces[i]
+                    val humanInfo = sortedHumans[i]
+                    
+                    humanInfo.recognizedName = recognizedFace.name
+                    localFaceNameCache[humanInfo.id] = recognizedFace.name
+                    
+                    Log.i(TAG, "Matched face '${recognizedFace.name}' to human ${humanInfo.id} (confidence: ${recognizedFace.confidence})")
+                }
+            } else if (sortedKnownFaces.size == 1 && sortedHumans.isNotEmpty()) {
+                // Only one face recognized - assign to first/closest human
+                val recognizedFace = sortedKnownFaces.first()
+                val humanInfo = sortedHumans.first()
+                
+                humanInfo.recognizedName = recognizedFace.name
+                localFaceNameCache[humanInfo.id] = recognizedFace.name
+                
+                Log.i(TAG, "Single face '${recognizedFace.name}' matched to human ${humanInfo.id}")
+            } else {
+                Log.d(TAG, "Face count mismatch: ${sortedKnownFaces.size} faces vs ${sortedHumans.size} humans - using position-based matching")
+                // For mismatched counts, match what we can
+                val matchCount = minOf(sortedKnownFaces.size, sortedHumans.size)
+                for (i in 0 until matchCount) {
+                    val recognizedFace = sortedKnownFaces[i]
+                    val humanInfo = sortedHumans[i]
+                    
+                    humanInfo.recognizedName = recognizedFace.name
+                    localFaceNameCache[humanInfo.id] = recognizedFace.name
+                }
+            }
+            
+            // Trigger UI update with new names
+            maybePushUi(humanInfoList)
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Local face recognition failed", e)
+        } finally {
+            isLocalFaceRecognitionRunning.set(false)
         }
     }
 

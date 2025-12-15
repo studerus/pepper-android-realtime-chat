@@ -51,7 +51,14 @@ class ChatRobotLifecycleHandler(
             // Initialize PerceptionService listener for Dashboard
             initializeDashboardListener()
 
+            // Connect LocalFaceRecognitionService to PerceptionService for face identification
+            activity.perceptionService.setLocalFaceRecognitionService(viewModel.localFaceRecognitionService)
+
             activity.perceptionService.initialize(robotContext)
+            
+            // Start perception monitoring immediately so humans are detected right away
+            // (not just when dashboard is opened)
+            activity.perceptionService.startMonitoring()
 
             activity.visionService.initialize(robotContext)
 

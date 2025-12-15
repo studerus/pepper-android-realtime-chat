@@ -34,6 +34,13 @@ class PerceptionService {
     }
 
     /**
+     * Set the local face recognition service (no-op in standalone mode).
+     */
+    fun setLocalFaceRecognitionService(@Suppress("UNUSED_PARAMETER") service: LocalFaceRecognitionService) {
+        Log.d(TAG, "🤖 [SIMULATED] LocalFaceRecognitionService ignored in standalone mode")
+    }
+
+    /**
      * Simulates initializing the perception service
      */
     fun initialize(@Suppress("UNUSED_PARAMETER") qiContext: Any?) {
