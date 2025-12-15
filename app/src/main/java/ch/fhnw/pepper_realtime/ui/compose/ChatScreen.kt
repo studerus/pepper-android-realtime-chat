@@ -151,6 +151,9 @@ private fun ChatMessageItem(
         ChatMessage.Type.FUNCTION_CALL -> {
             FunctionCallCard(message = message)
         }
+        ChatMessage.Type.EVENT_TRIGGER -> {
+            EventTriggerCard(message = message)
+        }
         ChatMessage.Type.IMAGE_MESSAGE -> {
             ChatImage(
                 message = message,

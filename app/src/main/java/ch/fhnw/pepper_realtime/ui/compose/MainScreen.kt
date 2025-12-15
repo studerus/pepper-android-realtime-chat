@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
@@ -69,6 +70,7 @@ fun MainScreen(
     val drawingState by viewModel.drawingGameState.collectAsStateWithLifecycle()
     val melodyPlayerState by viewModel.melodyPlayerState.collectAsStateWithLifecycle()
     val faceManagementState by viewModel.faceManagementState.collectAsStateWithLifecycle()
+    val eventRulesState by viewModel.eventRulesState.collectAsStateWithLifecycle()
     
     // Local State for Image Overlay
     var overlayImageUrl by remember { mutableStateOf<String?>(null) }
@@ -127,6 +129,13 @@ fun MainScreen(
                         navigationIconContentColor = Color(0xFF1F2937)
                     ),
                     actions = {
+                        IconButton(onClick = { viewModel.toggleEventRules() }) {
+                            Icon(
+                                Icons.Default.Bolt,
+                                contentDescription = "Event Rules",
+                                modifier = Modifier.size(32.dp)
+                            )
+                        }
                         IconButton(onClick = { viewModel.toggleNavigationOverlay() }) {
                             Icon(
                                 Icons.Default.LocationOn,
@@ -241,6 +250,18 @@ fun MainScreen(
                 NavigationOverlay(
                     state = navigationState,
                     onClose = { viewModel.hideNavigationOverlay() }
+                )
+
+                // 3. Event Rules
+                EventRulesOverlay(
+                    state = eventRulesState,
+                    onClose = { viewModel.hideEventRules() },
+                    onAddRule = { rule -> viewModel.addEventRule(rule) },
+                    onUpdateRule = { rule -> viewModel.updateEventRule(rule) },
+                    onDeleteRule = { ruleId -> viewModel.deleteEventRule(ruleId) },
+                    onToggleRule = { ruleId -> viewModel.toggleEventRuleEnabled(ruleId) },
+                    onResetDefaults = { viewModel.resetEventRulesToDefaults() },
+                    onSetEditingRule = { rule -> viewModel.setEditingRule(rule) }
                 )
 
                 // 5. Games

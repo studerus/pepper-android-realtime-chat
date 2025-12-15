@@ -3,6 +3,7 @@ package ch.fhnw.pepper_realtime.controller
 import android.util.Log
 import ch.fhnw.pepper_realtime.R
 import ch.fhnw.pepper_realtime.data.PerceptionData
+import ch.fhnw.pepper_realtime.data.PersonEvent
 import ch.fhnw.pepper_realtime.manager.TouchSensorManager
 import ch.fhnw.pepper_realtime.manager.TurnManager
 import ch.fhnw.pepper_realtime.service.PerceptionService
@@ -225,6 +226,7 @@ class ChatRobotLifecycleHandler(
     private val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
 
     private fun initializeDashboardListener() {
+        // Set up perception listener for dashboard updates
         activity.perceptionService.setListener(object : PerceptionService.PerceptionListener {
             override fun onHumansDetected(humans: List<PerceptionData.HumanInfo>) {
                 val timestamp = timeFormat.format(Date())
@@ -241,6 +243,21 @@ class ChatRobotLifecycleHandler(
                 Log.i(TAG, "Human awareness service active: $isActive")
             }
         })
-        Log.i(TAG, "Dashboard listener initialized")
+        
+        // Set up event listener for rule-based automation
+        activity.perceptionService.setEventListener(object : PerceptionService.EventListener {
+            override fun onPersonEvent(
+                event: PersonEvent,
+                humanInfo: PerceptionData.HumanInfo,
+                allHumans: List<PerceptionData.HumanInfo>
+            ) {
+                // Evaluate event against rules on the main thread
+                activity.runOnUiThread {
+                    viewModel.eventRuleEngine.evaluate(event, humanInfo, allHumans)
+                }
+            }
+        })
+        
+        Log.i(TAG, "Dashboard and Event listeners initialized")
     }
 }

@@ -18,7 +18,8 @@ class ChatMessage private constructor(
     enum class Type {
         REGULAR_MESSAGE,
         FUNCTION_CALL,
-        IMAGE_MESSAGE
+        IMAGE_MESSAGE,
+        EVENT_TRIGGER
     }
 
     var message: String = ""
@@ -30,6 +31,14 @@ class ChatMessage private constructor(
     var isExpanded: Boolean = false
     var functionStartTime: Long = 0L  // System.currentTimeMillis() when function call starts
     var functionEndTime: Long = 0L    // System.currentTimeMillis() when result arrives
+    
+    // Event trigger fields
+    var eventRuleName: String? = null
+    var eventType: String? = null
+    var eventActionType: String? = null
+    var eventTemplate: String? = null      // The template before placeholder replacement
+    var eventResolvedText: String? = null  // The text sent to AI (after placeholder replacement)
+    var eventPersonName: String? = null    // Name of the person that triggered the event
 
     /**
      * Creates a shallow copy of the message with updated text.
@@ -79,6 +88,29 @@ class ChatMessage private constructor(
                 it.functionArgs = functionArgs
                 it.message = "" // Will be generated in display
                 it.functionStartTime = System.currentTimeMillis()
+            }
+        }
+        
+        /**
+         * Static factory for event trigger messages.
+         * Shows when an event rule was triggered.
+         */
+        fun createEventTrigger(
+            ruleName: String,
+            eventType: String,
+            actionType: String,
+            template: String,
+            resolvedText: String,
+            personName: String?
+        ): ChatMessage {
+            return ChatMessage(Sender.ROBOT, Type.EVENT_TRIGGER, UUID.randomUUID().toString()).also {
+                it.eventRuleName = ruleName
+                it.eventType = eventType
+                it.eventActionType = actionType
+                it.eventTemplate = template
+                it.eventResolvedText = resolvedText
+                it.eventPersonName = personName
+                it.message = "" // Will be generated in display
             }
         }
     }

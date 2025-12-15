@@ -10,6 +10,8 @@ import com.aldebaran.qi.sdk.`object`.actuation.Actuation
 import com.aldebaran.qi.sdk.`object`.human.Human
 import com.aldebaran.qi.sdk.`object`.humanawareness.HumanAwareness
 import ch.fhnw.pepper_realtime.data.PerceptionData
+import ch.fhnw.pepper_realtime.data.PersonEvent
+import ch.fhnw.pepper_realtime.data.PersonEventType
 import kotlinx.coroutines.*
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.sqrt
@@ -28,6 +30,13 @@ class PerceptionService {
         fun onHumansDetected(humans: List<PerceptionData.HumanInfo>)
         fun onPerceptionError(error: String)
         fun onServiceStatusChanged(isActive: Boolean)
+    }
+
+    /**
+     * Listener for person events that can trigger rules.
+     */
+    interface EventListener {
+        fun onPersonEvent(event: PersonEvent, humanInfo: PerceptionData.HumanInfo, allHumans: List<PerceptionData.HumanInfo>)
     }
 
     private var qiContext: QiContext? = null
@@ -49,6 +58,21 @@ class PerceptionService {
     private val localFaceRecognitionIntervalMs = 3000L // Recognize every 3 seconds
     private val localFaceNameCache = mutableMapOf<Int, String>() // humanId -> recognized name
     @Volatile private var triggerImmediateFaceRecognition = false // Trigger when new human appears
+
+    // Event detection state tracking
+    private var eventListener: EventListener? = null
+    private var previousHumanIds: Set<Int> = emptySet()
+    private var previousAttentionStates: Map<Int, String> = emptyMap()
+    private var previousDistances: Map<Int, Double> = emptyMap()
+    private var previousRecognizedNames: Map<Int, String?> = emptyMap()
+    
+    // Distance thresholds for approach events
+    private val closeDistanceThreshold = 1.5 // meters
+    private val interactionDistanceThreshold = 3.0 // meters
+    
+    // Track which approach events have been fired to avoid duplicates
+    private var firedCloseApproach: MutableSet<Int> = mutableSetOf()
+    private var firedInteractionApproach: MutableSet<Int> = mutableSetOf()
 
     // Threading - use background thread for QiSDK synchronous calls
     private var monitoringThread: HandlerThread? = null
@@ -114,6 +138,14 @@ class PerceptionService {
     fun setLocalFaceRecognitionService(service: LocalFaceRecognitionService) {
         this.localFaceRecognitionService = service
         Log.i(TAG, "Local face recognition service configured")
+    }
+
+    /**
+     * Set the event listener for rule-based event handling.
+     */
+    fun setEventListener(listener: EventListener?) {
+        this.eventListener = listener
+        Log.i(TAG, "Event listener ${if (listener != null) "set" else "cleared"}")
     }
 
     /**
@@ -528,6 +560,9 @@ class PerceptionService {
                 }
             }
             
+            // Detect and fire events based on state changes
+            detectEvents(list)
+            
             val now = System.currentTimeMillis()
             val ids = list.map { it.id }
             val idsChanged = ids != lastUiIds
@@ -682,6 +717,105 @@ class PerceptionService {
             Log.w(TAG, "Failed to get detected humans", e)
             emptyList()
         }
+    }
+
+    /**
+     * Detect events by comparing current state with previous state.
+     * Called after each monitoring cycle to generate PersonEvents.
+     */
+    private fun detectEvents(humanInfoList: List<PerceptionData.HumanInfo>) {
+        val listener = eventListener ?: return
+        
+        val currentIds = humanInfoList.map { it.id }.toSet()
+        val currentAttention = humanInfoList.associate { it.id to it.attentionState }
+        val currentDistances = humanInfoList.associate { it.id to it.distanceMeters }
+        val currentNames = humanInfoList.associate { it.id to it.recognizedName }
+        
+        // Detect PERSON_APPEARED events
+        val appearedIds = currentIds - previousHumanIds
+        for (id in appearedIds) {
+            val humanInfo = humanInfoList.find { it.id == id } ?: continue
+            val event = PersonEvent(PersonEventType.PERSON_APPEARED, id)
+            Log.i(TAG, "Event: PERSON_APPEARED - human $id")
+            listener.onPersonEvent(event, humanInfo, humanInfoList)
+        }
+        
+        // Detect PERSON_DISAPPEARED events
+        val disappearedIds = previousHumanIds - currentIds
+        for (id in disappearedIds) {
+            // Create a minimal HumanInfo for disappeared person
+            val humanInfo = PerceptionData.HumanInfo().apply { this.id = id }
+            val event = PersonEvent(PersonEventType.PERSON_DISAPPEARED, id)
+            Log.i(TAG, "Event: PERSON_DISAPPEARED - human $id")
+            listener.onPersonEvent(event, humanInfo, humanInfoList)
+            
+            // Clean up approach tracking for disappeared humans
+            firedCloseApproach.remove(id)
+            firedInteractionApproach.remove(id)
+        }
+        
+        // Process events for each current human
+        for (humanInfo in humanInfoList) {
+            val id = humanInfo.id
+            
+            // Detect PERSON_RECOGNIZED events (name changed from null/unknown to known)
+            val prevName = previousRecognizedNames[id]
+            val currName = humanInfo.recognizedName
+            if (currName != null && prevName == null) {
+                val event = PersonEvent(PersonEventType.PERSON_RECOGNIZED, id)
+                Log.i(TAG, "Event: PERSON_RECOGNIZED - human $id as '$currName'")
+                listener.onPersonEvent(event, humanInfo, humanInfoList)
+            }
+            
+            // Detect PERSON_LOOKING / PERSON_STOPPED_LOOKING events
+            val prevAttention = previousAttentionStates[id]
+            val currAttention = humanInfo.attentionState
+            val wasLooking = prevAttention?.contains("LOOKING_AT_ROBOT", ignoreCase = true) == true
+            val isLooking = currAttention.contains("LOOKING_AT_ROBOT", ignoreCase = true)
+            
+            if (!wasLooking && isLooking) {
+                val event = PersonEvent(PersonEventType.PERSON_LOOKING, id)
+                Log.i(TAG, "Event: PERSON_LOOKING - human $id")
+                listener.onPersonEvent(event, humanInfo, humanInfoList)
+            } else if (wasLooking && !isLooking && prevAttention != null) {
+                val event = PersonEvent(PersonEventType.PERSON_STOPPED_LOOKING, id)
+                Log.i(TAG, "Event: PERSON_STOPPED_LOOKING - human $id")
+                listener.onPersonEvent(event, humanInfo, humanInfoList)
+            }
+            
+            // Detect PERSON_APPROACHED_CLOSE events (crossed 1.5m threshold)
+            val currDist = humanInfo.distanceMeters
+            if (currDist > 0 && currDist <= closeDistanceThreshold) {
+                if (!firedCloseApproach.contains(id)) {
+                    val event = PersonEvent(PersonEventType.PERSON_APPROACHED_CLOSE, id)
+                    Log.i(TAG, "Event: PERSON_APPROACHED_CLOSE - human $id at ${currDist}m")
+                    listener.onPersonEvent(event, humanInfo, humanInfoList)
+                    firedCloseApproach.add(id)
+                }
+            } else {
+                // Reset if person moved away
+                firedCloseApproach.remove(id)
+            }
+            
+            // Detect PERSON_APPROACHED_INTERACTION events (crossed 3m threshold)
+            if (currDist > 0 && currDist <= interactionDistanceThreshold) {
+                if (!firedInteractionApproach.contains(id)) {
+                    val event = PersonEvent(PersonEventType.PERSON_APPROACHED_INTERACTION, id)
+                    Log.i(TAG, "Event: PERSON_APPROACHED_INTERACTION - human $id at ${currDist}m")
+                    listener.onPersonEvent(event, humanInfo, humanInfoList)
+                    firedInteractionApproach.add(id)
+                }
+            } else {
+                // Reset if person moved away
+                firedInteractionApproach.remove(id)
+            }
+        }
+        
+        // Update previous state for next cycle
+        previousHumanIds = currentIds
+        previousAttentionStates = currentAttention
+        previousDistances = currentDistances
+        previousRecognizedNames = currentNames
     }
 }
 

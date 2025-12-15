@@ -1,7 +1,9 @@
 package ch.fhnw.pepper_realtime.ui
 
 import android.graphics.Bitmap
+import ch.fhnw.pepper_realtime.data.EventRule
 import ch.fhnw.pepper_realtime.data.MapGraphInfo
+import ch.fhnw.pepper_realtime.data.MatchedRule
 import ch.fhnw.pepper_realtime.data.PerceptionData
 import ch.fhnw.pepper_realtime.data.SavedLocation
 import ch.fhnw.pepper_realtime.tools.games.MemoryCard
@@ -86,5 +88,15 @@ data class MelodyPlayerState(
     val isPlaying: Boolean = false,
     val progress: Float = 0f,
     val currentNote: String = ""
+)
+
+/**
+ * UI state for event rules overlay.
+ */
+data class EventRulesState(
+    val isVisible: Boolean = false,
+    val rules: List<EventRule> = emptyList(),
+    val editingRule: EventRule? = null,
+    val recentTriggeredRules: List<MatchedRule> = emptyList()
 )
 

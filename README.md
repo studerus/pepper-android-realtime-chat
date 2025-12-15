@@ -35,6 +35,7 @@ A multimodal AI system for the Pepper robot powered by OpenAI's Realtime API. It
   - [Interruption Handling System](#interruption-handling)
   - [Advanced Chat Interface](#advanced-chat)
   - [Human Perception Dashboard](#human-perception)
+  - [Event-Based Rule System](#event-rules)
   - [Touch Interaction](#touch-interaction)
   - [Navigation Workflow](#navigation-workflow)
   - [Map Visualization](#map-visualization)
@@ -143,6 +144,7 @@ A multimodal AI system for the Pepper robot powered by OpenAI's Realtime API. It
 - **Human Approach & Following** - Intelligent human detection, approaching, and continuous following
 - **Human Perception Dashboard** - Real-time display of detected people with emotions, attention, and distance
 - **Local Face Recognition** - On-device face identification running on Pepper's head (no cloud API needed)
+- **Event-Based Rule System** - Define custom rules to automatically send context updates to AI based on perception events (person recognized, appeared, etc.)
 - **Internet Search** - Real-time web search capabilities via Tavily API
 - **Weather Information** - Current weather and forecasts via OpenWeatherMap API
 - **Interactive Quizzes** - Dynamic quiz generation and interaction
@@ -834,9 +836,110 @@ For each detected person, the dashboard shows:
 
 ### Technical Details
 - **QiSDK Integration** - Uses Pepper's built-in human awareness
-- **Real-time Processing** - Efficient polling system (1.5s intervals)
+- **Real-time Processing** - Efficient polling system (500ms intervals)
 - **Resource Management** - Automatically stops monitoring when hidden
 - **Thread-Safe** - Handles concurrent data updates safely
+
+<a id="event-rules"></a>
+## ⚡ Event-Based Rule System
+
+The application features a powerful event management system that allows you to define custom rules for automatically sending context updates to the AI model based on robot perception events.
+
+### How to Access
+- **Tap the lightning bolt icon** (⚡) in the top toolbar to open the Event Rules overlay
+- **Create, edit, and delete rules** through the visual rule builder
+- **View triggered events** in the chat history as expandable cards
+
+### How It Works
+Rules are evaluated continuously based on perception events and trigger context updates when conditions match. Each rule consists of:
+
+| Component | Description |
+|-----------|-------------|
+| **Event Type** | The trigger event (e.g., person recognized, person appeared) |
+| **Conditions** | Optional AND-linked filters to refine when the rule applies |
+| **Action Type** | How the context update is sent (interrupt, append, or silent) |
+| **Message Template** | The text sent to the AI, with dynamic placeholders |
+| **Cooldown** | Minimum time between triggers (prevents spam) |
+
+### Available Events
+
+| Event | Description |
+|-------|-------------|
+| `PERSON_RECOGNIZED` | A known person was identified by face recognition |
+| `PERSON_APPEARED` | A new person entered the robot's field of view |
+| `PERSON_DISAPPEARED` | A person left the robot's field of view |
+| `PERSON_LOOKING` | A person started looking at the robot |
+| `PERSON_STOPPED_LOOKING` | A person stopped looking at the robot |
+| `PERSON_APPROACHED_CLOSE` | A person came within 1.5 meters |
+| `PERSON_APPROACHED_INTERACTION` | A person came within 3 meters (interaction distance) |
+
+### Condition Fields
+Filter rules with additional conditions on these fields:
+
+| Field | Description | Example Value |
+|-------|-------------|---------------|
+| `personName` | Name from face recognition | "Max" |
+| `personId` | Internal tracking ID | "1" |
+| `distance` | Distance in meters | "2.0" |
+| `age` | Estimated age | "30" |
+| `gender` | Detected gender | "male" |
+| `emotion` | Basic emotion state | "happy" |
+| `attention` | Attention state | "LOOKING_AT_ROBOT" |
+| `engagement` | Engagement level | "INTERESTED" |
+
+### Action Types
+
+| Action | Behavior |
+|--------|----------|
+| **Interrupt and Respond** | Stops current speech, sends context update, triggers new AI response |
+| **Append and Respond** | Adds context without interruption, triggers AI response |
+| **Silent Context Update** | Adds information to context without triggering a response |
+
+### Template Placeholders
+Templates support dynamic placeholders that are automatically replaced with real-time data:
+
+```
+{personName}    - Name from face recognition (or "unknown person")
+{personId}      - Internal tracking ID
+{distance}      - Distance in meters (e.g., "2.3m")
+{age}           - Estimated age
+{gender}        - Detected gender
+{emotion}       - Current basic emotion
+{attention}     - Attention state
+{engagement}    - Engagement level
+{smile}         - Smile state
+{positionX}     - X position in meters (front/back)
+{positionY}     - Y position in meters (left/right)
+{timestamp}     - Current timestamp in milliseconds
+```
+
+### Example Rule
+```json
+{
+  "name": "Greet known visitors",
+  "eventType": "PERSON_RECOGNIZED",
+  "conditions": [
+    { "field": "distance", "operator": "LESS_THAN", "value": "2.5" }
+  ],
+  "actionType": "INTERRUPT_AND_RESPOND",
+  "template": "A person you know named {personName} has appeared at {distance} distance.",
+  "cooldownMs": 5000
+}
+```
+
+### Features
+- **Visual Rule Builder** - Intuitive UI for creating and editing rules
+- **Enable/Disable Toggle** - Quickly activate or deactivate individual rules
+- **Import/Export** - Save and share rule configurations as JSON
+- **Auto-Save** - Rules are automatically persisted to device storage
+- **Live Feedback** - See triggered events as expandable cards in the chat interface
+- **Cooldown Protection** - Prevents the same rule from firing too frequently
+
+### Chat Integration
+When rules are triggered, they appear in the chat history as expandable event cards showing:
+- Rule name and event type
+- Action type (interrupt/append/silent)
+- The exact message sent to the AI model
 
 <a id="touch-interaction"></a>
 ## 👋 Touch Interaction

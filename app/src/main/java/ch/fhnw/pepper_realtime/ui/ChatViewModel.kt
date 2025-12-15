@@ -16,6 +16,11 @@ import ch.fhnw.pepper_realtime.manager.QuizGameManager
 import ch.fhnw.pepper_realtime.manager.TicTacToeGameManager
 import ch.fhnw.pepper_realtime.manager.audio.ToneGenerator
 import ch.fhnw.pepper_realtime.service.LocalFaceRecognitionService
+import ch.fhnw.pepper_realtime.service.EventRuleEngine
+import ch.fhnw.pepper_realtime.data.RulePersistence
+import ch.fhnw.pepper_realtime.data.EventRule
+import ch.fhnw.pepper_realtime.data.MatchedRule
+import ch.fhnw.pepper_realtime.data.RuleActionType
 import ch.fhnw.pepper_realtime.ui.compose.FaceManagementState
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -34,7 +39,9 @@ class ChatViewModel @Inject constructor(
     private val memoryGameManager: MemoryGameManager,
     private val quizGameManager: QuizGameManager,
     private val drawingGameManager: DrawingGameManager,
-    val localFaceRecognitionService: LocalFaceRecognitionService
+    val localFaceRecognitionService: LocalFaceRecognitionService,
+    val eventRuleEngine: EventRuleEngine,
+    private val rulePersistence: RulePersistence
 ) : AndroidViewModel(application) {
 
     companion object {
@@ -47,13 +54,6 @@ class ChatViewModel @Inject constructor(
     
     fun setPartialSpeechResult(text: String?) {
         _partialSpeechResult.value = text
-    }
-
-    init {
-        // Provide coroutine scope to game managers
-        ticTacToeGameManager.setCoroutineScope(viewModelScope)
-        memoryGameManager.setCoroutineScope(viewModelScope)
-        drawingGameManager.setCoroutineScope(viewModelScope)
     }
 
     // State using StateFlow - thread-safe, no manual locking needed
@@ -85,6 +85,9 @@ class ChatViewModel @Inject constructor(
     // Face Management State
     private val _faceManagementState = MutableStateFlow(FaceManagementState())
 
+    // Event Rules State
+    private val _eventRulesState = MutableStateFlow(EventRulesState())
+
     // Internal Response State - atomic updates replace @Volatile variables
     private val _responseState = MutableStateFlow(ResponseState())
 
@@ -102,6 +105,35 @@ class ChatViewModel @Inject constructor(
     val dashboardState: StateFlow<DashboardState> = _dashboardState.asStateFlow()
     val melodyPlayerState: StateFlow<MelodyPlayerState> = _melodyPlayerState.asStateFlow()
     val faceManagementState: StateFlow<FaceManagementState> = _faceManagementState.asStateFlow()
+    val eventRulesState: StateFlow<EventRulesState> = _eventRulesState.asStateFlow()
+
+    init {
+        // Provide coroutine scope to game managers
+        ticTacToeGameManager.setCoroutineScope(viewModelScope)
+        memoryGameManager.setCoroutineScope(viewModelScope)
+        drawingGameManager.setCoroutineScope(viewModelScope)
+        
+        // Initialize event rule engine
+        initializeEventRules()
+    }
+    
+    /**
+     * Initialize the event rule engine with persisted rules.
+     */
+    private fun initializeEventRules() {
+        val rules = rulePersistence.loadRules()
+        eventRuleEngine.loadRules(rules)
+        _eventRulesState.update { it.copy(rules = rules) }
+        
+        // Set up listener for matched rules
+        eventRuleEngine.setListener(object : EventRuleEngine.RuleMatchListener {
+            override fun onRuleMatched(matchedRule: MatchedRule) {
+                handleRuleAction(matchedRule)
+            }
+        })
+        
+        Log.i(TAG, "Event rules initialized with ${rules.size} rules")
+    }
 
     // Game state flows - delegated to managers
     val quizState: StateFlow<QuizState> = quizGameManager.state
@@ -612,5 +644,163 @@ class ChatViewModel @Inject constructor(
 
     fun disconnectWebSocketGracefully() {
         sessionController?.disconnectWebSocketGracefully()
+    }
+
+    // ==================== Event Rules ====================
+
+    /**
+     * Handle a matched rule by executing the appropriate action.
+     */
+    private fun handleRuleAction(matchedRule: MatchedRule) {
+        Log.i(TAG, "Handling rule action: ${matchedRule.rule.name} (${matchedRule.rule.actionType})")
+        
+        // Add to recent triggered rules for UI feedback
+        _eventRulesState.update { state ->
+            val newRecent = (listOf(matchedRule) + state.recentTriggeredRules).take(10)
+            state.copy(recentTriggeredRules = newRecent)
+        }
+        
+        // Add event trigger message to chat history
+        val eventMessage = ChatMessage.createEventTrigger(
+            ruleName = matchedRule.rule.name,
+            eventType = matchedRule.event.type.name,
+            actionType = matchedRule.rule.actionType.name,
+            template = matchedRule.rule.template,
+            resolvedText = matchedRule.resolvedTemplate,
+            personName = null // Could be extracted from humanInfo if needed
+        )
+        addMessage(eventMessage)
+        
+        when (matchedRule.rule.actionType) {
+            RuleActionType.INTERRUPT_AND_RESPOND -> {
+                // Interrupt current speech, send context, trigger response
+                // allowInterrupt=true triggers interrupt in ChatSessionController
+                sendMessageToRealtimeAPI(
+                    text = matchedRule.resolvedTemplate,
+                    requestResponse = true,
+                    allowInterrupt = true
+                )
+            }
+            RuleActionType.APPEND_AND_RESPOND -> {
+                // Add context without interruption, trigger response
+                sendMessageToRealtimeAPI(
+                    text = matchedRule.resolvedTemplate,
+                    requestResponse = true,
+                    allowInterrupt = false
+                )
+            }
+            RuleActionType.SILENT_UPDATE -> {
+                // Silent context update, no response triggered
+                sendMessageToRealtimeAPI(
+                    text = matchedRule.resolvedTemplate,
+                    requestResponse = false,
+                    allowInterrupt = false
+                )
+            }
+        }
+    }
+
+    /**
+     * Show the event rules overlay.
+     */
+    fun showEventRules() {
+        _eventRulesState.update { it.copy(isVisible = true) }
+    }
+
+    /**
+     * Hide the event rules overlay.
+     */
+    fun hideEventRules() {
+        _eventRulesState.update { it.copy(isVisible = false) }
+    }
+
+    /**
+     * Toggle the event rules overlay visibility.
+     */
+    fun toggleEventRules() {
+        _eventRulesState.update { it.copy(isVisible = !it.isVisible) }
+    }
+
+    /**
+     * Add a new event rule.
+     */
+    fun addEventRule(rule: EventRule) {
+        eventRuleEngine.addRule(rule)
+        saveEventRules()
+        _eventRulesState.update { it.copy(rules = eventRuleEngine.getRules()) }
+    }
+
+    /**
+     * Update an existing event rule.
+     */
+    fun updateEventRule(rule: EventRule) {
+        eventRuleEngine.updateRule(rule)
+        saveEventRules()
+        _eventRulesState.update { it.copy(rules = eventRuleEngine.getRules()) }
+    }
+
+    /**
+     * Delete an event rule.
+     */
+    fun deleteEventRule(ruleId: String) {
+        eventRuleEngine.removeRule(ruleId)
+        saveEventRules()
+        _eventRulesState.update { it.copy(rules = eventRuleEngine.getRules()) }
+    }
+
+    /**
+     * Toggle a rule's enabled state.
+     */
+    fun toggleEventRuleEnabled(ruleId: String) {
+        val rules = eventRuleEngine.getRules()
+        val rule = rules.find { it.id == ruleId } ?: return
+        val updatedRule = rule.copy(enabled = !rule.enabled)
+        updateEventRule(updatedRule)
+    }
+
+    /**
+     * Save current rules to persistence.
+     */
+    private fun saveEventRules() {
+        rulePersistence.saveRules(eventRuleEngine.getRules())
+    }
+
+    /**
+     * Reset rules to defaults.
+     */
+    fun resetEventRulesToDefaults() {
+        rulePersistence.resetToDefaults()
+        val rules = rulePersistence.loadRules()
+        eventRuleEngine.loadRules(rules)
+        eventRuleEngine.resetCooldowns()
+        _eventRulesState.update { it.copy(rules = rules) }
+    }
+
+    /**
+     * Export rules as JSON string.
+     */
+    fun exportEventRules(): String {
+        return rulePersistence.exportToJson()
+    }
+
+    /**
+     * Import rules from JSON string.
+     */
+    fun importEventRules(json: String, merge: Boolean = false): Boolean {
+        val count = rulePersistence.importFromJson(json, merge)
+        if (count >= 0) {
+            val rules = rulePersistence.loadRules()
+            eventRuleEngine.loadRules(rules)
+            _eventRulesState.update { it.copy(rules = rules) }
+            return true
+        }
+        return false
+    }
+
+    /**
+     * Set the rule being edited.
+     */
+    fun setEditingRule(rule: EventRule?) {
+        _eventRulesState.update { it.copy(editingRule = rule) }
     }
 }
