@@ -54,6 +54,18 @@ class ChatRobotLifecycleHandler(
 
             // Connect LocalFaceRecognitionService to PerceptionService for face identification
             activity.perceptionService.setLocalFaceRecognitionService(viewModel.localFaceRecognitionService)
+            
+            // Proactively start face recognition server on Pepper's head
+            // This ensures the server is ready before the first person is detected
+            applicationScope.launch(ioDispatcher) {
+                Log.i(TAG, "Starting face recognition server proactively...")
+                val started = viewModel.localFaceRecognitionService.ensureServerRunning()
+                if (started) {
+                    Log.i(TAG, "Face recognition server started successfully")
+                } else {
+                    Log.w(TAG, "Face recognition server could not be started (will retry on first detection)")
+                }
+            }
 
             activity.perceptionService.initialize(robotContext)
             

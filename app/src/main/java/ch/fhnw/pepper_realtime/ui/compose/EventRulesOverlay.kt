@@ -2,7 +2,9 @@ package ch.fhnw.pepper_realtime.ui.compose
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -610,7 +612,7 @@ private fun RuleCard(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun RuleEditorDialog(
     rule: EventRule?,
@@ -637,178 +639,170 @@ private fun RuleEditorDialog(
         },
         text = {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Name
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Rule Name") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                
-                // Event Type dropdown
-                ExposedDropdownMenuBox(
-                    expanded = eventTypeExpanded,
-                    onExpandedChange = { eventTypeExpanded = it }
-                ) {
-                    OutlinedTextField(
-                        value = eventType.displayName,
-                        onValueChange = { },
-                        readOnly = true,
-                        label = { Text("Event") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = eventTypeExpanded) },
-                        modifier = Modifier
-                            .menuAnchor()
-                            .fillMaxWidth()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = eventTypeExpanded,
-                        onDismissRequest = { eventTypeExpanded = false }
-                    ) {
-                        PersonEventType.entries.forEach { type ->
-                            DropdownMenuItem(
-                                text = { 
-                                    Column {
-                                        Text(type.displayName)
-                                        Text(
-                                            type.description,
-                                            fontSize = 11.sp,
-                                            color = RulesColors.TextLight
-                                        )
-                                    }
-                                },
-                                onClick = {
-                                    eventType = type
-                                    eventTypeExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-                
-                // Conditions
-                Text(
-                    text = "Conditions (${conditions.size})",
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 14.sp
-                )
-                
-                if (conditions.isNotEmpty()) {
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        conditions.forEachIndexed { index, condition ->
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .background(RulesColors.BorderColor, RoundedCornerShape(4.dp))
-                                    .padding(8.dp)
-                            ) {
-                                Text(
-                                    text = "${condition.field} ${condition.operator.symbol} ${condition.value}",
-                                    fontSize = 12.sp,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                IconButton(
-                                    onClick = {
-                                        conditions = conditions.toMutableList().also { it.removeAt(index) }
-                                    },
-                                    modifier = Modifier.size(24.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Default.Close,
-                                        contentDescription = "Remove",
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                TextButton(onClick = { showConditionDialog = true }) {
-                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Add Condition")
-                }
-                
-                // Action Type dropdown
-                ExposedDropdownMenuBox(
-                    expanded = actionTypeExpanded,
-                    onExpandedChange = { actionTypeExpanded = it }
-                ) {
-                    OutlinedTextField(
-                        value = actionType.displayName,
-                        onValueChange = { },
-                        readOnly = true,
-                        label = { Text("Action") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = actionTypeExpanded) },
-                        modifier = Modifier
-                            .menuAnchor()
-                            .fillMaxWidth()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = actionTypeExpanded,
-                        onDismissRequest = { actionTypeExpanded = false }
-                    ) {
-                        RuleActionType.entries.forEach { type ->
-                            DropdownMenuItem(
-                                text = {
-                                    Column {
-                                        Text(type.displayName)
-                                        Text(
-                                            type.description,
-                                            fontSize = 11.sp,
-                                            color = RulesColors.TextLight
-                                        )
-                                    }
-                                },
-                                onClick = {
-                                    actionType = type
-                                    actionTypeExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-                
-                // Template
-                OutlinedTextField(
-                    value = template,
-                    onValueChange = { template = it },
-                    label = { Text("Message Template") },
-                    minLines = 3,
-                    maxLines = 5,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                
-                // Placeholder help
-                Text(
-                    text = "Placeholders: {personName} {distance} {age} {gender} {emotion} {attention} {peopleCount}",
-                    fontSize = 10.sp,
-                    color = RulesColors.TextLight
-                )
-                
-                // Cooldown
+                // Row 1: Name (70%) + Cooldown (30%)
                 Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Cooldown:", fontSize = 14.sp)
-                    Spacer(modifier = Modifier.width(8.dp))
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        label = { Text("Name") },
+                        singleLine = true,
+                        modifier = Modifier.weight(0.7f)
+                    )
                     OutlinedTextField(
                         value = (cooldownMs / 1000).toString(),
                         onValueChange = { 
                             it.toLongOrNull()?.let { secs -> cooldownMs = secs * 1000 }
                         },
-                        suffix = { Text("sec") },
+                        label = { Text("Cooldown") },
+                        suffix = { Text("s") },
                         singleLine = true,
-                        modifier = Modifier.width(100.dp)
+                        modifier = Modifier.weight(0.3f)
                     )
                 }
+                
+                // Row 2: Event Type (50%) + Action Type (50%)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Event Type dropdown
+                    ExposedDropdownMenuBox(
+                        expanded = eventTypeExpanded,
+                        onExpandedChange = { eventTypeExpanded = it },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        OutlinedTextField(
+                            value = eventType.displayName,
+                            onValueChange = { },
+                            readOnly = true,
+                            label = { Text("Event") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = eventTypeExpanded) },
+                            singleLine = true,
+                            modifier = Modifier.menuAnchor().fillMaxWidth()
+                        )
+                        ExposedDropdownMenu(
+                            expanded = eventTypeExpanded,
+                            onDismissRequest = { eventTypeExpanded = false }
+                        ) {
+                            PersonEventType.entries.forEach { type ->
+                                DropdownMenuItem(
+                                    text = { 
+                                        Column {
+                                            Text(type.displayName, fontSize = 13.sp)
+                                            Text(type.description, fontSize = 10.sp, color = RulesColors.TextLight)
+                                        }
+                                    },
+                                    onClick = {
+                                        eventType = type
+                                        eventTypeExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                    
+                    // Action Type dropdown
+                    ExposedDropdownMenuBox(
+                        expanded = actionTypeExpanded,
+                        onExpandedChange = { actionTypeExpanded = it },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        OutlinedTextField(
+                            value = actionType.displayName,
+                            onValueChange = { },
+                            readOnly = true,
+                            label = { Text("Action") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = actionTypeExpanded) },
+                            singleLine = true,
+                            modifier = Modifier.menuAnchor().fillMaxWidth()
+                        )
+                        ExposedDropdownMenu(
+                            expanded = actionTypeExpanded,
+                            onDismissRequest = { actionTypeExpanded = false }
+                        ) {
+                            RuleActionType.entries.forEach { type ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Column {
+                                            Text(type.displayName, fontSize = 13.sp)
+                                            Text(type.description, fontSize = 10.sp, color = RulesColors.TextLight)
+                                        }
+                                    },
+                                    onClick = {
+                                        actionType = type
+                                        actionTypeExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+                
+                // Row 3: Conditions as horizontal chips
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    conditions.forEachIndexed { index, condition ->
+                        InputChip(
+                            selected = false,
+                            onClick = { },
+                            label = { 
+                                Text(
+                                    "${condition.field} ${condition.operator.symbol} ${condition.value}",
+                                    fontSize = 11.sp
+                                )
+                            },
+                            trailingIcon = {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Remove",
+                                    modifier = Modifier
+                                        .size(14.dp)
+                                        .clickable { 
+                                            conditions = conditions.toMutableList().also { it.removeAt(index) }
+                                        }
+                                )
+                            },
+                            modifier = Modifier.height(28.dp)
+                        )
+                    }
+                    // Add condition chip
+                    AssistChip(
+                        onClick = { showConditionDialog = true },
+                        label = { Text("+ Condition", fontSize = 11.sp) },
+                        modifier = Modifier.height(28.dp),
+                        colors = AssistChipDefaults.assistChipColors(
+                            containerColor = RulesColors.AccentBlue.copy(alpha = 0.1f),
+                            labelColor = RulesColors.AccentBlue
+                        )
+                    )
+                }
+                
+                // Row 4: Template (compact)
+                OutlinedTextField(
+                    value = template,
+                    onValueChange = { template = it },
+                    label = { Text("Message Template") },
+                    placeholder = { Text("{personName} {distance}m...", fontSize = 12.sp) },
+                    minLines = 2,
+                    maxLines = 3,
+                    modifier = Modifier.fillMaxWidth(),
+                    supportingText = {
+                        Text(
+                            "{personName} {distance} {age} {gender} {emotion} {attention} {peopleCount}",
+                            fontSize = 9.sp,
+                            color = RulesColors.TextLight
+                        )
+                    }
+                )
             }
         },
         confirmButton = {

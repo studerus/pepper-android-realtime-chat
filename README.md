@@ -22,6 +22,7 @@ A multimodal AI system for the Pepper robot powered by OpenAI's Realtime API. It
   - [Open in Android Studio](#4-open-in-android-studio)
   - [Connect to Pepper and Deploy](#5-connect-to-pepper-and-deploy)
   - [Install Standalone Version](#6-install-standalone-version-on-android-device)
+  - [Setup Face Recognition (Optional)](#7-setup-face-recognition-optional)
 - [API Key Setup](#-api-key-setup)
 - [Security & Privacy](#-security--privacy)
 - [Usage](#-usage)
@@ -380,6 +381,43 @@ On your Android device:
 - ⏸️ Navigation and mapping (simulated)
 
 **Note:** The app requires camera permission for vision analysis. Grant camera access when prompted.
+
+### 7. Setup Face Recognition (Optional)
+
+For **local face recognition** on Pepper (identify people by name without cloud APIs), you need to deploy additional software to Pepper's head computer.
+
+> **Note:** This is optional! The app works fully without face recognition - people will simply appear as "Unknown" in the perception dashboard.
+
+#### Prerequisites
+- Docker installed on your PC
+- SSH access to Pepper (default password: `nao`)
+
+#### Quick Setup
+
+```bash
+cd tools/pepper-face-recognition
+
+# Build packages (Windows)
+.\build.ps1
+
+# Build packages (Linux/macOS)
+./build.sh
+
+# Deploy to Pepper
+.\deploy.ps1 -PepperIP "<PEPPER_IP>"   # Windows
+./deploy.sh <PEPPER_IP>                 # Linux/macOS
+```
+
+#### Configure SSH Password
+
+Add to your `local.properties`:
+```properties
+PEPPER_SSH_PASSWORD=nao
+```
+
+This allows the Android app to automatically start the face recognition server via SSH.
+
+📖 **Full documentation:** See [`tools/pepper-face-recognition/README.md`](tools/pepper-face-recognition/README.md) for detailed instructions, troubleshooting, and API documentation.
 
 ## 🔑 API Key Setup
 
