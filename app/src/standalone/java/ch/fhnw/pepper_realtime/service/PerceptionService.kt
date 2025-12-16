@@ -2,6 +2,7 @@ package ch.fhnw.pepper_realtime.service
 
 import android.util.Log
 import ch.fhnw.pepper_realtime.data.PerceptionData
+import ch.fhnw.pepper_realtime.data.PersonEvent
 
 /**
  * Stub implementation of PerceptionService for standalone mode (no robot hardware).
@@ -15,11 +16,20 @@ class PerceptionService {
         fun onServiceStatusChanged(isActive: Boolean)
     }
 
+    interface EventListener {
+        fun onPersonEvent(
+            event: PersonEvent,
+            humanInfo: PerceptionData.HumanInfo,
+            allHumans: List<PerceptionData.HumanInfo>
+        )
+    }
+
     companion object {
         private const val TAG = "PerceptionService[STUB]"
     }
 
     private var listener: PerceptionListener? = null
+    private var eventListener: EventListener? = null
     private var _isMonitoring = false
 
     init {
@@ -31,6 +41,14 @@ class PerceptionService {
      */
     fun setListener(listener: PerceptionListener?) {
         this.listener = listener
+    }
+
+    /**
+     * Set the event listener for person events (no-op in standalone mode).
+     */
+    fun setEventListener(listener: EventListener?) {
+        this.eventListener = listener
+        Log.d(TAG, "🤖 [SIMULATED] EventListener set (no events in standalone mode)")
     }
 
     /**
