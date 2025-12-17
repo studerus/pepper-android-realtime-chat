@@ -28,6 +28,8 @@ RUN pip install --upgrade pip
 RUN pip install --target=/build/packages numpy==1.21.6
 # Install opencv-python-headless (contains YuNet and SFace support since 4.5.4)
 RUN pip install --target=/build/packages opencv-python-headless
+# Install websockets for streaming perception data (last version supporting Python 3.7)
+RUN pip install --target=/build/packages websockets==10.4
 
 # Download Models (YuNet for detection, SFace for recognition)
 WORKDIR /build/models

@@ -16,12 +16,14 @@ import ch.fhnw.pepper_realtime.manager.QuizGameManager
 import ch.fhnw.pepper_realtime.manager.TicTacToeGameManager
 import ch.fhnw.pepper_realtime.manager.audio.ToneGenerator
 import ch.fhnw.pepper_realtime.service.LocalFaceRecognitionService
+import ch.fhnw.pepper_realtime.service.PerceptionWebSocketClient
 import ch.fhnw.pepper_realtime.service.EventRuleEngine
 import ch.fhnw.pepper_realtime.data.RulePersistence
 import ch.fhnw.pepper_realtime.data.EventRule
 import ch.fhnw.pepper_realtime.data.MatchedRule
 import ch.fhnw.pepper_realtime.data.RuleActionType
 import ch.fhnw.pepper_realtime.ui.compose.FaceManagementState
+import ch.fhnw.pepper_realtime.ui.compose.PerceptionSettingsState
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import ch.fhnw.pepper_realtime.network.WebSocketConnectionCallback
@@ -40,6 +42,7 @@ class ChatViewModel @Inject constructor(
     private val quizGameManager: QuizGameManager,
     private val drawingGameManager: DrawingGameManager,
     val localFaceRecognitionService: LocalFaceRecognitionService,
+    val perceptionWebSocketClient: PerceptionWebSocketClient,
     val eventRuleEngine: EventRuleEngine,
     private val rulePersistence: RulePersistence
 ) : AndroidViewModel(application) {
@@ -84,6 +87,9 @@ class ChatViewModel @Inject constructor(
 
     // Face Management State
     private val _faceManagementState = MutableStateFlow(FaceManagementState())
+    
+    // Perception Settings State
+    private val _perceptionSettingsState = MutableStateFlow(PerceptionSettingsState())
 
     // Event Rules State
     private val _eventRulesState = MutableStateFlow(EventRulesState())
@@ -105,6 +111,7 @@ class ChatViewModel @Inject constructor(
     val dashboardState: StateFlow<DashboardState> = _dashboardState.asStateFlow()
     val melodyPlayerState: StateFlow<MelodyPlayerState> = _melodyPlayerState.asStateFlow()
     val faceManagementState: StateFlow<FaceManagementState> = _faceManagementState.asStateFlow()
+    val perceptionSettingsState: StateFlow<PerceptionSettingsState> = _perceptionSettingsState.asStateFlow()
     val eventRulesState: StateFlow<EventRulesState> = _eventRulesState.asStateFlow()
 
     init {
@@ -133,6 +140,14 @@ class ChatViewModel @Inject constructor(
         })
         
         Log.i(TAG, "Event rules initialized with ${rules.size} rules")
+    }
+
+    /**
+     * Set the robot state provider for rule condition checks.
+     * Should be called from ChatActivity after TurnManager is available.
+     */
+    fun setRobotStateProvider(provider: EventRuleEngine.RobotStateProvider) {
+        eventRuleEngine.setRobotStateProvider(provider)
     }
 
     // Game state flows - delegated to managers
@@ -300,6 +315,39 @@ class ChatViewModel @Inject constructor(
             } else {
                 _faceManagementState.update { 
                     it.copy(isLoading = false, error = "Failed to delete face") 
+                }
+            }
+        }
+    }
+    
+    // Perception Settings Methods
+    fun refreshPerceptionSettings() {
+        viewModelScope.launch {
+            _perceptionSettingsState.update { it.copy(isLoading = true, error = null) }
+            
+            val settings = localFaceRecognitionService.fetchSettings()
+            
+            _perceptionSettingsState.update { 
+                if (settings != null) {
+                    it.copy(isLoading = false, settings = settings, error = null)
+                } else {
+                    it.copy(isLoading = false, error = "Could not fetch settings from server")
+                }
+            }
+        }
+    }
+    
+    fun updatePerceptionSettings(settings: LocalFaceRecognitionService.PerceptionSettings) {
+        viewModelScope.launch {
+            _perceptionSettingsState.update { it.copy(isSaving = true, error = null) }
+            
+            val success = localFaceRecognitionService.updateSettings(settings)
+            
+            _perceptionSettingsState.update { 
+                if (success) {
+                    it.copy(isSaving = false, settings = settings, error = null)
+                } else {
+                    it.copy(isSaving = false, error = "Failed to update settings")
                 }
             }
         }

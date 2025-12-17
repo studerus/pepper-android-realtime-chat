@@ -1,28 +1,108 @@
-# Pepper Face Recognition Build Tools
+# Pepper Head-Based Perception System
 
-This directory contains tools to deploy OpenCV-based face recognition for Pepper's internal computer (Intel Atom, i386 architecture, Python 3.7).
+This directory contains the complete perception system running on Pepper's head computer (Intel Atom, i386 architecture, Python 3.7). It provides real-time face detection, recognition, tracking, and gaze detection via WebSocket streaming.
 
 ## Overview
 
-Local face recognition runs entirely on Pepper's head (no cloud API required):
+The Head-Based Perception System runs entirely on Pepper's head (no cloud API required):
+
 - **Detection**: YuNet CNN for robust face detection
-- **Recognition**: SFace for 128-dimensional feature extraction
-- **Performance**: ~1.5-1.7 seconds per recognition (QVGA 320x240)
+- **Recognition**: SFace for 128-dimensional feature extraction  
+- **Tracking**: Stable track IDs across frames using angle-based matching
+- **Gaze Detection**: Determines if a person is looking at the robot
+- **Streaming**: Real-time WebSocket updates (~3-5 Hz)
 - **Storage**: Face embeddings stored in `/home/nao/face_data/faces.pkl`
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              PEPPER HEAD (Python)                           │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌──────────────────────┐     ┌─────────────────────────────────────────┐  │
+│  │   camera_daemon.py   │     │       face_recognition_server.py        │  │
+│  │   (Python 2.7)       │     │       (Python 3.7)                      │  │
+│  │                      │     │                                         │  │
+│  │ • Persistent camera  │────▶│ • Face detection (YuNet)                │  │
+│  │   subscription       │     │ • Face recognition (SFace)              │  │
+│  │ • RGB + Depth sync   │     │ • Face tracking (FaceTracker)           │  │
+│  │ • BGR colorspace     │     │ • Gaze detection                        │  │
+│  │ • Binary HTTP @5050  │     │ • Database management                   │  │
+│  └──────────────────────┘     │                                         │  │
+│                               │ HTTP Server @5000 (Legacy/Fallback)     │  │
+│                               └────────────────┬────────────────────────┘  │
+│                                                │                            │
+│                               ┌────────────────▼────────────────────────┐  │
+│                               │      perception_websocket.py            │  │
+│                               │      (WebSocket Server @5002)           │  │
+│                               │                                         │  │
+│                               │ • Real-time people streaming            │  │
+│                               │ • Settings sync                         │  │
+│                               │ • Face registration commands            │  │
+│                               │ • Bidirectional communication           │  │
+│                               └────────────────┬────────────────────────┘  │
+└────────────────────────────────────────────────┼────────────────────────────┘
+                                                 │
+                                    WebSocket (ws://198.18.0.1:5002)
+                                                 │
+┌────────────────────────────────────────────────┼────────────────────────────┐
+│                            PEPPER TABLET (Android)                          │
+├────────────────────────────────────────────────┼────────────────────────────┤
+│                               ┌────────────────▼────────────────────────┐  │
+│                               │    PerceptionWebSocketClient.kt         │  │
+│                               │                                         │  │
+│                               │ • WebSocket connection (OkHttp)         │  │
+│                               │ • Auto-reconnect                        │  │
+│                               │ • Kotlin Flows for reactive updates     │  │
+│                               └────────────────┬────────────────────────┘  │
+│                                                │                            │
+│                               ┌────────────────▼────────────────────────┐  │
+│                               │       PerceptionService.kt              │  │
+│                               │                                         │  │
+│                               │ • Flow collection                       │  │
+│                               │ • Event detection                       │  │
+│                               │ • UI updates                            │  │
+│                               └────────────────┬────────────────────────┘  │
+│                                                │                            │
+│                               ┌────────────────▼────────────────────────┐  │
+│                               │        UI (Dashboard, Event Rules)      │  │
+│                               └─────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+## Performance
+
+| Stage | Time | Notes |
+|-------|------|-------|
+| Frame Capture | ~30-50ms | BGR @ 320x240 via camera_daemon |
+| Face Detection | ~50-80ms | YuNet CNN |
+| Face Tracking | ~5-10ms | Angle-based matching |
+| Face Recognition | ~0ms | Async (non-blocking) |
+| WebSocket Broadcast | ~5-10ms | JSON over local network |
+| **Total Latency** | ~120-200ms | End-to-end |
+| **Update Frequency** | ~3-5 Hz | Configurable |
+
+### Optimizations Implemented
+
+- **Persistent Camera Subscription**: No subscribe/unsubscribe overhead per frame
+- **BGR Colorspace**: Direct from NAOqi, no conversion needed
+- **Binary Data Transfer**: Between Python 2 daemon and Python 3 server
+- **Async Recognition**: Non-blocking, runs in separate thread
+- **Cached Encodings**: Face database cached with 5s TTL
+- **WebSocket Streaming**: Push-based, not polling
 
 ## Why OpenCV instead of dlib?
 
 Pepper's head runs on an Intel Atom E3845 CPU, which lacks modern instruction sets like SSE4 and AVX. 
-- **dlib**: Requires these instructions or complex cross-compilation with disabled optimizations, leading to instability ("Illegal instruction" crashes).
-- **OpenCV (YuNet + SFace)**: Runs efficiently on older hardware using CNNs optimized for edge devices. It is more robust against head rotation and lighting conditions than dlib's HoG detector.
-
-This solution uses Docker to download the correct 32-bit wheels and models on a PC, then deploys them to Pepper.
+- **dlib**: Requires these instructions or complex cross-compilation, leading to "Illegal instruction" crashes.
+- **OpenCV (YuNet + SFace)**: Runs efficiently on older hardware using CNNs optimized for edge devices.
 
 ## Prerequisites
 
 - **Docker** installed and running
   - Windows/macOS: Install [Docker Desktop](https://www.docker.com/products/docker-desktop/)
-  - Linux: Install via package manager (`sudo apt install docker.io` or similar)
+  - Linux: Install via package manager (`sudo apt install docker.io`)
 - **SSH access** to Pepper (default user: `nao`, default password: `nao`)
 - Pepper connected to the same network as your PC
 
@@ -42,7 +122,7 @@ chmod +x build.sh deploy.sh
 ```
 
 This creates:
-- `output/packages.zip` - Python packages (opencv-python-headless, numpy)
+- `output/packages.zip` - Python packages (opencv-python-headless, numpy, websockets)
 - `output/models/` - ONNX models for face detection and recognition
 - `output/libs/` - Extracted native libraries needed by OpenCV
 
@@ -62,189 +142,228 @@ This automatically:
 3. Copies required native libraries
 4. Tests the installation
 
-## Face Recognition Usage
+### 3. Configure Android App
 
-After deployment, the following scripts are available on Pepper in `/home/nao/face_data/`:
-
-### Register a Face
-
-```bash
-# From Pepper's camera (person should look at the robot)
-LD_LIBRARY_PATH=/home/nao/python_packages/libs:$LD_LIBRARY_PATH \
-PYTHONPATH=/home/nao/python_packages \
-python3 /home/nao/face_data/register_face.py "John Doe"
-
-# From an image file
-LD_LIBRARY_PATH=/home/nao/python_packages/libs:$LD_LIBRARY_PATH \
-PYTHONPATH=/home/nao/python_packages \
-python3 /home/nao/face_data/register_face.py "John Doe" /path/to/photo.jpg
+Set in `local.properties`:
+```properties
+PEPPER_SSH_PASSWORD=nao
 ```
 
-### Recognize Faces
+The Android app will automatically start the server via SSH when needed.
 
-```bash
-# From Pepper's camera
-LD_LIBRARY_PATH=/home/nao/python_packages/libs:$LD_LIBRARY_PATH \
-PYTHONPATH=/home/nao/python_packages \
-python3 /home/nao/face_data/recognize_face.py
+## Server Components
 
-# Output (JSON):
-# {
-#   "faces": [
-#     {
-#       "name": "John Doe",
-#       "confidence": 0.85,
-#       "location": {"top": 50, "right": 200, "bottom": 150, "left": 100}
-#     }
-#   ]
-# }
+### camera_daemon.py (Python 2.7)
+
+Persistent camera subscription daemon running on port 5050:
+- Subscribes once to RGB and Depth cameras
+- Provides synchronized frames via binary HTTP endpoint
+- Eliminates subscribe/unsubscribe latency per frame
+
+### face_recognition_server.py (Python 3.7)
+
+Main perception server:
+- HTTP API on port 5000 (legacy/fallback)
+- WebSocket streaming via perception_websocket.py
+- Face detection, recognition, and tracking
+- Gaze detection based on face position and head angles
+
+### perception_websocket.py (Python 3.7)
+
+WebSocket server on port 5002 for real-time streaming:
+- Bidirectional communication
+- People updates pushed to clients
+- Settings synchronization
+- Face management commands
+
+## WebSocket API
+
+### Connection
+
+```
+ws://198.18.0.1:5002
 ```
 
-### List Registered Faces
+### Message Types (Client → Server)
 
-```bash
-LD_LIBRARY_PATH=/home/nao/python_packages/libs:$LD_LIBRARY_PATH \
-PYTHONPATH=/home/nao/python_packages \
-python3 /home/nao/face_data/face_database.py
+| Type | Data | Description |
+|------|------|-------------|
+| `get_settings` | - | Request current settings |
+| `set_settings` | `{max_angle_distance, recognition_threshold, ...}` | Update settings |
+| `register_face` | `{name: "..."}` | Register new face from camera |
+| `delete_face` | `{name: "..."}` | Delete a face |
+| `list_faces` | - | Request face list |
+| `ping` | - | Keep-alive |
+
+### Message Types (Server → Client)
+
+| Type | Data | Description |
+|------|------|-------------|
+| `people` | `{people: [...], timestamp}` | Tracked people update |
+| `settings` | `{max_angle_distance, ...}` | Current settings |
+| `faces` | `[{name, count}, ...]` | List of known faces |
+| `face_registered` | `{success, name, error?}` | Registration result |
+| `face_deleted` | `{success, name, error?}` | Deletion result |
+| `pong` | - | Keep-alive response |
+
+### People Update Format
+
+```json
+{
+  "type": "people",
+  "data": {
+    "people": [
+      {
+        "track_id": 42,
+        "name": "John",
+        "looking_at_robot": true,
+        "head_direction": "looking",
+        "world_yaw": -5.2,
+        "world_pitch": 3.1,
+        "distance": 1.5,
+        "last_seen_ms": 1702831200000
+      }
+    ]
+  },
+  "timestamp": 1702831200100
+}
 ```
 
-### How It Works
+## HTTP API (Legacy/Fallback)
 
-1. **Detection (YuNet)**: Detects faces in the image (robust to rotation/occlusion).
-2. **Recognition (SFace)**: Extracts a 128-dimensional feature vector.
-3. **Matching**: Uses Cosine Similarity to compare against stored faces.
-4. **Storage**: Face data is stored in `/home/nao/face_data/faces.pkl`.
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/recognize` | Capture image and recognize faces |
+| GET | `/people` | Get tracked people with positions and gaze |
+| GET | `/faces` | List all registered faces |
+| GET | `/faces/image?name=X` | Get thumbnail image of a face |
+| GET | `/settings` | Get current perception settings |
+| POST | `/faces?name=X` | Register new face from camera |
+| POST | `/settings` | Update perception settings |
+| DELETE | `/faces?name=X` | Delete a registered face |
 
-## Usage in Python Scripts
+## Configurable Settings
 
-When running Python scripts on Pepper that use these libraries, you must set the environment variables:
+All settings can be changed via WebSocket or HTTP and are applied immediately:
 
-```bash
-export LD_LIBRARY_PATH=/home/nao/python_packages/libs:$LD_LIBRARY_PATH
-export PYTHONPATH=/home/nao/python_packages
-python3 your_script.py
+| Setting | Default | Range | Description |
+|---------|---------|-------|-------------|
+| `recognition_threshold` | 0.8 | 0.3-0.9 | Cosine distance threshold (lower = stricter) |
+| `recognition_cooldown_ms` | 3000 | 1000-10000 | Time between recognition attempts per track |
+| `max_angle_distance` | 15.0 | 5-30 | Max angle movement to match same person (degrees) |
+| `track_timeout_ms` | 3000 | 1000-10000 | Time before removing lost tracks |
+| `gaze_center_tolerance` | 0.15 | 0.05-0.5 | How off-center is still "looking at robot" |
+| `update_interval_ms` | 700 | 300-2000 | Server update rate |
+| `camera_resolution` | 1 | 0-2 | 0=QQVGA(160x120), 1=QVGA(320x240), 2=VGA(640x480) |
+
+## Android Integration
+
+### PerceptionWebSocketClient
+
+Handles all communication with the head server:
+
+```kotlin
+// Injected via Hilt
+val perceptionWebSocketClient: PerceptionWebSocketClient
+
+// Connect (auto-reconnect on disconnect)
+perceptionWebSocketClient.connect()
+
+// Collect people updates
+perceptionWebSocketClient.peopleUpdates.collect { update ->
+    update.people.forEach { person ->
+        Log.i("Person", "${person.name} at ${person.distance}m")
+    }
+}
+
+// Update settings (applied immediately)
+perceptionWebSocketClient.updateSettings(newSettings)
+
+// Face management
+perceptionWebSocketClient.registerFace("John Doe")
+perceptionWebSocketClient.deleteFace("John Doe")
 ```
 
-Or inside Python:
-```python
-import sys
-import os
+### Event Detection
 
-# Add library paths
-os.environ['LD_LIBRARY_PATH'] = '/home/nao/python_packages/libs:' + os.environ.get('LD_LIBRARY_PATH', '')
-sys.path.insert(0, '/home/nao/python_packages')
+The `PerceptionService` detects these events from the tracking data:
 
-import cv2
-# ... your code
+| Event | Trigger |
+|-------|---------|
+| `PERSON_APPEARED` | New track ID detected |
+| `PERSON_DISAPPEARED` | Track ID not seen for timeout |
+| `PERSON_RECOGNIZED` | Name assigned to track |
+| `PERSON_LOOKING` | Gaze directed at robot |
+| `PERSON_STOPPED_LOOKING` | Gaze directed away |
+| `PERSON_APPROACHED_CLOSE` | Distance < 1.5m |
+| `PERSON_APPROACHED_INTERACTION` | Distance < 3.0m |
+
+These events can be used in the Event Rules system to trigger robot actions.
+
+### Dashboard UI
+
+The People & Faces dashboard shows:
+- **Live Tab**: Currently detected people with name, distance, position, gaze
+- **Radar Tab**: Visual representation of people around the robot
+- **Faces Tab**: Registered faces with thumbnails, add/delete
+- **Settings Tab**: Real-time configurable perception parameters
+
+## Manual Server Control
+
+### Start Server
+
+```bash
+ssh nao@<PEPPER_IP>
+cd /home/nao/face_data
+nohup bash run_server.sh > server.log 2>&1 &
+```
+
+### Stop Server
+
+```bash
+ssh nao@<PEPPER_IP>
+pkill -f camera_daemon.py
+pkill -f face_recognition_server.py
+```
+
+### View Logs
+
+```bash
+ssh nao@<PEPPER_IP>
+tail -f /home/nao/face_data/server.log
 ```
 
 ## Troubleshooting
 
 ### "cannot open shared object file"
 
-Make sure `LD_LIBRARY_PATH` is set correctly:
 ```bash
 export LD_LIBRARY_PATH=/home/nao/python_packages/libs:$LD_LIBRARY_PATH
 ```
-If a specific library is still missing, check `output/libs` on your PC and copy it manually to `/home/nao/python_packages/libs/`.
 
 ### "ImportError: No module named cv2"
 
-Make sure `PYTHONPATH` includes `/home/nao/python_packages`.
-
-## REST API Server
-
-A persistent HTTP server runs on port 5000 for fast face recognition requests.
-
-### Automatic Server Management
-
-The Android app **automatically starts the server via SSH** when needed:
-- When opening the Face Management overlay
-- When the PerceptionService needs to recognize faces
-- No manual server start required!
-
-**Prerequisites**: Set `PEPPER_SSH_PASSWORD=nao` in your `local.properties` file.
-
-### Manual Start (if needed)
-
 ```bash
-ssh nao@<PEPPER_IP>
-nohup bash /home/nao/face_data/run_server.sh > /home/nao/face_data/server.log 2>&1 &
+export PYTHONPATH=/home/nao/python_packages
 ```
 
-### API Endpoints
+### WebSocket not connecting
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/recognize` | Capture image and recognize faces |
-| GET | `/faces` | List all registered faces |
-| GET | `/faces/image?name=X` | Get thumbnail image of a face |
-| POST | `/faces?name=X` | Register new face from camera |
-| DELETE | `/faces?name=X` | Delete a registered face |
+1. Check if server is running: `ps aux | grep python3`
+2. Check server logs: `tail -f /home/nao/face_data/server.log`
+3. Ensure port 5002 is not blocked
 
-### Example Responses
+### No faces detected
 
-**GET /recognize**
-```json
-{
-  "faces": [
-    {
-      "name": "John Doe",
-      "confidence": 0.97,
-      "location": {"left": 153, "top": 82, "right": 188, "bottom": 129}
-    }
-  ],
-  "timing": {"capture": 0.36, "total": 1.56}
-}
-```
+1. Ensure adequate lighting
+2. Person should face the robot directly
+3. Check camera resolution setting (higher = better quality, slower)
 
-**GET /faces**
-```json
-{
-  "faces": [
-    {"name": "John Doe", "count": 1, "image_url": "/faces/image?name=John%20Doe"}
-  ]
-}
-```
+## Hardware Details
 
-## Android Integration
-
-The Android app integrates with the face recognition server via `LocalFaceRecognitionService`:
-
-1. **Face Management UI**: Access via the 👤 icon in the top bar
-   - View registered faces with thumbnails
-   - Register new faces (person looks at Pepper's camera)
-   - Delete existing faces
-
-2. **Dashboard Integration**: Recognized faces appear in the Human Perception Dashboard
-   - Shows recognized name next to demographics
-   - Green highlighting for identified individuals
-
-3. **Architecture**:
-```
-┌─────────────────────────────────────────┐
-│         Android Tablet                   │
-│  ┌─────────────────────────────────┐    │
-│  │  LocalFaceRecognitionService    │    │
-│  │  (HTTP Client → Port 5000)      │    │
-│  └─────────────────────────────────┘    │
-└─────────────────────────────────────────┘
-                    │
-                    │ HTTP (WiFi: 198.18.0.1)
-                    ▼
-┌─────────────────────────────────────────┐
-│         Pepper Head (NAOqi)              │
-│  ┌─────────────────────────────────┐    │
-│  │  face_recognition_server.py     │    │
-│  │  (Port 5000)                    │    │
-│  └─────────────────────────────────┘    │
-└─────────────────────────────────────────┘
-```
-
-## Architecture Details
-
-- **Pepper's Head CPU:** Intel Atom E3845 (32-bit capable, running i386 Linux)
-- **Python Version:** 3.7 (pre-installed on Pepper)
+- **Pepper's Head CPU:** Intel Atom E3845 (32-bit, i386 Linux)
+- **Python Versions:** 2.7 (NAOqi), 3.7 (recognition)
 - **OS:** Gentoo-based Linux (NAOqi OS)
 - **Models:** YuNet (Detection), SFace (Recognition) - ONNX format
-- **Server IP (from Tablet):** 198.18.0.1:5000
+- **Server IP (from Tablet):** 198.18.0.1
+- **Ports:** 5000 (HTTP), 5002 (WebSocket), 5050 (Camera Daemon)

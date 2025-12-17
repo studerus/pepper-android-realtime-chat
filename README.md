@@ -829,54 +829,98 @@ When vision analysis is performed, photos are automatically displayed in the cha
 ## 👁️ Human Perception Dashboard
 
 ### Overview
-The Human Perception Dashboard provides real-time visualization of all detected people around Pepper, displaying comprehensive information about each person's state and engagement level.
+The Human Perception Dashboard provides real-time visualization of all detected people around Pepper using a custom Head-Based Perception System running on Pepper's head computer. This system provides stable person tracking, face recognition, and gaze detection via WebSocket streaming.
 
 ### How to Access
 - **Tap the dashboard symbol** in the status bar to toggle the dashboard overlay
 - **Dashboard appears** in the top-right corner as a floating overlay
+- **Four tabs**: Live (people list), Radar (visual map), Faces (management), Settings (parameters)
 - **Tap close button** (×) or dashboard symbol again to hide
 
-### Displayed Information
-For each detected person, the dashboard shows:
+### Dashboard Tabs
 
-#### Basic Information
-- **Person ID** - Unique identifier for tracking
-- **Distance** - Real-time distance measurement in meters
-- **Estimated Age** - Age estimation from Pepper's perception
-- **Gender** - Gender classification
+#### Live Tab
+Real-time list of all detected people showing:
+- **Track ID** - Stable identifier that persists across frames
+- **Name** - Recognized name from face database (or "Unknown")
+- **Distance** - Calculated from depth camera data
+- **Position** - World coordinates (yaw, pitch angles)
+- **Gaze** - Whether person is looking at the robot
+- **Last Seen** - Time since last detection
 
-#### Emotional & Engagement Data
-- **Attention State** - Whether person is looking at robot, elsewhere, or up
-- **Engagement Level** - How interested the person appears
-- **Pleasure State** - Emotional pleasure/displeasure level
-- **Excitement State** - Energy and excitement level
-- **Smile Detection** - Current smile state
-- **Basic Emotion** - Primary detected emotion
+#### Radar Tab
+Visual representation of people around the robot:
+- **Top-down view** - Shows relative positions
+- **Distance circles** - 1m, 2m, 3m range indicators
+- **Person markers** - Color-coded by recognition status
+- **Gaze indicators** - Shows who's looking at the robot
 
-#### Local Face Recognition
-- **Person Identification** - Recognizes registered faces and displays names
-- **On-Device Processing** - Runs entirely on Pepper's head (no cloud API)
-- **Face Management** - Register and manage known faces via the UI
+#### Faces Tab
+Manage the face recognition database:
+- **View registered faces** - Thumbnails with names
+- **Register new face** - Capture from camera
+- **Delete faces** - Remove from database
+- **Real-time sync** - Changes reflected immediately
 
-#### Advanced Features
-- **Live Updates** - Information refreshes every 0.5 seconds
-- **Face Pictures** - Small profile images when available
-- **Comprehensive Tracking** - Maintains data as people move around
-- **Clean Interface** - Organized table view with clear headers
-- **Immediate Recognition** - Recognizes faces when new people appear
+#### Settings Tab
+Configure perception parameters in real-time:
+- **Recognition Threshold** (0.3-0.9) - Lower = stricter matching
+- **Recognition Cooldown** (1-10s) - Time between recognition attempts
+- **Max Angle Distance** (5-30°) - Tracking tolerance for movement
+- **Track Timeout** (1-10s) - Time before removing lost tracks
+- **Gaze Center Tolerance** (0.05-0.5) - How off-center is still "looking at robot"
+- **Update Interval** (300-2000ms) - Server update rate
+- **Camera Resolution** - QQVGA/QVGA/VGA
+
+### Head-Based Perception Architecture
+
+The perception system runs entirely on Pepper's head computer:
+
+```
+Pepper Head (Python)              Pepper Tablet (Android)
+┌─────────────────────┐          ┌─────────────────────────┐
+│ camera_daemon.py    │          │ PerceptionWebSocketClient│
+│ (Python 2.7)        │          │ (OkHttp WebSocket)      │
+│ • RGB + Depth sync  │          └───────────┬─────────────┘
+│ • 5050 (internal)   │                      │
+└─────────┬───────────┘                      │
+          │                                  │
+┌─────────▼───────────┐          ┌───────────▼─────────────┐
+│ face_recognition_   │          │ PerceptionService.kt    │
+│    server.py        │          │ • Flow collection       │
+│ (Python 3.7)        │──────────│ • Event detection       │
+│ • Detection (YuNet) │ WebSocket│ • UI updates            │
+│ • Recognition(SFace)│ :5002    │                         │
+│ • Tracking          │          └─────────────────────────┘
+│ • Gaze detection    │
+│ • 5000 (HTTP legacy)│
+└─────────────────────┘
+```
+
+### Features
+- **Stable Tracking** - Track IDs persist across frames using angle-based matching
+- **Real-time Updates** - WebSocket streaming at 3-5 Hz
+- **Local Face Recognition** - Runs entirely on Pepper's head (no cloud API)
+- **Gaze Detection** - Determines if person is looking at robot based on face position
+- **Configurable Parameters** - All settings adjustable in real-time via the dashboard
+- **Event System Integration** - Events trigger custom rules (see Event Rules section)
 
 ### Use Cases
+- **Personalized Greetings** - Recognize returning visitors by name
 - **Social Interaction** - Understand who's interested in engaging
 - **Approach Decisions** - See which person to approach first
 - **Group Dynamics** - Monitor multiple people simultaneously
-- **Debugging** - Verify human detection accuracy
 - **Research** - Study human-robot interaction patterns
 
 ### Technical Details
-- **QiSDK Integration** - Uses Pepper's built-in human awareness
-- **Real-time Processing** - Efficient polling system (500ms intervals)
-- **Resource Management** - Automatically stops monitoring when hidden
-- **Thread-Safe** - Handles concurrent data updates safely
+- **Head-Based Processing** - Detection and recognition run on Pepper's head (Intel Atom)
+- **WebSocket Streaming** - Real-time bidirectional communication
+- **Persistent Camera** - Camera daemon keeps streams open for minimal latency
+- **Async Recognition** - Face recognition runs in separate thread to avoid blocking
+- **Cached Encodings** - Face database cached in memory for fast matching
+- **QiSDK Navigation** - QiSDK HumanAwareness is still used for approach/follow behaviors
+
+📖 **Full technical documentation:** See [`tools/pepper-face-recognition/README.md`](tools/pepper-face-recognition/README.md)
 
 <a id="event-rules"></a>
 ## ⚡ Event-Based Rule System
@@ -1298,7 +1342,7 @@ Robot: "Happy Birthday! 🎂"
        │            Tool Layer                  │
        ├────────────────────────────────────────┤
        │  Vision  │  Movement  │  Navigation    │
-       │  Gesture │  Local     │  Internet      │
+       │  Gesture │  Perception│  Internet      │
        │  Weather │  Face Rec  │  Games  ...    │
        └────────────────────────────────────────┘
                │
@@ -1306,7 +1350,8 @@ Robot: "Happy Birthday! 🎂"
        ┌───────▼────────────────────────────────┐
        │      Hardware/Service Adapters         │
        ├────────────────────────────────────────┤
-       │  Pepper: QiSDK, Robot Camera           │
+       │  Pepper: QiSDK, Robot Camera,          │
+       │          Head-Based Perception (WS)    │
        │  Standalone: Device Camera, Stubs      │
        └────────────────────────────────────────┘
 ```

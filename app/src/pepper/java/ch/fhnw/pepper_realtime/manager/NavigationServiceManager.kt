@@ -137,11 +137,9 @@ class NavigationServiceManager(private val movementController: MovementControlle
             gesturesSuppressed = true
             gestureController?.stopNow()
             holdAutonomousAbilities(qiContext)
-            perceptionService?.let {
-                if (it.isInitialized) {
-                    it.stopMonitoring()
-                }
-            }
+            // Note: Do NOT stop Head-Based Perception during navigation!
+            // Stopping would reset all tracks and cause false PERSON_APPEARED events.
+            // The head camera can run independently of navigation sensors.
             touchSensorManager?.pause()
             listener?.onNavigationStatusUpdate("🗺️ Map: Loading...", "🧭 Localization: Waiting")
         } catch (e: Exception) {
@@ -153,11 +151,7 @@ class NavigationServiceManager(private val movementController: MovementControlle
         try {
             gesturesSuppressed = false
             releaseAutonomousAbilities()
-            perceptionService?.let {
-                if (it.isInitialized) {
-                    it.startMonitoring()
-                }
-            }
+            // Head-Based Perception was never stopped, so no need to restart
             touchSensorManager?.resume()
             listener?.onNavigationStatusUpdate(
                 if (success) "🗺️ Map: Ready" else "🗺️ Map: Failed",
@@ -250,12 +244,8 @@ class NavigationServiceManager(private val movementController: MovementControlle
         // CRITICAL: Hold autonomous abilities
         holdAutonomousAbilities()
 
-        perceptionService?.let {
-            if (it.isInitialized) {
-                it.stopMonitoring()
-                Log.i(TAG, "Perception monitoring stopped for localization")
-            }
-        }
+        // Note: Do NOT stop Head-Based Perception during localization!
+        // It runs independently on the head and stopping would reset all tracks.
         touchSensorManager?.let {
             it.pause()
             Log.i(TAG, "Touch sensors paused for localization")
@@ -277,12 +267,8 @@ class NavigationServiceManager(private val movementController: MovementControlle
 
         holdAutonomousAbilities()
 
-        perceptionService?.let {
-            if (it.isInitialized) {
-                it.stopMonitoring()
-                Log.i(TAG, "Perception monitoring stopped for navigation")
-            }
-        }
+        // Note: Do NOT stop Head-Based Perception during navigation!
+        // It runs independently on the head and stopping would reset all tracks.
         touchSensorManager?.let {
             it.pause()
             Log.i(TAG, "Touch sensors paused for navigation")
@@ -302,12 +288,7 @@ class NavigationServiceManager(private val movementController: MovementControlle
 
         releaseAutonomousAbilities()
 
-        perceptionService?.let {
-            if (it.isInitialized) {
-                it.startMonitoring()
-                Log.i(TAG, "Perception monitoring resumed")
-            }
-        }
+        // Head-Based Perception was never stopped, so no need to restart
 
         touchSensorManager?.let {
             it.resume()

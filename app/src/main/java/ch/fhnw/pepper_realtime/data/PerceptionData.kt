@@ -31,10 +31,49 @@ class PerceptionData {
         // --- Data from local face recognition ---
         var recognizedName: String? = null // Name from local face recognition on Pepper's head
 
+        // --- Head-Based Perception System data ---
+        var trackId: Int = -1               // Stable track ID from head-based tracker
+        var lookingAtRobot: Boolean = false // Is person looking at the robot?
+        var headDirection: Float = 0f       // Head direction: -1=right, 0=center, +1=left
+        var worldYaw: Float = 0f            // Position angle relative to torso (degrees)
+        var worldPitch: Float = 0f          // Vertical position angle (degrees)
+
         /**
-         * Get attention level for UI display
+         * Get gaze indicator for UI display
+         */
+        fun getGazeDisplay(): String {
+            return if (lookingAtRobot) {
+                "👀 Looking"
+            } else {
+                when {
+                    headDirection > 0.2f -> "← Away"
+                    headDirection < -0.2f -> "→ Away"
+                    else -> "↔ Away"
+                }
+            }
+        }
+
+        /**
+         * Get position description for UI display
+         */
+        fun getPositionDisplay(): String {
+            return when {
+                worldYaw > 15f -> "Left (${worldYaw.toInt()}°)"
+                worldYaw < -15f -> "Right (${(-worldYaw).toInt()}°)"
+                else -> "Front"
+            }
+        }
+
+        /**
+         * Get attention level for UI display.
+         * Uses head-based gaze detection if available (trackId >= 0).
          */
         fun getAttentionLevel(): String {
+            // Use head-based gaze detection if available
+            if (trackId >= 0) {
+                return if (lookingAtRobot) "Looking at Robot" else "Looking Away"
+            }
+            // Fall back to QiSDK attention state
             return when (attentionState.uppercase(Locale.US)) {
                 "LOOKING_AT_ROBOT" -> "Looking at Robot"
                 "LOOKING_ELSEWHERE" -> "Looking Elsewhere"

@@ -21,9 +21,12 @@ YUNET_PATH = '/home/nao/face_data/face_detection_yunet.onnx'
 SFACE_PATH = '/home/nao/face_data/face_recognition_sface.onnx'
 
 # Thresholds
-# SFace cosine similarity threshold: 0.363
-# We can be slightly looser or stricter. 0.363 is standard.
-RECOGNITION_THRESHOLD = 0.363
+# SFace uses Cosine DISTANCE (not similarity!): lower = more similar
+# dis_type=1 returns values where 0 = identical, higher = less similar
+# Standard threshold was 0.363, but real-world conditions require higher values
+# Faces with distance < threshold are considered a match
+# NOTE: 0.8 was too strict - many valid matches were around 0.8-0.95
+RECOGNITION_THRESHOLD = 1.0
 CONFIDENCE_THRESHOLD = 0.8 # For detection
 
 # NAOqi capture script settings
@@ -140,23 +143,25 @@ def recognize_faces(image):
         confidence = 0.0
         
         if len(known_encodings) > 0:
-            # SFace uses Cosine Similarity (1) or L2 Distance (0)
-            # We use Cosine Similarity. Match if score > threshold.
-            best_score = 0.0
+            # dis_type=1 is Cosine DISTANCE (not similarity!): lower = more similar, 0 = identical
+            # Match if distance < threshold
+            best_score = float('inf')  # Start with infinity (we want LOWEST)
             
             for known_name, known_encoding in zip(known_names, known_encodings):
                 # Ensure encoding is numpy array float32
                 k_enc = np.array(known_encoding, dtype=np.float32) if not isinstance(known_encoding, np.ndarray) else known_encoding
                 
-                # 1 = Cosine Similarity
+                # 1 = Cosine Distance (NOT similarity!)
                 score = recognizer.match(k_enc, encoding, 1)
                 
-                if score > best_score:
+                # We want the LOWEST score (most similar)
+                if score < best_score:
                     best_score = score
-                    if score > RECOGNITION_THRESHOLD:
+                    if score < RECOGNITION_THRESHOLD:  # FIXED: was > now <
                         name = known_name
             
-            confidence = best_score
+            # Convert distance to confidence (0=worst, 1=best)
+            confidence = max(0.0, 1.0 - best_score) if best_score != float('inf') else 0.0
             
         results.append({
             'name': name,

@@ -99,9 +99,7 @@ class ChatLifecycleController @Inject constructor(
         // Delete session images from previous session
         sessionImageManager.deleteAllImages()
 
-        if (perceptionService?.isInitialized == true) {
-            perceptionService.startMonitoring()
-        }
+        // Note: PerceptionService uses WebSocket with auto-reconnect, no manual restart needed
 
         if (visionService?.isInitialized == true) {
             visionService.resume()

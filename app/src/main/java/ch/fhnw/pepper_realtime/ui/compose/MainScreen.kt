@@ -71,6 +71,7 @@ fun MainScreen(
     val melodyPlayerState by viewModel.melodyPlayerState.collectAsStateWithLifecycle()
     val faceManagementState by viewModel.faceManagementState.collectAsStateWithLifecycle()
     val eventRulesState by viewModel.eventRulesState.collectAsStateWithLifecycle()
+    val perceptionSettingsState by viewModel.perceptionSettingsState.collectAsStateWithLifecycle()
     
     // Local State for Image Overlay
     var overlayImageUrl by remember { mutableStateOf<String?>(null) }
@@ -235,15 +236,18 @@ fun MainScreen(
 
                 // ---------------- Overlays & Dialogs ----------------
 
-                // 1. Dashboard (with integrated Face Management)
+                // 1. Dashboard (with integrated Face Management and Settings)
                 DashboardOverlay(
                     state = dashboardState,
                     faceState = faceManagementState,
                     faceService = viewModel.localFaceRecognitionService,
+                    settingsState = perceptionSettingsState,
                     onClose = { viewModel.hideDashboard() },
                     onRefreshFaces = { viewModel.refreshFaceList() },
                     onRegisterFace = { name -> viewModel.registerFace(name) },
-                    onDeleteFace = { name -> viewModel.deleteFace(name) }
+                    onDeleteFace = { name -> viewModel.deleteFace(name) },
+                    onUpdateSettings = { settings -> viewModel.updatePerceptionSettings(settings) },
+                    onRefreshSettings = { viewModel.refreshPerceptionSettings() }
                 )
 
                 // 2. Navigation / Map

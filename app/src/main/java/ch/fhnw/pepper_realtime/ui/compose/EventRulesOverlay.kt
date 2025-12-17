@@ -797,7 +797,7 @@ private fun RuleEditorDialog(
                     modifier = Modifier.fillMaxWidth(),
                     supportingText = {
                         Text(
-                            "{personName} {distance} {age} {gender} {emotion} {attention} {peopleCount}",
+                            "{personName} {distance} {age} {gender} {emotion} {robotState} {peopleCount}",
                             fontSize = 9.sp,
                             color = RulesColors.TextLight
                         )

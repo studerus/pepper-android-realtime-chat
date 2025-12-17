@@ -1,24 +1,25 @@
 package ch.fhnw.pepper_realtime.service
 
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.os.Handler
 import android.os.HandlerThread
 import android.util.Log
 import com.aldebaran.qi.sdk.QiContext
-import com.aldebaran.qi.sdk.`object`.actuation.Actuation
 import com.aldebaran.qi.sdk.`object`.human.Human
 import com.aldebaran.qi.sdk.`object`.humanawareness.HumanAwareness
 import ch.fhnw.pepper_realtime.data.PerceptionData
 import ch.fhnw.pepper_realtime.data.PersonEvent
 import ch.fhnw.pepper_realtime.data.PersonEventType
 import kotlinx.coroutines.*
-import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.math.sqrt
+import kotlinx.coroutines.flow.collectLatest
 
 /**
- * Manages perception data and services for the robot.
- * Handles human detection, local face recognition, and other perception capabilities.
+ * Manages perception data using the Head-Based Perception System via WebSocket.
+ * 
+ * Uses WebSocket streaming for real-time updates from the Python server on Pepper's head.
+ * This provides lower latency than HTTP polling.
+ * 
+ * QiSDK is only used for HumanAwareness (getRecommendedHumanToApproach)
+ * but NOT for human tracking or recognition - that's handled by the head server.
  */
 class PerceptionService {
 
@@ -43,83 +44,69 @@ class PerceptionService {
     private var listener: PerceptionListener? = null
     private var isMonitoring = false
 
-    // QiSDK services
+    // QiSDK services - only for approach recommendations
     private var humanAwareness: HumanAwareness? = null
-    private var actuation: Actuation? = null
-    private var robotFrame: Any? = null // Use reflection-friendly type to avoid hard dependency on geometry classes
 
-    // External services
-    private var localFaceRecognitionService: LocalFaceRecognitionService? = null
-    @Volatile private var lastHumansCount = 0
+    // WebSocket client for real-time perception streaming
+    private var webSocketClient: PerceptionWebSocketClient? = null
     
-    // Local face recognition state
-    private val isLocalFaceRecognitionRunning = AtomicBoolean(false)
-    private var lastLocalFaceRecognitionTime = 0L
-    private val localFaceRecognitionIntervalMs = 3000L // Recognize every 3 seconds
-    private val localFaceNameCache = mutableMapOf<Int, String>() // humanId -> recognized name
-    @Volatile private var triggerImmediateFaceRecognition = false // Trigger when new human appears
+    // Legacy HTTP service (kept for face management fallback)
+    private var localFaceRecognitionService: LocalFaceRecognitionService? = null
 
     // Event detection state tracking
     private var eventListener: EventListener? = null
-    private var previousHumanIds: Set<Int> = emptySet()
-    private var previousAttentionStates: Map<Int, String> = emptyMap()
-    private var previousDistances: Map<Int, Double> = emptyMap()
-    private var previousRecognizedNames: Map<Int, String?> = emptyMap()
+    private var previousTrackIds: Set<Int> = emptySet()
+    private var previousLookingStates: Map<Int, Boolean> = emptyMap()
+    private var previousDistances: Map<Int, Float> = emptyMap()
+    private var previousRecognizedNames: Map<Int, String> = emptyMap()
     
     // Distance thresholds for approach events
-    private val closeDistanceThreshold = 1.5 // meters
-    private val interactionDistanceThreshold = 3.0 // meters
+    private val closeDistanceThreshold = 1.5f // meters
+    private val interactionDistanceThreshold = 3.0f // meters
     
     // Track which approach events have been fired to avoid duplicates
     private var firedCloseApproach: MutableSet<Int> = mutableSetOf()
     private var firedInteractionApproach: MutableSet<Int> = mutableSetOf()
 
-    // Threading - use background thread for QiSDK synchronous calls
+    // Threading
     private var monitoringThread: HandlerThread? = null
     private var monitoringHandler: Handler? = null
-    // Polling interval: 500ms to catch 1Hz internal refresh with minimal latency
-    // (QiSDK refreshes PleasureState/ExcitementState/AttentionState at 1Hz)
-    private val pollingIntervalMs = 500L
     
-    private val monitoringRunnable = object : Runnable {
-        override fun run() {
-            if (isMonitoring) {
-                monitorOnce()
-                monitoringHandler?.postDelayed(this, pollingIntervalMs)
-            }
+    // Use a recreatable scope - gets recreated if cancelled
+    private var serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var peopleCollectionJob: Job? = null
+    
+    private fun ensureScopeActive(): CoroutineScope {
+        if (!serviceScope.isActive) {
+            Log.i(TAG, "Recreating service scope")
+            serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         }
+        return serviceScope
     }
-
-    private val humansCacheLock = Any()
-    private var humansCache: MutableList<Human> = mutableListOf()
 
     private var lastUiPushMs = 0L
     private var lastUiIds: List<Int> = emptyList()
-    
-    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     val isInitialized: Boolean
-        get() = qiContext != null
+        get() = webSocketClient != null || localFaceRecognitionService != null
 
     init {
-        Log.d(TAG, "PerceptionService created")
+        Log.d(TAG, "PerceptionService created (WebSocket mode)")
         ensureMonitoringThreadReady()
     }
 
     /**
      * Ensures the monitoring thread and handler are ready.
-     * Reinitializes them if they were shutdown or are in an invalid state.
      */
     @Synchronized
     private fun ensureMonitoringThreadReady() {
         if (monitoringThread == null || monitoringThread?.isAlive != true) {
-            Log.i(TAG, "Reinitializing monitoring thread (was shutdown or invalid)")
+            Log.i(TAG, "Initializing monitoring thread")
             monitoringThread = HandlerThread("PerceptionMonitoringThread").also {
                 it.start()
                 monitoringHandler = Handler(it.looper)
             }
         } else if (monitoringHandler == null) {
-            Log.i(TAG, "Reinitializing monitoring handler")
             monitoringHandler = Handler(monitoringThread!!.looper)
         }
     }
@@ -132,12 +119,21 @@ class PerceptionService {
     }
 
     /**
-     * Set the local face recognition service for identifying known faces.
-     * Should be called after the service is injected by Hilt/Dagger.
+     * Set the WebSocket client for real-time perception streaming.
+     * This is the preferred method for perception data.
+     */
+    fun setWebSocketClient(client: PerceptionWebSocketClient) {
+        this.webSocketClient = client
+        Log.i(TAG, "WebSocket client configured")
+    }
+
+    /**
+     * Set the local face recognition service (HTTP fallback).
+     * Used for face management operations.
      */
     fun setLocalFaceRecognitionService(service: LocalFaceRecognitionService) {
         this.localFaceRecognitionService = service
-        Log.i(TAG, "Local face recognition service configured")
+        Log.i(TAG, "HTTP service configured (for fallback/management)")
     }
 
     /**
@@ -149,85 +145,92 @@ class PerceptionService {
     }
 
     /**
-     * Initialize the perception service with QiContext.
-     * Reinitializes internal resources if they were previously shutdown.
+     * Initialize the perception service.
+     * QiContext is optional - only used for approach recommendations.
      */
     fun initialize(robotContext: Any?) {
-        if (robotContext == null) {
-            Log.w(TAG, "PerceptionService: No robot context available.")
-            return
-        }
-
-        // Reinitialize monitoring thread if it was shutdown
         ensureMonitoringThreadReady()
 
-        val qiContext = robotContext as QiContext
-        this.qiContext = qiContext
-
-        try {
-            this.humanAwareness = qiContext.humanAwareness
-            this.actuation = qiContext.actuation
-            this.robotFrame = actuation?.robotFrame()
-
-            // Note: LocalFaceRecognitionService is injected via setLocalFaceRecognitionService()
-
-            // Event-driven trigger: react to humansAround changes
+        // QiContext is optional - only for approach recommendations
+        if (robotContext != null) {
             try {
-                this.humanAwareness?.addOnHumansAroundChangedListener { humans ->
-                    try {
-                        val count = humans?.size ?: 0
-                        Log.d(TAG, "OnHumansAroundChanged: $count humans detected")
-                        if (count != lastHumansCount) {
-                            // Trigger immediate face recognition when human count INCREASES
-                            if (count > lastHumansCount && count > 0) {
-                                triggerImmediateFaceRecognition = true
-                                Log.i(TAG, "New human detected! Triggering immediate face recognition.")
-                            }
-                            lastHumansCount = count
-                            Log.i(TAG, "Human count changed to: $count")
-                        }
-                        synchronized(humansCacheLock) {
-                            humansCache = humans?.toMutableList() ?: mutableListOf()
-                            Log.d(TAG, "humansCache updated with ${humansCache.size} humans")
-                        }
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error in OnHumansAroundChanged listener", e)
-                    }
-                }
-                Log.i(TAG, "OnHumansAroundChangedListener registered successfully")
+                val qiContext = robotContext as QiContext
+                this.qiContext = qiContext
+                this.humanAwareness = qiContext.humanAwareness
+                Log.i(TAG, "QiContext available for approach recommendations")
             } catch (e: Exception) {
-                Log.w(TAG, "Failed to attach OnHumansAroundChangedListener", e)
+                Log.w(TAG, "QiContext not available: ${e.message}")
             }
-
-            Log.i(TAG, "PerceptionService initialized: HumanAwareness, Actuation, and FaceRecognition ready")
-            listener?.onServiceStatusChanged(true)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to initialize perception services", e)
-            listener?.onPerceptionError("Init failed: ${e.message}")
         }
+
+        Log.i(TAG, "PerceptionService initialized (WebSocket mode)")
+        listener?.onServiceStatusChanged(true)
     }
 
     /**
-     * Start monitoring for perception data
+     * Start monitoring for perception data via WebSocket.
+     * Safe to call multiple times - will only connect once.
      */
     fun startMonitoring() {
-        if (!isInitialized || humanAwareness == null) {
-            Log.w(TAG, "Cannot start monitoring - service not initialized")
-            listener?.onPerceptionError("Service not initialized")
+        val wsClient = webSocketClient
+        if (wsClient == null) {
+            Log.w(TAG, "Cannot start monitoring - WebSocket client not set")
+            listener?.onPerceptionError("WebSocket not configured")
             return
         }
 
+        // Already monitoring - just notify listener silently
         if (isMonitoring) {
-            Log.i(TAG, "Perception monitoring already active")
+            listener?.onServiceStatusChanged(true)
             return
         }
 
         isMonitoring = true
-        Log.i(TAG, "Perception monitoring started")
+        Log.i(TAG, "WebSocket perception monitoring started")
         listener?.onServiceStatusChanged(true)
 
-        // Start lightweight polling with Handler (Android-lifecycle-aware)
-        monitoringHandler?.post(monitoringRunnable)
+        // Connect WebSocket and start collecting updates
+        // WebSocket has auto-reconnect, so this is only needed once
+        wsClient.connect()
+        startPeopleCollection(wsClient)
+    }
+    
+    /**
+     * Start collecting people updates from WebSocket.
+     */
+    private fun startPeopleCollection(wsClient: PerceptionWebSocketClient) {
+        peopleCollectionJob?.cancel()
+        peopleCollectionJob = ensureScopeActive().launch {
+            wsClient.peopleUpdates.collectLatest { update ->
+                if (!isMonitoring) return@collectLatest
+                
+                try {
+                    // Convert TrackedPerson to HumanInfo
+                    val humanInfoList = update.people.map { person ->
+                        mapTrackedPersonToHumanInfo(person)
+                    }
+
+                    // Detect events and push to UI
+                    detectEvents(humanInfoList)
+                    maybePushUi(humanInfoList)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error processing people update", e)
+                }
+            }
+        }
+    }
+    
+    /**
+     * Force restart monitoring - useful after lifecycle changes.
+     * Stops and restarts the WebSocket connection to ensure fresh state.
+     */
+    fun restartMonitoring() {
+        Log.i(TAG, "Restarting perception monitoring...")
+        stopMonitoring()
+        ensureScopeActive().launch {
+            kotlinx.coroutines.delay(100)
+            startMonitoring()
+        }
     }
 
     /**
@@ -235,262 +238,48 @@ class PerceptionService {
      */
     fun stopMonitoring() {
         isMonitoring = false
+        peopleCollectionJob?.cancel()
+        webSocketClient?.disconnect()
         Log.i(TAG, "Perception monitoring stopped")
         listener?.onServiceStatusChanged(false)
-        // Remove any pending callbacks
-        monitoringHandler?.removeCallbacks(monitoringRunnable)
     }
 
     /**
-     * Monitoring loop: periodically polls HumanAwareness and emits structured data
+     * Convert TrackedPerson from WebSocket to HumanInfo for UI.
      */
-    private fun monitorOnce() {
-        if (!isMonitoring || humanAwareness == null) {
-            Log.d(TAG, "monitorOnce: skipped (isMonitoring=$isMonitoring, humanAwareness=${humanAwareness != null})")
-            return
-        }
-
-        try {
-            val humansSnapshot: List<Human>
-            synchronized(humansCacheLock) {
-                humansSnapshot = humansCache.toList()
-                Log.d(TAG, "monitorOnce: humansCache.size=${humansCache.size}, snapshot.size=${humansSnapshot.size}")
-            }
-
-            if (humansSnapshot.isEmpty()) {
-                Log.d(TAG, "monitorOnce: snapshot empty, sending empty list to listener")
-                listener?.onHumansDetected(emptyList())
-                return
-            }
-
-            Log.d(TAG, "monitorOnce: processing ${humansSnapshot.size} humans")
-
-            // Build base list
-            val humanInfoList = mutableListOf<PerceptionData.HumanInfo>()
-            for (h in humansSnapshot) {
-                val info = mapHuman(h)
-                humanInfoList.add(info)
-            }
-
-            val currentCount = humansSnapshot.size
-            maybePushUi(humanInfoList)
+    private fun mapTrackedPersonToHumanInfo(person: PerceptionWebSocketClient.TrackedPerson): PerceptionData.HumanInfo {
+        return PerceptionData.HumanInfo().apply {
+            // Use stable track ID from head server
+            id = person.trackId
+            trackId = person.trackId
             
-            // Run local face recognition
-            // Triggers: 1) Regular interval (3s), or 2) New human appeared
-            val timeIntervalElapsed = (System.currentTimeMillis() - lastLocalFaceRecognitionTime) >= localFaceRecognitionIntervalMs
-            val wantsToRun = localFaceRecognitionService != null &&
-                    currentCount > 0 &&
-                    (timeIntervalElapsed || triggerImmediateFaceRecognition)
-            val canRun = !isLocalFaceRecognitionRunning.get()
-                    
-            if (wantsToRun && canRun) {
-                if (triggerImmediateFaceRecognition) {
-                    Log.i(TAG, "Running immediate face recognition for new human")
-                }
-                // Only clear the trigger when we actually start the recognition
-                triggerImmediateFaceRecognition = false
-                isLocalFaceRecognitionRunning.set(true)
-                lastLocalFaceRecognitionTime = System.currentTimeMillis()
-                serviceScope.launch {
-                    runLocalFaceRecognition(humanInfoList)
-                }
-            } else if (wantsToRun && !canRun) {
-                // Recognition already running - keep the trigger for next poll cycle
-                Log.d(TAG, "Face recognition busy, will retry on next poll (trigger preserved: $triggerImmediateFaceRecognition)")
+            // Recognition data
+            recognizedName = if (person.name != "Unknown") person.name else null
+            
+            // Gaze detection
+            lookingAtRobot = person.lookingAtRobot
+            // Convert head direction string to float: "looking"=0, "left"=+1, "right"=-1
+            headDirection = when (person.headDirection) {
+                "looking", "center" -> 0f
+                "left" -> 1f
+                "right" -> -1f
+                else -> 0f
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Monitor tick failed", e)
-            listener?.onPerceptionError("Monitor failed: ${e.message}")
-        }
-    }
-
-    /**
-     * Map QiSDK Human to UI-friendly HumanInfo
-     */
-    private fun mapHuman(human: Human): PerceptionData.HumanInfo {
-        val info = PerceptionData.HumanInfo()
-        info.id = human.hashCode() // Use hashCode as a temporary, unstable ID for now
-
-        try {
-            // Basic demographics & states
-            try {
-                info.estimatedAge = human.estimatedAge.years
-            } catch (ignored: Exception) {
+            attentionState = if (person.lookingAtRobot) "LOOKING_AT_ROBOT" else "LOOKING_ELSEWHERE"
+            
+            // Position data
+            worldYaw = person.worldYaw
+            worldPitch = person.worldPitch
+            distanceMeters = person.distance.toDouble()
+            
+            // Convert world angles to approximate X/Y position
+            // worldYaw: 0=front, +=left, -=right
+            // Distance * sin(yaw) gives approximate Y offset
+            if (person.distance > 0) {
+                val yawRad = Math.toRadians(person.worldYaw.toDouble())
+                positionX = person.distance * kotlin.math.cos(yawRad)
+                positionY = person.distance * kotlin.math.sin(yawRad)
             }
-
-            human.estimatedGender?.let { info.gender = it.toString() }
-
-            human.emotion?.let { emotion ->
-                info.pleasureState = emotion.pleasure.toString()
-                info.excitementState = emotion.excitement.toString()
-            }
-
-            human.engagementIntention?.let { info.engagementState = it.toString() }
-
-            human.facialExpressions?.smile?.let { info.smileState = it.toString() }
-
-            human.attention?.let { info.attentionState = it.toString() }
-
-            // Distance and position computation (robot frame vs human head frame)
-            try {
-                val humanFrame = human.headFrame
-                info.distanceMeters = computeDistanceMetersReflect(humanFrame, robotFrame)
-                
-                // Get XY position for bird's eye view
-                val xyPos = getXYTranslationReflect(humanFrame, robotFrame)
-                if (xyPos != null) {
-                    info.positionX = xyPos[0]  // Distance in front of robot
-                    info.positionY = xyPos[1]  // Distance to left/right of robot
-                }
-            } catch (distEx: Exception) {
-                // keep default values on failure
-            }
-
-            // Extract face picture with improved error handling and thread safety
-            info.facePicture = extractFacePictureSafely(human, info.id)
-
-            // Compute basic emotion for dashboard
-            info.basicEmotion = PerceptionData.HumanInfo.computeBasicEmotion(info.excitementState, info.pleasureState)
-        } catch (e: Exception) {
-            Log.w(TAG, "mapHuman: partial data due to exception", e)
-        }
-
-        return info
-    }
-
-    /**
-     * Helper: get XY translation between headFrame and base frame using reflection.
-     */
-    private fun getXYTranslationReflect(headFrame: Any?, baseFrame: Any?): DoubleArray? {
-        if (headFrame == null || baseFrame == null) return null
-
-        return try {
-            val computeTransform = headFrame.javaClass.methods.find {
-                it.name == "computeTransform" && it.parameterTypes.size == 1
-            } ?: return null
-
-            val transformTime = computeTransform.invoke(headFrame, baseFrame) ?: return null
-            val transform = transformTime.javaClass.getMethod("getTransform").invoke(transformTime) ?: return null
-            val translation = transform.javaClass.getMethod("getTranslation").invoke(transform) ?: return null
-            val xObj = translation.javaClass.getMethod("getX").invoke(translation)
-            val yObj = translation.javaClass.getMethod("getY").invoke(translation)
-
-            if (xObj !is Number || yObj !is Number) return null
-            doubleArrayOf(xObj.toDouble(), yObj.toDouble())
-        } catch (e: Exception) {
-            null
-        }
-    }
-
-    /**
-     * Safely extract face picture from human with comprehensive error handling
-     * Based on QiSDK tutorial but with improved null checks and exception handling
-     */
-    private fun extractFacePictureSafely(human: Human?, humanId: Int): Bitmap? {
-        if (human == null) {
-            Log.d(TAG, "Human object is null for ID $humanId")
-            return null
-        }
-
-        return try {
-            val facePicture = human.facePicture
-            if (facePicture == null) {
-                Log.d(TAG, "Face picture object is null for human $humanId")
-                return null
-            }
-
-            val image = facePicture.image
-            if (image == null) {
-                Log.d(TAG, "Image object is null for human $humanId")
-                return null
-            }
-
-            val facePictureBuffer = try {
-                image.data
-            } catch (e: Exception) {
-                Log.d(TAG, "Failed to get image data for human $humanId: ${e.message}")
-                return null
-            }
-
-            if (facePictureBuffer == null) {
-                Log.d(TAG, "Face picture buffer is null for human $humanId")
-                return null
-            }
-
-            try {
-                facePictureBuffer.rewind()
-                val pictureBufferSize = facePictureBuffer.remaining()
-
-                if (pictureBufferSize <= 0) {
-                    Log.d(TAG, "Face picture buffer empty for human $humanId (size: $pictureBufferSize)")
-                    return null
-                }
-
-                if (pictureBufferSize > 5 * 1024 * 1024) {
-                    Log.w(TAG, "Face picture buffer too large for human $humanId: $pictureBufferSize bytes")
-                    return null
-                }
-
-                val facePictureArray = ByteArray(pictureBufferSize)
-                facePictureBuffer.get(facePictureArray)
-
-                val bitmap = BitmapFactory.decodeByteArray(facePictureArray, 0, pictureBufferSize)
-
-                if (bitmap != null) {
-                    Log.i(TAG, "✅ Face picture extracted for human $humanId " +
-                            "(${bitmap.width}x${bitmap.height}, $pictureBufferSize bytes)")
-                    bitmap
-                } else {
-                    Log.d(TAG, "Failed to decode face picture bitmap for human $humanId (invalid image data)")
-                    null
-                }
-            } catch (oom: OutOfMemoryError) {
-                Log.w(TAG, "Out of memory processing face picture for human $humanId")
-                null
-            } catch (bufferEx: Exception) {
-                Log.w(TAG, "Buffer processing failed for human $humanId: ${bufferEx.message}")
-                null
-            }
-        } catch (ex: Exception) {
-            Log.w(TAG, "Face picture extraction failed for human $humanId: ${ex.javaClass.simpleName} - ${ex.message}")
-            null
-        }
-    }
-
-    /**
-     * Compute planar distance using reflection to avoid compile-time dependency on geometry types.
-     */
-    private fun computeDistanceMetersReflect(humanFrame: Any?, robotFrame: Any?): Double {
-        if (humanFrame == null || robotFrame == null) {
-            Log.w(TAG, "computeDistanceMetersReflect: frame null (human=${humanFrame != null}, robot=${robotFrame != null})")
-            return -1.0
-        }
-
-        return try {
-            val computeTransform = humanFrame.javaClass.methods.find {
-                it.name == "computeTransform" && it.parameterTypes.size == 1
-            }
-
-            if (computeTransform == null) {
-                Log.w(TAG, "computeDistanceMetersReflect: computeTransform not found on ${humanFrame.javaClass}")
-                return -1.0
-            }
-
-            val transformTime = computeTransform.invoke(humanFrame, robotFrame) ?: return -1.0
-            val transform = transformTime.javaClass.getMethod("getTransform").invoke(transformTime) ?: return -1.0
-            val translation = transform.javaClass.getMethod("getTranslation").invoke(transform) ?: return -1.0
-
-            val xObj = translation.javaClass.getMethod("getX").invoke(translation)
-            val yObj = translation.javaClass.getMethod("getY").invoke(translation)
-
-            if (xObj !is Number || yObj !is Number) return -1.0
-
-            val x = xObj.toDouble()
-            val y = yObj.toDouble()
-            sqrt(x * x + y * y)
-        } catch (e: Exception) {
-            Log.w(TAG, "computeDistanceMetersReflect failed: ${e.javaClass.simpleName}: ${e.message}")
-            -1.0
         }
     }
 
@@ -499,44 +288,14 @@ class PerceptionService {
      */
     fun shutdown() {
         stopMonitoring()
+        peopleCollectionJob?.cancel()
+        webSocketClient?.disconnect()
+        serviceScope.cancel()
+        
         this.qiContext = null
         this.listener = null
-
-        // Remove listeners on background thread to avoid NetworkOnMainThreadException
-        // Use monitoring thread if available, otherwise use a temporary thread
-        val humanAwarenessRef = this.humanAwareness
-        if (humanAwarenessRef != null) {
-            val handler = monitoringHandler
-            val thread = monitoringThread
-            if (handler != null && thread != null && thread.isAlive) {
-                // Use existing monitoring thread
-                handler.post {
-                    try {
-                        humanAwarenessRef.removeAllOnHumansAroundChangedListeners()
-                        Log.d(TAG, "HumanAwareness listeners removed successfully")
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Failed removing humansAround listeners", e)
-                    }
-                }
-            } else {
-                // Monitoring thread not available, use temporary thread for cleanup
-                Thread({
-                    try {
-                        humanAwarenessRef.removeAllOnHumansAroundChangedListeners()
-                        Log.d(TAG, "HumanAwareness listeners removed successfully (temp thread)")
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Failed removing humansAround listeners", e)
-                    }
-                }, "PerceptionCleanup").start()
-            }
-        }
-
         this.humanAwareness = null
-        this.actuation = null
-        this.robotFrame = null
 
-        // Clean up monitoring handler and background thread
-        monitoringHandler?.removeCallbacks(monitoringRunnable)
         monitoringThread?.let { thread ->
             thread.quitSafely()
             try {
@@ -551,22 +310,15 @@ class PerceptionService {
         Log.i(TAG, "PerceptionService shutdown")
     }
 
+    /**
+     * Push updates to UI listener.
+     */
     private fun maybePushUi(list: List<PerceptionData.HumanInfo>) {
         try {
-            // Apply cached recognized names before pushing to UI
-            for (info in list) {
-                localFaceNameCache[info.id]?.let { cachedName ->
-                    info.recognizedName = cachedName
-                }
-            }
-            
-            // Detect and fire events based on state changes
-            detectEvents(list)
-            
             val now = System.currentTimeMillis()
             val ids = list.map { it.id }
             val idsChanged = ids != lastUiIds
-            val timeOk = (now - lastUiPushMs) >= 1000L
+            val timeOk = (now - lastUiPushMs) >= 500L
 
             if (idsChanged || timeOk) {
                 listener?.onHumansDetected(list)
@@ -577,91 +329,16 @@ class PerceptionService {
             listener?.onHumansDetected(list)
         }
     }
-    
-    /**
-     * Run local face recognition on Pepper's head camera.
-     * Updates the face name cache with recognized names.
-     */
-    private suspend fun runLocalFaceRecognition(humanInfoList: List<PerceptionData.HumanInfo>) {
-        try {
-            val service = localFaceRecognitionService ?: return
-            
-            val result = service.recognize()
-            
-            if (result.error != null) {
-                Log.w(TAG, "Local face recognition error: ${result.error}")
-                return
-            }
-            
-            // Get known faces (exclude "Unknown")
-            val knownFaces = result.faces.filter { it.isKnown }
-            
-            if (knownFaces.isEmpty()) {
-                Log.d(TAG, "Local face recognition: no known faces detected")
-                // Clear cache for humans that are no longer recognized
-                // (but keep cache entries for humans still present)
-                return
-            }
-            
-            Log.i(TAG, "Local face recognition: found ${knownFaces.size} known face(s): ${knownFaces.map { it.name }}")
-            
-            // Match recognized faces to HumanInfo by horizontal position
-            // Similar logic to Azure face matching - sort both by horizontal position
-            val sortedKnownFaces = knownFaces.sortedBy { it.location.left }
-            val sortedHumans = humanInfoList.sortedBy { it.id } // Simple sort for now
-            
-            // Simple 1:1 matching when counts match
-            if (sortedKnownFaces.size == sortedHumans.size) {
-                for (i in sortedKnownFaces.indices) {
-                    val recognizedFace = sortedKnownFaces[i]
-                    val humanInfo = sortedHumans[i]
-                    
-                    humanInfo.recognizedName = recognizedFace.name
-                    localFaceNameCache[humanInfo.id] = recognizedFace.name
-                    
-                    Log.i(TAG, "Matched face '${recognizedFace.name}' to human ${humanInfo.id} (confidence: ${recognizedFace.confidence})")
-                }
-            } else if (sortedKnownFaces.size == 1 && sortedHumans.isNotEmpty()) {
-                // Only one face recognized - assign to first/closest human
-                val recognizedFace = sortedKnownFaces.first()
-                val humanInfo = sortedHumans.first()
-                
-                humanInfo.recognizedName = recognizedFace.name
-                localFaceNameCache[humanInfo.id] = recognizedFace.name
-                
-                Log.i(TAG, "Single face '${recognizedFace.name}' matched to human ${humanInfo.id}")
-            } else {
-                Log.d(TAG, "Face count mismatch: ${sortedKnownFaces.size} faces vs ${sortedHumans.size} humans - using position-based matching")
-                // For mismatched counts, match what we can
-                val matchCount = minOf(sortedKnownFaces.size, sortedHumans.size)
-                for (i in 0 until matchCount) {
-                    val recognizedFace = sortedKnownFaces[i]
-                    val humanInfo = sortedHumans[i]
-                    
-                    humanInfo.recognizedName = recognizedFace.name
-                    localFaceNameCache[humanInfo.id] = recognizedFace.name
-                }
-            }
-            
-            // Trigger UI update with new names
-            maybePushUi(humanInfoList)
-            
-        } catch (e: Exception) {
-            Log.e(TAG, "Local face recognition failed", e)
-        } finally {
-            isLocalFaceRecognitionRunning.set(false)
-        }
-    }
 
     /**
      * Get the recommended human to approach based on QiSDK HumanAwareness.
-     * This is needed for the ApproachHuman tool integration.
+     * Note: QiContext must be available for this to work.
      *
-     * @return Human object recommended for approach, or null if none suitable
+     * @return Human object recommended for approach, or null if not available
      */
     fun getRecommendedHumanToApproach(): Human? {
-        if (!isInitialized || humanAwareness == null) {
-            Log.w(TAG, "Cannot get recommended human - service not initialized")
+        if (humanAwareness == null) {
+            Log.d(TAG, "QiSDK HumanAwareness not available for approach recommendation")
             return null
         }
 
@@ -674,25 +351,19 @@ class PerceptionService {
     }
 
     /**
-     * Find a specific Human object by its ID (hashCode).
-     * Used by ApproachHuman tool to convert HumanInfo ID back to QiSDK Human object.
-     *
-     * @param humanId The ID (hashCode) of the human to find
-     * @return Human object with matching ID, or null if not found
+     * Find a QiSDK Human by ID (hashCode).
+     * Note: With head-based perception, track IDs from the server are used instead.
+     * This method is kept for backward compatibility with ApproachHuman tool.
      */
     fun getHumanById(humanId: Int): Human? {
-        if (!isInitialized || humanAwareness == null) {
-            Log.w(TAG, "Cannot find human by ID - service not initialized")
+        if (humanAwareness == null) {
+            Log.d(TAG, "QiSDK HumanAwareness not available")
             return null
         }
 
         return try {
             val detectedHumans = humanAwareness?.humansAround ?: return null
-            detectedHumans.find { it.hashCode() == humanId }.also {
-                if (it == null) {
-                    Log.d(TAG, "Human with ID $humanId not found in current detection")
-                }
-            }
+            detectedHumans.find { it.hashCode() == humanId }
         } catch (e: Exception) {
             Log.w(TAG, "Failed to find human by ID $humanId", e)
             null
@@ -700,14 +371,11 @@ class PerceptionService {
     }
 
     /**
-     * Get all currently detected humans as QiSDK Human objects.
-     * Provides direct access to the raw Human objects for tools that need them.
-     *
-     * @return List of detected Human objects, empty list if none or service not ready
+     * Get all QiSDK Human objects (for backward compatibility).
+     * Note: Prefer using head-based perception data instead.
      */
     fun getDetectedHumans(): List<Human> {
-        if (!isInitialized || humanAwareness == null) {
-            Log.w(TAG, "Cannot get detected humans - service not initialized")
+        if (humanAwareness == null) {
             return emptyList()
         }
 
@@ -721,99 +389,97 @@ class PerceptionService {
 
     /**
      * Detect events by comparing current state with previous state.
-     * Called after each monitoring cycle to generate PersonEvents.
+     * Uses stable track IDs from head-based perception.
      */
     private fun detectEvents(humanInfoList: List<PerceptionData.HumanInfo>) {
         val listener = eventListener ?: return
         
-        val currentIds = humanInfoList.map { it.id }.toSet()
-        val currentAttention = humanInfoList.associate { it.id to it.attentionState }
-        val currentDistances = humanInfoList.associate { it.id to it.distanceMeters }
-        val currentNames = humanInfoList.associate { it.id to it.recognizedName }
+        // Use track ID for stable identification
+        val currentIds = humanInfoList.map { it.trackId }.toSet()
+        val currentLooking = humanInfoList.associate { it.trackId to it.lookingAtRobot }
+        val currentDistances = humanInfoList.associate { it.trackId to it.distanceMeters.toFloat() }
+        val currentNames = humanInfoList.associate { it.trackId to (it.recognizedName ?: "") }
         
         // Detect PERSON_APPEARED events
-        val appearedIds = currentIds - previousHumanIds
+        val appearedIds = currentIds - previousTrackIds
         for (id in appearedIds) {
-            val humanInfo = humanInfoList.find { it.id == id } ?: continue
+            val humanInfo = humanInfoList.find { it.trackId == id } ?: continue
             val event = PersonEvent(PersonEventType.PERSON_APPEARED, id)
-            Log.i(TAG, "Event: PERSON_APPEARED - human $id")
+            Log.i(TAG, "Event: PERSON_APPEARED - track $id")
             listener.onPersonEvent(event, humanInfo, humanInfoList)
         }
         
         // Detect PERSON_DISAPPEARED events
-        val disappearedIds = previousHumanIds - currentIds
+        val disappearedIds = previousTrackIds - currentIds
         for (id in disappearedIds) {
-            // Create a minimal HumanInfo for disappeared person
-            val humanInfo = PerceptionData.HumanInfo().apply { this.id = id }
+            val humanInfo = PerceptionData.HumanInfo().apply { 
+                this.id = id
+                this.trackId = id 
+            }
             val event = PersonEvent(PersonEventType.PERSON_DISAPPEARED, id)
-            Log.i(TAG, "Event: PERSON_DISAPPEARED - human $id")
+            Log.i(TAG, "Event: PERSON_DISAPPEARED - track $id")
             listener.onPersonEvent(event, humanInfo, humanInfoList)
             
-            // Clean up approach tracking for disappeared humans
             firedCloseApproach.remove(id)
             firedInteractionApproach.remove(id)
         }
         
         // Process events for each current human
         for (humanInfo in humanInfoList) {
-            val id = humanInfo.id
+            val id = humanInfo.trackId
             
-            // Detect PERSON_RECOGNIZED events (name changed from null/unknown to known)
-            val prevName = previousRecognizedNames[id]
-            val currName = humanInfo.recognizedName
-            if (currName != null && prevName == null) {
+            // Detect PERSON_RECOGNIZED events
+            val prevName = previousRecognizedNames[id] ?: ""
+            val currName = humanInfo.recognizedName ?: ""
+            if (currName.isNotEmpty() && prevName.isEmpty()) {
                 val event = PersonEvent(PersonEventType.PERSON_RECOGNIZED, id)
-                Log.i(TAG, "Event: PERSON_RECOGNIZED - human $id as '$currName'")
+                Log.i(TAG, "Event: PERSON_RECOGNIZED - track $id as '$currName'")
                 listener.onPersonEvent(event, humanInfo, humanInfoList)
             }
             
-            // Detect PERSON_LOOKING / PERSON_STOPPED_LOOKING events
-            val prevAttention = previousAttentionStates[id]
-            val currAttention = humanInfo.attentionState
-            val wasLooking = prevAttention?.contains("LOOKING_AT_ROBOT", ignoreCase = true) == true
-            val isLooking = currAttention.contains("LOOKING_AT_ROBOT", ignoreCase = true)
+            // Detect PERSON_LOOKING / PERSON_STOPPED_LOOKING events (using head-based gaze)
+            val wasLooking = previousLookingStates[id] ?: false
+            val isLooking = humanInfo.lookingAtRobot
             
             if (!wasLooking && isLooking) {
                 val event = PersonEvent(PersonEventType.PERSON_LOOKING, id)
-                Log.i(TAG, "Event: PERSON_LOOKING - human $id")
+                Log.i(TAG, "Event: PERSON_LOOKING - track $id")
                 listener.onPersonEvent(event, humanInfo, humanInfoList)
-            } else if (wasLooking && !isLooking && prevAttention != null) {
+            } else if (wasLooking && !isLooking) {
                 val event = PersonEvent(PersonEventType.PERSON_STOPPED_LOOKING, id)
-                Log.i(TAG, "Event: PERSON_STOPPED_LOOKING - human $id")
+                Log.i(TAG, "Event: PERSON_STOPPED_LOOKING - track $id")
                 listener.onPersonEvent(event, humanInfo, humanInfoList)
             }
             
-            // Detect PERSON_APPROACHED_CLOSE events (crossed 1.5m threshold)
-            val currDist = humanInfo.distanceMeters
+            // Detect PERSON_APPROACHED_CLOSE events
+            val currDist = humanInfo.distanceMeters.toFloat()
             if (currDist > 0 && currDist <= closeDistanceThreshold) {
                 if (!firedCloseApproach.contains(id)) {
                     val event = PersonEvent(PersonEventType.PERSON_APPROACHED_CLOSE, id)
-                    Log.i(TAG, "Event: PERSON_APPROACHED_CLOSE - human $id at ${currDist}m")
+                    Log.i(TAG, "Event: PERSON_APPROACHED_CLOSE - track $id at ${currDist}m")
                     listener.onPersonEvent(event, humanInfo, humanInfoList)
                     firedCloseApproach.add(id)
                 }
             } else {
-                // Reset if person moved away
                 firedCloseApproach.remove(id)
             }
             
-            // Detect PERSON_APPROACHED_INTERACTION events (crossed 3m threshold)
+            // Detect PERSON_APPROACHED_INTERACTION events
             if (currDist > 0 && currDist <= interactionDistanceThreshold) {
                 if (!firedInteractionApproach.contains(id)) {
                     val event = PersonEvent(PersonEventType.PERSON_APPROACHED_INTERACTION, id)
-                    Log.i(TAG, "Event: PERSON_APPROACHED_INTERACTION - human $id at ${currDist}m")
+                    Log.i(TAG, "Event: PERSON_APPROACHED_INTERACTION - track $id at ${currDist}m")
                     listener.onPersonEvent(event, humanInfo, humanInfoList)
                     firedInteractionApproach.add(id)
                 }
             } else {
-                // Reset if person moved away
                 firedInteractionApproach.remove(id)
             }
         }
         
-        // Update previous state for next cycle
-        previousHumanIds = currentIds
-        previousAttentionStates = currentAttention
+        // Update previous state
+        previousTrackIds = currentIds
+        previousLookingStates = currentLooking
         previousDistances = currentDistances
         previousRecognizedNames = currentNames
     }

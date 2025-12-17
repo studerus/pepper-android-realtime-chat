@@ -52,6 +52,13 @@ class PerceptionService {
     }
 
     /**
+     * Set the WebSocket client (no-op in standalone mode).
+     */
+    fun setWebSocketClient(@Suppress("UNUSED_PARAMETER") client: PerceptionWebSocketClient) {
+        Log.d(TAG, "🤖 [SIMULATED] PerceptionWebSocketClient ignored in standalone mode")
+    }
+
+    /**
      * Set the local face recognition service (no-op in standalone mode).
      */
     fun setLocalFaceRecognitionService(@Suppress("UNUSED_PARAMETER") service: LocalFaceRecognitionService) {
@@ -89,6 +96,15 @@ class PerceptionService {
         _isMonitoring = false
         Log.i(TAG, "🤖 [SIMULATED] Stopped perception monitoring")
         listener?.onServiceStatusChanged(false)
+    }
+    
+    /**
+     * Force restart monitoring - useful after lifecycle changes.
+     */
+    fun restartMonitoring() {
+        Log.i(TAG, "🤖 [SIMULATED] Restarting perception monitoring")
+        stopMonitoring()
+        startMonitoring()
     }
 
     /**

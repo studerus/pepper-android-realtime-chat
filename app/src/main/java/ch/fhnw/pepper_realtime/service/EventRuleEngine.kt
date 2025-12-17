@@ -26,9 +26,25 @@ class EventRuleEngine @Inject constructor() {
         fun onRuleMatched(matchedRule: MatchedRule)
     }
 
+    /**
+     * Provider for robot state information.
+     * Returns current state as string: IDLE, LISTENING, THINKING, SPEAKING
+     */
+    interface RobotStateProvider {
+        fun getCurrentState(): String
+    }
+
     private var rules: List<EventRule> = emptyList()
     private val lastTriggerTimes = mutableMapOf<String, Long>() // ruleId -> lastTriggerTime
     private var listener: RuleMatchListener? = null
+    private var robotStateProvider: RobotStateProvider? = null
+
+    /**
+     * Set the robot state provider for condition checks.
+     */
+    fun setRobotStateProvider(provider: RobotStateProvider?) {
+        this.robotStateProvider = provider
+    }
 
     /**
      * Set the listener for matched rules.
@@ -195,6 +211,7 @@ class EventRuleEngine @Inject constructor() {
             "smile" -> humanInfo.smileState
             "peoplecount" -> peopleCount.toString()
             "islooking" -> humanInfo.attentionState.contains("LOOKING_AT_ROBOT", ignoreCase = true).toString()
+            "robotstate" -> robotStateProvider?.getCurrentState() ?: "UNKNOWN"
             else -> ""
         }
     }
@@ -219,6 +236,9 @@ class EventRuleEngine @Inject constructor() {
         result = result.replace("{engagement}", humanInfo.getEngagementLevel())
         result = result.replace("{smile}", humanInfo.getSmileStateDisplay())
         result = result.replace("{peopleCount}", peopleCount.toString())
+
+        // Robot state
+        result = result.replace("{robotState}", robotStateProvider?.getCurrentState() ?: "unknown")
 
         // Timestamp
         val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())

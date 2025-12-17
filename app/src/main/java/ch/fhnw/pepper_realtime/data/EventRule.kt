@@ -50,8 +50,15 @@ data class RuleCondition(
             "engagement" to FieldInfo("Engagement", FieldType.STRING),
             "smile" to FieldInfo("Smile State", FieldType.STRING),
             "peopleCount" to FieldInfo("People Count", FieldType.NUMBER),
-            "isLooking" to FieldInfo("Is Looking", FieldType.BOOLEAN)
+            "isLooking" to FieldInfo("Is Looking", FieldType.BOOLEAN),
+            "robotState" to FieldInfo("Robot State", FieldType.STRING)
         )
+        
+        /**
+         * Possible values for robotState field.
+         * IDLE, LISTENING, THINKING, SPEAKING
+         */
+        val robotStateValues = listOf("IDLE", "LISTENING", "THINKING", "SPEAKING")
     }
 }
 
@@ -117,6 +124,7 @@ data class EventRule(
             "{engagement}" to "Engagement level",
             "{smile}" to "Smile state",
             "{peopleCount}" to "Number of people detected",
+            "{robotState}" to "Robot state (LISTENING, SPEAKING, THINKING, IDLE)",
             "{timestamp}" to "Current time"
         )
 

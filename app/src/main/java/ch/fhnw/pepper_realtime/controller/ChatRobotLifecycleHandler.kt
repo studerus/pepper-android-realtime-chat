@@ -52,8 +52,14 @@ class ChatRobotLifecycleHandler(
             // Initialize PerceptionService listener for Dashboard
             initializeDashboardListener()
 
-            // Connect LocalFaceRecognitionService to PerceptionService for face identification
+            // Connect WebSocket client and HTTP service to PerceptionService
+            activity.perceptionService.setWebSocketClient(viewModel.perceptionWebSocketClient)
             activity.perceptionService.setLocalFaceRecognitionService(viewModel.localFaceRecognitionService)
+            
+            // Set Pepper head IP on WebSocket client
+            viewModel.perceptionWebSocketClient.setPepperHeadIp(
+                viewModel.localFaceRecognitionService.getPepperHeadIp()
+            )
             
             // Proactively start face recognition server on Pepper's head
             // This ensures the server is ready before the first person is detected
@@ -71,7 +77,12 @@ class ChatRobotLifecycleHandler(
             
             // Start perception monitoring immediately so humans are detected right away
             // (not just when dashboard is opened)
-            activity.perceptionService.startMonitoring()
+            // Use restartMonitoring if it was already running to ensure fresh listener connection
+            if (activity.perceptionService.isInitialized) {
+                activity.perceptionService.restartMonitoring()
+            } else {
+                activity.perceptionService.startMonitoring()
+            }
 
             activity.visionService.initialize(robotContext)
 

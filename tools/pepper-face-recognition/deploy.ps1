@@ -62,8 +62,15 @@ Write-Host ""
 Write-Host "[4/5] Copying scripts..." -ForegroundColor Yellow
 $ScriptsDir = Join-Path $ScriptDir "scripts"
 if (Test-Path $ScriptsDir) {
-    $scripts = Get-ChildItem $ScriptsDir -Filter "*.py"
-    foreach ($script in $scripts) {
+    # Copy Python scripts
+    $pyScripts = Get-ChildItem $ScriptsDir -Filter "*.py"
+    foreach ($script in $pyScripts) {
+        Write-Host "  Copying $($script.Name)..."
+        scp $script.FullName "nao@${PepperIP}:/home/nao/face_data/"
+    }
+    # Copy Shell scripts
+    $shScripts = Get-ChildItem $ScriptsDir -Filter "*.sh"
+    foreach ($script in $shScripts) {
         Write-Host "  Copying $($script.Name)..."
         scp $script.FullName "nao@${PepperIP}:/home/nao/face_data/"
     }
@@ -111,6 +118,13 @@ try:
             print("ERROR: FaceRecognizerSF NOT available")
     except Exception as e:
         print("ERROR checking Face modules: " + str(e))
+    
+    # Check websockets for streaming
+    try:
+        import websockets
+        print("SUCCESS: websockets " + websockets.__version__ + " available")
+    except ImportError:
+        print("WARNING: websockets not installed (streaming disabled)")
         
 except Exception as e:
     print("ERROR: " + str(e))

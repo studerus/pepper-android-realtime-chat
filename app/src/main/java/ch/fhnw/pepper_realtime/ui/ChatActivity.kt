@@ -122,6 +122,11 @@ class ChatActivity : AppCompatActivity(), ToolHost {
         viewModel.setSessionController(chatDeps.sessionController)
         viewModel.setupDrawingGameCallback()
         
+        // Set robot state provider for event rules
+        viewModel.setRobotStateProvider(object : ch.fhnw.pepper_realtime.service.EventRuleEngine.RobotStateProvider {
+            override fun getCurrentState(): String = turnManager.state.name
+        })
+        
         // Setup Compose Content (MainScreen)
         val composeView = ComposeView(this)
         setContentView(composeView)
@@ -188,15 +193,8 @@ class ChatActivity : AppCompatActivity(), ToolHost {
                         volume?.let { volumeController?.setVolume(this@ChatActivity, it) }
                     }
                 }
-                // Dashboard visibility - start/stop perception monitoring
-                launch {
-                    viewModel.dashboardState.collect { dashboardState ->
-                        if (dashboardState.isVisible) {
-                            Log.d(TAG, "Dashboard opened - ensuring perception monitoring is active")
-                            robotDeps.perceptionService.startMonitoring()
-                        }
-                    }
-                }
+                // Note: Perception monitoring runs continuously via WebSocket with auto-reconnect.
+                // No need to start/stop when dashboard opens - it's always active.
             }
         }
 

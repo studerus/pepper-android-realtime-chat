@@ -10,6 +10,7 @@ import kotlinx.coroutines.withContext
 import net.schmizz.sshj.DefaultConfig
 import net.schmizz.sshj.SSHClient
 import net.schmizz.sshj.transport.verification.PromiscuousVerifier
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
@@ -89,6 +90,77 @@ class LocalFaceRecognitionService @Inject constructor(
         val name: String,
         val count: Int,
         val imageUrl: String
+    )
+
+    /**
+     * Perception settings from the server.
+     * Matches the Python PerceptionSettings dataclass.
+     */
+    data class PerceptionSettings(
+        // Tracker settings
+        val maxAngleDistance: Float = 15.0f,       // degrees - how far a face can move between frames
+        val trackTimeoutMs: Int = 3000,            // ms - when to remove lost tracks
+        val minTrackAgeMs: Int = 300,              // ms - minimum age before track is reported
+        
+        // Recognition settings
+        val recognitionThreshold: Float = 0.8f,    // cosine distance threshold (lower = stricter)
+        val recognitionCooldownMs: Int = 3000,     // ms - time between recognition attempts
+        
+        // Gaze detection settings
+        val gazeCenterTolerance: Float = 0.15f,    // how much off-center is still "looking at robot"
+        
+        // Streaming settings
+        val updateIntervalMs: Int = 700,           // ms - target update interval
+        
+        // Camera settings
+        // Resolution: 0=QQVGA(160x120), 1=QVGA(320x240), 2=VGA(640x480)
+        val cameraResolution: Int = 1              // Default: QVGA (320x240)
+    ) {
+        fun toJson(): JSONObject = JSONObject().apply {
+            put("max_angle_distance", maxAngleDistance)
+            put("track_timeout_ms", trackTimeoutMs)
+            put("min_track_age_ms", minTrackAgeMs)
+            put("recognition_threshold", recognitionThreshold)
+            put("recognition_cooldown_ms", recognitionCooldownMs)
+            put("gaze_center_tolerance", gazeCenterTolerance)
+            put("update_interval_ms", updateIntervalMs)
+            put("camera_resolution", cameraResolution)
+        }
+        
+        companion object {
+            fun fromJson(obj: JSONObject): PerceptionSettings = PerceptionSettings(
+                maxAngleDistance = obj.optDouble("max_angle_distance", 15.0).toFloat(),
+                trackTimeoutMs = obj.optInt("track_timeout_ms", 3000),
+                minTrackAgeMs = obj.optInt("min_track_age_ms", 300),
+                recognitionThreshold = obj.optDouble("recognition_threshold", 0.8).toFloat(),
+                recognitionCooldownMs = obj.optInt("recognition_cooldown_ms", 3000),
+                gazeCenterTolerance = obj.optDouble("gaze_center_tolerance", 0.15).toFloat(),
+                updateIntervalMs = obj.optInt("update_interval_ms", 700),
+                cameraResolution = obj.optInt("camera_resolution", 1)
+            )
+        }
+    }
+
+    /**
+     * A tracked person from the head-based perception system.
+     */
+    data class TrackedPerson(
+        val trackId: Int,
+        val name: String,
+        val lookingAtRobot: Boolean,
+        val headDirection: String,
+        val worldYaw: Float,
+        val worldPitch: Float,
+        val distance: Float,
+        val lastSeenMs: Long
+    )
+
+    /**
+     * Result from getPeople() call.
+     */
+    data class PeopleResult(
+        val people: List<TrackedPerson>,
+        val error: String? = null
     )
 
     /**
@@ -418,6 +490,103 @@ class LocalFaceRecognitionService @Inject constructor(
     }
 
     /**
+     * Get currently tracked people from the head server.
+     * 
+     * @return PeopleResult with list of tracked persons
+     */
+    suspend fun getPeople(): PeopleResult = withContext(ioDispatcher) {
+        try {
+            val request = Request.Builder()
+                .url("$baseUrl/people")
+                .get()
+                .build()
+
+            val response = httpClientManager.executeQuickApiRequest(request)
+            
+            response.use { resp ->
+                if (!resp.isSuccessful) {
+                    return@withContext PeopleResult(
+                        people = emptyList(),
+                        error = "HTTP ${resp.code}: ${resp.message}"
+                    )
+                }
+
+                val body = resp.body?.string() ?: "{}"
+                parsePeopleResponse(body)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Get people error", e)
+            PeopleResult(
+                people = emptyList(),
+                error = e.message ?: "Unknown error"
+            )
+        }
+    }
+
+    /**
+     * Fetch current perception settings from the server.
+     * 
+     * @return PerceptionSettings or null if failed
+     */
+    suspend fun fetchSettings(): PerceptionSettings? = withContext(ioDispatcher) {
+        try {
+            val request = Request.Builder()
+                .url("$baseUrl/settings")
+                .get()
+                .build()
+
+            val response = httpClientManager.executeQuickApiRequest(request)
+            
+            response.use { resp ->
+                if (!resp.isSuccessful) {
+                    Log.w(TAG, "Fetch settings failed: HTTP ${resp.code}")
+                    return@withContext null
+                }
+
+                val body = resp.body?.string() ?: "{}"
+                val obj = JSONObject(body)
+                val settingsObj = obj.optJSONObject("settings") ?: return@withContext null
+                PerceptionSettings.fromJson(settingsObj)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Fetch settings error", e)
+            null
+        }
+    }
+
+    /**
+     * Update perception settings on the server.
+     * 
+     * @param settings New settings to apply
+     * @return true if update was successful
+     */
+    suspend fun updateSettings(settings: PerceptionSettings): Boolean = withContext(ioDispatcher) {
+        try {
+            val jsonBody = settings.toJson().toString()
+            
+            val request = Request.Builder()
+                .url("$baseUrl/settings")
+                .post(jsonBody.toRequestBody("application/json".toMediaTypeOrNull()))
+                .build()
+
+            val response = httpClientManager.executeQuickApiRequest(request)
+            
+            response.use { resp ->
+                if (resp.isSuccessful) {
+                    Log.i(TAG, "Settings updated successfully")
+                    true
+                } else {
+                    Log.w(TAG, "Update settings failed: HTTP ${resp.code}")
+                    false
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Update settings error", e)
+            false
+        }
+    }
+
+    /**
      * Stop the face recognition server on Pepper's head via SSH.
      */
     suspend fun stopServer(): Boolean = withContext(ioDispatcher) {
@@ -543,6 +712,45 @@ class LocalFaceRecognitionService @Inject constructor(
         } catch (e: Exception) {
             Log.e(TAG, "Failed to parse faces list", e)
             emptyList()
+        }
+    }
+
+    private fun parsePeopleResponse(json: String): PeopleResult {
+        return try {
+            val obj = JSONObject(json)
+            
+            // Check for error
+            if (obj.has("error")) {
+                return PeopleResult(
+                    people = emptyList(),
+                    error = obj.getString("error")
+                )
+            }
+
+            val peopleArray = obj.optJSONArray("people") ?: JSONArray()
+            val people = mutableListOf<TrackedPerson>()
+
+            for (i in 0 until peopleArray.length()) {
+                val personObj = peopleArray.getJSONObject(i)
+                people.add(TrackedPerson(
+                    trackId = personObj.getInt("track_id"),
+                    name = personObj.optString("name", "Unknown"),
+                    lookingAtRobot = personObj.optBoolean("looking_at_robot", false),
+                    headDirection = personObj.optString("head_direction", "unknown"),
+                    worldYaw = personObj.optDouble("world_yaw", 0.0).toFloat(),
+                    worldPitch = personObj.optDouble("world_pitch", 0.0).toFloat(),
+                    distance = personObj.optDouble("distance", 0.0).toFloat(),
+                    lastSeenMs = personObj.optLong("last_seen_ms", 0)
+                ))
+            }
+
+            PeopleResult(people = people)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to parse people response", e)
+            PeopleResult(
+                people = emptyList(),
+                error = "Parse error: ${e.message}"
+            )
         }
     }
 }
