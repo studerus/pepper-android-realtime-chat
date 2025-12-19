@@ -89,7 +89,8 @@ class LocalFaceRecognitionService @Inject constructor(
     data class RegisteredFace(
         val name: String,
         val count: Int,
-        val imageUrl: String
+        val imageUrls: List<String>,  // All image URLs for this person
+        val imageUrl: String  // First image URL for backward compatibility
     )
 
     /**
@@ -348,6 +349,38 @@ class LocalFaceRecognitionService @Inject constructor(
             }
         } catch (e: Exception) {
             Log.e(TAG, "Delete face error", e)
+            false
+        }
+    }
+
+    /**
+     * Delete a single image and its encoding by index.
+     * 
+     * @param name Name of the person
+     * @param index Index of the image to delete
+     * @return true if deletion was successful
+     */
+    suspend fun deleteFaceImage(name: String, index: Int): Boolean = withContext(ioDispatcher) {
+        try {
+            val encodedName = java.net.URLEncoder.encode(name, "UTF-8")
+            val request = Request.Builder()
+                .url("$baseUrl/faces/image?name=$encodedName&index=$index")
+                .delete()
+                .build()
+
+            val response = httpClientManager.executeQuickApiRequest(request)
+            
+            response.use { resp ->
+                if (resp.isSuccessful) {
+                    Log.i(TAG, "Face image deleted: $name index $index")
+                    true
+                } else {
+                    Log.w(TAG, "Delete image failed for $name[$index]: HTTP ${resp.code}")
+                    false
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Delete face image error", e)
             false
         }
     }
@@ -699,13 +732,29 @@ class LocalFaceRecognitionService @Inject constructor(
             val obj = JSONObject(json)
             val facesArray = obj.optJSONArray("faces") ?: return emptyList()
             
+            // Use timestamp for cache-busting (forces reload of images after changes)
+            val cacheBuster = System.currentTimeMillis()
+            
             val faces = mutableListOf<RegisteredFace>()
             for (i in 0 until facesArray.length()) {
                 val faceObj = facesArray.getJSONObject(i)
+                
+                // Parse image_urls array and add cache-buster
+                val imageUrlsArray = faceObj.optJSONArray("image_urls")
+                val imageUrls = mutableListOf<String>()
+                if (imageUrlsArray != null) {
+                    for (j in 0 until imageUrlsArray.length()) {
+                        // Convert relative URL to absolute with cache-buster
+                        val relativeUrl = imageUrlsArray.getString(j)
+                        imageUrls.add("$baseUrl$relativeUrl&t=$cacheBuster")
+                    }
+                }
+                
                 faces.add(RegisteredFace(
                     name = faceObj.getString("name"),
                     count = faceObj.optInt("count", 1),
-                    imageUrl = faceObj.optString("image_url", "")
+                    imageUrls = imageUrls,
+                    imageUrl = imageUrls.firstOrNull() ?: ""
                 ))
             }
             faces

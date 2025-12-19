@@ -38,7 +38,7 @@ import cv2
 import numpy as np
 
 # Import our modules
-from face_database import add_face, remove_face, list_faces, get_all_encodings, get_safe_filename, IMAGES_DIR
+from face_database import add_face, remove_face, remove_face_by_index, list_faces, get_all_encodings, get_safe_filename, get_face_image_count, IMAGES_DIR
 from recognize_face import capture_image_from_camera, get_face_models, load_ppm_image
 from face_tracker import FaceTracker
 
@@ -498,9 +498,13 @@ def update_tracking_once():
                     'head_yaw': head_yaw,
                     'head_pitch': head_pitch
                 }
+                
+                # Extract camera offsets
+                camera_offsets = frame.get('head', {}).get('camera_offsets')
         
         # Fallback to subprocess if daemon not available or failed
         if image is None:
+            camera_offsets = None
             # Get sensor data AND capture image IN PARALLEL
             with ThreadPoolExecutor(max_workers=2) as executor:
                 sensor_future = executor.submit(get_sensor_data, True)  # include_depth=True
@@ -548,11 +552,12 @@ def update_tracking_once():
             faces=faces,
             image_width=width,
             image_height=height,
-            head_yaw_deg=head_yaw,
-            head_pitch_deg=head_pitch,
+            head_yaw=head_yaw,
+            head_pitch=head_pitch,
             depth_data=depth_data,
             depth_width=depth_width,
-            depth_height=depth_height
+            depth_height=depth_height,
+            camera_offsets=camera_offsets
         )
         t_track = (time.time() - t2) * 1000
         
@@ -573,9 +578,8 @@ def update_tracking_once():
         
         update_time = int((time.time() - start_time) * 1000)
         
-        # Debug timing (only print if really slow)
-        if update_time > 800:
-            print(f"[Timing] SLOW: frame={t_frame:.0f}ms, detect={t_detect:.0f}ms, track={t_track:.0f}ms, recog={t_recog:.0f}ms, total={update_time}ms")
+        # DEBUG: Always log timing
+        print(f"[Timing] frame={t_frame:.0f}ms, detect={t_detect:.0f}ms, track={t_track:.0f}ms, recog={t_recog:.0f}ms, total={update_time}ms")
         
         return TRACKER.to_dict(), update_time
 
@@ -767,9 +771,26 @@ def register_process(image, name):
     
     if feature is None:
         return False, "Could not extract features"
+    
+    # Extract face bounding box from original image for thumbnail (with padding)
+    x, y, w, h = int(target_face[0]), int(target_face[1]), int(target_face[2]), int(target_face[3])
+    pad = int(max(w, h) * 0.3)  # 30% padding
+    x1, y1 = max(0, x - pad), max(0, y - pad)
+    x2, y2 = min(width, x + w + pad), min(height, y + h + pad)
+    face_thumbnail = image[y1:y2, x1:x2]
+    
+    # Resize to reasonable size for thumbnail
+    if face_thumbnail.size > 0:
+        thumb_size = 128
+        thumb_h, thumb_w = face_thumbnail.shape[:2]
+        scale = thumb_size / max(thumb_h, thumb_w)
+        new_w, new_h = int(thumb_w * scale), int(thumb_h * scale)
+        face_thumbnail = cv2.resize(face_thumbnail, (new_w, new_h))
+    else:
+        face_thumbnail = aligned_face  # Fallback
         
     # Save face and image
-    add_face(name, feature, aligned_face)
+    add_face(name, feature, face_thumbnail)
     return True, "Success"
 
 
@@ -858,13 +879,19 @@ class FaceHandler(BaseHTTPRequestHandler):
                 
         elif parsed.path == '/faces':
             faces = list_faces()
-            # Convert to list of objects
+            # Convert to list of objects with multiple image URLs
             face_list = []
             for name, count in faces.items():
+                # Get count of images for this person
+                img_count = get_face_image_count(name)
+                # Build list of image URLs
+                image_urls = [f"/faces/image?name={name}&index={i}" for i in range(img_count)]
                 face_list.append({
                     'name': name,
                     'count': count,
-                    'image_url': f"/faces/image?name={name}"
+                    'image_count': img_count,
+                    'image_urls': image_urls,
+                    'image_url': image_urls[0] if image_urls else None  # Backward compat
                 })
             self._send_json({'faces': face_list})
             
@@ -873,9 +900,11 @@ class FaceHandler(BaseHTTPRequestHandler):
             if not name:
                 self._send_json({'error': 'Missing name parameter'}, 400)
                 return
-                
+            
+            # Get index (default to 0 for backward compatibility)
+            index = int(params.get('index', ['0'])[0])
             safe_name = get_safe_filename(name)
-            img_path = os.path.join(IMAGES_DIR, f"{safe_name}.jpg")
+            img_path = os.path.join(IMAGES_DIR, f"{safe_name}_{index}.jpg")
             self._send_image(img_path)
             
         else:
@@ -951,6 +980,23 @@ class FaceHandler(BaseHTTPRequestHandler):
                 
             count = remove_face(name)
             self._send_json({'status': 'deleted', 'name': name, 'removed_count': count})
+            
+        elif parsed.path == '/faces/image':
+            # Delete individual image by index
+            name = params.get('name', [None])[0]
+            index_str = params.get('index', [None])[0]
+            
+            if not name or index_str is None:
+                self._send_json({'error': 'Missing name or index parameter'}, 400)
+                return
+            
+            index = int(index_str)
+            success = remove_face_by_index(name, index)
+            
+            if success:
+                self._send_json({'status': 'deleted', 'name': name, 'index': index})
+            else:
+                self._send_json({'error': 'Image not found or invalid index'}, 404)
         else:
             self.send_error(404)
 

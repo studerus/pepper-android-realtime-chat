@@ -92,6 +92,15 @@ The Head-Based Perception System runs entirely on Pepper's head (no cloud API re
 - **Cached Encodings**: Face database cached with 5s TTL
 - **WebSocket Streaming**: Push-based, not polling
 
+### Tracking Robustness
+
+The face tracker uses a simplified, robust approach:
+
+- **World-Position Matching (70cm)**: When a face reappears after camera motion or temporary occlusion, it's matched to existing tracks based on 3D world position (yaw, pitch, distance)
+- **Confirmation System**: New tracks require 3 consecutive detections before being created, filtering out motion blur artifacts
+- **Lost Track Buffer (2.5s)**: Tracks that disappear are buffered for 2.5 seconds, allowing recovery during head movements
+- **Fair Recognition Queue**: Unknown faces are recognized in oldest-first order, ensuring all faces get attention
+
 ## Why OpenCV instead of dlib?
 
 Pepper's head runs on an Intel Atom E3845 CPU, which lacks modern instruction sets like SSE4 and AVX. 
@@ -235,12 +244,36 @@ ws://198.18.0.1:5002
 |--------|----------|-------------|
 | GET | `/recognize` | Capture image and recognize faces |
 | GET | `/people` | Get tracked people with positions and gaze |
-| GET | `/faces` | List all registered faces |
-| GET | `/faces/image?name=X` | Get thumbnail image of a face |
+| GET | `/faces` | List all registered faces with image URLs |
+| GET | `/faces/image?name=X&index=N` | Get specific thumbnail image (index optional, default 0) |
 | GET | `/settings` | Get current perception settings |
-| POST | `/faces?name=X` | Register new face from camera |
+| POST | `/faces?name=X` | Register new face from camera (adds to existing) |
 | POST | `/settings` | Update perception settings |
-| DELETE | `/faces?name=X` | Delete a registered face |
+| DELETE | `/faces?name=X` | Delete all images for a face |
+| DELETE | `/faces/image?name=X&index=N` | Delete specific image by index |
+
+### Face List Response Format
+
+```json
+{
+  "faces": [
+    {
+      "name": "John",
+      "count": 3,
+      "image_count": 3,
+      "image_urls": [
+        "/faces/image?name=John&index=0",
+        "/faces/image?name=John&index=1",
+        "/faces/image?name=John&index=2"
+      ]
+    }
+  ]
+}
+```
+
+### Multi-Image Registration
+
+Each person can have multiple registered images from different angles. The Android app displays these as a horizontally scrollable thumbnail gallery with individual delete buttons.
 
 ## Configurable Settings
 

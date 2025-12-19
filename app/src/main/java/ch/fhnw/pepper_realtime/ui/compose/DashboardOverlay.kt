@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -45,6 +46,7 @@ import ch.fhnw.pepper_realtime.ui.DashboardState
 import coil.compose.SubcomposeAsyncImage
 import coil.compose.SubcomposeAsyncImageContent
 import coil.request.ImageRequest
+import kotlinx.coroutines.launch
 
 private object DashboardColors {
     val Background = Color(0xFFF9FAFB)
@@ -284,7 +286,8 @@ fun DashboardOverlay(
                             faceState = faceState,
                             faceService = faceService,
                             onAddAngle = { name -> onRegisterFace(name) },
-                            onDelete = { faceToDelete = it }
+                            onDelete = { faceToDelete = it },
+                            onRefreshFaces = onRefreshFaces
                         )
                         3 -> PerceptionSettingsContent(
                             settingsState = settingsState,
@@ -659,8 +662,11 @@ private fun KnownFacesContent(
     faceState: FaceManagementState,
     faceService: LocalFaceRecognitionService,
     onAddAngle: (String) -> Unit,
-    onDelete: (String) -> Unit
+    onDelete: (String) -> Unit,
+    onRefreshFaces: () -> Unit = {}
 ) {
+    val scope = rememberCoroutineScope()
+    
     Column(modifier = Modifier.fillMaxWidth()) {
         when {
             !faceState.isServerAvailable -> {
@@ -683,8 +689,14 @@ private fun KnownFacesContent(
                     items(faceState.faces) { face ->
                         FaceListItem(
                             face = face,
-                            imageUrl = faceService.getFaceImageUrl(face.name),
+                            imageUrls = face.imageUrls,
                             onAddAngle = { onAddAngle(face.name) },
+                            onDeleteImage = { index -> 
+                                scope.launch {
+                                    faceService.deleteFaceImage(face.name, index)
+                                    onRefreshFaces()
+                                }
+                            },
                             onDelete = { onDelete(face.name) }
                         )
                     }
@@ -706,8 +718,9 @@ private fun KnownFacesContent(
 @Composable
 private fun FaceListItem(
     face: LocalFaceRecognitionService.RegisteredFace,
-    imageUrl: String,
+    imageUrls: List<String>,
     onAddAngle: () -> Unit,
+    onDeleteImage: (Int) -> Unit,
     onDelete: () -> Unit
 ) {
     Card(
@@ -716,86 +729,137 @@ private fun FaceListItem(
         border = BorderStroke(1.dp, DashboardColors.BorderColor),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(12.dp)
         ) {
-            // Face thumbnail
-            SubcomposeAsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(imageUrl)
-                    .crossfade(true)
-                    .build(),
-                contentDescription = "Face of ${face.name}",
-                modifier = Modifier
-                    .size(56.dp)
-                    .clip(CircleShape)
-                    .background(DashboardColors.HeaderBackground),
-                contentScale = ContentScale.Crop,
-                loading = {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            strokeWidth = 2.dp
-                        )
-                    }
-                },
-                error = {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Default.Person,
-                            contentDescription = null,
-                            tint = DashboardColors.TextLight,
-                            modifier = Modifier.size(32.dp)
-                        )
-                    }
-                },
-                success = {
-                    SubcomposeAsyncImageContent()
+            // Header row: Name + action buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = face.name,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = DashboardColors.TextDark
+                    )
+                    Text(
+                        text = "${face.count} encoding(s) • ${imageUrls.size} image(s)",
+                        fontSize = 12.sp,
+                        color = DashboardColors.TextLight
+                    )
                 }
-            )
-            
-            Spacer(modifier = Modifier.width(16.dp))
-            
-            // Name and info
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = face.name,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = DashboardColors.TextDark
-                )
-                Text(
-                    text = "${face.count} encoding(s)",
-                    fontSize = 12.sp,
-                    color = DashboardColors.TextLight
-                )
+                
+                // Add angle button
+                IconButton(onClick = onAddAngle) {
+                    Icon(
+                        Icons.Default.AddAPhoto,
+                        contentDescription = "Add angle for ${face.name}",
+                        tint = DashboardColors.AccentBlue
+                    )
                 }
-            
-            // Add angle button
-            IconButton(onClick = onAddAngle) {
-                Icon(
-                    Icons.Default.AddAPhoto,
-                    contentDescription = "Add angle for ${face.name}",
-                    tint = DashboardColors.AccentBlue
-                )
+                
+                // Delete all button
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = "Delete ${face.name}",
+                        tint = DashboardColors.DeleteRed
+                    )
+                }
             }
             
-            // Delete button
-            IconButton(onClick = onDelete) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "Delete ${face.name}",
-                    tint = DashboardColors.DeleteRed
-                )
+            // Thumbnail row
+            if (imageUrls.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items(imageUrls.size) { index ->
+                        Box(
+                            modifier = Modifier.size(64.dp)
+                        ) {
+                            // Thumbnail image
+                            SubcomposeAsyncImage(
+                                model = ImageRequest.Builder(LocalContext.current)
+                                    .data(imageUrls[index])
+                                    .crossfade(true)
+                                    .build(),
+                                contentDescription = "Face ${index + 1} of ${face.name}",
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(DashboardColors.HeaderBackground),
+                                contentScale = ContentScale.Crop,
+                                loading = {
+                                    Box(
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(20.dp),
+                                            strokeWidth = 2.dp
+                                        )
+                                    }
+                                },
+                                error = {
+                                    Box(
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Person,
+                                            contentDescription = null,
+                                            tint = DashboardColors.TextLight,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
+                                },
+                                success = {
+                                    SubcomposeAsyncImageContent()
+                                }
+                            )
+                            
+                            // Delete button overlay (top-right corner)
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .size(20.dp)
+                                    .offset(x = 4.dp, y = (-4).dp)
+                                    .clip(CircleShape)
+                                    .background(DashboardColors.DeleteRed)
+                                    .clickable { onDeleteImage(index) },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Delete image ${index + 1}",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            } else {
+                // No images placeholder
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(64.dp)
+                        .background(DashboardColors.HeaderBackground, RoundedCornerShape(8.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "No images registered",
+                        color = DashboardColors.TextLight,
+                        fontSize = 12.sp
+                    )
+                }
             }
         }
     }
