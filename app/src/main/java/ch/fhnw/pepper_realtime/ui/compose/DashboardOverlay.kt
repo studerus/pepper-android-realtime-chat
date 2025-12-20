@@ -62,8 +62,8 @@ private object DashboardColors {
     val TabUnselected = Color(0xFF6B7280)
 }
 
-// Columns: Name, Distance, Position, Gaze
-private val ColWeights = listOf(0.30f, 0.20f, 0.25f, 0.25f)
+// Columns: Name, Distance, Position, Gaze, Seen
+private val ColWeights = listOf(0.25f, 0.15f, 0.20f, 0.20f, 0.20f)
 
 /**
  * State for Face Management (integrated into Dashboard)
@@ -339,7 +339,7 @@ private fun LiveViewContent(
                             .padding(vertical = 6.dp, horizontal = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        val displayHeaders = listOf("Name", "Distance", "Position", "Gaze")
+                        val displayHeaders = listOf("Name", "Distance", "Position", "Gaze", "Seen")
                         
                         displayHeaders.forEachIndexed { index, title ->
                             Text(
@@ -650,6 +650,15 @@ private fun HumanDetectionItem(human: PerceptionData.HumanInfo) {
                 fontWeight = if (human.lookingAtRobot) FontWeight.Bold else FontWeight.Normal,
                 textAlign = TextAlign.Center, 
                 modifier = Modifier.weight(ColWeights[3])
+            )
+            
+            // Last Seen / Freshness indicator
+            Text(
+                text = human.getLastSeenDisplay(), 
+                fontSize = 13.sp, 
+                color = if (human.isStale()) DashboardColors.TextLight else DashboardColors.TextDark,
+                textAlign = TextAlign.Center, 
+                modifier = Modifier.weight(ColWeights[4])
             )
         }
     }

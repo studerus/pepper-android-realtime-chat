@@ -280,6 +280,9 @@ class PerceptionService {
                 positionX = person.distance * kotlin.math.cos(yawRad)
                 positionY = person.distance * kotlin.math.sin(yawRad)
             }
+            
+            // Freshness indicator
+            lastSeenMs = person.lastSeenMs
         }
     }
 

@@ -37,6 +37,7 @@ class PerceptionData {
         var headDirection: Float = 0f       // Head direction: -1=right, 0=center, +1=left
         var worldYaw: Float = 0f            // Position angle relative to torso (degrees)
         var worldPitch: Float = 0f          // Vertical position angle (degrees)
+        var lastSeenMs: Long = 0L           // Time since last seen (milliseconds)
 
         /**
          * Get gaze indicator for UI display
@@ -63,6 +64,26 @@ class PerceptionData {
                 else -> "Front"
             }
         }
+
+        /**
+         * Get freshness indicator for UI display.
+         * Shows how recently this person was seen.
+         */
+        fun getLastSeenDisplay(): String {
+            if (lastSeenMs <= 0) return "—"
+            return when {
+                lastSeenMs < 500 -> "🟢 Now"
+                lastSeenMs < 1000 -> "🟢 <1s"
+                lastSeenMs < 2000 -> "🟡 ${lastSeenMs / 1000}s"
+                lastSeenMs < 3000 -> "🟠 ${lastSeenMs / 1000}s"
+                else -> "🔴 ${lastSeenMs / 1000}s"
+            }
+        }
+
+        /**
+         * Check if data is stale (not seen recently)
+         */
+        fun isStale(): Boolean = lastSeenMs > 2000
 
         /**
          * Get attention level for UI display.
