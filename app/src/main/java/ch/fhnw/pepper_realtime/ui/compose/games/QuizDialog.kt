@@ -12,6 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import ch.fhnw.pepper_realtime.ui.compose.ChatColors
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -22,7 +23,7 @@ import kotlinx.coroutines.delay
  * Quiz colors
  */
 private object QuizColors {
-    val InitialBackground = Color(0xFFF7F7F7)
+    val InitialBackground = Color.White
     val Stroke = Color(0xFFBDBDBD)
     val CorrectGreen = Color(0xFF4CAF50)
     val IncorrectRed = Color(0xFFF44336)
@@ -64,7 +65,7 @@ fun QuizDialog(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(ChatColors.Background)
     ) {
         Column(
             modifier = Modifier

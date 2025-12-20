@@ -65,7 +65,7 @@ fun NavigationOverlay(
                 .height(500.dp)
                 .clickable(enabled = false) {}, // Prevent click-through
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            colors = CardDefaults.cardColors(containerColor = Color.White)
         ) {
             Column(
                 modifier = Modifier.fillMaxSize()

@@ -1278,7 +1278,12 @@ private fun SettingsSlider(
             value = value,
             onValueChange = onValueChange,
             valueRange = valueRange,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            colors = SliderDefaults.colors(
+                thumbColor = DashboardColors.AccentBlue,
+                activeTrackColor = DashboardColors.AccentBlue,
+                inactiveTrackColor = DashboardColors.HeaderBackground
+            )
         )
         
         Text(
@@ -1326,7 +1331,12 @@ private fun SettingsSliderInstant(
             onValueChange = onValueChange,
             onValueChangeFinished = onValueChangeFinished,
             valueRange = valueRange,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            colors = SliderDefaults.colors(
+                thumbColor = DashboardColors.AccentBlue,
+                activeTrackColor = DashboardColors.AccentBlue,
+                inactiveTrackColor = DashboardColors.HeaderBackground
+            )
         )
         
         Text(

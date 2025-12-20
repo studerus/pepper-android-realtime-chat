@@ -104,7 +104,8 @@ fun MainScreen(
         drawerState = drawerState,
         drawerContent = {
             ModalDrawerSheet(
-                modifier = Modifier.width(360.dp)
+                modifier = Modifier.width(360.dp),
+                drawerContainerColor = ChatColors.Background
             ) {
                 Box(modifier = Modifier.fillMaxSize()) {
                     SettingsScreen(

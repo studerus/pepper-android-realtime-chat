@@ -16,6 +16,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ch.fhnw.pepper_realtime.R
+import ch.fhnw.pepper_realtime.ui.compose.ChatColors
 
 /**
  * Section header for settings groups
@@ -126,7 +127,14 @@ fun SettingsSegmentedButton(
                         count = options.size
                     ),
                     onClick = { onOptionSelected(option) },
-                    selected = option == selectedOption
+                    selected = option == selectedOption,
+                    colors = SegmentedButtonDefaults.colors(
+                        activeContainerColor = ChatColors.Primary.copy(alpha = 0.1f),
+                        activeContentColor = ChatColors.Primary,
+                        activeBorderColor = ChatColors.Primary,
+                        inactiveContainerColor = Color.White,
+                        inactiveContentColor = Color.Black
+                    )
                 ) {
                     Text(
                         text = option,
@@ -166,7 +174,12 @@ fun SettingsSlider(
             onValueChange = onValueChange,
             valueRange = valueRange,
             steps = steps,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            colors = SliderDefaults.colors(
+                thumbColor = ChatColors.Primary,
+                activeTrackColor = ChatColors.Primary,
+                inactiveTrackColor = ChatColors.RobotBubble // Light gray
+            )
         )
     }
 }
@@ -218,7 +231,7 @@ fun ToolSettingItem(
             .fillMaxWidth()
             .padding(vertical = 4.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = Color.White
         )
     ) {
         Column(
