@@ -615,7 +615,7 @@ The default system prompt is optimized following OpenAI's [Realtime API Promptin
 - **Physical embodiment** - First-person perspective as the robot
 
 **To customize:**
-1. Edit the system prompt in `app/src/main/res/values/strings.xml` (search for `default_system_prompt`)
+1. Edit the system prompt in `app/src/main/assets/default_system_prompt.txt`
 2. Or modify it dynamically in Settings → System Prompt within the app
 3. Follow the [Realtime Prompting Guide](https://cookbook.openai.com/examples/realtime_prompting_guide) for best practices
 
