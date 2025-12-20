@@ -95,7 +95,7 @@ A multimodal AI system for the Pepper robot powered by OpenAI's Realtime API. It
     <td width="33%" valign="top">
       <img src="screenshots/tic-tac-toe-dialog.png" alt="Tic-Tac-Toe Game" width="100%">
       <strong>Tic-Tac-Toe Game</strong><br>
-      Voice-controlled Tic-Tac-Toe with visual board
+      Interactive Tic-Tac-Toe with touchscreen moves and voice commentary
     </td>
     <td width="33%" valign="top">
       <img src="screenshots/quiz.png" alt="Quiz Game" width="100%">
@@ -149,7 +149,7 @@ A multimodal AI system for the Pepper robot powered by OpenAI's Realtime API. It
 - **Internet Search** - Real-time web search capabilities via Tavily API
 - **Weather Information** - Current weather and forecasts via OpenWeatherMap API
 - **Interactive Quizzes** - Dynamic quiz generation and interaction
-- **Tic Tac Toe Game** - Play against the AI with voice commands and visual board
+- **Tic Tac Toe Game** - Play against the AI with touchscreen moves and real-time voice commentary
 - **Memory Game** - Card-matching game with multiple difficulty levels
 - **Drawing Game** - Draw on the tablet and let the AI guess what you drew
 - **Melody Player** - Play synthesized melodies like Happy Birthday
@@ -1184,7 +1184,7 @@ The app offers multiple interactive games and activities that can be started thr
 ### 🎮 Tic Tac Toe Game
 
 #### How to Play
-The AI opponent provides an interactive Tic Tac Toe experience with voice commands and visual feedback.
+The AI opponent provides an interactive Tic Tac Toe experience with touchscreen interaction and real-time voice commentary.
 
 #### Starting a Game
 ```bash
@@ -1195,7 +1195,8 @@ Robot: "Great! Let's start a game of Tic Tac Toe. You are X, I am O."
 
 #### Gameplay
 - **Visual Board**: 3x3 grid with clear X and O markers
-- **Touch & Voice**: Make moves by tapping board positions
+- **Touch Interaction**: Make moves by tapping board positions
+- **Voice Commentary**: Talk to the AI naturally while playing
 - **AI Opponent**: Intelligent moves via Realtime API
 - **Real-time Updates**: Instant visual and voice feedback
 
