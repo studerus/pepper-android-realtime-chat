@@ -78,7 +78,7 @@ fun StatusCapsule(
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
-                .defaultMinSize(minWidth = 220.dp) // Fixed min width to prevent jumping when state changes
+                .defaultMinSize(minWidth = 250.dp) // Reverted to original width
                 .shadow(elevation = 8.dp, shape = RoundedCornerShape(40.dp))
                 .clip(RoundedCornerShape(40.dp))
                 .background(containerColor)
@@ -90,16 +90,7 @@ fun StatusCapsule(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
-                // Show stop icon during speaking to indicate it's interruptible
-                if (isSpeaking) {
-                    Icon(
-                        imageVector = Icons.Default.Stop,
-                        contentDescription = "Tap to stop",
-                        tint = contentColor,
-                        modifier = Modifier.size(28.dp)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                }
+                // Icon removed as "Tap to interrupt" is explicit text
                 
                 Text(
                     text = statusText,
