@@ -202,7 +202,8 @@ fun MainScreen(
 
                 // Derive robot states from status text
                 val isSpeaking = statusText.contains("Speaking", ignoreCase = true) || 
-                                 statusText.contains("Sprechen", ignoreCase = true)
+                                 statusText.contains("Sprechen", ignoreCase = true) ||
+                                 statusText.contains("Tap to interrupt", ignoreCase = true)
                 val isListening = statusText.contains("Listening", ignoreCase = true) || 
                                   statusText.contains("Zuhören", ignoreCase = true)
                 val isThinking = statusText.contains("Thinking", ignoreCase = true) || 
