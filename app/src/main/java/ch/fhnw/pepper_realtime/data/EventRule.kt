@@ -39,18 +39,14 @@ data class RuleCondition(
     companion object {
         /**
          * Available fields for conditions with their expected types.
+         * Note: The head-based perception system provides limited fields compared to QiSDK.
+         * Age, gender, emotion, engagement, and smile are NOT available (require QiSDK PeoplePerception).
          */
         val availableFields = mapOf(
             "personName" to FieldInfo("Person Name", FieldType.STRING),
             "distance" to FieldInfo("Distance (m)", FieldType.NUMBER),
-            "age" to FieldInfo("Age", FieldType.NUMBER),
-            "gender" to FieldInfo("Gender", FieldType.STRING),
-            "emotion" to FieldInfo("Emotion", FieldType.STRING),
-            "attention" to FieldInfo("Attention", FieldType.STRING),
-            "engagement" to FieldInfo("Engagement", FieldType.STRING),
-            "smile" to FieldInfo("Smile State", FieldType.STRING),
+            "isLooking" to FieldInfo("Is Looking at Robot", FieldType.BOOLEAN),
             "peopleCount" to FieldInfo("People Count", FieldType.NUMBER),
-            "isLooking" to FieldInfo("Is Looking", FieldType.BOOLEAN),
             "robotState" to FieldInfo("Robot State", FieldType.STRING)
         )
         
@@ -113,16 +109,13 @@ data class EventRule(
     companion object {
         /**
          * Available placeholders for templates.
+         * Note: Some placeholders (age, gender, emotion, etc.) are no longer available
+         * as the head-based perception system doesn't provide this data.
          */
         val availablePlaceholders = listOf(
             "{personName}" to "Name of the recognized person",
             "{distance}" to "Distance in meters (e.g., '1.2m')",
-            "{age}" to "Estimated age",
-            "{gender}" to "Gender (Male/Female)",
-            "{emotion}" to "Basic emotion (Joyful, Sad, etc.)",
-            "{attention}" to "Attention state",
-            "{engagement}" to "Engagement level",
-            "{smile}" to "Smile state",
+            "{isLooking}" to "Whether person is looking at robot (true/false)",
             "{peopleCount}" to "Number of people detected",
             "{robotState}" to "Robot state (LISTENING, SPEAKING, THINKING, IDLE)",
             "{timestamp}" to "Current time"

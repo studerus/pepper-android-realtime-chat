@@ -143,7 +143,7 @@ A multimodal AI system for the Pepper robot powered by OpenAI's Realtime API. It
 - **Touch Interaction** - Responds to touches on head, hands, and bumpers with contextual AI reactions
 - **Navigation & Mapping** - Complete room mapping and autonomous navigation system
 - **Human Approach & Following** - Intelligent human detection, approaching, and continuous following
-- **Human Perception Dashboard** - Real-time display of detected people with emotions, attention, and distance
+- **Human Perception Dashboard** - Real-time display of detected people with gaze direction, distance, and recognized names
 - **Local Face Recognition** - On-device face identification running on Pepper's head (no cloud API needed)
 - **Event-Based Rule System** - Define custom rules to automatically send context updates to AI based on perception events (person recognized, appeared, etc.)
 - **Internet Search** - Real-time web search capabilities via Tavily API
@@ -971,16 +971,15 @@ Rules are evaluated continuously based on perception events and trigger context 
 ### Condition Fields
 Filter rules with additional conditions on these fields:
 
+> **Note:** The head-based perception system provides limited fields compared to the older QiSDK PeoplePerception. Age, gender, emotion, and engagement are no longer available.
+
 | Field | Description | Example Value |
 |-------|-------------|---------------|
 | `personName` | Name from face recognition | "Max" |
-| `personId` | Internal tracking ID | "1" |
 | `distance` | Distance in meters | "2.0" |
-| `age` | Estimated age | "30" |
-| `gender` | Detected gender | "male" |
-| `emotion` | Basic emotion state | "happy" |
-| `attention` | Attention state | "LOOKING_AT_ROBOT" |
-| `engagement` | Engagement level | "INTERESTED" |
+| `isLooking` | Is person looking at robot | "true" |
+| `peopleCount` | Number of detected people | "3" |
+| `robotState` | Current robot state | "LISTENING" |
 
 ### Action Types
 
@@ -994,18 +993,12 @@ Filter rules with additional conditions on these fields:
 Templates support dynamic placeholders that are automatically replaced with real-time data:
 
 ```
-{personName}    - Name from face recognition (or "unknown person")
-{personId}      - Internal tracking ID
+{personName}    - Name from face recognition (or "Unknown")
 {distance}      - Distance in meters (e.g., "2.3m")
-{age}           - Estimated age
-{gender}        - Detected gender
-{emotion}       - Current basic emotion
-{attention}     - Attention state
-{engagement}    - Engagement level
-{smile}         - Smile state
-{positionX}     - X position in meters (front/back)
-{positionY}     - Y position in meters (left/right)
-{timestamp}     - Current timestamp in milliseconds
+{isLooking}     - Whether person is looking at robot (true/false)
+{peopleCount}   - Number of people detected
+{robotState}    - Robot state (LISTENING, SPEAKING, THINKING, IDLE)
+{timestamp}     - Current time (HH:mm:ss)
 ```
 
 ### Example Rule

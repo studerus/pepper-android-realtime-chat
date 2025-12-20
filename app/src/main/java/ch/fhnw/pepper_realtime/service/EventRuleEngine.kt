@@ -194,6 +194,7 @@ class EventRuleEngine @Inject constructor() {
 
     /**
      * Get the value of a field from HumanInfo as a string.
+     * Note: Uses head-based perception data. Age, gender, emotion, engagement, smile not available.
      */
     private fun getFieldValue(
         field: String,
@@ -203,14 +204,8 @@ class EventRuleEngine @Inject constructor() {
         return when (field.lowercase()) {
             "personname" -> humanInfo.recognizedName ?: ""
             "distance" -> if (humanInfo.distanceMeters > 0) humanInfo.distanceMeters.toString() else ""
-            "age" -> if (humanInfo.estimatedAge > 0) humanInfo.estimatedAge.toString() else ""
-            "gender" -> humanInfo.gender
-            "emotion" -> humanInfo.basicEmotion.name
-            "attention" -> humanInfo.attentionState
-            "engagement" -> humanInfo.engagementState
-            "smile" -> humanInfo.smileState
             "peoplecount" -> peopleCount.toString()
-            "islooking" -> humanInfo.attentionState.contains("LOOKING_AT_ROBOT", ignoreCase = true).toString()
+            "islooking" -> humanInfo.lookingAtRobot.toString()
             "robotstate" -> robotStateProvider?.getCurrentState() ?: "UNKNOWN"
             else -> ""
         }
@@ -218,6 +213,7 @@ class EventRuleEngine @Inject constructor() {
 
     /**
      * Replace placeholders in a template with actual values.
+     * Note: Uses head-based perception data. Age, gender, emotion, etc. placeholders will show defaults.
      */
     fun replacePlaceholders(
         template: String,
@@ -226,15 +222,10 @@ class EventRuleEngine @Inject constructor() {
     ): String {
         var result = template
 
-        // Person-related placeholders
+        // Person-related placeholders (head-based perception)
         result = result.replace("{personName}", humanInfo.recognizedName ?: "Unknown")
         result = result.replace("{distance}", humanInfo.getDistanceString())
-        result = result.replace("{age}", if (humanInfo.estimatedAge > 0) "${humanInfo.estimatedAge}" else "unknown")
-        result = result.replace("{gender}", humanInfo.gender.lowercase().replaceFirstChar { it.uppercase() })
-        result = result.replace("{emotion}", humanInfo.basicEmotion.getFormattedDisplay())
-        result = result.replace("{attention}", humanInfo.getAttentionLevel())
-        result = result.replace("{engagement}", humanInfo.getEngagementLevel())
-        result = result.replace("{smile}", humanInfo.getSmileStateDisplay())
+        result = result.replace("{isLooking}", humanInfo.lookingAtRobot.toString())
         result = result.replace("{peopleCount}", peopleCount.toString())
 
         // Robot state
