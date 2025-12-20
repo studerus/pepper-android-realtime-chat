@@ -165,6 +165,9 @@ class ChatRealtimeHandler(
             }
 
             if (functionCalls.isNotEmpty()) {
+                // x.ai server-side tools that are executed by the API, not locally
+                val serverSideTools = setOf("web_search", "web_search_with_snippets", "x_search", "x_keyword_search", "x_user_search", "file_search")
+                
                 for (fc in functionCalls) {
                     val toolName = fc.name
                     val callId = fc.callId
@@ -173,8 +176,20 @@ class ChatRealtimeHandler(
                     // Convert to JSONObject for ToolRegistry compatibility
                     val args = JSONObject(argsString ?: "{}")
 
+                    // Always show function call card in UI
                     val functionCall = ChatMessage.createFunctionCall(toolName.orEmpty(), args.toString(), ChatMessage.Sender.ROBOT)
                     viewModel.addMessage(functionCall)
+
+                    // Check if this is a server-side tool (executed by x.ai, not locally)
+                    if (toolName in serverSideTools) {
+                        Log.i(TAG, "Server-side tool '$toolName' - handled by API, no local execution needed")
+                        // Update UI to show it's being handled server-side
+                        Handler(Looper.getMainLooper()).post {
+                            viewModel.updateLatestFunctionCallResult("{\"status\":\"Executed by server\"}")
+                        }
+                        // Do NOT send result back - server handles this
+                        continue
+                    }
 
                     viewModel.isExpectingFinalAnswerAfterToolCall = true
                     

@@ -52,6 +52,9 @@ class ApiKeyManager @Inject constructor(context: Context) {
     val youTubeApiKey: String
         get() = getBuildConfigKey("YOUTUBE_API_KEY", settings.getString("YOUTUBE_API_KEY", "") ?: "")
 
+    val xaiApiKey: String
+        get() = getBuildConfigKey("XAI_API_KEY", settings.getString("XAI_API_KEY", "") ?: "")
+
     // Validation methods
     fun hasValidTavilyKey(): Boolean = isValidKey(tavilyApiKey)
 
@@ -124,6 +127,11 @@ class ApiKeyManager @Inject constructor(context: Context) {
         // Check OpenAI Direct
         if (isValidKey(openAiApiKey)) {
             configured.add(RealtimeApiProvider.OPENAI_DIRECT)
+        }
+
+        // Check x.ai
+        if (isValidKey(xaiApiKey)) {
+            configured.add(RealtimeApiProvider.XAI)
         }
 
         return configured.toTypedArray()

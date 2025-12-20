@@ -132,7 +132,7 @@ A multimodal AI system for the Pepper robot powered by OpenAI's Realtime API. It
 - **Dual Build Flavors** - Two app variants for different use cases:
   - **Pepper Flavor** - Full robot integration with QiSDK for Pepper hardware
   - **Standalone Flavor** - Runs on any Android device for testing and development without robot hardware
-- **Real-time Voice Chat** - Natural conversations using OpenAI's Realtime API (OpenAI Direct or Azure OpenAI for enhanced privacy) with two audio input modes:
+- **Real-time Voice Chat** - Natural conversations using OpenAI's Realtime API (OpenAI Direct, Azure OpenAI for privacy, or x.ai Grok with native search) with two audio input modes:
   - **Realtime API audio streaming** - Direct audio input with native voice activity detection
   - **Azure Speech Services STT** - Streaming transcription with superior dialect recognition and confidence scores (warns AI when transcription quality is low)
 - **Synchronized Gestures** - Automatic body language during speech output for natural communication
@@ -231,10 +231,11 @@ cd pepper-realtime-conversation
 Edit `local.properties` and add your API keys. See the **[API Key Setup](#-api-key-setup)** section below for detailed instructions on obtaining these keys.
 
 ```properties
-# REALTIME API PROVIDERS (Choose one or configure both)
+# REALTIME API PROVIDERS (Choose one or configure multiple)
 OPENAI_API_KEY=your_openai_api_key_here
 AZURE_OPENAI_KEY=your_azure_openai_key_here
 AZURE_OPENAI_ENDPOINT=your-resource.openai.azure.com
+XAI_API_KEY=your_xai_api_key_here
 
 # OPTIONAL: Additional features
 AZURE_SPEECH_KEY=your_azure_speech_key_here
@@ -450,6 +451,17 @@ This allows the Android app to automatically start the face recognition server v
 - **Enterprise Controls**: Role-based access control, encryption at rest and in transit, comprehensive audit logging
 - **Compliance**: Supports GDPR, HIPAA, and other regulatory frameworks
 
+#### Option 3: x.ai Grok (Alternative with Native Search)
+1. Go to [x.ai](https://x.ai/)
+2. Create an API key
+3. The app automatically uses the `grok-3-fast` model
+
+**Unique Features:**
+- **Native Web Search**: Built-in web search without Tavily API
+- **Native X Search**: Search posts on X/Twitter in real-time
+- **5 Distinct Voices**: Ara, Rex, Sal, Eve, Leo
+- **Compatible API**: Uses same Realtime API protocol as OpenAI
+
 ### Optional APIs (Extended Features)
 
 #### Azure Speech Services (Optional - for Dialects)
@@ -587,9 +599,10 @@ This app sends data to third-party services when features are used:
 You can switch between different Realtime API providers in the settings:
 
 - **OpenAI Direct** (Recommended): Supports all four models (`gpt-realtime`, `gpt-realtime-mini`, `gpt-4o-realtime-preview`, `gpt-4o-mini-realtime-preview`) directly from OpenAI
-- **Azure OpenAI** (Enterprise): Supports all four models (`gpt-realtime`, `gpt-realtime-mini`, `gpt-4o-realtime-preview`, `gpt-4o-mini-realtime-preview`) with your Azure deployment
+- **Azure OpenAI** (Enterprise): Supports all four models with your Azure deployment
+- **x.ai Grok**: Uses `grok-3-fast` model with native web/X search capabilities and unique voices (Ara, Rex, Sal, Eve, Leo)
 
-**Note**: Changing the API provider, model, voice, or audio input mode will restart the session automatically.
+**Note**: Changing the API provider automatically updates available models and voices. Model/voice changes restart the session automatically.
 
 ### Customizing the System Prompt
 

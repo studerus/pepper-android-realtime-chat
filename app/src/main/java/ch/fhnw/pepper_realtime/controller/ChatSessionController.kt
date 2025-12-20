@@ -9,6 +9,7 @@ import ch.fhnw.pepper_realtime.manager.AudioPlayer
 import ch.fhnw.pepper_realtime.manager.SessionImageManager
 import ch.fhnw.pepper_realtime.manager.SettingsRepository
 import ch.fhnw.pepper_realtime.manager.TurnManager
+import ch.fhnw.pepper_realtime.network.RealtimeApiProvider
 import ch.fhnw.pepper_realtime.network.RealtimeEventHandler
 import ch.fhnw.pepper_realtime.network.RealtimeSessionManager
 import ch.fhnw.pepper_realtime.network.WebSocketConnectionCallback
@@ -262,9 +263,14 @@ class ChatSessionController @Inject constructor(
             if (provider.isAzureProvider()) {
                 headers["api-key"] = keyManager.azureOpenAiKey
             } else {
-                headers["Authorization"] = provider.getAuthorizationHeader(keyManager.azureOpenAiKey, keyManager.openAiApiKey)
+                headers[provider.getAuthHeaderName()] = provider.getAuthorizationHeader(
+                    keyManager.azureOpenAiKey, 
+                    keyManager.openAiApiKey, 
+                    keyManager.xaiApiKey
+                )
             }
-            if (selectedModel != "gpt-realtime") {
+            // Add OpenAI-Beta header for OpenAI (not x.ai) preview models
+            if (provider == RealtimeApiProvider.OPENAI_DIRECT && selectedModel != "gpt-realtime") {
                 headers["OpenAI-Beta"] = "realtime=v1"
             }
 

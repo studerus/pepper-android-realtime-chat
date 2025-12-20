@@ -414,8 +414,59 @@ class RealtimeSessionManager @Inject constructor() {
 
         val sessionConfig = JSONObject()
 
+        // x.ai Grok Voice Agent API - uses similar structure to OpenAI GA API
+        if (settings.apiProviderEnum == RealtimeApiProvider.XAI) {
+            // x.ai audio configuration
+            val audio = JSONObject()
+
+            // Input format
+            val input = JSONObject().apply {
+                put("format", JSONObject().apply {
+                    put("type", "audio/pcm")
+                    put("rate", 24000)
+                })
+            }
+            audio.put("input", input)
+
+            // Output format  
+            val output = JSONObject().apply {
+                put("format", JSONObject().apply {
+                    put("type", "audio/pcm")
+                    put("rate", 24000)
+                })
+            }
+            audio.put("output", output)
+
+            sessionConfig.put("audio", audio)
+
+            // x.ai voice: Use directly if it's an x.ai voice, otherwise map from OpenAI names
+            val xaiVoices = setOf("Ara", "Rex", "Sal", "Eve", "Leo")
+            val xaiVoice = if (voice in xaiVoices) {
+                voice // Already an x.ai voice
+            } else {
+                // Fallback mapping from OpenAI voice names (for backwards compatibility)
+                when (voice.lowercase()) {
+                    "alloy", "ash" -> "Ara"
+                    "echo", "ballad" -> "Rex"
+                    "shimmer", "coral" -> "Eve"
+                    "verse" -> "Sal"
+                    "sage" -> "Leo"
+                    else -> "Ara"
+                }
+            }
+            sessionConfig.put("voice", xaiVoice)
+
+            // Turn detection for x.ai (server VAD)
+            if (settings.isUsingRealtimeAudioInput) {
+                sessionConfig.put("turn_detection", JSONObject().apply {
+                    put("type", "server_vad")
+                })
+            }
+
+            Log.i(TAG, "x.ai config - Voice: $xaiVoice")
+        }
         // For OpenAI Direct with gpt-realtime, use GA API structure
-        if (model == "gpt-realtime" && settings.apiProviderEnum == RealtimeApiProvider.OPENAI_DIRECT) {
+        else if (model == "gpt-realtime" && settings.apiProviderEnum == RealtimeApiProvider.OPENAI_DIRECT) {
             sessionConfig.put("type", "realtime")
 
             // GA API uses structured audio configuration
@@ -554,7 +605,22 @@ class RealtimeSessionManager @Inject constructor() {
         }
         sessionConfig.put("instructions", systemPrompt)
 
+        // Build tools array
         val toolsArray = toolRegistry!!.buildToolsDefinitionForAzure(toolContext!!, enabledTools)
+        
+        // Add x.ai native tools (web_search and x_search)
+        if (settings.apiProviderEnum == RealtimeApiProvider.XAI) {
+            // web_search - native x.ai web search
+            toolsArray.put(JSONObject().apply {
+                put("type", "web_search")
+            })
+            // x_search - search X/Twitter posts
+            toolsArray.put(JSONObject().apply {
+                put("type", "x_search")
+            })
+            Log.i(TAG, "x.ai: Added native web_search and x_search tools")
+        }
+        
         sessionConfig.put("tools", toolsArray)
 
         payload.put("session", sessionConfig)

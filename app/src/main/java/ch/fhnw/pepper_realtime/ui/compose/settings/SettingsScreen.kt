@@ -49,10 +49,16 @@ fun SettingsScreen(
     // Derived values
     val isRealtimeMode = settings.audioInputMode == SettingsRepository.MODE_REALTIME_API
     val isServerVad = settings.turnDetectionType == "server_vad"
+    val isXaiProvider = settings.apiProvider == RealtimeApiProvider.XAI.name
     
-    // Options
-    val models = listOf("gpt-realtime", "gpt-realtime-mini", "gpt-4o-realtime-preview", "gpt-4o-mini-realtime-preview")
-    val voices = listOf("alloy", "ash", "ballad", "cedar", "coral", "echo", "marin", "sage", "shimmer", "verse")
+    // Options - dynamic based on provider
+    val openAiModels = listOf("gpt-realtime", "gpt-realtime-mini", "gpt-4o-realtime-preview", "gpt-4o-mini-realtime-preview")
+    val xaiModels = listOf("grok-3-fast")
+    val models = if (isXaiProvider) xaiModels else openAiModels
+    val openAiVoices = listOf("alloy", "ash", "ballad", "cedar", "coral", "echo", "marin", "sage", "shimmer", "verse")
+    val xaiVoices = listOf("Ara", "Rex", "Sal", "Eve", "Leo")
+    // Dynamic voice list based on provider
+    val voices = if (isXaiProvider) xaiVoices else openAiVoices
     val configuredProviders = remember { apiKeyManager.getConfiguredProviders() }
     val languages = SettingsRepository.getAvailableLanguages()
     val audioInputModes = listOf("Realtime API", "Azure Speech")
@@ -130,7 +136,20 @@ fun SettingsScreen(
                     selectedOption = getProviderDisplayName(settings.apiProvider),
                     onOptionSelected = { displayName ->
                         val enumName = getProviderEnumName(displayName)
+                        val isNewProviderXai = enumName == RealtimeApiProvider.XAI.name
                         viewModel.setApiProvider(enumName)
+                        
+                        // Auto-switch model if current model is not available for new provider
+                        val newModels = if (isNewProviderXai) xaiModels else openAiModels
+                        if (settings.model !in newModels) {
+                            viewModel.setModel(newModels.first())
+                        }
+                        
+                        // Auto-switch voice if current voice is not available for new provider
+                        val newVoices = if (isNewProviderXai) xaiVoices else openAiVoices
+                        if (settings.voice !in newVoices) {
+                            viewModel.setVoice(newVoices.first())
+                        }
                     }
                 )
             }

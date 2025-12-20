@@ -98,21 +98,28 @@ class SettingsRepository @Inject constructor(
         get() {
             val defaultTools = defaultEnabledTools
             val savedTools = settings.getStringSet(KEY_ENABLED_TOOLS, null)
+            val knownTools = settings.getStringSet(KEY_KNOWN_TOOLS, null)
 
             return if (savedTools == null) {
+                // First time - enable all defaults and mark them as known
+                settings.edit().putStringSet(KEY_KNOWN_TOOLS, defaultTools).apply()
                 defaultTools
             } else {
-                val mergedTools = HashSet(savedTools)
-                for (defaultTool in defaultTools) {
-                    if (!mergedTools.contains(defaultTool)) {
-                        mergedTools.add(defaultTool)
-                        Log.i("SettingsRepository", "Auto-enabling new tool: $defaultTool")
+                // Check for truly NEW tools (not known before, not just disabled)
+                val newTools = defaultTools.filter { it !in (knownTools ?: emptySet()) }
+                if (newTools.isNotEmpty()) {
+                    val mergedTools = HashSet(savedTools)
+                    for (newTool in newTools) {
+                        mergedTools.add(newTool)
+                        Log.i("SettingsRepository", "Auto-enabling new tool: $newTool")
                     }
-                }
-                if (mergedTools != savedTools) {
+                    // Update known tools
+                    settings.edit().putStringSet(KEY_KNOWN_TOOLS, defaultTools).apply()
                     enabledTools = mergedTools
+                    mergedTools
+                } else {
+                    savedTools
                 }
-                mergedTools
             }
         }
         set(value) = settings.edit().putStringSet(KEY_ENABLED_TOOLS, value).apply()
@@ -172,6 +179,7 @@ class SettingsRepository @Inject constructor(
         private const val KEY_VOLUME = "volume"
         private const val KEY_SILENCE_TIMEOUT = "silenceTimeout"
         private const val KEY_ENABLED_TOOLS = "enabledTools"
+        private const val KEY_KNOWN_TOOLS = "knownTools"  // Tracks which tools user has seen (to distinguish new vs disabled)
         private const val KEY_API_PROVIDER = "apiProvider"
         private const val KEY_CONFIDENCE_THRESHOLD = "confidenceThreshold"
         private const val KEY_AUDIO_INPUT_MODE = "audioInputMode"

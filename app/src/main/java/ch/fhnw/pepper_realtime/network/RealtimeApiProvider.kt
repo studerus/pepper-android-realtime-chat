@@ -4,14 +4,15 @@ import android.util.Log
 
 /**
  * Enumeration of available Realtime API providers
- * Supports both Azure OpenAI and direct OpenAI connections
+ * Supports Azure OpenAI, direct OpenAI, and x.ai connections
  */
 enum class RealtimeApiProvider(
     private val displayName: String,
     private val modelName: String
 ) {
     AZURE_OPENAI("Azure OpenAI", "gpt-4o-realtime-preview"),
-    OPENAI_DIRECT("OpenAI Direct", "gpt-realtime");
+    OPENAI_DIRECT("OpenAI Direct", "gpt-4o-realtime-preview"),
+    XAI("x.ai Grok", "grok-3-fast");
 
     fun getDisplayName(): String = displayName
 
@@ -27,6 +28,7 @@ enum class RealtimeApiProvider(
         return when (this) {
             AZURE_OPENAI -> "wss://$azureEndpoint/openai/realtime?api-version=2024-10-01-preview&deployment=$actualModel"
             OPENAI_DIRECT -> "wss://api.openai.com/v1/realtime?model=$actualModel"
+            XAI -> "wss://api.x.ai/v1/realtime"
         }
     }
 
@@ -38,16 +40,32 @@ enum class RealtimeApiProvider(
     fun isAzureProvider(): Boolean = this == AZURE_OPENAI
 
     /**
+     * Check if this is the x.ai provider
+     */
+    fun isXaiProvider(): Boolean = this == XAI
+
+    /**
+     * Get authentication header name for this provider
+     * Azure uses "api-key", OpenAI and x.ai use "Authorization"
+     */
+    fun getAuthHeaderName(): String = when (this) {
+        AZURE_OPENAI -> "api-key"
+        OPENAI_DIRECT, XAI -> "Authorization"
+    }
+
+    /**
      * Get authentication header value for this provider
      *
      * @param azureKey  Azure OpenAI key (for Azure provider)
      * @param openaiKey Direct OpenAI key (for OpenAI provider)
+     * @param xaiKey    x.ai API key (for XAI provider)
      * @return Authorization header value
      */
-    fun getAuthorizationHeader(azureKey: String?, openaiKey: String?): String {
+    fun getAuthorizationHeader(azureKey: String?, openaiKey: String?, xaiKey: String? = null): String {
         return when (this) {
             AZURE_OPENAI -> azureKey ?: ""
             OPENAI_DIRECT -> "Bearer ${openaiKey ?: ""}"
+            XAI -> "Bearer ${xaiKey ?: ""}"
         }
     }
 
