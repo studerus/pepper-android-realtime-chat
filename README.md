@@ -149,7 +149,7 @@ A multimodal AI system for the Pepper robot powered by OpenAI's Realtime API. It
 - **Internet Search** - Real-time web search capabilities via Tavily API
 - **Weather Information** - Current weather and forecasts via OpenWeatherMap API
 - **Interactive Quizzes** - Dynamic quiz generation and interaction
-- **Tic Tac Toe Game** - Play against the AI with touchscreen moves and real-time voice commentary
+- **Tic Tac Toe Game** - Play against the AI on the tablet with a visual board
 - **Memory Game** - Card-matching game with multiple difficulty levels
 - **Drawing Game** - Draw on the tablet and let the AI guess what you drew
 - **Melody Player** - Play synthesized melodies like Happy Birthday
