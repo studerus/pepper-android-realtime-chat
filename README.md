@@ -14,6 +14,7 @@ A multimodal AI system for the Pepper robot powered by OpenAI's Realtime API. It
 
 - [Screenshots](#-screenshots)
 - [Features](#-features)
+- [Technology Stack](#️-technology-stack)
 - [Quick Start](#-quick-start)
   - [Requirements](#requirements)
   - [Clone and Configure](#1-clone-and-configure)
@@ -154,6 +155,23 @@ A multimodal AI system for the Pepper robot powered by OpenAI's Realtime API. It
 - **Drawing Game** - Draw on the tablet and let the AI guess what you drew
 - **Melody Player** - Play synthesized melodies like Happy Birthday
 
+## 🛠️ Technology Stack
+
+### Modern Development Without the Plugin
+This project uses modern Android Studio versions **without** the deprecated Pepper SDK plugin. The plugin is no longer maintained and incompatible with recent Android Studio versions. Instead, we configure the project manually following the approach documented here: **[Pepper with Android Studio in 2024](https://github.com/unitedroboticsgroup-france/MyPepperApplication)**. This enables the use of the latest Android Studio versions, modern AndroidX libraries, **Kotlin** as the primary language, and the latest Gradle and build tools with improved IDE performance.
+
+### 100% Kotlin Codebase
+The entire application is written in **Kotlin**, leveraging modern language features:
+- **Null Safety** - Compile-time null checks prevent NullPointerExceptions
+- **Coroutines** - Structured concurrency for asynchronous operations
+- **Data Classes** - Concise model definitions with automatic equals/hashCode/toString
+- **Extension Functions** - Clean API extensions without inheritance
+- **Hilt Dependency Injection** - Type-safe DI with KSP annotation processing
+- **Jetpack Compose** - Modern declarative UI for the chat interface with LazyColumn, Material 3, and Coil image loading
+
+**Note on API 23 (Android 6.0) Compatibility:**
+Pepper v1.8 runs Android 6.0 (API Level 23). This limits some third-party libraries to older versions, as many newer releases require Android 8.0+ (API 26+) for features like `java.util.Base64` and `MethodHandle`. Despite this constraint, the project uses the latest compatible versions of all dependencies and modern development tools (Gradle 8.13, Kotlin 2.0.21, Android Studio latest).
+
 ## 🚀 Quick Start
 
 This project supports **two build flavors** to accommodate different use cases:
@@ -182,21 +200,6 @@ Both flavors share the same core conversational AI system but differ in hardware
 - **Build Configuration**: Same as above
 - **Purpose**: Test conversational AI, tool system, and generic features without robot hardware
 - **Limitations**: Robot-specific features (navigation, gestures, camera, sensors) are simulated with log output
-
-### Modern Development Without the Plugin
-This project uses modern Android Studio versions **without** the deprecated Pepper SDK plugin. The plugin is no longer maintained and incompatible with recent Android Studio versions. Instead, we configure the project manually following the approach documented here: **[Pepper with Android Studio in 2024](https://github.com/unitedroboticsgroup-france/MyPepperApplication)**. This enables the use of the latest Android Studio versions, modern AndroidX libraries, **Kotlin** as the primary language, and the latest Gradle and build tools with improved IDE performance.
-
-### 100% Kotlin Codebase
-The entire application is written in **Kotlin**, leveraging modern language features:
-- **Null Safety** - Compile-time null checks prevent NullPointerExceptions
-- **Coroutines** - Structured concurrency for asynchronous operations
-- **Data Classes** - Concise model definitions with automatic equals/hashCode/toString
-- **Extension Functions** - Clean API extensions without inheritance
-- **Hilt Dependency Injection** - Type-safe DI with KSP annotation processing
-- **Jetpack Compose** - Modern declarative UI for the chat interface with LazyColumn, Material 3, and Coil image loading
-
-**Note on API 23 (Android 6.0) Compatibility:**
-Pepper v1.8 runs Android 6.0 (API Level 23). This limits some third-party libraries to older versions, as many newer releases require Android 8.0+ (API 26+) for features like `java.util.Base64` and `MethodHandle`. Despite this constraint, the project uses the latest compatible versions of all dependencies and modern development tools (Gradle 8.13, Kotlin 2.0.21, Android Studio latest).
 
 ### Setup Steps
 
@@ -925,7 +928,7 @@ Pepper Head (Python)              Pepper Tablet (Android)
 
 ### Features
 - **Stable Tracking** - Track IDs persist across frames using angle-based matching
-- **Real-time Updates** - WebSocket streaming at 4-6 Hz
+- **Real-time Updates** - WebSocket streaming at 3-5 Hz
 - **Local Face Recognition** - Runs entirely on Pepper's head (no cloud API)
 - **Gaze Detection** - Determines if person is looking at robot based on face position
 - **Configurable Parameters** - All settings adjustable in real-time via the dashboard
