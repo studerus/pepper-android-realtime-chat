@@ -117,14 +117,22 @@ python3 face_recognition_server.py
 
 ## Performance
 
+### By Resolution
+
+| Resolution | Detection | Total Loop | Update Rate | Use Case |
+|------------|-----------|------------|-------------|----------|
+| QQVGA (160×120) | ~80-120ms | ~100-150ms | ~7-10 Hz | Fast tracking, lower accuracy |
+| **QVGA (320×240)** | ~120-220ms | ~150-250ms | ~4-6 Hz | **Recommended balance** |
+| VGA (640×480) | ~600-900ms | ~650-950ms | ~1-1.5 Hz | Best recognition, slow tracking |
+
+### Component Breakdown (QVGA)
+
 | Stage | Time | Notes |
 |-------|------|-------|
 | Frame Capture | < 1ms | **Shared Memory (mmap)** from camera_daemon |
 | Face Detection | ~120-220ms | YuNet CNN (i386) - Main bottleneck |
 | Face Tracking | ~2-5ms | Angle-based matching (Kalman) |
 | Face Recognition | ~1000-1300ms | SFace (Async/Threaded) - **Does not block tracking** |
-| **Total Loop** | ~150-250ms | Effective tracking latency |
-| **Update Rate** | ~3-6 Hz | Limited only by Face Detection speed |
 
 ### Why 32-bit?
 Pepper's Atom E3845 CPU supports 64-bit, but the NAOqi OS uses a **32-bit userspace**. Without root access (`sudo`), we cannot run a 64-bit chroot or container. Therefore, we must use 32-bit binaries.
