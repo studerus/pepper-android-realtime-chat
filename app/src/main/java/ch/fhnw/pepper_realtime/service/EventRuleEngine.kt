@@ -206,6 +206,8 @@ class EventRuleEngine @Inject constructor() {
             "distance" -> if (humanInfo.distanceMeters > 0) humanInfo.distanceMeters.toString() else ""
             "peoplecount" -> peopleCount.toString()
             "islooking" -> humanInfo.lookingAtRobot.toString()
+            "gazeduration" -> humanInfo.gazeDurationMs.toString()
+            "trackage" -> humanInfo.trackAgeMs.toString()
             "robotstate" -> robotStateProvider?.getCurrentState() ?: "UNKNOWN"
             else -> ""
         }
@@ -226,6 +228,8 @@ class EventRuleEngine @Inject constructor() {
         result = result.replace("{personName}", humanInfo.recognizedName ?: "Unknown")
         result = result.replace("{distance}", humanInfo.getDistanceString())
         result = result.replace("{isLooking}", humanInfo.lookingAtRobot.toString())
+        result = result.replace("{gazeDuration}", "${humanInfo.gazeDurationMs / 1000}s")
+        result = result.replace("{trackAge}", "${humanInfo.trackAgeMs / 1000}s")
         result = result.replace("{peopleCount}", peopleCount.toString())
 
         // Robot state

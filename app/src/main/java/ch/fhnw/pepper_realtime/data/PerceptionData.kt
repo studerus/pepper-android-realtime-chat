@@ -37,14 +37,21 @@ class PerceptionData {
         var headDirection: Float = 0f       // Head direction: -1=right, 0=center, +1=left
         var worldYaw: Float = 0f            // Position angle relative to torso (degrees)
         var worldPitch: Float = 0f          // Vertical position angle (degrees)
-        var lastSeenMs: Long = 0L           // Time since last seen (milliseconds)
+        var lastSeenMs: Long = 0L           // Timestamp when last seen (milliseconds)
+        var trackAgeMs: Long = 0L           // How long this person has been tracked (milliseconds)
+        var gazeDurationMs: Long = 0L       // How long this person has been looking at robot (milliseconds, 0 if not looking)
 
         /**
          * Get gaze indicator for UI display
          */
         fun getGazeDisplay(): String {
             return if (lookingAtRobot) {
-                "👀 Looking"
+                val durationStr = when {
+                    gazeDurationMs < 1000 -> ""
+                    gazeDurationMs < 60000 -> " (${gazeDurationMs / 1000}s)"
+                    else -> " (${gazeDurationMs / 60000}m)"
+                }
+                "👀 Looking$durationStr"
             } else {
                 when {
                     headDirection > 0.2f -> "← Away"
@@ -62,6 +69,20 @@ class PerceptionData {
                 worldYaw > 15f -> "Left (${worldYaw.toInt()}°)"
                 worldYaw < -15f -> "Right (${(-worldYaw).toInt()}°)"
                 else -> "Front"
+            }
+        }
+
+        /**
+         * Get tracking duration for UI display.
+         * Shows how long this person has been tracked.
+         */
+        fun getTrackingDurationDisplay(): String {
+            if (trackAgeMs <= 0L) return "—"
+            return when {
+                trackAgeMs < 1000 -> "<1s"
+                trackAgeMs < 60000 -> "${trackAgeMs / 1000}s"
+                trackAgeMs < 3600000 -> "${trackAgeMs / 60000}m ${(trackAgeMs % 60000) / 1000}s"
+                else -> "${trackAgeMs / 3600000}h ${(trackAgeMs % 3600000) / 60000}m"
             }
         }
 

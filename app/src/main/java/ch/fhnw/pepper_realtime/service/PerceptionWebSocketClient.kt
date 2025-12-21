@@ -95,7 +95,9 @@ class PerceptionWebSocketClient @Inject constructor() {
         val worldPitch: Float,
         val distance: Float,
         val lastSeenMs: Long,
-        val timeSinceSeenMs: Long
+        val timeSinceSeenMs: Long,
+        val trackAgeMs: Long,
+        val gazeDurationMs: Long
     )
 
     data class SettingsUpdate(
@@ -262,7 +264,9 @@ class PerceptionWebSocketClient @Inject constructor() {
                             worldPitch = p.optDouble("world_pitch", 0.0).toFloat(),
                             distance = p.optDouble("distance", 0.0).toFloat(),
                             lastSeenMs = p.optLong("last_seen_ms", 0),
-                            timeSinceSeenMs = p.optLong("time_since_seen_ms", 0)
+                            timeSinceSeenMs = p.optLong("time_since_seen_ms", 0),
+                            trackAgeMs = p.optLong("track_age_ms", 0),
+                            gazeDurationMs = p.optLong("gaze_duration_ms", 0)
                         ))
                     }
                     

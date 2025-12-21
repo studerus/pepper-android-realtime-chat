@@ -157,6 +157,7 @@ class TrackedPerson:
     looking_at_robot: bool = False
     head_yaw_ratio: float = 0.0
     _gaze_smooth_val: float = 0.0
+    looking_since_ms: int = 0  # Timestamp when gaze started (0 = not looking)
     
     # Meta
     last_seen_ms: int = 0
@@ -226,11 +227,22 @@ class TrackedPerson:
             self.distance = float(self.kf.statePost[2])
             
     def update_gaze(self, new_ratio, threshold):
-        """Apply EMA smoothing to gaze."""
+        """Apply EMA smoothing to gaze and track gaze duration."""
         alpha = 0.3
         self._gaze_smooth_val = (alpha * new_ratio) + ((1 - alpha) * self._gaze_smooth_val)
         self.head_yaw_ratio = self._gaze_smooth_val
+        
+        was_looking = self.looking_at_robot
         self.looking_at_robot = abs(self.head_yaw_ratio) < threshold
+        
+        # Track when gaze started
+        now_ms = int(time.time() * 1000)
+        if self.looking_at_robot and not was_looking:
+            # Just started looking
+            self.looking_since_ms = now_ms
+        elif not self.looking_at_robot:
+            # Stopped looking
+            self.looking_since_ms = 0
 
 
 class FaceTracker:
@@ -628,7 +640,9 @@ class FaceTracker:
                 'head_direction': round(t.head_yaw_ratio, 2),
                 'bbox': t.bbox,
                 'last_seen_ms': t.last_seen_ms,
-                'time_since_seen_ms': int(time.time() * 1000) - t.last_seen_ms
+                'time_since_seen_ms': int(time.time() * 1000) - t.last_seen_ms,
+                'track_age_ms': int(time.time() * 1000) - t.first_seen_ms,
+                'gaze_duration_ms': (int(time.time() * 1000) - t.looking_since_ms) if t.looking_at_robot and t.looking_since_ms > 0 else 0
             }
             for t in self.tracks.values()
         ]

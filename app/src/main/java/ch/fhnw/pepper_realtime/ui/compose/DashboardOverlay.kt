@@ -339,7 +339,7 @@ private fun LiveViewContent(
                             .padding(vertical = 6.dp, horizontal = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        val displayHeaders = listOf("Name", "Distance", "Position", "Gaze", "Seen")
+                        val displayHeaders = listOf("Name", "Distance", "Position", "Gaze", "Duration")
                         
                         displayHeaders.forEachIndexed { index, title ->
                             Text(
@@ -652,11 +652,11 @@ private fun HumanDetectionItem(human: PerceptionData.HumanInfo) {
                 modifier = Modifier.weight(ColWeights[3])
             )
             
-            // Last Seen / Freshness indicator
+            // Tracking duration - how long this person has been tracked
             Text(
-                text = human.getLastSeenDisplay(), 
+                text = human.getTrackingDurationDisplay(), 
                 fontSize = 13.sp, 
-                color = if (human.isStale()) DashboardColors.TextLight else DashboardColors.TextDark,
+                color = DashboardColors.TextDark,
                 textAlign = TextAlign.Center, 
                 modifier = Modifier.weight(ColWeights[4])
             )

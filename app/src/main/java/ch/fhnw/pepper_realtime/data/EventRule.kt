@@ -46,6 +46,8 @@ data class RuleCondition(
             "personName" to FieldInfo("Person Name", FieldType.STRING),
             "distance" to FieldInfo("Distance (m)", FieldType.NUMBER),
             "isLooking" to FieldInfo("Is Looking at Robot", FieldType.BOOLEAN),
+            "gazeDuration" to FieldInfo("Gaze Duration (ms)", FieldType.NUMBER),
+            "trackAge" to FieldInfo("Track Age (ms)", FieldType.NUMBER),
             "peopleCount" to FieldInfo("People Count", FieldType.NUMBER),
             "robotState" to FieldInfo("Robot State", FieldType.STRING)
         )
@@ -116,6 +118,8 @@ data class EventRule(
             "{personName}" to "Name of the recognized person",
             "{distance}" to "Distance in meters (e.g., '1.2m')",
             "{isLooking}" to "Whether person is looking at robot (true/false)",
+            "{gazeDuration}" to "How long looking at robot (e.g., '5s')",
+            "{trackAge}" to "How long person has been tracked (e.g., '30s')",
             "{peopleCount}" to "Number of people detected",
             "{robotState}" to "Robot state (LISTENING, SPEAKING, THINKING, IDLE)",
             "{timestamp}" to "Current time"

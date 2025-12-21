@@ -284,6 +284,12 @@ class PerceptionService {
             // Freshness indicator
             // We use timeSinceSeenMs from server to calculate a synchronized timestamp relative to Android clock
             lastSeenMs = System.currentTimeMillis() - person.timeSinceSeenMs
+            
+            // Track age - how long this person has been tracked (directly from server)
+            trackAgeMs = person.trackAgeMs
+            
+            // Gaze duration - how long this person has been looking at the robot
+            gazeDurationMs = person.gazeDurationMs
         }
     }
 

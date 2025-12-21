@@ -276,13 +276,30 @@ ws://198.18.0.1:5002
         "world_yaw": -5.2,
         "world_pitch": 3.1,
         "distance": 1.5,
-        "last_seen_ms": 1702831200000
+        "last_seen_ms": 1702831200000,
+        "time_since_seen_ms": 50,
+        "track_age_ms": 15000,
+        "gaze_duration_ms": 3500
       }
     ]
   },
   "timestamp": 1702831200100
 }
 ```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `track_id` | int | Stable ID for this tracked person |
+| `name` | string | Recognized name or "Unknown" |
+| `looking_at_robot` | bool | Is person looking at the robot? |
+| `head_direction` | float | Head yaw ratio (-1=right, 0=center, +1=left) |
+| `world_yaw` | float | Horizontal angle from robot (degrees) |
+| `world_pitch` | float | Vertical angle from robot (degrees) |
+| `distance` | float | Estimated distance in meters |
+| `last_seen_ms` | long | Timestamp when last seen |
+| `time_since_seen_ms` | long | Milliseconds since last seen |
+| `track_age_ms` | long | How long this person has been tracked |
+| `gaze_duration_ms` | long | How long person is looking at robot (0 if not looking) |
 
 ## HTTP API (Legacy/Fallback)
 
@@ -377,12 +394,49 @@ The `PerceptionService` detects these events from the tracking data:
 | `PERSON_APPROACHED_CLOSE` | Distance < 1.5m |
 | `PERSON_APPROACHED_INTERACTION` | Distance < 3.0m |
 
-These events can be used in the Event Rules system to trigger robot actions.
+### Event Rule Conditions
+
+Events can be filtered with conditions. Available fields:
+
+| Field | Type | Description | Example |
+|-------|------|-------------|---------|
+| `personname` | string | Recognized name | `personname = John` |
+| `distance` | number | Distance in meters | `distance < 2.0` |
+| `peoplecount` | number | Number of tracked people | `peoplecount = 1` |
+| `islooking` | boolean | Is looking at robot | `islooking = true` |
+| `gazeduration` | number | Gaze duration in ms | `gazeduration > 3000` |
+| `trackage` | number | Tracking duration in ms | `trackage > 10000` |
+| `robotstate` | string | IDLE, LISTENING, THINKING, SPEAKING | `robotstate = LISTENING` |
+
+**Example Rule:**
+- Event: `PERSON_LOOKING`
+- Condition: `gazeduration > 3000`
+- Template: "Hello! You've been looking at me for {gazeDuration}. Can I help you?"
+
+This rule only fires when someone has been looking at the robot for **more than 3 seconds**, avoiding reactions to brief glances.
+
+### Template Placeholders
+
+| Placeholder | Description |
+|-------------|-------------|
+| `{personName}` | Recognized name or "Unknown" |
+| `{distance}` | Distance (e.g., "1.5m") |
+| `{isLooking}` | "true" or "false" |
+| `{gazeDuration}` | Gaze duration (e.g., "5s") |
+| `{trackAge}` | Tracking duration (e.g., "30s") |
+| `{peopleCount}` | Number of people |
+| `{robotState}` | Current robot state |
+| `{timestamp}` | Current time (HH:mm:ss) |
 
 ### Dashboard UI
 
 The People & Faces dashboard shows:
-- **Live Tab**: Currently detected people with name, distance, position, gaze
+- **Live Tab**: Currently detected people with:
+  - Name (recognized or "Unknown")
+  - Distance (meters)
+  - Position (Left/Front/Right with angle)
+  - Gaze (👀 Looking with duration, or ← → ↔ Away)
+  - Duration (how long tracked: "5s", "1m 30s", "1h 5m")
 - **Radar Tab**: Visual representation of people around the robot
 - **Faces Tab**: Registered faces with thumbnails, add/delete
 - **Settings Tab**: Real-time configurable perception parameters
