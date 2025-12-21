@@ -423,10 +423,10 @@ This allows the Android app to automatically start the face recognition server v
 1. Go to [platform.openai.com](https://platform.openai.com/)
 2. Create an API key
 3. That's it! The app supports all Realtime API models:
-   - `gpt-realtime` (GA model with built-in vision)
-   - `gpt-realtime-mini` (Affordable GA model with built-in vision)
-   - `gpt-4o-realtime-preview` (Preview model)
-   - `gpt-4o-mini-realtime-preview` (Mini model - significantly lower cost)
+   - `gpt-realtime` (GA model with built-in vision ✅)
+   - `gpt-realtime-mini` (Affordable GA model with built-in vision ✅)
+   - `gpt-4o-realtime-preview` (Preview model - requires Groq for vision)
+   - `gpt-4o-mini-realtime-preview` (Mini model - requires Groq for vision)
 
 #### Option 2: Realtime API via Azure OpenAI (Enterprise Option with Privacy Benefits)
 1. Go to [Azure Portal](https://portal.azure.com/)
@@ -454,6 +454,7 @@ This allows the Android app to automatically start the face recognition server v
 - **Native X Search**: Search posts on X/Twitter in real-time
 - **5 Distinct Voices**: Ara, Rex, Sal, Eve, Leo
 - **100+ Languages**: Multilingual support out of the box
+- **Note**: Vision analysis requires `GROQ_API_KEY` (Grok Voice Agent API doesn't support images)
 
 ### Optional APIs (Extended Features)
 
@@ -1596,8 +1597,8 @@ app/src/
 - For Azure: Ensure the deployment name matches your Azure setup
 
 #### "Vision analysis not available"
-- Vision works automatically with gpt-realtime model
-- For Groq alternative: Add GROQ_API_KEY to `local.properties`
+- Vision works automatically with `gpt-realtime` and `gpt-realtime-mini` models (built-in)
+- For other models (preview models, x.ai Grok): Add `GROQ_API_KEY` to `local.properties` for Groq-based vision
 - Check camera permissions and robot focus
 
 #### "Feature requires API key"
