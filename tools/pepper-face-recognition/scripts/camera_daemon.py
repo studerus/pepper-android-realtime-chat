@@ -59,7 +59,7 @@ awareness_paused = False
 # RGB: Camera 0 (Top), ColorSpace 13 (BGR), FPS 15
 # Resolution: 0=QQVGA(160x120), 1=QVGA(320x240), 2=VGA(640x480)
 RGB_CAMERA = 0      # Top camera
-RGB_RESOLUTION = 1  # Default: QVGA (320x240)
+RGB_RESOLUTION = 2  # Default: VGA (640x480) - Fixed for Hybrid Detection
 RGB_COLORSPACE = 13  # kBGRColorSpace (3 bytes/pixel)
 RGB_FPS = 15
 
@@ -245,43 +245,21 @@ def cleanup_naoqi():
 
 
 def set_camera_resolution(new_resolution):
-    """Change RGB camera resolution. Requires resubscribe."""
-    global RGB_RESOLUTION, rgb_subscriber, video
-    
+    """
+    Deprecated: Camera resolution is now fixed to VGA (2).
+    This function now just logs the request but does not change hardware settings.
+    Detection resolution is handled in face_recognition_server.py via downscaling.
+    """
     if new_resolution not in [0, 1, 2]:
         print("[Daemon] Invalid resolution: {}".format(new_resolution))
         return False
     
-    if new_resolution == RGB_RESOLUTION:
-        return True  # No change needed
-    
-    with lock:
-        try:
-            # Unsubscribe old
-            if rgb_subscriber and video:
-                video.unsubscribe(rgb_subscriber)
-                print("[Daemon] RGB camera unsubscribed for resolution change")
-            
-            # Update resolution
-            RGB_RESOLUTION = new_resolution
-            
-            # Resubscribe with new resolution
-            rgb_subscriber = video.subscribeCamera(
-                "perception_rgb",
-                RGB_CAMERA,
-                RGB_RESOLUTION,
-                RGB_COLORSPACE,
-                RGB_FPS
-            )
-            print("[Daemon] RGB camera resubscribed at {}: {}".format(
-                RESOLUTION_NAMES.get(new_resolution, str(new_resolution)),
-                rgb_subscriber
-            ))
-            return True
-            
-        except Exception as e:
-            print("[Daemon] Resolution change error: {}".format(e))
-            return False
+    # We ignore the request to change actual camera resolution
+    # because we always want VGA for high-quality recognition.
+    print("[Daemon] Ignoring resolution change to {} (Fixed to VGA)".format(
+        RESOLUTION_NAMES.get(new_resolution, str(new_resolution))
+    ))
+    return True
 
 
 def pause_awareness():
