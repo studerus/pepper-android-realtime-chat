@@ -39,10 +39,10 @@ W_DEPTH = 0.0     # DISABLED - depth sensor too unreliable, using optical estima
 W_SIG = 50.0      # heavy weight for signature mismatch (prevents ID swaps)
 MATCH_THRESHOLD = 30.0  # Max cost to match of angle + depth (signature adds extra penalty)
 
-# Simplified Tracker Constants
-WORLD_POSITION_MATCH_M = 0.70  # 70cm threshold for world-position matching (accommodates sit/stand)
-NEW_TRACK_CONFIRMATIONS = 3    # Require this many consecutive detections before creating track
-LOST_BUFFER_MS = 2500          # Buffer lost tracks for 2.5 seconds
+# Default Tracker Constants (can be overridden via settings)
+DEFAULT_WORLD_MATCH_THRESHOLD_M = 0.70  # 70cm threshold for world-position matching
+DEFAULT_CONFIRM_COUNT = 3               # Consecutive detections before creating track
+DEFAULT_LOST_BUFFER_MS = 2500           # Buffer lost tracks for recovery
 
 # Offsets (will be updated from daemon if available, else defaults)
 DEFAULT_OFFSETS = {"dx": 0.035, "dy": 0.0, "dz": 0.044}
@@ -250,12 +250,18 @@ class FaceTracker:
                  max_angle_distance: float = 15.0,  # Legacy param (used for validation)
                  track_timeout_ms: int = 3000,
                  recognition_cooldown_ms: int = 3000,
-                 gaze_threshold: float = DEFAULT_GAZE_THRESHOLD
+                 gaze_threshold: float = DEFAULT_GAZE_THRESHOLD,
+                 confirm_count: int = DEFAULT_CONFIRM_COUNT,
+                 lost_buffer_ms: int = DEFAULT_LOST_BUFFER_MS,
+                 world_match_threshold_m: float = DEFAULT_WORLD_MATCH_THRESHOLD_M
                  ):
         self.max_angle_distance = max_angle_distance
         self.track_timeout_ms = track_timeout_ms
         self.recognition_cooldown_ms = recognition_cooldown_ms
         self.gaze_threshold = gaze_threshold
+        self.confirm_count = confirm_count
+        self.lost_buffer_ms = lost_buffer_ms
+        self.world_match_threshold_m = world_match_threshold_m
         
         self.tracks: Dict[int, TrackedPerson] = {}
         self.lost_tracks: List[TrackedPerson] = [] # Buffer for recovery
@@ -459,7 +465,7 @@ class FaceTracker:
                 
             # === RECOVERY: Try to match with lost or unmatched active tracks ===
             recovered_track = None
-            best_world_dist = WORLD_POSITION_MATCH_M
+            best_world_dist = self.world_match_threshold_m
             
             # Check 1: World-Position Match against LOST tracks (PRIMARY)
             for lt in self.lost_tracks:
@@ -525,7 +531,7 @@ class FaceTracker:
                     pdata['det'] = det
                     pdata['last_ms'] = int(now * 1000)
                     
-                    if pdata['count'] >= NEW_TRACK_CONFIRMATIONS:
+                    if pdata['count'] >= self.confirm_count:
                         # Confirmed! Create actual track
                         tid = self.next_track_id
                         self.next_track_id += 1
@@ -549,7 +555,7 @@ class FaceTracker:
                         self.tracks[tid] = new_track
                         self.pending_recognition.append(tid)
                         del self.pending_tracks[matched_pending]
-                        print(f"[Tracker] New track {tid} confirmed after {NEW_TRACK_CONFIRMATIONS} detections")
+                        print(f"[Tracker] New track {tid} confirmed after {self.confirm_count} detections")
                 else:
                     # Create new pending track
                     pid = self.next_pending_id
@@ -585,9 +591,9 @@ class FaceTracker:
                          del self.tracks[tid]
                          print(f"[Tracker] Track {tid} lost (buffered)")
         
-        # Cleanup Lost Buffer (older than LOST_BUFFER_MS)
+        # Cleanup Lost Buffer (older than lost_buffer_ms)
         self.lost_tracks = [t for t in self.lost_tracks 
-                           if (int(now*1000) - t.last_seen_ms) < LOST_BUFFER_MS]
+                           if (int(now*1000) - t.last_seen_ms) < self.lost_buffer_ms]
         
         return list(self.tracks.values())
 

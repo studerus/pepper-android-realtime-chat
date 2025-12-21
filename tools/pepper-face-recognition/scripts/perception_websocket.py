@@ -63,6 +63,9 @@ class PerceptionSettings:
     max_angle_distance: float = 15.0      # degrees - how far a face can move between frames
     track_timeout_ms: int = 3000          # ms - when to remove lost tracks
     min_track_age_ms: int = 300           # ms - minimum age before track is reported
+    confirm_count: int = 3                # detections needed before track is confirmed
+    lost_buffer_ms: int = 2500            # ms - how long lost tracks stay in recovery buffer
+    world_match_threshold_m: float = 0.7  # meters - max distance for 3D track matching
     
     # Recognition settings  
     recognition_threshold: float = 0.65   # cosine distance threshold (lower = stricter)

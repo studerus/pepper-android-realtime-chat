@@ -385,7 +385,7 @@ Each person can have multiple registered images from different angles. The Andro
 
 ## Configurable Settings
 
-All settings can be changed via WebSocket or HTTP and are applied immediately:
+All settings can be changed via WebSocket or HTTP and are applied immediately. A "Reset to Defaults" button is available in the Android app.
 
 | Setting | Default | Range | Description |
 |---------|---------|-------|-------------|
@@ -393,9 +393,12 @@ All settings can be changed via WebSocket or HTTP and are applied immediately:
 | `recognition_cooldown_ms` | 3000 | 2000-10000 | Time between recognition attempts per track (should be > recognition time) |
 | `max_angle_distance` | 15.0 | 5-30 | Max angle movement to match same person (degrees) |
 | `track_timeout_ms` | 3000 | 1000-10000 | Time before removing lost tracks |
+| `confirm_count` | 3 | 1-10 | Detections needed before track is confirmed |
+| `lost_buffer_ms` | 2500 | 500-10000 | How long lost tracks stay for recovery |
+| `world_match_threshold_m` | 0.7 | 0.3-2.0 | Max 3D distance for track matching (meters) |
 | `gaze_center_tolerance` | 0.15 | 0.05-0.5 | How off-center is still "looking at robot" |
 | `update_interval_ms` | 100 | 0-1000 | Pause between tracking cycles (0 = max speed) |
-| `camera_resolution` | 1 | 0-2 | 0=QQVGA(160x120), 1=QVGA(320x240), 2=VGA(640x480) |
+| `camera_resolution` | 1 | 0-2 | Detection resolution: 0=Close(<1m), 1=Standard(~2m), 2=Long(>2m) |
 
 ## Android Integration
 

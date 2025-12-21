@@ -102,6 +102,9 @@ class LocalFaceRecognitionService @Inject constructor(
         val maxAngleDistance: Float = 15.0f,       // degrees - how far a face can move between frames
         val trackTimeoutMs: Int = 3000,            // ms - when to remove lost tracks
         val minTrackAgeMs: Int = 300,              // ms - minimum age before track is reported
+        val confirmCount: Int = 3,                 // detections needed before track is confirmed
+        val lostBufferMs: Int = 2500,              // ms - how long lost tracks stay in recovery buffer
+        val worldMatchThresholdM: Float = 0.7f,    // meters - max distance for 3D track matching
         
         // Recognition settings
         val recognitionThreshold: Float = 0.65f,   // cosine distance threshold (lower = stricter)
@@ -121,6 +124,9 @@ class LocalFaceRecognitionService @Inject constructor(
             put("max_angle_distance", maxAngleDistance)
             put("track_timeout_ms", trackTimeoutMs)
             put("min_track_age_ms", minTrackAgeMs)
+            put("confirm_count", confirmCount)
+            put("lost_buffer_ms", lostBufferMs)
+            put("world_match_threshold_m", worldMatchThresholdM)
             put("recognition_threshold", recognitionThreshold)
             put("recognition_cooldown_ms", recognitionCooldownMs)
             put("gaze_center_tolerance", gazeCenterTolerance)
@@ -133,6 +139,9 @@ class LocalFaceRecognitionService @Inject constructor(
                 maxAngleDistance = obj.optDouble("max_angle_distance", 15.0).toFloat(),
                 trackTimeoutMs = obj.optInt("track_timeout_ms", 3000),
                 minTrackAgeMs = obj.optInt("min_track_age_ms", 300),
+                confirmCount = obj.optInt("confirm_count", 3),
+                lostBufferMs = obj.optInt("lost_buffer_ms", 2500),
+                worldMatchThresholdM = obj.optDouble("world_match_threshold_m", 0.7).toFloat(),
                 recognitionThreshold = obj.optDouble("recognition_threshold", 0.65).toFloat(),
                 recognitionCooldownMs = obj.optInt("recognition_cooldown_ms", 3000),
                 gazeCenterTolerance = obj.optDouble("gaze_center_tolerance", 0.15).toFloat(),

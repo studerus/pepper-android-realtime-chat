@@ -876,11 +876,20 @@ Manage the face recognition database:
 - **Real-time sync** - Changes reflected immediately
 
 #### Settings Tab
-Configure perception parameters in real-time:
+Configure perception parameters in real-time. A "Reset to Defaults" button restores all values.
+
+**Recognition:**
 - **Recognition Threshold** (0.3-0.9) - Lower = stricter matching
 - **Recognition Cooldown** (1-10s) - Time between recognition attempts
+
+**Tracker:**
 - **Max Angle Distance** (5-30°) - Tracking tolerance for movement
 - **Track Timeout** (1-10s) - Time before removing lost tracks
+- **Confirm Count** (1-10) - Detections needed before track is confirmed
+- **Lost Buffer** (0.5-10s) - How long lost tracks stay for recovery
+- **World Match Distance** (0.3-2.0m) - Max 3D distance for track matching
+
+**Gaze & Performance:**
 - **Gaze Center Tolerance** (0.05-0.5) - How off-center is still "looking at robot"
 - **Cycle Delay** (0-1000ms, default 100ms) - Pause between tracking cycles
 - **Camera Resolution** - Detection resolution (QQVGA/QVGA/VGA) - affects range and speed

@@ -104,6 +104,9 @@ class PerceptionWebSocketClient @Inject constructor() {
         val maxAngleDistance: Float,
         val trackTimeoutMs: Int,
         val minTrackAgeMs: Int,
+        val confirmCount: Int,
+        val lostBufferMs: Int,
+        val worldMatchThresholdM: Float,
         val recognitionThreshold: Float,
         val recognitionCooldownMs: Int,
         val gazeCenterTolerance: Float,
@@ -281,6 +284,9 @@ class PerceptionWebSocketClient @Inject constructor() {
                         maxAngleDistance = data.optDouble("max_angle_distance", 15.0).toFloat(),
                         trackTimeoutMs = data.optInt("track_timeout_ms", 3000),
                         minTrackAgeMs = data.optInt("min_track_age_ms", 300),
+                        confirmCount = data.optInt("confirm_count", 3),
+                        lostBufferMs = data.optInt("lost_buffer_ms", 2500),
+                        worldMatchThresholdM = data.optDouble("world_match_threshold_m", 0.7).toFloat(),
                         recognitionThreshold = data.optDouble("recognition_threshold", 0.65).toFloat(),
                         recognitionCooldownMs = data.optInt("recognition_cooldown_ms", 3000),
                         gazeCenterTolerance = data.optDouble("gaze_center_tolerance", 0.15).toFloat(),
@@ -366,6 +372,9 @@ class PerceptionWebSocketClient @Inject constructor() {
             put("max_angle_distance", settings.maxAngleDistance)
             put("track_timeout_ms", settings.trackTimeoutMs)
             put("min_track_age_ms", settings.minTrackAgeMs)
+            put("confirm_count", settings.confirmCount)
+            put("lost_buffer_ms", settings.lostBufferMs)
+            put("world_match_threshold_m", settings.worldMatchThresholdM)
             put("recognition_threshold", settings.recognitionThreshold)
             put("recognition_cooldown_ms", settings.recognitionCooldownMs)
             put("gaze_center_tolerance", settings.gazeCenterTolerance)

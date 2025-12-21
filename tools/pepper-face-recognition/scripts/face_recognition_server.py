@@ -222,13 +222,21 @@ def init_models():
         TRACKER = FaceTracker(
             max_angle_distance=settings.max_angle_distance,
             track_timeout_ms=settings.track_timeout_ms,
-            recognition_cooldown_ms=settings.recognition_cooldown_ms
+            recognition_cooldown_ms=settings.recognition_cooldown_ms,
+            gaze_threshold=settings.gaze_center_tolerance,
+            confirm_count=settings.confirm_count,
+            lost_buffer_ms=settings.lost_buffer_ms,
+            world_match_threshold_m=settings.world_match_threshold_m
         )
     else:
         TRACKER = FaceTracker(
             max_angle_distance=15.0,
             track_timeout_ms=3000,
-            recognition_cooldown_ms=3000
+            recognition_cooldown_ms=3000,
+            gaze_threshold=0.15,
+            confirm_count=3,
+            lost_buffer_ms=2500,
+            world_match_threshold_m=0.7
         )
     print("Models loaded.")
     
@@ -259,6 +267,9 @@ def apply_settings(settings):
             TRACKER.track_timeout_ms = settings.track_timeout_ms
             TRACKER.recognition_cooldown_ms = settings.recognition_cooldown_ms
             TRACKER.gaze_threshold = settings.gaze_center_tolerance
+            TRACKER.confirm_count = settings.confirm_count
+            TRACKER.lost_buffer_ms = settings.lost_buffer_ms
+            TRACKER.world_match_threshold_m = settings.world_match_threshold_m
     
     RECOGNITION_THRESHOLD = settings.recognition_threshold
     
@@ -268,7 +279,7 @@ def apply_settings(settings):
         DETECTION_RESOLUTION_INDEX = settings.camera_resolution
     
     print(f"[Settings] Applied: threshold={settings.recognition_threshold}, "
-          f"max_dist={settings.max_angle_distance}°, detect_res={DETECTION_RESOLUTION_INDEX}")
+          f"confirm={settings.confirm_count}, lost_buf={settings.lost_buffer_ms}ms")
 
 
 def check_camera_daemon():

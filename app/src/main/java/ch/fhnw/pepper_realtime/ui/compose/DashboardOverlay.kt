@@ -1165,6 +1165,36 @@ private fun PerceptionSettingsContent(
                     valueFormat = { "${it.toInt()}ms" },
                     description = "Time before removing lost tracks"
                 )
+                
+                SettingsSliderInstant(
+                    label = "Confirm Count",
+                    value = localSettings.confirmCount.toFloat(),
+                    onValueChange = { localSettings = localSettings.copy(confirmCount = it.toInt()) },
+                    onValueChangeFinished = { updateAndSend(localSettings) },
+                    valueRange = 1f..10f,
+                    valueFormat = { "${it.toInt()}" },
+                    description = "Detections needed before track is confirmed"
+                )
+                
+                SettingsSliderInstant(
+                    label = "Lost Buffer",
+                    value = localSettings.lostBufferMs.toFloat(),
+                    onValueChange = { localSettings = localSettings.copy(lostBufferMs = it.toInt()) },
+                    onValueChangeFinished = { updateAndSend(localSettings) },
+                    valueRange = 500f..10000f,
+                    valueFormat = { "${it.toInt()}ms" },
+                    description = "How long lost tracks stay for recovery"
+                )
+                
+                SettingsSliderInstant(
+                    label = "World Match Distance",
+                    value = localSettings.worldMatchThresholdM,
+                    onValueChange = { localSettings = localSettings.copy(worldMatchThresholdM = it) },
+                    onValueChangeFinished = { updateAndSend(localSettings) },
+                    valueRange = 0.3f..2.0f,
+                    valueFormat = { "%.1fm".format(it) },
+                    description = "Max 3D distance for track matching"
+                )
             }
         }
         
@@ -1210,15 +1240,37 @@ private fun PerceptionSettingsContent(
             }
         }
         
-        // Info text instead of buttons
+        // Info text and reset button
         item {
-            Text(
-                text = "Settings are applied automatically when changed",
-                fontSize = 12.sp,
-                color = DashboardColors.TextLight,
-                textAlign = TextAlign.Center,
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
-            )
+            ) {
+                Text(
+                    text = "Settings are applied automatically when changed",
+                    fontSize = 12.sp,
+                    color = DashboardColors.TextLight,
+                    textAlign = TextAlign.Center
+                )
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                Button(
+                    onClick = {
+                        // Reset to defaults
+                        val defaults = LocalFaceRecognitionService.PerceptionSettings()
+                        localSettings = defaults
+                        updateAndSend(defaults)
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = DashboardColors.CardBackground,
+                        contentColor = DashboardColors.TextLight
+                    ),
+                    border = BorderStroke(1.dp, DashboardColors.TextLight.copy(alpha = 0.3f))
+                ) {
+                    Text("Reset to Defaults")
+                }
+            }
         }
     }
 }
