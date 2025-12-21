@@ -425,8 +425,8 @@ This allows the Android app to automatically start the face recognition server v
 3. That's it! The app supports all Realtime API models:
    - `gpt-realtime` (GA model with built-in vision ✅)
    - `gpt-realtime-mini` (Affordable GA model with built-in vision ✅)
-   - `gpt-4o-realtime-preview` (Preview model - requires Groq for vision)
-   - `gpt-4o-mini-realtime-preview` (Mini model - requires Groq for vision)
+   - `gpt-4o-realtime-preview` (Older model - requires Groq for vision)
+   - `gpt-4o-mini-realtime-preview` (Older mini model - requires Groq for vision)
 
 #### Option 2: Realtime API via Azure OpenAI (Enterprise Option with Privacy Benefits)
 1. Go to [Azure Portal](https://portal.azure.com/)
@@ -434,8 +434,8 @@ This allows the Android app to automatically start the face recognition server v
 3. Deploy one or more of the supported models:
    - `gpt-realtime` (GA model with built-in vision)
    - `gpt-realtime-mini` (Affordable GA model with built-in vision)
-   - `gpt-4o-realtime-preview` (Preview model)
-   - `gpt-4o-mini-realtime-preview` (Mini model - significantly lower cost)
+   - `gpt-4o-realtime-preview` (Older model - requires Groq for vision)
+   - `gpt-4o-mini-realtime-preview` (Older mini model - requires Groq for vision)
 4. Copy your API key and endpoint
 
 **Privacy & Compliance Advantages:**
