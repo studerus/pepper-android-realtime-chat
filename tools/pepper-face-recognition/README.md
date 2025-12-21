@@ -117,21 +117,30 @@ python3 face_recognition_server.py
 
 ## Performance
 
-### By Resolution
+### Hybrid Resolution Architecture (New!)
 
-| Resolution | Detection | Total Loop | Update Rate | Use Case |
-|------------|-----------|------------|-------------|----------|
-| QQVGA (160×120) | ~80-120ms | ~100-150ms | ~7-10 Hz | Fast tracking, lower accuracy |
-| **QVGA (320×240)** | ~120-220ms | ~150-250ms | ~4-6 Hz | **Recommended balance** |
-| VGA (640×480) | ~600-900ms | ~650-950ms | ~1-1.5 Hz | Best recognition, slow tracking |
+To achieve both **fast tracking** and **high-quality recognition**, the system uses a hybrid approach:
 
-**Note:** Face registration automatically:
-1. Pauses head movements (ALBasicAwareness) to prevent motion blur
-2. Switches to VGA (640×480) for better quality embeddings
-3. Captures and registers the face
-4. Restores resolution and resumes head movements
+1.  **Camera**: Always captures at **VGA (640x480)** resolution.
+2.  **Detection**: The frame is downscaled to **QVGA (320x240)** for fast YuNet inference (~120ms).
+3.  **Coordinate Scaling**: Detected bounding boxes are scaled back up to VGA coordinates.
+4.  **Recognition**: SFace extracts features from the original **VGA crop** (high quality).
 
-### Component Breakdown (QVGA)
+This provides the speed of QVGA with the accuracy of VGA.
+
+### By Resolution Setting
+
+The "Camera Resolution" setting now controls the **Detection Resolution** (downscale target):
+
+| Setting | Detect Res | Detection Time | Recognition Quality | Use Case |
+|---------|------------|----------------|---------------------|----------|
+| 0 (Low) | QQVGA (160×120) | ~80ms | **High (VGA crop)** | Ultra-fast tracking, close range |
+| **1 (Med)** | **QVGA (320×240)** | **~120ms** | **High (VGA crop)** | **Default / Recommended** |
+| 2 (High)| VGA (640×480) | ~600ms+ | High (VGA crop) | Debugging / Long range |
+
+**Note:** Face registration is instant (no resolution switch delay) and uses the full VGA frame. Head movements are paused during registration to prevent blur.
+
+### Component Breakdown (Hybrid QVGA Mode)
 
 | Stage | Time | Notes |
 |-------|------|-------|
@@ -144,27 +153,23 @@ python3 face_recognition_server.py
 
 **Detection (YuNet):**
 - Must scan the **entire image** to find faces
-- VGA = 640×480 = **307,200 pixels**
-- QVGA = 320×240 = **76,800 pixels**
-- → VGA is ~4x more work → ~4x slower
+- Optimization: We run this on a **downscaled copy** (e.g., QVGA) to save massive CPU time (~500ms).
 
 **Recognition (SFace):**
 - Works only on the **cropped face region**
 - Always scaled to **112×112 pixels** (fixed network input)
-- Whether camera is QQVGA or VGA → SFace always gets 112×112
-- → Recognition time is **independent of camera resolution**
+- We extract this crop from the **original VGA frame**, ensuring maximum detail (sharp eyes/features) regardless of detection resolution.
 
 ### Resolution Impact on Registration Quality
 
-The face crop size affects embedding quality:
+Since the camera always runs at VGA, registration quality is consistently excellent.
 
 | Registration | Face in Image | After Scaling | Quality |
 |--------------|---------------|---------------|---------|
-| QQVGA, far away | ~15×15 px | 112×112 (pixelated) | ❌ Poor |
-| QVGA, close | ~80×80 px | 112×112 (good) | ✅ Good |
-| VGA, close | ~150×150 px | 112×112 (downscale) | ✅ Excellent |
+| Old QQVGA System | ~15×15 px | 112×112 (pixelated) | ❌ Poor |
+| **New Hybrid System** | **~150×150 px** | **112×112 (downscale)** | ✅ **Excellent** |
 
-**Recommendation:** Register faces when the person is **close to the robot** or use **VGA resolution** (auto-enabled during registration).
+**Recommendation:** Register faces when the person is **close to the robot** (1-2m).
 
 ### Why 32-bit?
 Pepper's Atom E3845 CPU supports 64-bit, but the NAOqi OS uses a **32-bit userspace**. Without root access (`sudo`), we cannot run a 64-bit chroot or container. Therefore, we must use 32-bit binaries.

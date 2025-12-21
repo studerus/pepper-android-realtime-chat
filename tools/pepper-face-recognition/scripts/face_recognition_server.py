@@ -89,6 +89,7 @@ PENDING_RECOGNITION_LOCK = threading.Lock()
 
 # Dynamic settings (can be changed via API/WebSocket)
 RECOGNITION_THRESHOLD = 0.65  # Default, overridable (cosine distance: lower=more similar)
+DETECTION_RESOLUTION_INDEX = 1  # 0=QQVGA, 1=QVGA (Default), 2=VGA
 
 PORT = 5000
 WS_PORT = 5002  # Changed to 5002 to avoid conflicts
@@ -250,7 +251,7 @@ def set_camera_resolution(resolution):
 
 def apply_settings(settings):
     """Apply new settings to the tracker and recognition."""
-    global TRACKER, RECOGNITION_THRESHOLD
+    global TRACKER, RECOGNITION_THRESHOLD, DETECTION_RESOLUTION_INDEX
     
     with TRACKER_LOCK:
         if TRACKER:
@@ -261,12 +262,13 @@ def apply_settings(settings):
     
     RECOGNITION_THRESHOLD = settings.recognition_threshold
     
-    # Apply camera resolution if changed
+    # Update detection resolution (Virtual resolution)
     if hasattr(settings, 'camera_resolution'):
-        set_camera_resolution(settings.camera_resolution)
+        # Map: 0=QQVGA, 1=QVGA, 2=VGA
+        DETECTION_RESOLUTION_INDEX = settings.camera_resolution
     
     print(f"[Settings] Applied: threshold={settings.recognition_threshold}, "
-          f"max_dist={settings.max_angle_distance}°, timeout={settings.track_timeout_ms}ms")
+          f"max_dist={settings.max_angle_distance}°, detect_res={DETECTION_RESOLUTION_INDEX}")
 
 
 def check_camera_daemon():
@@ -532,9 +534,10 @@ def get_sensor_data(include_depth=False):
         return None
 
 
-def detect_faces_only(image):
+def detect_faces_only(image, scale_x=1.0, scale_y=1.0):
     """
     Run face detection without recognition.
+    Accepts an already resized image and scaling factors to map coordinates back.
     Returns list of face data including raw detector output for later recognition.
     """
     height, width = image.shape[:2]
@@ -547,6 +550,21 @@ def detect_faces_only(image):
     
     results = []
     for face in faces:
+        # face is [x, y, w, h, x_re, y_re, x_le, y_le, ..., conf]
+        
+        # Scale coordinates back to original image if resized
+        if scale_x != 1.0 or scale_y != 1.0:
+            # Scale bbox (0-3)
+            face[0] *= scale_x
+            face[1] *= scale_y
+            face[2] *= scale_x
+            face[3] *= scale_y
+            
+            # Scale landmarks (4-13)
+            for i in range(4, 14, 2):
+                face[i] *= scale_x
+                face[i+1] *= scale_y
+        
         results.append({
             'location': {
                 'left': int(face[0]),
@@ -554,7 +572,7 @@ def detect_faces_only(image):
                 'right': int(face[0] + face[2]),
                 'bottom': int(face[1] + face[3])
             },
-            'raw_face': face  # Keep full detector output with landmarks
+            'raw_face': face  # Keep full detector output with landmarks (now scaled)
         })
     
     return results
@@ -701,9 +719,31 @@ def update_tracking_once():
         
         height, width = image.shape[:2]
         
-        # 3. Detect faces
+        # 3. Detect faces (with Resize timing)
+        t_before_resize = time.time()
+        
+        # Prepare image for detection (resize if needed)
+        detect_image = image
+        scale_x = 1.0
+        scale_y = 1.0
+        
+        target_width = width
+        if DETECTION_RESOLUTION_INDEX == 0:  # QQVGA
+            target_width = 160
+        elif DETECTION_RESOLUTION_INDEX == 1:  # QVGA
+            target_width = 320
+            
+        if target_width < width:
+            scale = target_width / float(width)
+            target_height = int(height * scale)
+            detect_image = cv2.resize(image, (target_width, target_height))
+            scale_x = width / float(target_width)
+            scale_y = height / float(target_height)
+            
+        t_resize = (time.time() - t_before_resize) * 1000
+        
         t1 = time.time()
-        faces = detect_faces_only(image)
+        faces = detect_faces_only(detect_image, scale_x, scale_y)
         t_detect = (time.time() - t1) * 1000
         
         # 4. Update tracker
@@ -738,8 +778,8 @@ def update_tracking_once():
         
         update_time = int((time.time() - start_time) * 1000)
         
-        # DEBUG: Always log timing
-        print(f"[Timing] frame={t_frame:.0f}ms, detect={t_detect:.0f}ms, track={t_track:.0f}ms, recog={t_recog:.0f}ms, total={update_time}ms")
+        # DEBUG: Always log timing with resize breakdown
+        print(f"[Timing] frame={t_frame:.0f}ms, resize={t_resize:.0f}ms, detect={t_detect:.0f}ms, track={t_track:.0f}ms, recog={t_recog:.0f}ms, total={update_time}ms")
         
         return TRACKER.to_dict(), update_time
 
@@ -901,46 +941,25 @@ def ws_register_face(name):
     """WebSocket callback: Register a face from current camera view.
     
     1. Pauses head movements (ALBasicAwareness)
-    2. Switches to VGA resolution for better quality
-    3. Captures and registers face
-    4. Restores resolution and resumes head movements
+    2. Captures and registers face (Always VGA now!)
+    3. Resumes head movements
     """
     try:
-        # Get current resolution to restore later
-        original_resolution = 1  # Default QVGA
-        if WEBSOCKET_AVAILABLE:
-            settings = get_settings()
-            original_resolution = settings.camera_resolution
-        
         # 1. Pause head movements
         print(f"[Register] Pausing head movements...")
         pause_awareness()
-        time.sleep(0.2)  # Brief pause for head to settle
+        time.sleep(0.5)  # Pause for head to settle
         
-        # 2. Switch to VGA (2) for better quality registration
-        if original_resolution != 2:
-            print(f"[Register] Switching to VGA for better quality...")
-            set_camera_resolution(2)
-            time.sleep(0.5)  # Wait for camera to adjust
-        
-        # 3. Capture image from camera
+        # 2. Capture image from camera (Always VGA from Daemon)
         frame = get_synchronized_frame()
         if frame is None or frame.get('rgb_image') is None:
-            # Restore everything before returning error
-            if original_resolution != 2:
-                set_camera_resolution(original_resolution)
             resume_awareness()
             return False, "Failed to capture image"
         
         image = frame['rgb_image']
         success, message = register_process(image, name)
         
-        # 4. Restore original resolution
-        if original_resolution != 2:
-            print(f"[Register] Restoring resolution to {original_resolution}...")
-            set_camera_resolution(original_resolution)
-        
-        # 5. Resume head movements
+        # 3. Resume head movements
         print(f"[Register] Resuming head movements...")
         resume_awareness()
         
@@ -948,9 +967,6 @@ def ws_register_face(name):
     except Exception as e:
         # Try to restore everything on error
         try:
-            if WEBSOCKET_AVAILABLE:
-                settings = get_settings()
-                set_camera_resolution(settings.camera_resolution)
             resume_awareness()
         except:
             pass
