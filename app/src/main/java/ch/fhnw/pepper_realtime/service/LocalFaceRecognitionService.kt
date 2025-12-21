@@ -106,6 +106,9 @@ class LocalFaceRecognitionService @Inject constructor(
         val lostBufferMs: Int = 2500,              // ms - how long lost tracks stay in recovery buffer
         val worldMatchThresholdM: Float = 0.7f,    // meters - max distance for 3D track matching
         
+        // Detection settings
+        val detectionThreshold: Float = 0.85f,     // min confidence for face detection (filters blur)
+        
         // Recognition settings
         val recognitionThreshold: Float = 0.65f,   // cosine distance threshold (lower = stricter)
         val recognitionCooldownMs: Int = 3000,     // ms - time between recognition attempts
@@ -127,6 +130,7 @@ class LocalFaceRecognitionService @Inject constructor(
             put("confirm_count", confirmCount)
             put("lost_buffer_ms", lostBufferMs)
             put("world_match_threshold_m", worldMatchThresholdM)
+            put("detection_threshold", detectionThreshold)
             put("recognition_threshold", recognitionThreshold)
             put("recognition_cooldown_ms", recognitionCooldownMs)
             put("gaze_center_tolerance", gazeCenterTolerance)
@@ -142,6 +146,7 @@ class LocalFaceRecognitionService @Inject constructor(
                 confirmCount = obj.optInt("confirm_count", 3),
                 lostBufferMs = obj.optInt("lost_buffer_ms", 2500),
                 worldMatchThresholdM = obj.optDouble("world_match_threshold_m", 0.7).toFloat(),
+                detectionThreshold = obj.optDouble("detection_threshold", 0.85).toFloat(),
                 recognitionThreshold = obj.optDouble("recognition_threshold", 0.65).toFloat(),
                 recognitionCooldownMs = obj.optInt("recognition_cooldown_ms", 3000),
                 gazeCenterTolerance = obj.optDouble("gaze_center_tolerance", 0.15).toFloat(),

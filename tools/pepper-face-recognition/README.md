@@ -389,6 +389,7 @@ All settings can be changed via WebSocket or HTTP and are applied immediately. A
 
 | Setting | Default | Range | Description |
 |---------|---------|-------|-------------|
+| `detection_threshold` | 0.85 | 0.5-0.99 | Min confidence for face detection (filters blur/noise) |
 | `recognition_threshold` | 0.65 | 0.3-0.9 | Cosine distance threshold (lower = stricter) |
 | `recognition_cooldown_ms` | 3000 | 2000-10000 | Time between recognition attempts per track (should be > recognition time) |
 | `max_angle_distance` | 15.0 | 5-30 | Max angle movement to match same person (degrees) |

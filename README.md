@@ -878,6 +878,9 @@ Manage the face recognition database:
 #### Settings Tab
 Configure perception parameters in real-time. A "Reset to Defaults" button restores all values.
 
+**Detection:**
+- **Detection Confidence** (0.5-0.99) - Min confidence for face detection (filters blur/noise)
+
 **Recognition:**
 - **Recognition Threshold** (0.3-0.9) - Lower = stricter matching
 - **Recognition Cooldown** (1-10s) - Time between recognition attempts

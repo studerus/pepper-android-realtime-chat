@@ -107,6 +107,7 @@ class PerceptionWebSocketClient @Inject constructor() {
         val confirmCount: Int,
         val lostBufferMs: Int,
         val worldMatchThresholdM: Float,
+        val detectionThreshold: Float,
         val recognitionThreshold: Float,
         val recognitionCooldownMs: Int,
         val gazeCenterTolerance: Float,
@@ -287,6 +288,7 @@ class PerceptionWebSocketClient @Inject constructor() {
                         confirmCount = data.optInt("confirm_count", 3),
                         lostBufferMs = data.optInt("lost_buffer_ms", 2500),
                         worldMatchThresholdM = data.optDouble("world_match_threshold_m", 0.7).toFloat(),
+                        detectionThreshold = data.optDouble("detection_threshold", 0.85).toFloat(),
                         recognitionThreshold = data.optDouble("recognition_threshold", 0.65).toFloat(),
                         recognitionCooldownMs = data.optInt("recognition_cooldown_ms", 3000),
                         gazeCenterTolerance = data.optDouble("gaze_center_tolerance", 0.15).toFloat(),
@@ -375,6 +377,7 @@ class PerceptionWebSocketClient @Inject constructor() {
             put("confirm_count", settings.confirmCount)
             put("lost_buffer_ms", settings.lostBufferMs)
             put("world_match_threshold_m", settings.worldMatchThresholdM)
+            put("detection_threshold", settings.detectionThreshold)
             put("recognition_threshold", settings.recognitionThreshold)
             put("recognition_cooldown_ms", settings.recognitionCooldownMs)
             put("gaze_center_tolerance", settings.gazeCenterTolerance)

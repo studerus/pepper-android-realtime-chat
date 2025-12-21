@@ -88,6 +88,7 @@ PENDING_RECOGNITION = None  # (track_id, image, raw_face)
 PENDING_RECOGNITION_LOCK = threading.Lock()
 
 # Dynamic settings (can be changed via API/WebSocket)
+DETECTION_THRESHOLD = 0.85  # Min confidence for face detection (filters blur/noise)
 RECOGNITION_THRESHOLD = 0.65  # Default, overridable (cosine distance: lower=more similar)
 DETECTION_RESOLUTION_INDEX = 1  # 0=QQVGA, 1=QVGA (Default), 2=VGA
 
@@ -259,7 +260,7 @@ def set_camera_resolution(resolution):
 
 def apply_settings(settings):
     """Apply new settings to the tracker and recognition."""
-    global TRACKER, RECOGNITION_THRESHOLD, DETECTION_RESOLUTION_INDEX
+    global TRACKER, DETECTION_THRESHOLD, RECOGNITION_THRESHOLD, DETECTION_RESOLUTION_INDEX
     
     with TRACKER_LOCK:
         if TRACKER:
@@ -271,6 +272,7 @@ def apply_settings(settings):
             TRACKER.lost_buffer_ms = settings.lost_buffer_ms
             TRACKER.world_match_threshold_m = settings.world_match_threshold_m
     
+    DETECTION_THRESHOLD = settings.detection_threshold
     RECOGNITION_THRESHOLD = settings.recognition_threshold
     
     # Update detection resolution (Virtual resolution)
@@ -278,8 +280,8 @@ def apply_settings(settings):
         # Map: 0=QQVGA, 1=QVGA, 2=VGA
         DETECTION_RESOLUTION_INDEX = settings.camera_resolution
     
-    print(f"[Settings] Applied: threshold={settings.recognition_threshold}, "
-          f"confirm={settings.confirm_count}, lost_buf={settings.lost_buffer_ms}ms")
+    print(f"[Settings] Applied: detect_conf={settings.detection_threshold}, "
+          f"recog_thresh={settings.recognition_threshold}, confirm={settings.confirm_count}")
 
 
 def check_camera_daemon():
@@ -550,6 +552,7 @@ def detect_faces_only(image, scale_x=1.0, scale_y=1.0):
     Run face detection without recognition.
     Accepts an already resized image and scaling factors to map coordinates back.
     Returns list of face data including raw detector output for later recognition.
+    Filters out low-confidence detections (blur, noise) based on DETECTION_THRESHOLD.
     """
     height, width = image.shape[:2]
     DETECTOR.setInputSize((width, height))
@@ -562,6 +565,12 @@ def detect_faces_only(image, scale_x=1.0, scale_y=1.0):
     results = []
     for face in faces:
         # face is [x, y, w, h, x_re, y_re, x_le, y_le, ..., conf]
+        # Last value (index 14) is confidence score
+        conf = float(face[-1])
+        
+        # Filter low-confidence detections (blur, motion, noise)
+        if conf < DETECTION_THRESHOLD:
+            continue
         
         # Scale coordinates back to original image if resized
         if scale_x != 1.0 or scale_y != 1.0:
@@ -583,7 +592,8 @@ def detect_faces_only(image, scale_x=1.0, scale_y=1.0):
                 'right': int(face[0] + face[2]),
                 'bottom': int(face[1] + face[3])
             },
-            'raw_face': face  # Keep full detector output with landmarks (now scaled)
+            'raw_face': face,  # Keep full detector output with landmarks (now scaled)
+            'confidence': conf  # Include confidence for debugging/logging
         })
     
     return results

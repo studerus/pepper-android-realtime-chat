@@ -1118,6 +1118,21 @@ private fun PerceptionSettingsContent(
             }
         }
         
+        // Detection Settings Section
+        item {
+            SettingsSection(title = "Detection") {
+                SettingsSliderInstant(
+                    label = "Detection Confidence",
+                    value = localSettings.detectionThreshold,
+                    onValueChange = { localSettings = localSettings.copy(detectionThreshold = it) },
+                    onValueChangeFinished = { updateAndSend(localSettings) },
+                    valueRange = 0.5f..0.99f,
+                    valueFormat = { "%.2f".format(it) },
+                    description = "Min confidence (filters blur/noise)"
+                )
+            }
+        }
+        
         // Recognition Settings Section
         item {
             SettingsSection(title = "Recognition") {

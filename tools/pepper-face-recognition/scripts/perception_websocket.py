@@ -67,6 +67,9 @@ class PerceptionSettings:
     lost_buffer_ms: int = 2500            # ms - how long lost tracks stay in recovery buffer
     world_match_threshold_m: float = 0.7  # meters - max distance for 3D track matching
     
+    # Detection settings
+    detection_threshold: float = 0.85     # min confidence for face detection (filters blur/noise)
+    
     # Recognition settings  
     recognition_threshold: float = 0.65   # cosine distance threshold (lower = stricter)
     recognition_cooldown_ms: int = 3000   # ms - time between recognition attempts
