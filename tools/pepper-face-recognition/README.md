@@ -394,7 +394,7 @@ All settings can be changed via WebSocket or HTTP and are applied immediately:
 | `max_angle_distance` | 15.0 | 5-30 | Max angle movement to match same person (degrees) |
 | `track_timeout_ms` | 3000 | 1000-10000 | Time before removing lost tracks |
 | `gaze_center_tolerance` | 0.15 | 0.05-0.5 | How off-center is still "looking at robot" |
-| `update_interval_ms` | 150 | 50-2000 | Server update rate |
+| `update_interval_ms` | 100 | 0-1000 | Pause between tracking cycles (0 = max speed) |
 | `camera_resolution` | 1 | 0-2 | 0=QQVGA(160x120), 1=QVGA(320x240), 2=VGA(640x480) |
 
 ## Android Integration

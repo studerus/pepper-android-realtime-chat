@@ -856,10 +856,10 @@ The Human Perception Dashboard provides real-time visualization of all detected 
 Real-time list of all detected people showing:
 - **Track ID** - Stable identifier that persists across frames
 - **Name** - Recognized name from face database (or "Unknown")
-- **Distance** - Calculated from depth camera data
+- **Distance** - Estimated optically from face size
 - **Position** - World coordinates (yaw, pitch angles)
-- **Gaze** - Whether person is looking at the robot
-- **Last Seen** - Time since last detection
+- **Gaze** - Whether person is looking at the robot (with duration)
+- **Duration** - How long this person has been tracked
 
 #### Radar Tab
 Visual representation of people around the robot:
@@ -882,8 +882,8 @@ Configure perception parameters in real-time:
 - **Max Angle Distance** (5-30°) - Tracking tolerance for movement
 - **Track Timeout** (1-10s) - Time before removing lost tracks
 - **Gaze Center Tolerance** (0.05-0.5) - How off-center is still "looking at robot"
-- **Update Interval** (300-2000ms) - Server update rate
-- **Camera Resolution** - QQVGA/QVGA/VGA
+- **Cycle Delay** (0-1000ms, default 100ms) - Pause between tracking cycles
+- **Camera Resolution** - Detection resolution (QQVGA/QVGA/VGA) - affects range and speed
 
 ### Head-Based Perception Architecture
 
@@ -894,7 +894,7 @@ Pepper Head (Python)              Pepper Tablet (Android)
 ┌─────────────────────┐          ┌─────────────────────────┐
 │ camera_daemon.py    │          │ PerceptionWebSocketClient│
 │ (Python 2.7)        │          │ (OkHttp WebSocket)      │
-│ • RGB + Depth sync  │          └───────────┬─────────────┘
+│ • VGA camera (SHM)  │          └───────────┬─────────────┘
 │ • 5050 (internal)   │                      │
 └─────────┬───────────┘                      │
           │                                  │
@@ -912,7 +912,7 @@ Pepper Head (Python)              Pepper Tablet (Android)
 
 ### Features
 - **Stable Tracking** - Track IDs persist across frames using angle-based matching
-- **Real-time Updates** - WebSocket streaming at 3-5 Hz
+- **Real-time Updates** - WebSocket streaming at 4-6 Hz
 - **Local Face Recognition** - Runs entirely on Pepper's head (no cloud API)
 - **Gaze Detection** - Determines if person is looking at robot based on face position
 - **Configurable Parameters** - All settings adjustable in real-time via the dashboard

@@ -284,7 +284,7 @@ class PerceptionWebSocketClient @Inject constructor() {
                         recognitionThreshold = data.optDouble("recognition_threshold", 0.65).toFloat(),
                         recognitionCooldownMs = data.optInt("recognition_cooldown_ms", 3000),
                         gazeCenterTolerance = data.optDouble("gaze_center_tolerance", 0.15).toFloat(),
-                        updateIntervalMs = data.optInt("update_interval_ms", 150),
+                        updateIntervalMs = data.optInt("update_interval_ms", 100),
                         cameraResolution = data.optInt("camera_resolution", 1)
                     )
                     scope.launch {

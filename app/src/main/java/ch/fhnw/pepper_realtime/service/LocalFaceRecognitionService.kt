@@ -111,7 +111,7 @@ class LocalFaceRecognitionService @Inject constructor(
         val gazeCenterTolerance: Float = 0.15f,    // how much off-center is still "looking at robot"
         
         // Streaming settings
-        val updateIntervalMs: Int = 150,           // ms - target update interval
+        val updateIntervalMs: Int = 100,           // ms - cycle delay
         
         // Camera settings
         // Resolution: 0=QQVGA(160x120), 1=QVGA(320x240), 2=VGA(640x480)
@@ -136,7 +136,7 @@ class LocalFaceRecognitionService @Inject constructor(
                 recognitionThreshold = obj.optDouble("recognition_threshold", 0.65).toFloat(),
                 recognitionCooldownMs = obj.optInt("recognition_cooldown_ms", 3000),
                 gazeCenterTolerance = obj.optDouble("gaze_center_tolerance", 0.15).toFloat(),
-                updateIntervalMs = obj.optInt("update_interval_ms", 150),
+                updateIntervalMs = obj.optInt("update_interval_ms", 100),
                 cameraResolution = obj.optInt("camera_resolution", 1)
             )
         }

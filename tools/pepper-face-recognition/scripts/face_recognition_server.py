@@ -1090,7 +1090,7 @@ class FaceHandler(BaseHTTPRequestHandler):
                 self._send_json({
                     'settings': {
                         'recognition_threshold': RECOGNITION_THRESHOLD,
-                        'update_interval_ms': 150
+                        'update_interval_ms': 100
                     },
                     'websocket_available': False
                 })

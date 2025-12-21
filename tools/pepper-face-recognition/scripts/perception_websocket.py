@@ -72,7 +72,7 @@ class PerceptionSettings:
     gaze_center_tolerance: float = 0.15   # how much off-center is still "looking at robot"
     
     # Streaming settings
-    update_interval_ms: int = 150         # ms - target update interval (was 700, lowered for smoother tracking)
+    update_interval_ms: int = 100         # ms - cycle delay (0 = max speed)
     
     # Camera settings
     # Resolution: 0=QQVGA(160x120), 1=QVGA(320x240), 2=VGA(640x480)

@@ -1187,13 +1187,13 @@ private fun PerceptionSettingsContent(
         item {
             SettingsSection(title = "Performance") {
                 SettingsSliderInstant(
-                    label = "Update Interval",
+                    label = "Cycle Delay",
                     value = localSettings.updateIntervalMs.toFloat(),
                     onValueChange = { localSettings = localSettings.copy(updateIntervalMs = it.toInt()) },
                     onValueChangeFinished = { updateAndSend(localSettings) },
-                    valueRange = 300f..2000f,
+                    valueRange = 0f..1000f,
                     valueFormat = { "${it.toInt()}ms" },
-                    description = "Server update rate (lower = faster, more CPU)"
+                    description = "Pause between tracking cycles (0 = max speed, more CPU/heat)"
                 )
             }
         }
