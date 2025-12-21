@@ -53,7 +53,7 @@ fun SettingsScreen(
     
     // Options - dynamic based on provider
     val openAiModels = listOf("gpt-realtime", "gpt-realtime-mini", "gpt-4o-realtime-preview", "gpt-4o-mini-realtime-preview")
-    val xaiModels = listOf("grok-3-fast")
+    val xaiModels = listOf("Grok Voice Agent")
     val models = if (isXaiProvider) xaiModels else openAiModels
     val openAiVoices = listOf("alloy", "ash", "ballad", "cedar", "coral", "echo", "marin", "sage", "shimmer", "verse")
     val xaiVoices = listOf("Ara", "Rex", "Sal", "Eve", "Leo")

@@ -251,26 +251,15 @@ YOUTUBE_API_KEY=your_youtube_api_key
 
 ### 3. Build Your Flavor
 
-**🤖 Pepper Flavor (Default)** - Full robot functionality
+**🤖 Pepper Flavor (Default)**
 ```bash
-# Build for Pepper robot
 ./gradlew assemblePepperDebug
 ```
-- Includes all robot-specific features (navigation, gestures, camera, sensors)
-- Requires Pepper robot hardware
-- QiSDK and related dependencies included
 
-**📱 Standalone Flavor** - Testing on any Android device
+**📱 Standalone Flavor**
 ```bash
-# Build for standalone testing
 ./gradlew assembleStandaloneDebug
 ```
-- Works on any Android device (phone, tablet)
-- All generic AI features functional (chat, internet search, quizzes, games, weather)
-- **Vision analysis with device camera** - uses front camera for automatic photo capture
-- Robot features simulated (movements/gestures logged only)
-- Perfect for testing conversational AI and tool system without robot hardware
-- Useful for demonstrations and development
 
 **In Android Studio:**
 - Select build flavor from: `Build` → `Select Build Variant`
@@ -383,7 +372,7 @@ On your Android device:
 - ✅ All generic tools and function calling
 - ⏸️ Robot movements/gestures (simulated and logged)
 - ⏸️ Navigation and mapping (simulated)
-- ⏸️ **Human Perception:** No tracking or face recognition (requires Pepper's head server)
+- ⏸️ Human Perception: No tracking or face recognition (requires Pepper's head server)
 
 **Note:** The app requires camera permission for vision analysis. Grant camera access when prompted.
 
@@ -458,13 +447,13 @@ This allows the Android app to automatically start the face recognition server v
 #### Option 3: x.ai Grok (Alternative with Native Search)
 1. Go to [x.ai](https://x.ai/)
 2. Create an API key
-3. The app automatically uses the `grok-3-fast` model
+3. Uses the Grok Voice Agent API (speech-to-speech model, OpenAI Realtime API compatible)
 
 **Unique Features:**
 - **Native Web Search**: Built-in web search without Tavily API
 - **Native X Search**: Search posts on X/Twitter in real-time
 - **5 Distinct Voices**: Ara, Rex, Sal, Eve, Leo
-- **Compatible API**: Uses same Realtime API protocol as OpenAI
+- **100+ Languages**: Multilingual support out of the box
 
 ### Optional APIs (Extended Features)
 
@@ -507,7 +496,7 @@ This allows the Android app to automatically start the face recognition server v
 
 ### Data Privacy
 This app sends data to third-party services when features are used:
-- **OpenAI/Azure (Realtime API)**: Audio, messages, images, tool results
+- **OpenAI/Azure (Realtime API) or x.ai (Grok)**: Audio, messages, images, tool results
 - **Azure Speech** (optional): Audio for transcription
 - **Groq/Tavily/OpenWeather/YouTube** (optional): Search queries, images, location data
 
@@ -604,7 +593,7 @@ You can switch between different Realtime API providers in the settings:
 
 - **OpenAI Direct** (Recommended): Supports all four models (`gpt-realtime`, `gpt-realtime-mini`, `gpt-4o-realtime-preview`, `gpt-4o-mini-realtime-preview`) directly from OpenAI
 - **Azure OpenAI** (Enterprise): Supports all four models with your Azure deployment
-- **x.ai Grok**: Uses `grok-3-fast` model with native web/X search capabilities and unique voices (Ara, Rex, Sal, Eve, Leo)
+- **x.ai Grok**: Speech-to-speech voice model with native web/X search capabilities and unique voices (Ara, Rex, Sal, Eve, Leo)
 
 **Note**: Changing the API provider automatically updates available models and voices. Model/voice changes restart the session automatically.
 
@@ -650,41 +639,30 @@ The app supports **two speech recognition modes**, configurable in **Settings �
 - **Note**: The displayed transcript may not exactly match what the model understood, as transcription is generated asynchronously
 - **Best For** - English and major languages, quick setup
 
-#### 2. Azure Speech Services (Recommended for some low resource languages)
+#### 2. Azure Speech Services (Recommended for Swiss German and other regional dialects)
 - **Superior Quality** - Significantly better for regional dialects and low-resource languages
-- **Continuous Recognition** - For optimal latency, transcription happens while speaking (not after), with interim results displayed in status bar
+- **Continuous Recognition** - Transcription while speaking, with interim results in chat history
 - **Confidence Scores** - Real-time feedback on transcription quality
-- **Specialized Models** - Language-specific optimization for regional variants
-- **Sync Transcripts** - User speech appears immediately in chat
-- **Full Transparency** - The exact transcribed text is sent to the model (what you see = what the model receives)
-- **Azure VAD** - Voice activity detection handled by Azure Speech Services
-- **Configurable Silence Timeout** - End-of-speech detection after silence (default: 500ms, adjustable in settings)
+- **Full Transparency** - Exact transcribed text sent to model (what you see = what the model receives)
+- **Configurable Silence Timeout** - End-of-speech detection (default: 500ms, adjustable in settings)
 - **Requires** - `AZURE_SPEECH_KEY` in `local.properties`
-- **Best For** - Some low-resource languages, production use, debugging
 
 #### Switching Audio Modes
 1. Open app **Settings** (tap wrench icon 🔧 in toolbar or swipe from right edge)
 2. Select **Audio Input** dropdown
 3. Choose preferred mode:
-   - **"Realtime API (Simple Setup)"** - Default, no extra keys
-   - **"Azure Speech (Best for Dialects)"** - Requires Azure Speech key
+   - **"Realtime API"** - Default, no extra keys
+   - **"Azure Speech"** - Requires Azure Speech key
 4. Close settings - change takes effect immediately
 
 ### ASR Confidence System
 
-**Note**: Only available in **Azure Speech mode**. The app uses intelligent confidence scoring to ensure accurate voice input processing.
+**Note**: Only available in **Azure Speech mode**.
 
-#### How It Works
-- **Confidence Analysis** - Each recognized speech gets a confidence score (0-100%)
-- **Smart Tagging** - Speech below the configured threshold gets tagged with "[Low confidence: XX%]"
-- **AI Model Awareness** - The AI can identify uncertain transcriptions and ask for clarification
-- **Adjustable Settings** - Users can customize the minimum confidence level in settings (default: 70%)
-
-#### Benefits
-- **Intelligent Clarification** - AI can ask "Did you say X?" or "Can you repeat?" when transcription is uncertain
-- **Context Awareness** - AI knows when to be more careful about interpreting unclear speech
-- **Customizable Sensitivity** - Users can adjust based on their environment and speaking style  
-- **Better Understanding** - AI can handle ambiguous transcriptions more gracefully
+- **Confidence Scoring** - Each transcription gets a score (0-100%)
+- **Smart Tagging** - Low-confidence speech tagged with "[Low confidence: XX%]"
+- **AI Clarification** - AI can ask "Did you say X?" when uncertain
+- **Adjustable Threshold** - Configurable in settings (default: 70%)
 
 ### Multilingual Support
 
@@ -767,10 +745,9 @@ Due to Pepper's hardware limitations (no echo cancellation), the app uses an int
 The UI provides two separate controls for better user experience:
 
 #### Status Capsule (Interrupt Only)
-- Shows current robot state (Listening, Thinking, Speaking)
-- **Tap during Speaking** - Immediately stops speech (interrupt only, no mute)
+- Shows current robot state (Listening, Thinking, "Tap to interrupt" during Speaking)
+- **Tap during Speaking** - Immediately stops speech
 - **No action in other states** - Capsule is purely informational when not speaking
-- **Visual feedback** - Orange color with stop icon during speaking indicates it's interruptible
 
 #### Microphone Button (Mute/Unmute)
 - Always visible next to status capsule
@@ -785,8 +762,8 @@ The UI provides two separate controls for better user experience:
 Certain events automatically interrupt ongoing responses to provide immediate feedback:
 - **Touch Events** - Physical touch triggers new contextual response
 - **Navigation Updates** - Status messages like "[MAP LOADED]" or "[NAVIGATION ERROR]"
-- **Game Events** - Memory game matches, quiz answers, etc.
-- **System Messages** - Tool execution results and status updates
+- **Game Events** - Memory game matches, quiz answers, TicTacToe moves
+- **Event Rules** - Rules configured with "Interrupt & Respond" action type
 
 ### Technical Features
 - **Instant Stop** - Responses halt immediately when interrupted
@@ -799,54 +776,31 @@ Certain events automatically interrupt ongoing responses to provide immediate fe
 
 The chat interface is built with **Jetpack Compose**, providing a modern declarative UI with smooth animations and efficient list rendering via `LazyColumn`.
 
-### Function Call Transparency
-The chat interface provides **complete transparency** into AI function calling with professional expandable UI elements.
-
 ### Function Call Cards
-- **Expandable Design** - Each function call appears as a collapsible card in the chat
-- **Status Indicators** - Visual status with ✅ (completed) or ⏳ (pending) icons
-- **Function Icons** - Unique emoji icons for each tool (🌐 search, 🌤️ weather, 👁️ vision, etc.)
-- **Summary View** - Condensed description when collapsed
-- **Detailed View** - Full arguments and results when expanded
+- **Expandable Cards** - Each function call appears as a collapsible card with status icon (✅/⏳)
+- **Tool Icons** - Unique emoji for each tool (🌐 search, 🌤️ weather, 👁️ vision, etc.)
+- **Tap to Expand** - Shows arguments and results in readable format
 
-### Interactive Elements
-- **Tap to Expand** - Click any function call card to toggle detailed view
-- **Smooth Animations** - Professional rotate animations for expand/collapse arrows  
-- **JSON Formatting** - Properly formatted and readable JSON for arguments and results
-- **Real-time Updates** - Function result appears automatically when operation completes
+### Event Rule Cards
+- **Rule Trigger Display** - When an event rule fires, a card appears in chat showing which rule was triggered
+- **Expandable Details** - Click to see the full context message sent to AI
+- **Rule Reference** - Shows rule name and event type for easy identification
 
-### Transparency Benefits
-- **Debugging Aid** - See exactly what parameters were sent to each function
-- **Result Verification** - View complete API responses and tool outputs
-- **Learning Tool** - Understand how AI decides to use different functions
-- **Trust Building** - Complete visibility into AI decision-making process
-
-### Vision Photo Display
-When vision analysis is performed, photos are automatically displayed in the chat with interactive features.
-
-### Photo Integration
-- **Automatic Capture** - Photos appear immediately when vision analysis starts
-- **Thumbnail View** - Compact 220dp preview images in chat flow
-- **Quality Optimization** - Efficiently sized thumbnails for smooth scrolling
-- **Context Placement** - Photos appear exactly where vision analysis was requested
-
-### Full-Screen Viewing
-- **Tap to Expand** - Click any photo thumbnail to view in full-screen overlay
-- **High Resolution** - Full overlay displays up to 1024x1024 resolution
-- **Overlay Interface** - Clean, distraction-free viewing experience  
-- **Easy Dismissal** - Tap anywhere on overlay to return to chat
-
-### Professional Features
-- **Session Management** - Photos are cleaned up automatically when session ends
-- **Memory Optimization** - Efficient bitmap handling prevents memory leaks
-- **File Path Storage** - Photos remain accessible throughout the conversation
-- **Seamless Integration** - Photos and function calls work together in chat flow
+### Vision Photos
+- **Thumbnail View** - Compact preview images in chat flow
+- **Tap to Expand** - Full-screen overlay with high resolution
+- **Auto Cleanup** - Photos managed automatically per session
 
 <a id="human-perception"></a>
 ## 👁️ Human Perception Dashboard
 
 ### Overview
 The Human Perception Dashboard provides real-time visualization of all detected people around Pepper using a custom Head-Based Perception System running on Pepper's head computer. This system provides stable person tracking, face recognition, and gaze detection via WebSocket streaming.
+
+**Why a Custom System?**
+- The QiSDK's built-in PeoplePerception offered age, gender, and emotion detection, but these were highly unreliable in practice
+- The `ALFaceDetection` module for face identification is no longer available on newer Android-based Pepper robots
+- Our custom solution focuses on reliable person tracking and face recognition without the unreliable metadata
 
 ### How to Access
 - **Tap the dashboard symbol** in the status bar to toggle the dashboard overlay
@@ -902,8 +856,6 @@ Configure perception parameters in real-time. A "Reset to Defaults" button resto
 - **Camera Resolution** - Detection resolution (QQVGA/QVGA/VGA) - affects range and speed
 
 ### Head-Based Perception Architecture
-
-The perception system runs entirely on Pepper's head computer:
 
 ```
 Pepper Head (Python)              Pepper Tablet (Android)
@@ -986,8 +938,6 @@ Rules are evaluated continuously based on perception events and trigger context 
 
 ### Condition Fields
 Filter rules with additional conditions on these fields:
-
-> **Note:** The head-based perception system provides limited fields compared to the older QiSDK PeoplePerception. Age, gender, emotion, and engagement are no longer available.
 
 | Field | Description | Example Value |
 |-------|-------------|---------------|
@@ -1087,8 +1037,8 @@ User: "Move forward 1 meter"
 
 #### 3. Save Important Locations
 ```bash
-User: "Save this location as printer"
-Robot: "Saved location 'printer' with high precision during mapping"
+User: "Save this location as entry"
+Robot: "Saved location 'entry' with high precision during mapping"
 
 User: "Save this location as kitchen" 
 Robot: "Saved location 'kitchen' with high precision during mapping"
@@ -1104,8 +1054,8 @@ Robot: "Map completed and saved successfully. Ready for navigation!"
 
 #### 5. Navigate to Saved Locations
 ```bash
-User: "Go to the printer"
-Robot: "Navigating to printer... I have arrived at printer."
+User: "Go to the entry"
+Robot: "Navigating to entry... I have arrived at the entry."
 
 User: "Navigate to kitchen"
 Robot: "Navigating to kitchen (high-precision location)..."
@@ -1116,7 +1066,7 @@ The AI automatically knows all available locations and can suggest corrections:
 
 ```bash
 User: "Go to dorm"
-Robot: "I have these locations: Door, Kitchen, Printer. Did you mean 'Door'?"
+Robot: "I have these locations: Door, Kitchen, Entry. Did you mean 'Door'?"
 
 User: "Yes, door" 
 Robot: "Navigating to door..."
@@ -1139,41 +1089,10 @@ Robot: "Navigating to door..."
 
 ### Map Visualization
 
-#### Map Preview Overlay
-The app provides a **visual map preview** that shows the created environment map along with all saved locations in real-time.
-
-#### How to Access
-- **Tap the navigation icon** (📍) in the top toolbar to toggle the map preview
-- **Overlay appears** in the top-right corner as a 320x240dp floating window
-- **Tap again** to hide the preview
-
-#### Visual Features
-- **Environment Map** - Shows the actual mapped room layout as generated by Pepper's sensors
-- **Saved Locations** - Displays all saved locations as **cyan-colored markers** with labels
-- **Real-time Status** - Shows current navigation state:
-  - *"No map available"* - No map saved on disk
-  - *"Not running"* - Map not loaded in memory
-  - *"Localized"* - Robot knows its position in the map
-  - *"Localizing..."* - Robot is trying to determine its position
-  - *"Navigating..."* - Robot is moving to a target
-  - *Live view* - When localized, shows map with location markers
-
-**Map Overlay Text:**
-- If no map is available: *"No Map Available"*
-- If map is saved but not loaded: *"Map saved but not loaded. Start navigation to load."*
-
-#### Use Cases
-- **Location Overview** - See all saved locations at a glance
-- **Navigation Planning** - Visually plan which locations to navigate to
-- **Map Verification** - Confirm the mapped area covers desired spaces
-- **Location Management** - Visual feedback when saving new locations
-- **Debugging** - Verify mapping and localization status
-
-#### Technical Details
-- **Custom MapPreviewView** - Purpose-built Android custom view component
-- **QiSDK Integration** - Uses Pepper's native map bitmap generation
-- **Dynamic Updates** - Automatically refreshes when locations are added/removed
-- **Optimized Rendering** - Efficient drawing with proper scaling and anti-aliasing
+Tap the **navigation icon** (📍) in the toolbar to toggle a floating map preview (320x240dp) showing:
+- **Environment Map** - Room layout from Pepper's sensors
+- **Saved Locations** - Cyan markers with labels
+- **Navigation Status** - "No map available", "Localizing...", "Navigating...", or live view when localized
 
 <a id="obstacle-analysis"></a>
 ## 🔍 Intelligent Obstacle Analysis
@@ -1184,7 +1103,7 @@ When Pepper's movement is blocked, the AI automatically analyzes what's in the w
 User: "Move forward 2 meters"
 Robot: "Something is blocking my path. Let me see what it is..."
 # AI automatically: look_at_position → analyze_vision → return gaze
-Robot: "I can see a chair blocking my path. Should I try moving around it?"
+Robot: "I can see a chair blocking my path. Could you remove it?"
 ```
 
 **Key Features:**
@@ -1208,43 +1127,12 @@ The app offers multiple interactive games and activities that can be started thr
 <a id="tic-tac-toe"></a>
 ### 🎮 Tic Tac Toe Game
 
-#### How to Play
-The AI opponent provides an interactive Tic Tac Toe experience with touchscreen interaction and real-time voice commentary.
-
-#### Starting a Game
-```bash
-User: "Let's play Tic Tac Toe"
-Robot: "Great! Let's start a game of Tic Tac Toe. You are X, I am O."
-# Game dialog opens automatically
-```
+Play against the AI with voice command ("Let's play Tic Tac Toe") - the game dialog opens automatically.
 
 #### Gameplay
-- **Visual Board**: 3x3 grid with clear X and O markers
-- **Touch Interaction**: Make moves by tapping board positions
-- **Voice Commentary**: Talk to the AI naturally while playing
-- **AI Opponent**: Intelligent moves via Realtime API
-- **Real-time Updates**: Instant visual and voice feedback
-
-#### Game Flow
-1. **User starts** as X (always goes first)
-2. **Tap any position** on the board to make your move
-3. **AI responds** with voice feedback and makes its move as O
-4. **Continue alternating** until someone wins or draws
-5. **Game auto-closes** after 5 seconds when finished
-
-#### Voice Integration
-- All moves trigger context updates to the AI
-- AI provides natural commentary and reactions
-- Game state communicated through existing WebSocket connection
-- Seamless integration with ongoing conversation
-
-#### Game Features
-- **🎯 Smart AI**: Competitive gameplay with strategic moves
-- **🎨 Clean UI**: Large, clear buttons with distinct X/O markers
-- **🔊 Voice Feedback**: Natural AI commentary during gameplay
-- **⚡ Fast Response**: Immediate visual updates and AI reactions
-- **🎪 Auto-Close**: Game closes automatically when finished
-- **🔄 Repeatable**: Start new games anytime with voice commands
+- **Touch Interaction** - Tap board positions to make your moves (you are X)
+- **AI Opponent** - AI responds with a function call to place its O and comments naturally
+- **Auto-Close** - Game closes 5 seconds after win/draw
 
 <a id="memory-game"></a>
 ### 🧠 Memory Game
@@ -1422,9 +1310,8 @@ Robot: "Happy Birthday! 🎂"
               ┌────────────────┐
               │  Realtime API  │
               │   WebSocket    │
-              │ (Model: gpt-   │
-              │  realtime or   │
-              │  4o variants)  │
+              │ (OpenAI gpt-4o │
+              │  or x.ai Grok) │
               └────────┬───────┘
                        │
                        │ Response Events
@@ -1497,7 +1384,7 @@ Robot: "Happy Birthday! 🎂"
 ```
 
 **Key Flow Characteristics:**
-- **Model Flexibility**: Supports gpt-realtime (GA), gpt-realtime-mini, gpt-4o-realtime-preview, gpt-4o-mini-realtime-preview
+- **Model Flexibility**: Supports OpenAI (gpt-4o-realtime, gpt-4o-mini-realtime) and x.ai Grok Voice Agent
 - **Dual Audio Input**: Realtime API (simple) or Azure Speech (dialect quality)
 - **Server-side VAD**: Realtime API handles turn detection automatically
 - **Conditional Tool Calls**: AI decides when tools are needed (not every response uses tools)
@@ -1520,20 +1407,17 @@ This application makes extensive use of **Pepper Android SDK (QiSDK)** high-leve
 - No direct access to low-level robot functions available in the older NAOqi SDK
 - Some advanced robot capabilities (e.g., low-level motor control, direct sensor access) are not exposed
 
-**Extension via SSH:**
-- The app performs an **SSH connection test** to the robot's head at startup
-- This SSH connection provides a path for developers to access **low-level NAOqi functions** if needed
-- Developers can extend the app with custom SSH-based commands to:
+**Extension via Head Server:**
+- The app maintains a **WebSocket connection** to the robot's head for the perception system
+- This bidirectional communication channel could be extended to access additional **low-level NAOqi functions**:
   - Access sensors not exposed in QiSDK
   - Implement low-level motor control
   - Integrate custom NAOqi modules
   - Debug and monitor system-level robot state
 
 **Development Approach:**
-- **Primary**: Use QiSDK high-level functions for all standard features (recommended for stability and maintainability)
-- **Advanced**: Use SSH/NAOqi for specialized low-level requirements when QiSDK is insufficient
-
-This hybrid approach provides both the convenience of modern Android development and the flexibility of low-level robot access when needed.
+- **Primary**: Use QiSDK high-level functions for standard features (recommended for stability)
+- **Advanced**: Extend the head server with custom NAOqi integrations when QiSDK is insufficient
 
 ### Gesture Synchronization During Speech
 
@@ -1707,7 +1591,7 @@ app/src/
 ### Common Issues
 
 #### "Not connected to server"
-- Check your OpenAI or Azure OpenAI API key and endpoint
+- Check your OpenAI, Azure OpenAI, or x.ai API key and endpoint
 - Verify internet connectivity
 - For Azure: Ensure the deployment name matches your Azure setup
 
@@ -1788,6 +1672,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🙏 Acknowledgments
 
 - **OpenAI** - Realtime API
+- **x.ai** - Grok Voice Agent API
 - **SoftBank Robotics** - Pepper robot platform
 - **Microsoft** - Azure Speech and OpenAI services
 - **Groq** - Alternative vision analysis provider

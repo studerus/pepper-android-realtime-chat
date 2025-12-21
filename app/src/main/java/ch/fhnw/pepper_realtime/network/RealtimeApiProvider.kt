@@ -12,7 +12,7 @@ enum class RealtimeApiProvider(
 ) {
     AZURE_OPENAI("Azure OpenAI", "gpt-4o-realtime-preview"),
     OPENAI_DIRECT("OpenAI Direct", "gpt-4o-realtime-preview"),
-    XAI("x.ai Grok", "grok-3-fast");
+    XAI("x.ai Grok", "Grok Voice Agent");
 
     fun getDisplayName(): String = displayName
 
