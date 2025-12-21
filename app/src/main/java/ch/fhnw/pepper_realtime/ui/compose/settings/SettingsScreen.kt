@@ -61,7 +61,7 @@ fun SettingsScreen(
     val voices = if (isXaiProvider) xaiVoices else openAiVoices
     val configuredProviders = remember { apiKeyManager.getConfiguredProviders() }
     val languages = SettingsRepository.getAvailableLanguages()
-    val audioInputModes = listOf("Realtime API", "Azure Speech")
+    val audioInputModes = listOf("Direct Audio", "Azure Speech")
     val transcriptionModels = listOf("whisper-1", "gpt-4o-mini-transcribe", "gpt-4o-transcribe", "gpt-4o-transcribe-diarize")
     val turnDetectionTypes = listOf("Server VAD", "Semantic VAD")
     val eagernessLevels = listOf("Auto (Medium)", "Low (Max 8s)", "Medium (Max 4s)", "High (Max 2s)")
@@ -229,7 +229,7 @@ fun SettingsScreen(
             
             // Realtime API Settings (shown when Realtime mode selected)
             if (isRealtimeMode) {
-                SettingsSectionHeader(title = "Realtime API Settings")
+                SettingsSectionHeader(title = "Voice API Settings")
                 
                 SettingsDropdown(
                     label = "Transcription Model",

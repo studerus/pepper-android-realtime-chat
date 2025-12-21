@@ -133,8 +133,8 @@ A multimodal AI system for the Pepper robot powered by OpenAI's Realtime API. It
 - **Dual Build Flavors** - Two app variants for different use cases:
   - **Pepper Flavor** - Full robot integration with QiSDK for Pepper hardware
   - **Standalone Flavor** - Runs on any Android device for testing and development without robot hardware
-- **Real-time Voice Chat** - Natural conversations using OpenAI's Realtime API (OpenAI Direct, Azure OpenAI for privacy, or x.ai Grok with native search) with two audio input modes:
-  - **Realtime API audio streaming** - Direct audio input with native voice activity detection
+- **Real-time Voice Chat** - Natural conversations using the Realtime API (via OpenAI or Azure) or x.ai Grok Voice Agent API with two audio input modes:
+  - **Direct audio streaming** - Audio input with native voice activity detection
   - **Azure Speech Services STT** - Streaming transcription with superior dialect recognition and confidence scores (warns AI when transcription quality is low)
 - **Synchronized Gestures** - Automatic body language during speech output for natural communication
 - **Expressive Animations** - Rich library of robot animations triggered by voice commands (wave, bow, applause, kisses, laugh, etc.)
@@ -417,9 +417,9 @@ This allows the Android app to automatically start the face recognition server v
 
 ### Required APIs (Core Functionality)
 
-**Choose one of the following Realtime API providers:**
+**Choose one of the following voice agent API providers:**
 
-#### Option 1: OpenAI Direct (Recommended - Easiest Setup)
+#### Option 1: Realtime API via OpenAI directly (Recommended - Easiest Setup)
 1. Go to [platform.openai.com](https://platform.openai.com/)
 2. Create an API key
 3. That's it! The app supports all Realtime API models:
@@ -428,7 +428,7 @@ This allows the Android app to automatically start the face recognition server v
    - `gpt-4o-realtime-preview` (Preview model)
    - `gpt-4o-mini-realtime-preview` (Mini model - significantly lower cost)
 
-#### Option 2: Azure OpenAI (Enterprise Option with Privacy Benefits)
+#### Option 2: Realtime API via Azure OpenAI (Enterprise Option with Privacy Benefits)
 1. Go to [Azure Portal](https://portal.azure.com/)
 2. Create an Azure OpenAI resource
 3. Deploy one or more of the supported models:
@@ -444,7 +444,7 @@ This allows the Android app to automatically start the face recognition server v
 - **Enterprise Controls**: Role-based access control, encryption at rest and in transit, comprehensive audit logging
 - **Compliance**: Supports GDPR, HIPAA, and other regulatory frameworks
 
-#### Option 3: x.ai Grok (Alternative with Native Search)
+#### Option 3: x.ai Grok Voice Agent API (Alternative with Native Search)
 1. Go to [x.ai](https://x.ai/)
 2. Create an API key
 3. Uses the Grok Voice Agent API (speech-to-speech model, OpenAI Realtime API compatible)
@@ -579,7 +579,7 @@ This app sends data to third-party services when features are used:
 - **API Provider** - Choose between OpenAI Direct and Azure OpenAI
 - **Model Selection** - Select from gpt-realtime, gpt-realtime-mini, gpt-4o-realtime-preview, or gpt-4o-mini-realtime-preview
 - **Voice Selection** - Choose from 10 available voices (alloy, ash, ballad, cedar, coral, echo, marin, sage, shimmer, verse)
-- **Audio Input Mode** - Switch between Realtime API audio streaming and Azure Speech Services STT
+- **Audio Input Mode** - Switch between Direct audio streaming and Azure Speech Services STT
 - **System Prompt** - Customize the AI's personality and behavior instructions
 - **Recognition Language** - Set speech recognition language (German, English, French, Italian variants)
 - **Temperature** - Adjust AI creativity/randomness (0-100%)
@@ -630,7 +630,7 @@ The app provides comprehensive voice input and multilingual capabilities with tw
 
 The app supports **two speech recognition modes**, configurable in **Settings → Audio Input**:
 
-#### 1. Realtime API Audio (Default) ✨
+#### 1. Direct Audio (Default) ✨
 - **Simple Setup** - No separate speech API key needed
 - **Lower Latency** - Integrated audio processing with conversation flow
 - **Server VAD** - Automatic speech detection handled by the model
@@ -651,7 +651,7 @@ The app supports **two speech recognition modes**, configurable in **Settings �
 1. Open app **Settings** (tap wrench icon 🔧 in toolbar or swipe from right edge)
 2. Select **Audio Input** dropdown
 3. Choose preferred mode:
-   - **"Realtime API"** - Default, no extra keys
+   - **"Direct Audio"** - Default, no extra keys
    - **"Azure Speech"** - Requires Azure Speech key
 4. Close settings - change takes effect immediately
 
@@ -675,7 +675,7 @@ The app supports **two speech recognition modes**, configurable in **Settings �
 
 The app supports **30+ languages** in both audio input modes:
 
-**Realtime API Mode:**
+**Direct Audio Mode:**
 - Language setting affects the **input audio transcription** (Whisper-based) that appears in chat
 - Does NOT affect what the model understands (model processes audio directly with automatic language detection)
 - Transcription quality improves when correct language is configured
@@ -704,7 +704,7 @@ The app supports **30+ languages** in both audio input modes:
 
 #### Important Language Considerations
 
-**Realtime API Mode:**
+**Direct Audio Mode:**
 - ✅ Model understands speech via automatic language detection (no configuration required)
 - ⚙️ Language setting improves displayed **transcript quality** (Whisper-based)
 - 💡 Recommendation: Configure correct language for better transcripts, but not strictly necessary
@@ -1289,7 +1289,7 @@ Robot: "Happy Birthday! 🎂"
 ┌─────────────────────────────────────────────────────────────┐
 │             Audio Input Mode Selection                      │
 ├─────────────────────────────┬───────────────────────────────┤
-│   Mode A: Realtime API      │   Mode B: Azure Speech STT    │
+│   Mode A: Direct Audio      │   Mode B: Azure Speech STT    │
 │   (Default - Simple)        │   (Better for Dialects)       │
 └──────────┬──────────────────┴────────────┬──────────────────┘
            │                               │
