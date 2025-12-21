@@ -84,9 +84,6 @@ class PerceptionService {
         return serviceScope
     }
 
-    private var lastUiPushMs = 0L
-    private var lastUiIds: List<Int> = emptyList()
-
     val isInitialized: Boolean
         get() = webSocketClient != null || localFaceRecognitionService != null
 
@@ -322,23 +319,10 @@ class PerceptionService {
 
     /**
      * Push updates to UI listener.
+     * No throttling needed - backend already limits updates to ~4-6 Hz.
      */
     private fun maybePushUi(list: List<PerceptionData.HumanInfo>) {
-        try {
-            val now = System.currentTimeMillis()
-            val ids = list.map { it.id }
-            val idsChanged = ids != lastUiIds
-            // Update UI at max 10 FPS (100ms) unless list of people changes (instant)
-            val timeOk = (now - lastUiPushMs) >= 100L
-
-            if (idsChanged || timeOk) {
-                listener?.onHumansDetected(list)
-                lastUiPushMs = now
-                lastUiIds = ids
-            }
-        } catch (e: Exception) {
-            listener?.onHumansDetected(list)
-        }
+        listener?.onHumansDetected(list)
     }
 
     /**
