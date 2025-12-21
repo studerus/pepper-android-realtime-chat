@@ -125,7 +125,11 @@ python3 face_recognition_server.py
 | **QVGA (320×240)** | ~120-220ms | ~150-250ms | ~4-6 Hz | **Recommended balance** |
 | VGA (640×480) | ~600-900ms | ~650-950ms | ~1-1.5 Hz | Best recognition, slow tracking |
 
-**Note:** Face registration automatically switches to VGA temporarily for better quality embeddings, then restores the previous resolution.
+**Note:** Face registration automatically:
+1. Pauses head movements (ALBasicAwareness) to prevent motion blur
+2. Switches to VGA (640×480) for better quality embeddings
+3. Captures and registers the face
+4. Restores resolution and resumes head movements
 
 ### Component Breakdown (QVGA)
 

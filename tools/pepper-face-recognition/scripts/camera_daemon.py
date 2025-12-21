@@ -16,10 +16,12 @@ Usage:
     PYTHONPATH=/opt/aldebaran/lib/python2.7/site-packages python2 camera_daemon.py
 
 HTTP Endpoints (port 5050):
-    GET /frame       - Get synchronized RGB + Depth + Head Angles
+    GET /frame       - Get synchronized RGB + Head Angles
     GET /rgb         - Get RGB frame only
-    GET /depth       - Get Depth frame only
     GET /status      - Get daemon status
+    GET /set_resolution?res=N - Set camera resolution (0=QQVGA, 1=QVGA, 2=VGA)
+    GET /pause_awareness  - Pause head movements (for face registration)
+    GET /resume_awareness - Resume head movements
     GET /shutdown    - Shutdown daemon gracefully
 """
 
@@ -46,10 +48,12 @@ PORT = 5050
 session = None
 video = None
 memory = None
+awareness = None  # ALBasicAwareness for pausing head movements
 rgb_subscriber = None
 depth_subscriber = None
 running = True
 lock = threading.Lock()
+awareness_paused = False
 
 # Camera settings
 # RGB: Camera 0 (Top), ColorSpace 13 (BGR), FPS 15
@@ -192,7 +196,7 @@ polling_thread = None
 
 def init_naoqi():
     """Initialize NAOqi connection and subscribe to cameras."""
-    global session, video, memory, rgb_subscriber, polling_thread
+    global session, video, memory, awareness, rgb_subscriber, polling_thread
     
     import qi
     session = qi.Session()
@@ -200,6 +204,14 @@ def init_naoqi():
     
     video = session.service("ALVideoDevice")
     memory = session.service("ALMemory")
+    
+    # Initialize BasicAwareness for pausing head movements during registration
+    try:
+        awareness = session.service("ALBasicAwareness")
+        print("[Daemon] ALBasicAwareness available")
+    except Exception as e:
+        print("[Daemon] ALBasicAwareness not available: {}".format(e))
+        awareness = None
     
     # Subscribe to RGB camera (persistent)
     rgb_subscriber = video.subscribeCamera(
@@ -270,6 +282,44 @@ def set_camera_resolution(new_resolution):
         except Exception as e:
             print("[Daemon] Resolution change error: {}".format(e))
             return False
+
+
+def pause_awareness():
+    """Pause ALBasicAwareness to stop head movements during registration."""
+    global awareness_paused
+    
+    if awareness is None:
+        print("[Daemon] Awareness not available, cannot pause")
+        return False
+    
+    try:
+        awareness.pauseAwareness()
+        awareness_paused = True
+        print("[Daemon] Awareness paused - head movements stopped")
+        return True
+    except Exception as e:
+        print("[Daemon] Failed to pause awareness: {}".format(e))
+        return False
+
+
+def resume_awareness():
+    """Resume ALBasicAwareness after registration."""
+    global awareness_paused
+    
+    if awareness is None:
+        return False
+    
+    if not awareness_paused:
+        return True  # Already running
+    
+    try:
+        awareness.resumeAwareness()
+        awareness_paused = False
+        print("[Daemon] Awareness resumed - head movements enabled")
+        return True
+    except Exception as e:
+        print("[Daemon] Failed to resume awareness: {}".format(e))
+        return False
 
 
 def get_head_angles():
@@ -505,6 +555,20 @@ class CameraHandler(BaseHTTPRequestHandler):
                 })
             else:
                 self.send_json({"error": "Failed to set resolution"}, 500)
+            
+        elif self.path == '/pause_awareness':
+            # Pause head movements for registration
+            if pause_awareness():
+                self.send_json({"status": "paused"})
+            else:
+                self.send_json({"error": "Failed to pause awareness"}, 500)
+        
+        elif self.path == '/resume_awareness':
+            # Resume head movements after registration
+            if resume_awareness():
+                self.send_json({"status": "resumed"})
+            else:
+                self.send_json({"error": "Failed to resume awareness"}, 500)
             
         elif self.path == '/shutdown':
             running = False
