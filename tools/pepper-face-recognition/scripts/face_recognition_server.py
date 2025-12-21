@@ -876,16 +876,49 @@ def recognize_process(image):
 
 
 def ws_register_face(name):
-    """WebSocket callback: Register a face from current camera view."""
+    """WebSocket callback: Register a face from current camera view.
+    
+    Temporarily switches to VGA resolution for better quality embeddings,
+    then restores the previous resolution.
+    """
     try:
+        # Get current resolution to restore later
+        original_resolution = 1  # Default QVGA
+        if WEBSOCKET_AVAILABLE:
+            settings = get_settings()
+            original_resolution = settings.camera_resolution
+        
+        # Switch to VGA (2) for better quality registration
+        if original_resolution != 2:
+            print(f"[Register] Switching to VGA for better quality...")
+            set_camera_resolution(2)
+            time.sleep(0.5)  # Wait for camera to adjust
+        
         # Capture image from camera
-        image = get_synchronized_frame()
-        if image is None:
+        frame = get_synchronized_frame()
+        if frame is None or frame.get('rgb_image') is None:
+            # Restore resolution before returning error
+            if original_resolution != 2:
+                set_camera_resolution(original_resolution)
             return False, "Failed to capture image"
         
+        image = frame['rgb_image']
         success, message = register_process(image, name)
+        
+        # Restore original resolution
+        if original_resolution != 2:
+            print(f"[Register] Restoring resolution to {original_resolution}...")
+            set_camera_resolution(original_resolution)
+        
         return success, message if not success else None
     except Exception as e:
+        # Try to restore resolution on error
+        try:
+            if WEBSOCKET_AVAILABLE:
+                settings = get_settings()
+                set_camera_resolution(settings.camera_resolution)
+        except:
+            pass
         return False, str(e)
 
 
