@@ -391,13 +391,13 @@ All settings can be changed via WebSocket or HTTP and are applied immediately. A
 |---------|---------|-------|-------------|
 | `detection_threshold` | 0.85 | 0.5-0.99 | Min confidence for face detection (filters blur/noise) |
 | `recognition_threshold` | 0.65 | 0.3-0.9 | Cosine distance threshold (lower = stricter) |
-| `recognition_cooldown_ms` | 3000 | 2000-10000 | Time between recognition attempts per track (should be > recognition time) |
+| `recognition_cooldown_ms` | 2000 | 1000-10000 | Time between recognition attempts per track |
 | `max_angle_distance` | 15.0 | 5-30 | Max angle movement to match same person (degrees) |
 | `track_timeout_ms` | 3000 | 1000-10000 | Time before removing lost tracks |
-| `confirm_count` | 3 | 1-10 | Detections needed before track is confirmed |
+| `confirm_count` | 2 | 1-10 | Detections needed before track is confirmed |
 | `lost_buffer_ms` | 2500 | 500-10000 | How long lost tracks stay for recovery |
 | `world_match_threshold_m` | 0.7 | 0.3-2.0 | Max 3D distance for track matching (meters) |
-| `gaze_center_tolerance` | 0.15 | 0.05-0.5 | How off-center is still "looking at robot" |
+| `gaze_center_tolerance` | 0.20 | 0.05-0.5 | How off-center is still "looking at robot" |
 | `update_interval_ms` | 100 | 0-1000 | Pause between tracking cycles (0 = max speed) |
 | `camera_resolution` | 1 | 0-2 | Detection resolution: 0=Close(<1m), 1=Standard(~2m), 2=Long(>2m) |
 

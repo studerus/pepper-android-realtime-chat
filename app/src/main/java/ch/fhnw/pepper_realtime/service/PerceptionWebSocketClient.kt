@@ -285,13 +285,13 @@ class PerceptionWebSocketClient @Inject constructor() {
                         maxAngleDistance = data.optDouble("max_angle_distance", 15.0).toFloat(),
                         trackTimeoutMs = data.optInt("track_timeout_ms", 3000),
                         minTrackAgeMs = data.optInt("min_track_age_ms", 300),
-                        confirmCount = data.optInt("confirm_count", 3),
+                        confirmCount = data.optInt("confirm_count", 2),
                         lostBufferMs = data.optInt("lost_buffer_ms", 2500),
                         worldMatchThresholdM = data.optDouble("world_match_threshold_m", 0.7).toFloat(),
                         detectionThreshold = data.optDouble("detection_threshold", 0.85).toFloat(),
                         recognitionThreshold = data.optDouble("recognition_threshold", 0.65).toFloat(),
-                        recognitionCooldownMs = data.optInt("recognition_cooldown_ms", 3000),
-                        gazeCenterTolerance = data.optDouble("gaze_center_tolerance", 0.15).toFloat(),
+                        recognitionCooldownMs = data.optInt("recognition_cooldown_ms", 2000),
+                        gazeCenterTolerance = data.optDouble("gaze_center_tolerance", 0.20).toFloat(),
                         updateIntervalMs = data.optInt("update_interval_ms", 100),
                         cameraResolution = data.optInt("camera_resolution", 1)
                     )

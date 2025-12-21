@@ -41,7 +41,7 @@ MATCH_THRESHOLD = 30.0  # Max cost to match of angle + depth (signature adds ext
 
 # Default Tracker Constants (can be overridden via settings)
 DEFAULT_WORLD_MATCH_THRESHOLD_M = 0.70  # 70cm threshold for world-position matching
-DEFAULT_CONFIRM_COUNT = 3               # Consecutive detections before creating track
+DEFAULT_CONFIRM_COUNT = 2               # Consecutive detections before creating track
 DEFAULT_LOST_BUFFER_MS = 2500           # Buffer lost tracks for recovery
 
 # Offsets (will be updated from daemon if available, else defaults)
@@ -249,7 +249,7 @@ class FaceTracker:
     def __init__(self,
                  max_angle_distance: float = 15.0,  # Legacy param (used for validation)
                  track_timeout_ms: int = 3000,
-                 recognition_cooldown_ms: int = 3000,
+                 recognition_cooldown_ms: int = 2000,
                  gaze_threshold: float = DEFAULT_GAZE_THRESHOLD,
                  confirm_count: int = DEFAULT_CONFIRM_COUNT,
                  lost_buffer_ms: int = DEFAULT_LOST_BUFFER_MS,

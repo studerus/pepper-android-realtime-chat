@@ -233,9 +233,9 @@ def init_models():
         TRACKER = FaceTracker(
             max_angle_distance=15.0,
             track_timeout_ms=3000,
-            recognition_cooldown_ms=3000,
-            gaze_threshold=0.15,
-            confirm_count=3,
+            recognition_cooldown_ms=2000,
+            gaze_threshold=0.20,
+            confirm_count=2,
             lost_buffer_ms=2500,
             world_match_threshold_m=0.7
         )
