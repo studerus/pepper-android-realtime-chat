@@ -140,6 +140,32 @@ python3 face_recognition_server.py
 | Face Tracking | ~2-5ms | Angle-based matching (Kalman) |
 | Face Recognition | ~1000-1300ms | SFace (Async/Threaded) - **Does not block tracking** |
 
+### Why Detection Scales with Resolution, but Recognition Doesn't
+
+**Detection (YuNet):**
+- Must scan the **entire image** to find faces
+- VGA = 640×480 = **307,200 pixels**
+- QVGA = 320×240 = **76,800 pixels**
+- → VGA is ~4x more work → ~4x slower
+
+**Recognition (SFace):**
+- Works only on the **cropped face region**
+- Always scaled to **112×112 pixels** (fixed network input)
+- Whether camera is QQVGA or VGA → SFace always gets 112×112
+- → Recognition time is **independent of camera resolution**
+
+### Resolution Impact on Registration Quality
+
+The face crop size affects embedding quality:
+
+| Registration | Face in Image | After Scaling | Quality |
+|--------------|---------------|---------------|---------|
+| QQVGA, far away | ~15×15 px | 112×112 (pixelated) | ❌ Poor |
+| QVGA, close | ~80×80 px | 112×112 (good) | ✅ Good |
+| VGA, close | ~150×150 px | 112×112 (downscale) | ✅ Excellent |
+
+**Recommendation:** Register faces when the person is **close to the robot** or use **VGA resolution** (auto-enabled during registration).
+
 ### Why 32-bit?
 Pepper's Atom E3845 CPU supports 64-bit, but the NAOqi OS uses a **32-bit userspace**. Without root access (`sudo`), we cannot run a 64-bit chroot or container. Therefore, we must use 32-bit binaries.
 
