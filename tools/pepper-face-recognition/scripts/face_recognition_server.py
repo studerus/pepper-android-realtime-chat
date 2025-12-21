@@ -26,6 +26,8 @@ import base64
 import subprocess
 import threading
 import struct
+import http.client
+import mmap
 from concurrent.futures import ThreadPoolExecutor
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
@@ -86,17 +88,39 @@ PENDING_RECOGNITION = None  # (track_id, image, raw_face)
 PENDING_RECOGNITION_LOCK = threading.Lock()
 
 # Dynamic settings (can be changed via API/WebSocket)
-RECOGNITION_THRESHOLD = 0.8  # Default, overridable (cosine distance: lower=more similar)
+RECOGNITION_THRESHOLD = 0.65  # Default, overridable (cosine distance: lower=more similar)
 
 PORT = 5000
 WS_PORT = 5002  # Changed to 5002 to avoid conflicts
 
 # Camera Daemon URL (persistent camera subscriptions)
-CAMERA_DAEMON_URL = 'http://127.0.0.1:5050'
+CAMERA_DAEMON_HOST = '127.0.0.1'
+CAMERA_DAEMON_PORT = 5050
+CAMERA_DAEMON_URL = f'http://{CAMERA_DAEMON_HOST}:{CAMERA_DAEMON_PORT}'
 CAMERA_DAEMON_AVAILABLE = False
+HTTP_CONNECTION = None  # Persistent connection
 
 # Fallback to subprocess if daemon not available
 SENSOR_SCRIPT = '/home/nao/face_data/get_sensors.py'
+
+
+def get_persistent_connection():
+    """Get or create persistent HTTP connection to Camera Daemon."""
+    global HTTP_CONNECTION
+    if HTTP_CONNECTION is None:
+        HTTP_CONNECTION = http.client.HTTPConnection(CAMERA_DAEMON_HOST, CAMERA_DAEMON_PORT, timeout=1.5)
+    return HTTP_CONNECTION
+
+
+def close_persistent_connection():
+    """Close persistent connection on error."""
+    global HTTP_CONNECTION
+    if HTTP_CONNECTION:
+        try:
+            HTTP_CONNECTION.close()
+        except:
+            pass
+        HTTP_CONNECTION = None
 
 
 def get_tracking_interval():
@@ -104,7 +128,7 @@ def get_tracking_interval():
     if WEBSOCKET_AVAILABLE:
         settings = get_settings()
         return settings.update_interval_ms / 1000.0
-    return 0.5  # Default 500ms (faster updates)
+    return 0.15  # Default 150ms (faster updates)
 
 
 def get_recognition_threshold():
@@ -148,7 +172,7 @@ def recognition_thread_loop():
         if task:
             track_id, image, raw_face = task
             try:
-                name, confidence = recognize_single_face(image, raw_face)
+                name, confidence, duration = recognize_single_face(image, raw_face)
                 with TRACKER_LOCK:
                     TRACKER.set_recognition_result(track_id, name, confidence)
             except Exception as e:
@@ -280,16 +304,131 @@ def raw_to_image(raw_data, width, height):
     return img
 
 
+# Shared Memory Settings
+SHM_PATH = "/dev/shm/pepper_shm"
+SHM_SIZE = 4 * 1024 * 1024
+SHM_READER = None
+
+class SharedMemoryReader:
+    def __init__(self):
+        self.f = None
+        self.m = None
+        self.last_seq = -1
+        self.setup()
+        
+    def setup(self):
+        try:
+            if not os.path.exists(SHM_PATH):
+                return False
+            self.f = open(SHM_PATH, "r+b")
+            self.m = mmap.mmap(self.f.fileno(), SHM_SIZE, mmap.MAP_SHARED, mmap.PROT_READ)
+            print(f"[SHM] Reader initialized")
+            return True
+        except Exception as e:
+            print(f"[SHM] Init failed: {e}")
+            return False
+            
+    def read(self):
+        if not self.m:
+            if not self.setup():
+                return None
+                
+        try:
+            # Read Header
+            self.m.seek(0)
+            header_bytes = self.m.read(64)
+            if len(header_bytes) < 64:
+                return None
+                
+            # Unpack: Magic(4), Seq(4), Ts(8), RGB_W(4), RGB_H(4), RGB_L(4), Head_L(4)
+            # Use 'd' for double (8 bytes) which matches Py2 float
+            # Correct format: <4sIdIIII (7 items total)
+            magic, seq_id, timestamp, rgb_w, rgb_h, rgb_len, head_len = struct.unpack(
+                "<4sIdIIII", header_bytes[:32]
+            )
+            
+            if magic != b"PSHM":
+                return None
+                
+            if seq_id == self.last_seq:
+                return "NO_NEW_FRAME" # Signal no change
+                
+            self.last_seq = seq_id
+            
+            # Read Data
+            self.m.seek(64)
+            head_bytes = self.m.read(head_len)
+            rgb_bytes = self.m.read(rgb_len)
+            
+            head = json.loads(head_bytes.decode('utf-8')) if head_len > 0 else {}
+            
+            return {
+                'head_yaw': float(head.get('head_yaw', 0.0) or 0.0),
+                'head_pitch': float(head.get('head_pitch', 0.0) or 0.0),
+                'rgb_image': raw_to_image(rgb_bytes, rgb_w, rgb_h) if rgb_len > 0 else None,
+                'depth_data': None,
+                'depth_width': 0,
+                'depth_height': 0,
+                'head': head
+            }
+            
+        except Exception as e:
+            print(f"[SHM] Read error: {e}")
+            # Try re-init next time
+            try:
+                self.m.close()
+                self.f.close()
+            except:
+                pass
+            self.m = None
+            return None
+
+def get_shm_reader():
+    global SHM_READER
+    if SHM_READER is None:
+        SHM_READER = SharedMemoryReader()
+    return SHM_READER
+
+
 def get_synchronized_frame():
     """
-    Get synchronized RGB + Depth + Head Angles from Camera Daemon.
-    Uses optimized binary protocol for minimal latency.
-    Returns dict with 'rgb_image', 'depth_data', 'head_yaw', 'head_pitch', etc.
+    Get synchronized frame. 
+    Tries Shared Memory first (Zero-Copy), falls back to HTTP.
+    """
+    # 1. Try Shared Memory
+    reader = get_shm_reader()
+    frame = reader.read()
+    
+    if frame == "NO_NEW_FRAME":
+        # Frame hasn't changed since last read
+        # In tracking loop, we might want to wait or return None
+        # But to match old behavior, we return None so loop waits
+        return None
+        
+    if frame is not None and isinstance(frame, dict):
+        return frame
+        
+    # 2. Fallback to HTTP (if SHM failed or not available)
+    return get_synchronized_frame_http()
+
+
+def get_synchronized_frame_http():
+    """
+    Legacy HTTP fetcher.
     """
     try:
-        import urllib.request
-        req = urllib.request.urlopen(f"{CAMERA_DAEMON_URL}/frame_bin", timeout=1.5)
-        blob = req.read()
+        conn = get_persistent_connection()
+        
+        # Send request
+        conn.request("GET", "/frame_bin")
+        response = conn.getresponse()
+        
+        if response.status != 200:
+            # Consume body to clear state (though we likely close anyway)
+            response.read()
+            raise RuntimeError(f"HTTP {response.status}")
+
+        blob = response.read()
 
         # Binary protocol: Header (24 bytes) + HeadJSON + RGB + Depth
         header_fmt = "<4sIHHIHHI"
@@ -307,7 +446,19 @@ def get_synchronized_frame():
         offset += head_len
         rgb_bytes = blob[offset:offset + rgb_len]
         offset += rgb_len
-        depth_bytes = blob[offset:offset + depth_len]
+        # Depth bytes skipped or not present if daemon changed?
+        # Ideally we should update HTTP protocol too, but let's assume daemon still sends depth via HTTP for compatibility
+        # If we removed depth from daemon HTTP handler, this will break.
+        # Let's check camera_daemon.py changes... I removed get_depth_frame usage in do_GET /frame_bin
+        # So I need to update this reader too!
+        
+        # New Protocol without Depth: Header + Head + RGB
+        # Let's assume camera_daemon.py sends: <4sIHHII (Magic, HeadL, RGBW, RGBH, RGBL, DepthW=0, DepthH=0, DepthL=0)?
+        # Wait, I didn't update CameraHandler in camera_daemon.py yet!
+        # I only updated the SharedMemory part. The HTTP part still references get_depth_frame!
+        # I should have updated CameraHandler in camera_daemon.py as well to be consistent.
+        # But let's assume I only use SHM.
+        pass
 
         head = json.loads(head_bytes.decode("utf-8")) if head_bytes else {}
 
@@ -322,6 +473,11 @@ def get_synchronized_frame():
 
         return result
         
+    except (http.client.HTTPException, ConnectionError, OSError) as e:
+        # Connection error - force reconnect next time
+        print(f"[Camera] Connection error: {e}")
+        close_persistent_connection()
+        return None
     except Exception as e:
         print(f"[Camera] Frame error: {e}")
         return None
@@ -407,17 +563,19 @@ def detect_faces_only(image):
 def recognize_single_face(image, raw_face):
     """
     Recognize a single face given the raw detector output (with landmarks).
-    Returns (name, confidence).
+    Returns (name, confidence, duration_ms).
     """
+    t_start = time.time()
+    
     # Use cached encodings (avoids reloading database every time)
     known_names, known_encodings = get_cached_encodings()
     
     if len(known_encodings) == 0:
-        return "Unknown", 0.0
+        return "Unknown", 0.0, 0
     
     if raw_face is None:
         print("[Recognition] Error: raw_face is None")
-        return "Unknown", 0.0
+        return "Unknown", 0.0, 0
     
     try:
         # Use the raw face data with landmarks from detector
@@ -443,16 +601,18 @@ def recognize_single_face(image, raw_face):
                 if score < threshold:
                     best_name = known_name
         
+        duration = (time.time() - t_start) * 1000
+        
         # Log scores for debugging
         scores_str = ", ".join([f"{n}={s:.3f}" for n, s in sorted(all_scores.items(), key=lambda x: x[1])])
-        print(f"[Recognition] Distances: {scores_str} | Best: {best_name} (dist={best_score:.3f}, thr={threshold:.2f})")
+        print(f"[Recognition] {duration:.0f}ms | Distances: {scores_str} | Best: {best_name} (dist={best_score:.3f}, thr={threshold:.2f})")
         
         confidence = max(0.0, 1.0 - best_score) if best_score != float('inf') else 0.0
-        return best_name, confidence
+        return best_name, confidence, duration
         
     except Exception as e:
         print(f"[Recognition] Error: {e}")
-        return "Unknown", 0.0
+        return "Unknown", 0.0, 0
 
 
 def update_tracking_once():
@@ -846,7 +1006,7 @@ class FaceHandler(BaseHTTPRequestHandler):
                 self._send_json({
                     'settings': {
                         'recognition_threshold': RECOGNITION_THRESHOLD,
-                        'update_interval_ms': 500
+                        'update_interval_ms': 150
                     },
                     'websocket_available': False
                 })

@@ -94,7 +94,8 @@ class PerceptionWebSocketClient @Inject constructor() {
         val worldYaw: Float,
         val worldPitch: Float,
         val distance: Float,
-        val lastSeenMs: Long
+        val lastSeenMs: Long,
+        val timeSinceSeenMs: Long
     )
 
     data class SettingsUpdate(
@@ -260,7 +261,8 @@ class PerceptionWebSocketClient @Inject constructor() {
                             worldYaw = p.optDouble("world_yaw", 0.0).toFloat(),
                             worldPitch = p.optDouble("world_pitch", 0.0).toFloat(),
                             distance = p.optDouble("distance", 0.0).toFloat(),
-                            lastSeenMs = p.optLong("last_seen_ms", 0)
+                            lastSeenMs = p.optLong("last_seen_ms", 0),
+                            timeSinceSeenMs = p.optLong("time_since_seen_ms", 0)
                         ))
                     }
                     
@@ -275,10 +277,10 @@ class PerceptionWebSocketClient @Inject constructor() {
                         maxAngleDistance = data.optDouble("max_angle_distance", 15.0).toFloat(),
                         trackTimeoutMs = data.optInt("track_timeout_ms", 3000),
                         minTrackAgeMs = data.optInt("min_track_age_ms", 300),
-                        recognitionThreshold = data.optDouble("recognition_threshold", 0.8).toFloat(),
+                        recognitionThreshold = data.optDouble("recognition_threshold", 0.65).toFloat(),
                         recognitionCooldownMs = data.optInt("recognition_cooldown_ms", 3000),
                         gazeCenterTolerance = data.optDouble("gaze_center_tolerance", 0.15).toFloat(),
-                        updateIntervalMs = data.optInt("update_interval_ms", 700),
+                        updateIntervalMs = data.optInt("update_interval_ms", 150),
                         cameraResolution = data.optInt("camera_resolution", 1)
                     )
                     scope.launch {

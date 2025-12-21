@@ -282,7 +282,8 @@ class PerceptionService {
             }
             
             // Freshness indicator
-            lastSeenMs = person.lastSeenMs
+            // We use timeSinceSeenMs from server to calculate a synchronized timestamp relative to Android clock
+            lastSeenMs = System.currentTimeMillis() - person.timeSinceSeenMs
         }
     }
 
@@ -321,7 +322,8 @@ class PerceptionService {
             val now = System.currentTimeMillis()
             val ids = list.map { it.id }
             val idsChanged = ids != lastUiIds
-            val timeOk = (now - lastUiPushMs) >= 500L
+            // Update UI at max 10 FPS (100ms) unless list of people changes (instant)
+            val timeOk = (now - lastUiPushMs) >= 100L
 
             if (idsChanged || timeOk) {
                 listener?.onHumansDetected(list)

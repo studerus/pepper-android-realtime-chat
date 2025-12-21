@@ -65,14 +65,14 @@ class PerceptionSettings:
     min_track_age_ms: int = 300           # ms - minimum age before track is reported
     
     # Recognition settings  
-    recognition_threshold: float = 0.8    # cosine distance threshold (lower = stricter)
+    recognition_threshold: float = 0.65   # cosine distance threshold (lower = stricter)
     recognition_cooldown_ms: int = 3000   # ms - time between recognition attempts
     
     # Gaze detection settings
     gaze_center_tolerance: float = 0.15   # how much off-center is still "looking at robot"
     
     # Streaming settings
-    update_interval_ms: int = 100         # ms - target update interval (was 700, lowered for smoother tracking)
+    update_interval_ms: int = 150         # ms - target update interval (was 700, lowered for smoother tracking)
     
     # Camera settings
     # Resolution: 0=QQVGA(160x120), 1=QVGA(320x240), 2=VGA(640x480)

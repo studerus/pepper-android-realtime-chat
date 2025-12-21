@@ -1,10 +1,15 @@
 # Pepper Head-Based Perception System
 
-This directory contains the complete perception system running on Pepper's head computer (Intel Atom, i386 architecture, Python 3.7). It provides real-time face detection, recognition, tracking, and gaze detection via WebSocket streaming.
+This directory contains the complete perception system running on Pepper's head computer (Intel Atom E3845). It provides real-time face detection, recognition, tracking, and gaze detection via WebSocket streaming.
+
+## System Architecture
+
+The system must run on **Python 3.7+** for OpenCV support, but Pepper's OS is **Python 2.7**.
+Additionally, while the CPU is 64-bit, the **Userspace is 32-bit (i386)**.
+
+**Solution:** We cross-compile a standalone Python 3.7 environment with OpenCV/YuNet/SFace in a 32-bit Docker container and deploy it to the robot.
 
 ## Overview
-
-The Head-Based Perception System runs entirely on Pepper's head (no cloud API required):
 
 - **Detection**: YuNet CNN for robust face detection
 - **Recognition**: SFace for 128-dimensional feature extraction  
@@ -22,13 +27,13 @@ The Head-Based Perception System runs entirely on Pepper's head (no cloud API re
 │                                                                             │
 │  ┌──────────────────────┐     ┌─────────────────────────────────────────┐  │
 │  │   camera_daemon.py   │     │       face_recognition_server.py        │  │
-│  │   (Python 2.7)       │     │       (Python 3.7)                      │  │
+│  │   (Python 2.7)       │     │       (Python 3.7 / i386)               │  │
 │  │                      │     │                                         │  │
-│  │ • Persistent camera  │────▶│ • Face detection (YuNet)                │  │
+│  │ • Persistent camera  │     │ • Face detection (YuNet)                │  │
 │  │   subscription       │     │ • Face recognition (SFace)              │  │
-│  │ • RGB + Depth sync   │     │ • Face tracking (FaceTracker)           │  │
-│  │ • BGR colorspace     │     │ • Gaze detection                        │  │
-│  │ • Binary HTTP @5050  │     │ • Database management                   │  │
+│  │ • RGB + Head sync    │     │ • Face tracking (FaceTracker)           │  │
+│  │ • Shared Memory      │     │ • Gaze detection                        │  │
+│  │   Writer (/dev/shm)  │====▶│ • Shared Memory Reader                  │  │
 │  └──────────────────────┘     │                                         │  │
 │                               │ HTTP Server @5000 (Legacy/Fallback)     │  │
 │                               └────────────────┬────────────────────────┘  │
@@ -71,28 +76,69 @@ The Head-Based Perception System runs entirely on Pepper's head (no cloud API re
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
+## Installation
+
+### Prerequisites
+- Docker (Desktop or Engine)
+- PowerShell
+- 4GB+ RAM for building
+
+### Steps
+
+1. **Build Packages (Docker)**
+   This compiles Python 3.7, OpenCV 4.x, and NumPy for i386 architecture.
+   ```powershell
+   .\build.ps1
+   ```
+
+2. **Deploy to Pepper**
+   Copies the compiled packages and models to the robot.
+   ```powershell
+   .\deploy.ps1 -PepperIP "10.95.65.123"
+   ```
+
+3. **Verify**
+   The deploy script runs a self-test automatically.
+
+## Usage on Pepper
+
+```bash
+# 1. Start Camera Daemon (Python 2.7)
+python2 /home/nao/face_data/camera_daemon.py &
+
+# 2. Start Perception Server (Python 3.7)
+# Set PYTHONPATH to include our custom packages
+export PYTHONPATH=/home/nao/python_packages:$PYTHONPATH
+export LD_LIBRARY_PATH=/home/nao/python_packages/libs:$LD_LIBRARY_PATH
+
+cd /home/nao/face_data
+python3 face_recognition_server.py
+```
+
 ## Performance
 
 | Stage | Time | Notes |
 |-------|------|-------|
-| Frame Capture | ~30-50ms | BGR @ 320x240 via camera_daemon |
-| Face Detection | ~50-80ms | YuNet CNN |
-| Face Tracking | ~5-10ms | Angle-based matching |
-| Face Recognition | ~0ms | Async (non-blocking) |
-| WebSocket Broadcast | ~5-10ms | JSON over local network |
-| **Total Latency** | ~120-200ms | End-to-end |
-| **Update Frequency** | ~3-5 Hz | Configurable |
+| Frame Capture | < 1ms | **Shared Memory (mmap)** from camera_daemon |
+| Face Detection | ~120-220ms | YuNet CNN (i386) - Main bottleneck |
+| Face Tracking | ~2-5ms | Angle-based matching (Kalman) |
+| Face Recognition | ~1000-1300ms | SFace (Async/Threaded) - **Does not block tracking** |
+| **Total Loop** | ~150-250ms | Effective tracking latency |
+| **Update Rate** | ~3-6 Hz | Limited only by Face Detection speed |
 
-### Optimizations Implemented
+### Why 32-bit?
+Pepper's Atom E3845 CPU supports 64-bit, but the NAOqi OS uses a **32-bit userspace**. Without root access (`sudo`), we cannot run a 64-bit chroot or container. Therefore, we must use 32-bit binaries.
 
+## Optimizations Implemented
+
+- **Shared Memory (Zero-Copy)**: `camera_daemon.py` writes frames to `/dev/shm`, `face_recognition_server.py` reads them instantly. Eliminates HTTP/TCP overhead (~80ms -> <1ms).
 - **Persistent Camera Subscription**: No subscribe/unsubscribe overhead per frame
 - **BGR Colorspace**: Direct from NAOqi, no conversion needed
-- **Binary Data Transfer**: Between Python 2 daemon and Python 3 server
 - **Async Recognition**: Non-blocking, runs in separate thread
 - **Cached Encodings**: Face database cached with 5s TTL
 - **WebSocket Streaming**: Push-based, not polling
 
-### Tracking Robustness
+## Tracking Robustness
 
 The face tracker uses a simplified, robust approach:
 
@@ -281,12 +327,12 @@ All settings can be changed via WebSocket or HTTP and are applied immediately:
 
 | Setting | Default | Range | Description |
 |---------|---------|-------|-------------|
-| `recognition_threshold` | 0.8 | 0.3-0.9 | Cosine distance threshold (lower = stricter) |
-| `recognition_cooldown_ms` | 3000 | 1000-10000 | Time between recognition attempts per track |
+| `recognition_threshold` | 0.65 | 0.3-0.9 | Cosine distance threshold (lower = stricter) |
+| `recognition_cooldown_ms` | 3000 | 2000-10000 | Time between recognition attempts per track (should be > recognition time) |
 | `max_angle_distance` | 15.0 | 5-30 | Max angle movement to match same person (degrees) |
 | `track_timeout_ms` | 3000 | 1000-10000 | Time before removing lost tracks |
 | `gaze_center_tolerance` | 0.15 | 0.05-0.5 | How off-center is still "looking at robot" |
-| `update_interval_ms` | 700 | 300-2000 | Server update rate |
+| `update_interval_ms` | 150 | 50-2000 | Server update rate |
 | `camera_resolution` | 1 | 0-2 | 0=QQVGA(160x120), 1=QVGA(320x240), 2=VGA(640x480) |
 
 ## Android Integration
@@ -400,3 +446,4 @@ export PYTHONPATH=/home/nao/python_packages
 - **Models:** YuNet (Detection), SFace (Recognition) - ONNX format
 - **Server IP (from Tablet):** 198.18.0.1
 - **Ports:** 5000 (HTTP), 5002 (WebSocket), 5050 (Camera Daemon)
+

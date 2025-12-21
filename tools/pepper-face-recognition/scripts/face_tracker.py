@@ -627,7 +627,8 @@ class FaceTracker:
                 'looking_at_robot': t.looking_at_robot,
                 'head_direction': round(t.head_yaw_ratio, 2),
                 'bbox': t.bbox,
-                'last_seen_ms': t.last_seen_ms
+                'last_seen_ms': t.last_seen_ms,
+                'time_since_seen_ms': int(time.time() * 1000) - t.last_seen_ms
             }
             for t in self.tracks.values()
         ]

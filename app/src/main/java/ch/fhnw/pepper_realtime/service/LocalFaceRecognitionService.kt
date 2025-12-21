@@ -104,14 +104,14 @@ class LocalFaceRecognitionService @Inject constructor(
         val minTrackAgeMs: Int = 300,              // ms - minimum age before track is reported
         
         // Recognition settings
-        val recognitionThreshold: Float = 0.8f,    // cosine distance threshold (lower = stricter)
+        val recognitionThreshold: Float = 0.65f,   // cosine distance threshold (lower = stricter)
         val recognitionCooldownMs: Int = 3000,     // ms - time between recognition attempts
         
         // Gaze detection settings
         val gazeCenterTolerance: Float = 0.15f,    // how much off-center is still "looking at robot"
         
         // Streaming settings
-        val updateIntervalMs: Int = 700,           // ms - target update interval
+        val updateIntervalMs: Int = 150,           // ms - target update interval
         
         // Camera settings
         // Resolution: 0=QQVGA(160x120), 1=QVGA(320x240), 2=VGA(640x480)
@@ -133,10 +133,10 @@ class LocalFaceRecognitionService @Inject constructor(
                 maxAngleDistance = obj.optDouble("max_angle_distance", 15.0).toFloat(),
                 trackTimeoutMs = obj.optInt("track_timeout_ms", 3000),
                 minTrackAgeMs = obj.optInt("min_track_age_ms", 300),
-                recognitionThreshold = obj.optDouble("recognition_threshold", 0.8).toFloat(),
+                recognitionThreshold = obj.optDouble("recognition_threshold", 0.65).toFloat(),
                 recognitionCooldownMs = obj.optInt("recognition_cooldown_ms", 3000),
                 gazeCenterTolerance = obj.optDouble("gaze_center_tolerance", 0.15).toFloat(),
-                updateIntervalMs = obj.optInt("update_interval_ms", 700),
+                updateIntervalMs = obj.optInt("update_interval_ms", 150),
                 cameraResolution = obj.optInt("camera_resolution", 1)
             )
         }

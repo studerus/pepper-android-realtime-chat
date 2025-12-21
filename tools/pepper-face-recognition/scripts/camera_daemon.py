@@ -30,6 +30,9 @@ import math
 import time
 import base64
 import threading
+import mmap
+import os
+import struct
 from collections import deque
 
 sys.path.insert(0, '/opt/aldebaran/lib/python2.7/site-packages')
@@ -59,13 +62,94 @@ RGB_FPS = 15
 # Resolution names for logging
 RESOLUTION_NAMES = {0: "QQVGA(160x120)", 1: "QVGA(320x240)", 2: "VGA(640x480)"}
 
-# Depth: Camera 2, Resolution 1 (QQVGA 160x120), ColorSpace 17 (Depth), FPS 10
-DEPTH_CAMERA = 2    # Depth camera
-DEPTH_RESOLUTION = 1  # QQVGA (160x120 or 160x90)
-DEPTH_COLORSPACE = 17  # Depth
-DEPTH_FPS = 10
+# Shared Memory settings
+SHM_PATH = "/dev/shm/pepper_shm"
+SHM_SIZE = 4 * 1024 * 1024  # 4MB
 
-# Camera Offsets (Parallax correction)
+class SharedMemoryManager(object):
+    def __init__(self):
+        self.f = None
+        self.m = None
+        self.seq_id = 0
+        self.setup()
+        
+    def setup(self):
+        try:
+            # Open file for SHM
+            self.f = open(SHM_PATH, "w+b")
+            # Resize to SHM_SIZE
+            self.f.seek(SHM_SIZE - 1)
+            self.f.write(b'\0')
+            self.f.flush()
+            # Map memory
+            self.m = mmap.mmap(self.f.fileno(), SHM_SIZE)
+            print("[Daemon] Shared Memory initialized at {}".format(SHM_PATH))
+        except Exception as e:
+            print("[Daemon] Failed to init SHM: {}".format(e))
+            
+    def write(self, head, rgb):
+        if not self.m:
+            return
+            
+        try:
+            # Prepare data
+            head_json = json.dumps(head) if head else "{}"
+            head_bytes = head_json.encode('utf-8')
+            
+            rgb_bytes = rgb['data'] if rgb else b""
+            rgb_w = rgb['width'] if rgb else 0
+            rgb_h = rgb['height'] if rgb else 0
+            rgb_len = len(rgb_bytes)
+            
+            head_len = len(head_bytes)
+            
+            # Check size
+            total_size = 64 + head_len + rgb_len
+            if total_size > SHM_SIZE:
+                print("[Daemon] SHM Overflow! Needed {} bytes".format(total_size))
+                return
+
+            self.seq_id += 1
+            timestamp = time.time()
+            
+            # Write Header (64 bytes fixed)
+            # Magic(4), Seq(4), Ts(8), RGB_W(4), RGB_H(4), RGB_L(4), Head_L(4)
+            # Format: < (little endian), 4s (4 chars), I (uint), d (double), 4 * I (uint)
+            header = struct.pack("<4sIdIIII", 
+                b"PSHM", self.seq_id, timestamp,
+                rgb_w, rgb_h, rgb_len,
+                head_len
+            )
+            
+            # Write everything in one go (seek 0)
+            self.m.seek(0)
+            self.m.write(header)
+            # Padding to 64 bytes
+            self.m.seek(64)
+            self.m.write(head_bytes)
+            self.m.write(rgb_bytes)
+            
+        except Exception as e:
+            print("[Daemon] SHM Write Error: {}".format(e))
+            try:
+                self.m.close()
+                self.f.close()
+                self.setup()
+            except:
+                pass
+
+    def cleanup(self):
+        if self.m:
+            self.m.close()
+        if self.f:
+            self.f.close()
+        try:
+            os.remove(SHM_PATH)
+        except:
+            pass
+
+shm_manager = SharedMemoryManager()
+
 # Top Camera Z: 0.1631m, Depth Camera Z: 0.1194m -> Delta Z = 0.0437m
 # Top Camera X: 0.0868m, Depth Camera X: 0.05138m -> Delta X = 0.03542m
 CAM_OFFSETS = {
@@ -74,54 +158,41 @@ CAM_OFFSETS = {
     "dz": 0.04370
 }
 
-# Depth Buffer for synchronization
-class DepthBuffer(object):
-    def __init__(self, maxlen=5):
-        self.buffer = deque(maxlen=maxlen)
-        self.lock = threading.Lock()
-    
-    def add(self, frame):
-        if not frame:
-            return
-        with self.lock:
-            self.buffer.append(frame)
-            
-    def get_best_match(self, timestamp, max_delta_s=0.1):
-        """Find depth frame closest to the given timestamp."""
-        with self.lock:
-            if not self.buffer:
-                return None
-            
-            best_frame = None
-            min_diff = float('inf')
-            
-            # Search backwards (newest first)
-            for frame in reversed(self.buffer):
-                ts = frame.get('timestamp', 0)
-                diff = abs(timestamp - ts)
+# Background Polling
+class PollingThread(threading.Thread):
+    def __init__(self):
+        threading.Thread.__init__(self)
+        self.daemon = True
+        self.last_frame = None
+        
+    def run(self):
+        print("[Daemon] Polling thread started")
+        while running:
+            try:
+                # Fetch synchronized frame
+                frame_data = get_synchronized_frame_internal()
                 
-                if diff < min_diff:
-                    min_diff = diff
-                    best_frame = frame
+                if frame_data:
+                    self.last_frame = frame_data
+                    
+                    # Push to Shared Memory
+                    shm_manager.write(
+                        frame_data['head'],
+                        frame_data['rgb']
+                    )
                 
-                # If we're getting further away, stop searching (assuming sorted by time)
-                # But due to network jitter, buffer might not be strictly sorted, so exhaustive search is safer for small calc
+                # Sleep a tiny bit to prevent CPU hogging
+                time.sleep(0.01)
                 
-            if best_frame and min_diff < max_delta_s:
-                return best_frame
-            
-            # Fallback: Return newest if within tolerance
-            if self.buffer and (time.time() - self.buffer[-1]['timestamp']) < max_delta_s:
-                 return self.buffer[-1]
-                 
-            return None
+            except Exception as e:
+                print("[Daemon] Polling error: {}".format(e))
+                time.sleep(1.0)
 
-depth_buffer = DepthBuffer(maxlen=5)
-
+polling_thread = None
 
 def init_naoqi():
     """Initialize NAOqi connection and subscribe to cameras."""
-    global session, video, memory, rgb_subscriber, depth_subscriber
+    global session, video, memory, rgb_subscriber, polling_thread
     
     import qi
     session = qi.Session()
@@ -140,31 +211,23 @@ def init_naoqi():
     )
     print("[Daemon] RGB camera subscribed: {}".format(rgb_subscriber))
     
-    # Subscribe to Depth camera (persistent)
-    depth_subscriber = video.subscribeCamera(
-        "perception_depth",
-        DEPTH_CAMERA,
-        DEPTH_RESOLUTION,
-        DEPTH_COLORSPACE,
-        DEPTH_FPS
-    )
-    print("[Daemon] Depth camera subscribed: {}".format(depth_subscriber))
+    # Start polling thread
+    polling_thread = PollingThread()
+    polling_thread.start()
     
     return True
 
 
+
 def cleanup_naoqi():
     """Unsubscribe from cameras and cleanup."""
-    global video, rgb_subscriber, depth_subscriber
+    global video, rgb_subscriber
     
     if video:
         try:
             if rgb_subscriber:
                 video.unsubscribe(rgb_subscriber)
                 print("[Daemon] RGB camera unsubscribed")
-            if depth_subscriber:
-                video.unsubscribe(depth_subscriber)
-                print("[Daemon] Depth camera unsubscribed")
         except Exception as e:
             print("[Daemon] Cleanup error: {}".format(e))
 
@@ -276,42 +339,8 @@ def get_rgb_frame(raw_data=False):
 
 
 def get_depth_frame(raw_data=False):
-    """Get current Depth frame."""
-    if not video or not depth_subscriber:
-        return None
-    
-    try:
-        image = video.getImageRemote(depth_subscriber)
-        if image is None:
-            return None
-        
-        width = image[0]
-        height = image[1]
-        timestamp_s = image[4]
-        timestamp_us = image[5]
-        data = image[6]
-        
-        # Return raw data if requested
-        if raw_data:
-            return {
-                "width": width,
-                "height": height,
-                "timestamp": timestamp_s + timestamp_us / 1000000.0,
-                "data": str(data) if data else ""
-            }
-        
-        # Base64 encode the raw depth data (16-bit)
-        data_b64 = base64.b64encode(str(data)) if data else ""
-        
-        return {
-            "width": width,
-            "height": height,
-            "timestamp": timestamp_s + timestamp_us / 1000000.0,
-            "data": data_b64
-        }
-    except Exception as e:
-        print("[Daemon] Depth frame error: {}".format(e))
-        return None
+    """Deprecated: Depth removed for performance."""
+    return None
 
 
 def fetch_frame_threaded(func, result_container, key, raw_data):
@@ -324,73 +353,37 @@ def fetch_frame_threaded(func, result_container, key, raw_data):
         result_container[key] = None
 
 
-def get_synchronized_frame():
+def get_synchronized_frame_internal():
     """
-    Get synchronized RGB + Depth + Head Angles.
-    Uses parallel fetching and timestamp matching.
+    Internal version: Get synchronized RGB + Head Angles.
     """
     with lock:
         start = time.time()
         
-        results = {}
-        threads = []
-        
-        # Create threads for parallel fetching
-        t_rgb = threading.Thread(target=fetch_frame_threaded, args=(get_rgb_frame, results, 'rgb', False))
-        t_depth = threading.Thread(target=fetch_frame_threaded, args=(get_depth_frame, results, 'depth', False))
-        
-        threads.append(t_rgb)
-        threads.append(t_depth)
-        
-        # Perform HEAD fetch in main thread (very fast, just mem read)
-        # We do this while threads are starting/running to maximize parallel overlap
-        t_rgb.start()
-        t_depth.start()
-        
+        # Fetch RGB
+        # No need for threads if we only fetch one image
+        rgb = get_rgb_frame(raw_data=True)
         head = get_head_angles()
         
-        # Wait for threads
-        for t in threads:
-            t.join()
-            
-        rgb = results.get('rgb')
-        new_depth = results.get('depth')
-        
-        # Add new depth to buffer
-        if new_depth:
-            depth_buffer.add(new_depth)
-            
-        # Synchronization Logic:
-        # 1. Use current RGB timestamp as reference
-        # 2. Find best matching Depth from buffer
-        
-        final_depth = None
-        sync_delta = 0
-        
-        if rgb:
-            rgb_ts = rgb.get('timestamp', 0)
-            final_depth = depth_buffer.get_best_match(rgb_ts)
-            
-            if final_depth:
-                sync_delta = abs(rgb_ts - final_depth.get('timestamp', 0)) * 1000 # ms
-        else:
-            # Fallback if no RGB (should rarely happen)
-            final_depth = new_depth
-            
         capture_time = (time.time() - start) * 1000  # ms
-        
-        # Log sync quality if poor (> 50ms)
-        if sync_delta > 50:
-            print("[Daemon] Poor sync: delta={}ms".format(int(sync_delta)))
         
         return {
             "head": head,
             "rgb": rgb,
-            "depth": final_depth,
             "capture_ms": capture_time,
-            "sync_delta_ms": sync_delta,
             "timestamp": time.time()
         }
+
+
+def get_synchronized_frame():
+    """
+    Public API: Returns the latest cached frame from PollingThread if available.
+    """
+    if polling_thread and polling_thread.last_frame:
+        return polling_thread.last_frame
+    
+    # Fallback to direct fetch if thread not ready
+    return get_synchronized_frame_internal()
 
 
 class CameraHandler(BaseHTTPRequestHandler):
@@ -421,47 +414,11 @@ class CameraHandler(BaseHTTPRequestHandler):
             import struct
             
             try:
-                # We need to replicate the threaded logic here for raw_data=True
-                # Or refactor common logic. Let's replicate for cleaner separation of binary/json logic
+                # Use internal sync logic
+                frame = get_synchronized_frame()
                 
-                with lock:
-                    results = {}
-                    threads = []
-                    
-                    t_rgb = threading.Thread(target=fetch_frame_threaded, args=(get_rgb_frame, results, 'rgb', True))
-                    t_depth = threading.Thread(target=fetch_frame_threaded, args=(get_depth_frame, results, 'depth', True))
-                    
-                    threads.append(t_rgb)
-                    threads.append(t_depth)
-                    
-                    t_rgb.start()
-                    t_depth.start()
-                    
-                    head = get_head_angles()
-                    
-                    for t in threads:
-                        t.join()
-                        
-                    rgb = results.get('rgb')
-                    new_depth = results.get('depth')
-                    
-                    # Buffer depth for sync?
-                    # For binary endpoint which is polled, we might just want "latest pair" 
-                    # OR we can assume the daemon is polled frequently enough.
-                    # Implementing buffer logic for binary endpoint too:
-                    if new_depth:
-                         # We need to buffer the RAW depth? 
-                         # Actually DepthBuffer stores whatever dict passed. 
-                         # But memory usage! Storing raw strings of 160x120x2 bytes = 38KB.
-                         # 5 frames = 200KB. Totally fine.
-                         depth_buffer.add(new_depth)
-                    
-                    final_depth = None
-                    if rgb:
-                        rgb_ts = rgb.get('timestamp', 0)
-                        final_depth = depth_buffer.get_best_match(rgb_ts)
-                    if not final_depth:
-                        final_depth = new_depth
+                head = frame.get('head')
+                rgb = frame.get('rgb')
                 
                 head_json = json.dumps(head) if head else "{}"
                 head_len = len(head_json)
@@ -475,29 +432,31 @@ class CameraHandler(BaseHTTPRequestHandler):
                     rgb_h = rgb['height']
                 rgb_len = len(rgb_data)
                 
-                depth_data = ""
-                depth_w = 0
-                depth_h = 0
-                if final_depth and final_depth.get('data'):
-                    depth_data = final_depth['data']
-                    depth_w = final_depth['width']
-                    depth_h = final_depth['height']
-                depth_len = len(depth_data)
+                # Pack header (No depth)
+                # Format: <4sIHHII (Magic, HeadL, RGBW, RGBH, RGBL, Reserved=0) - Keep 24 bytes?
+                # Original was <4sIHHIHHI (24 bytes).
+                # To maintain compatibility with unknown clients, we could send 0s for depth.
+                # But this endpoint is only used by our server.
+                # Let's match new SHM struct-like format or just keep simple binary.
                 
-                # Pack header
-                # Python 2 struct.pack expects strings
-                header = struct.pack("<4sIHHIHHI", "PFR1", head_len, rgb_w, rgb_h, rgb_len, depth_w, depth_h, depth_len)
+                # We'll use a simpler binary format here matching what the new Server expects via HTTP fallback
+                # Magic(4) + HeadL(4) + RGBW(2) + RGBH(2) + RGBL(4) = 16 Bytes
+                # NOTE: The server HTTP fallback must match this!
+                header = struct.pack("<4sIHHI", "PFR2", head_len, rgb_w, rgb_h, rgb_len)
                 
                 # Send everything as one binary blob
-                self.send_binary(header + head_json + rgb_data + depth_data)
+                self.send_binary(header + head_json + rgb_data)
                 
             except Exception as e:
                 print("[Daemon] Binary endpoint error: {}".format(e))
                 self.send_error(500, str(e))
             
         elif self.path == '/frame':
-            # Synchronized RGB + Depth + Head Angles
+            # Synchronized RGB + Head Angles
             frame = get_synchronized_frame()
+            # frame['rgb']['data'] is raw bytes, we need base64 for JSON
+            if frame.get('rgb'):
+                frame['rgb']['data'] = base64.b64encode(frame['rgb']['data'])
             self.send_json(frame)
             
         elif self.path == '/rgb':
@@ -506,9 +465,8 @@ class CameraHandler(BaseHTTPRequestHandler):
             self.send_json({"rgb": rgb, "timestamp": time.time()})
             
         elif self.path == '/depth':
-            # Depth only
-            depth = get_depth_frame()
-            self.send_json({"depth": depth, "timestamp": time.time()})
+            # Depth removed
+            self.send_json({"error": "Depth disabled"}, 404)
             
         elif self.path == '/head':
             # Head angles only
@@ -589,6 +547,7 @@ def main():
     except Exception as e:
         print("[Daemon] Error: {}".format(e))
     finally:
+        shm_manager.cleanup()
         cleanup_naoqi()
         print("[Daemon] Daemon stopped")
 

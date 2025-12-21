@@ -70,20 +70,24 @@ class PerceptionData {
          * Shows how recently this person was seen.
          */
         fun getLastSeenDisplay(): String {
-            if (lastSeenMs <= 0) return "—"
+            if (lastSeenMs <= 0L) return "—"
+            val elapsed = System.currentTimeMillis() - lastSeenMs
             return when {
-                lastSeenMs < 500 -> "🟢 Now"
-                lastSeenMs < 1000 -> "🟢 <1s"
-                lastSeenMs < 2000 -> "🟡 ${lastSeenMs / 1000}s"
-                lastSeenMs < 3000 -> "🟠 ${lastSeenMs / 1000}s"
-                else -> "🔴 ${lastSeenMs / 1000}s"
+                elapsed < 500 -> "🟢 Now"
+                elapsed < 1000 -> "🟢 <1s"
+                elapsed < 2000 -> "🟡 ${elapsed / 1000}s"
+                elapsed < 3000 -> "🟠 ${elapsed / 1000}s"
+                else -> "🔴 ${elapsed / 1000}s"
             }
         }
 
         /**
          * Check if data is stale (not seen recently)
          */
-        fun isStale(): Boolean = lastSeenMs > 2000
+        fun isStale(): Boolean {
+            if (lastSeenMs <= 0L) return true
+            return (System.currentTimeMillis() - lastSeenMs) > 2000
+        }
 
         /**
          * Get attention level for UI display.
