@@ -1355,10 +1355,10 @@ private fun CameraResolutionSelector(
     selectedResolution: Int,
     onResolutionChange: (Int) -> Unit
 ) {
-    val resolutions = listOf(
-        0 to "QQVGA (160×120) - Fastest",
-        1 to "QVGA (320×240) - Balanced",
-        2 to "VGA (640×480) - Best Quality"
+        val resolutions = listOf(
+        0 to "QQVGA (160×120) - Close Range (<1m)",
+        1 to "QVGA (320×240) - Standard (~2m)",
+        2 to "VGA (640×480) - Long Range (>2m)"
     )
     
     Column(modifier = Modifier.padding(vertical = 8.dp)) {
@@ -1407,7 +1407,7 @@ private fun CameraResolutionSelector(
         Spacer(modifier = Modifier.height(4.dp))
         
         Text(
-            text = "Higher resolution = better recognition, slower processing",
+            text = "Higher resolution extends detection range but slows down processing. Recognition quality is always high (VGA).",
             fontSize = 12.sp,
             color = DashboardColors.TextLight
         )

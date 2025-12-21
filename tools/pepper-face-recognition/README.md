@@ -132,13 +132,13 @@ This provides the speed of QVGA with the accuracy of VGA.
 
 The "Camera Resolution" setting now controls the **Detection Resolution** (downscale target):
 
-| Setting | Detect Res | Detection Time | Recognition Quality | Use Case |
-|---------|------------|----------------|---------------------|----------|
-| 0 (Low) | QQVGA (160×120) | ~80ms | **High (VGA crop)** | Ultra-fast tracking, close range |
-| **1 (Med)** | **QVGA (320×240)** | **~120ms** | **High (VGA crop)** | **Default / Recommended** |
-| 2 (High)| VGA (640×480) | ~600ms+ | High (VGA crop) | Debugging / Long range |
+| Setting | Detect Res | Detection Time | Recognition Quality | Range (approx.) | Use Case |
+|---------|------------|----------------|---------------------|-----------------|----------|
+| 0 (Low) | QQVGA (160×120) | ~80ms | **High (VGA crop)** | < 1.0m | Ultra-fast tracking, very close |
+| **1 (Med)** | **QVGA (320×240)** | **~120ms** | **High (VGA crop)** | **~2.0m** | **Default / Recommended** |
+| 2 (High)| VGA (640×480) | ~600ms+ | High (VGA crop) | > 2.0m | Long range (slow updates) |
 
-**Note:** Face registration is instant (no resolution switch delay) and uses the full VGA frame. Head movements are paused during registration to prevent blur.
+**Note:** Face registration is instant (no resolution switch delay) and always uses the full VGA frame. Head movements are paused during registration to prevent blur.
 
 ### Component Breakdown (Hybrid QVGA Mode)
 
