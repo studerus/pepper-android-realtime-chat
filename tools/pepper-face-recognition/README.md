@@ -21,10 +21,10 @@ Additionally, while the CPU is 64-bit, the **Userspace is 32-bit (i386)**.
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              PEPPER HEAD (Python)                           │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
+┌────────────────────────────────────────────────────────────────────────────┐
+│                              PEPPER HEAD (Python)                          │
+├────────────────────────────────────────────────────────────────────────────┤
+│                                                                            │
 │  ┌──────────────────────┐     ┌─────────────────────────────────────────┐  │
 │  │   camera_daemon.py   │     │       face_recognition_server.py        │  │
 │  │   (Python 2.7)       │     │       (Python 3.7 / i386)               │  │
@@ -37,7 +37,7 @@ Additionally, while the CPU is 64-bit, the **Userspace is 32-bit (i386)**.
 │  └──────────────────────┘     │                                         │  │
 │                               │ HTTP Server @5000 (Legacy/Fallback)     │  │
 │                               └────────────────┬────────────────────────┘  │
-│                                                │                            │
+│                                                │                           │
 │                               ┌────────────────▼────────────────────────┐  │
 │                               │      perception_websocket.py            │  │
 │                               │      (WebSocket Server @5002)           │  │
@@ -47,32 +47,32 @@ Additionally, while the CPU is 64-bit, the **Userspace is 32-bit (i386)**.
 │                               │ • Face registration commands            │  │
 │                               │ • Bidirectional communication           │  │
 │                               └────────────────┬────────────────────────┘  │
-└────────────────────────────────────────────────┼────────────────────────────┘
+└────────────────────────────────────────────────┼───────────────────────────┘
                                                  │
                                     WebSocket (ws://198.18.0.1:5002)
                                                  │
 ┌────────────────────────────────────────────────┼────────────────────────────┐
 │                            PEPPER TABLET (Android)                          │
 ├────────────────────────────────────────────────┼────────────────────────────┤
-│                               ┌────────────────▼────────────────────────┐  │
-│                               │    PerceptionWebSocketClient.kt         │  │
-│                               │                                         │  │
-│                               │ • WebSocket connection (OkHttp)         │  │
-│                               │ • Auto-reconnect                        │  │
-│                               │ • Kotlin Flows for reactive updates     │  │
-│                               └────────────────┬────────────────────────┘  │
+│                               ┌────────────────▼────────────────────────┐   │
+│                               │    PerceptionWebSocketClient.kt         │   │
+│                               │                                         │   │
+│                               │ • WebSocket connection (OkHttp)         │   │
+│                               │ • Auto-reconnect                        │   │
+│                               │ • Kotlin Flows for reactive updates     │   │
+│                               └────────────────┬────────────────────────┘   │
 │                                                │                            │
-│                               ┌────────────────▼────────────────────────┐  │
-│                               │       PerceptionService.kt              │  │
-│                               │                                         │  │
-│                               │ • Flow collection                       │  │
-│                               │ • Event detection                       │  │
-│                               │ • UI updates                            │  │
-│                               └────────────────┬────────────────────────┘  │
+│                               ┌────────────────▼────────────────────────┐   │
+│                               │       PerceptionService.kt              │   │
+│                               │                                         │   │
+│                               │ • Flow collection                       │   │
+│                               │ • Event detection                       │   │
+│                               │ • UI updates                            │   │
+│                               └────────────────┬────────────────────────┘   │
 │                                                │                            │
-│                               ┌────────────────▼────────────────────────┐  │
-│                               │        UI (Dashboard, Event Rules)      │  │
-│                               └─────────────────────────────────────────┘  │
+│                               ┌────────────────▼────────────────────────┐   │
+│                               │        UI (Dashboard, Event Rules)      │   │
+│                               └─────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -85,13 +85,17 @@ Additionally, while the CPU is 64-bit, the **Userspace is 32-bit (i386)**.
 
 ### Build & Deploy (One-Time)
 
-```powershell
-# 1. Build packages in Docker (~5 min)
+```bash
 cd tools/pepper-face-recognition
-.\build.ps1
 
-# 2. Deploy to Pepper
+# Windows (PowerShell)
+.\build.ps1
 .\deploy.ps1 -PepperIP "10.95.65.123"
+
+# macOS / Linux
+chmod +x build.sh deploy.sh
+./build.sh
+./deploy.sh 10.95.65.123
 ```
 
 ### Configure Android App
