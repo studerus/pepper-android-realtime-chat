@@ -13,7 +13,7 @@ Additionally, while the CPU is 64-bit, the **Userspace is 32-bit (i386)**.
 
 - **Detection**: YuNet CNN for robust face detection
 - **Recognition**: SFace for 128-dimensional feature extraction  
-- **Tracking**: Stable track IDs across frames using angle-based matching
+- **Tracking**: Stable track IDs across frames using Kalman filtering
 - **Gaze Detection**: Determines if a person is looking at the robot
 - **Streaming**: Real-time WebSocket updates (~3-5 Hz)
 - **Storage**: Face embeddings stored in `/home/nao/face_data/faces.pkl`
@@ -79,45 +79,33 @@ Additionally, while the CPU is 64-bit, the **Userspace is 32-bit (i386)**.
 ## Installation
 
 ### Prerequisites
-- Docker (Desktop or Engine)
-- PowerShell
-- 4GB+ RAM for building
+- Docker (Desktop or Engine) - [Install Docker Desktop](https://www.docker.com/products/docker-desktop/)
+- SSH access to Pepper (default: `nao` / `nao`)
+- Pepper on same network as your PC
 
-### Steps
+### Build & Deploy (One-Time)
 
-1. **Build Packages (Docker)**
-   This compiles Python 3.7, OpenCV 4.x, and NumPy for i386 architecture.
-   ```powershell
-   .\build.ps1
-   ```
+```powershell
+# 1. Build packages in Docker (~5 min)
+cd tools/pepper-face-recognition
+.\build.ps1
 
-2. **Deploy to Pepper**
-   Copies the compiled packages and models to the robot.
-   ```powershell
-   .\deploy.ps1 -PepperIP "10.95.65.123"
-   ```
-
-3. **Verify**
-   The deploy script runs a self-test automatically.
-
-## Usage on Pepper
-
-```bash
-# 1. Start Camera Daemon (Python 2.7)
-python2 /home/nao/face_data/camera_daemon.py &
-
-# 2. Start Perception Server (Python 3.7)
-# Set PYTHONPATH to include our custom packages
-export PYTHONPATH=/home/nao/python_packages:$PYTHONPATH
-export LD_LIBRARY_PATH=/home/nao/python_packages/libs:$LD_LIBRARY_PATH
-
-cd /home/nao/face_data
-python3 face_recognition_server.py
+# 2. Deploy to Pepper
+.\deploy.ps1 -PepperIP "10.95.65.123"
 ```
+
+### Configure Android App
+
+Set in `local.properties`:
+```properties
+PEPPER_SSH_PASSWORD=nao
+```
+
+The Android app **automatically starts** the perception server via SSH when needed. No manual intervention required.
 
 ## Performance
 
-### Hybrid Resolution Architecture (New!)
+### Hybrid Resolution Architecture
 
 To achieve both **fast tracking** and **high-quality recognition**, the system uses a hybrid approach:
 
@@ -171,9 +159,6 @@ Since the camera always runs at VGA, registration quality is consistently excell
 
 **Recommendation:** Register faces when the person is **close to the robot** (1-2m).
 
-### Why 32-bit?
-Pepper's Atom E3845 CPU supports 64-bit, but the NAOqi OS uses a **32-bit userspace**. Without root access (`sudo`), we cannot run a 64-bit chroot or container. Therefore, we must use 32-bit binaries.
-
 ## Optimizations Implemented
 
 - **Shared Memory (Zero-Copy)**: `camera_daemon.py` writes frames to `/dev/shm`, `face_recognition_server.py` reads them instantly. Eliminates HTTP/TCP overhead (~80ms -> <1ms).
@@ -185,71 +170,16 @@ Pepper's Atom E3845 CPU supports 64-bit, but the NAOqi OS uses a **32-bit usersp
 
 ## Tracking Robustness
 
-The face tracker uses a simplified, robust approach:
-
-- **World-Position Matching (70cm)**: When a face reappears after camera motion or temporary occlusion, it's matched to existing tracks based on 3D world position (yaw, pitch, distance)
-- **Confirmation System**: New tracks require 3 consecutive detections before being created, filtering out motion blur artifacts
-- **Lost Track Buffer (2.5s)**: Tracks that disappear are buffered for 2.5 seconds, allowing recovery during head movements
-- **Fair Recognition Queue**: Unknown faces are recognized in oldest-first order, ensuring all faces get attention
+- **World-Position Matching (70cm)**: Faces are matched to existing tracks based on 3D world position
+- **Confirmation System**: New tracks require 2 consecutive detections (configurable)
+- **Lost Track Buffer (2.5s)**: Tracks are buffered for recovery during head movements
+- **Fair Recognition Queue**: Unknown faces are recognized in oldest-first order
 
 ## Why OpenCV instead of dlib?
 
 Pepper's head runs on an Intel Atom E3845 CPU, which lacks modern instruction sets like SSE4 and AVX. 
 - **dlib**: Requires these instructions or complex cross-compilation, leading to "Illegal instruction" crashes.
 - **OpenCV (YuNet + SFace)**: Runs efficiently on older hardware using CNNs optimized for edge devices.
-
-## Prerequisites
-
-- **Docker** installed and running
-  - Windows/macOS: Install [Docker Desktop](https://www.docker.com/products/docker-desktop/)
-  - Linux: Install via package manager (`sudo apt install docker.io`)
-- **SSH access** to Pepper (default user: `nao`, default password: `nao`)
-- Pepper connected to the same network as your PC
-
-## Quick Start
-
-### 1. Build the packages (one-time, < 5 minutes)
-
-```bash
-cd tools/pepper-face-recognition
-
-# Linux / macOS
-chmod +x build.sh deploy.sh
-./build.sh
-
-# Windows PowerShell
-.\build.ps1
-```
-
-This creates:
-- `output/packages.zip` - Python packages (opencv-python-headless, numpy, websockets)
-- `output/models/` - ONNX models for face detection and recognition
-- `output/libs/` - Extracted native libraries needed by OpenCV
-
-### 2. Deploy to Pepper
-
-```bash
-# Linux / macOS
-./deploy.sh <PEPPER_IP>
-
-# Windows PowerShell
-.\deploy.ps1 -PepperIP "<PEPPER_IP>"
-```
-
-This automatically:
-1. Copies all files to Pepper
-2. Extracts and sets up the packages
-3. Copies required native libraries
-4. Tests the installation
-
-### 3. Configure Android App
-
-Set in `local.properties`:
-```properties
-PEPPER_SSH_PASSWORD=nao
-```
-
-The Android app will automatically start the server via SSH when needed.
 
 ## Server Components
 
@@ -490,29 +420,20 @@ The People & Faces dashboard shows:
 - **Faces Tab**: Registered faces with thumbnails, add/delete
 - **Settings Tab**: Real-time configurable perception parameters
 
-## Manual Server Control
+## Manual Server Control (Optional)
 
-### Start Server
-
-```bash
-ssh nao@<PEPPER_IP>
-cd /home/nao/face_data
-nohup bash run_server.sh > server.log 2>&1 &
-```
-
-### Stop Server
+The Android app starts the server automatically. These commands are only needed for debugging.
 
 ```bash
-ssh nao@<PEPPER_IP>
-pkill -f camera_daemon.py
-pkill -f face_recognition_server.py
-```
+# View logs
+ssh nao@<PEPPER_IP> "tail -f /home/nao/face_data/server.log"
 
-### View Logs
+# Check if running
+ssh nao@<PEPPER_IP> "ps aux | grep python"
 
-```bash
-ssh nao@<PEPPER_IP>
-tail -f /home/nao/face_data/server.log
+# Restart server manually
+ssh nao@<PEPPER_IP> "pkill -f face_recognition_server.py; pkill -f camera_daemon.py"
+ssh nao@<PEPPER_IP> "cd /home/nao/face_data && nohup bash run_server.sh > server.log 2>&1 &"
 ```
 
 ## Troubleshooting
