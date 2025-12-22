@@ -118,7 +118,7 @@ A multimodal AI system for the Pepper robot powered by OpenAI's Realtime API. It
     <td width="33%" valign="top">
       <img src="screenshots/quiz.png" alt="Quiz Game" width="100%">
       <strong>Quiz Game</strong><br>
-      Voice-controlled quiz with multiple choice answers
+      Interactive quiz with multiple choice answers on tablet
     </td>
     <td width="33%" valign="top">
       <img src="screenshots/memory-game.png" alt="Memory Game" width="100%">
@@ -130,7 +130,7 @@ A multimodal AI system for the Pepper robot powered by OpenAI's Realtime API. It
     <td width="33%" valign="top">
       <img src="screenshots/drawing-canvas.png" alt="Drawing Canvas" width="100%">
       <strong>Drawing Canvas</strong><br>
-      Freehand drawing with colors and stroke sizes
+      Freehand drawing with colors and stroke sizes. AI can guess what you drew.
     </td>
     <td width="33%" valign="top">
       <img src="screenshots/play-melody.png" alt="Melody Player" width="100%">
