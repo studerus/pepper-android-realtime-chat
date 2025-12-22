@@ -118,12 +118,12 @@ A multimodal AI system for the Pepper robot powered by OpenAI's Realtime API. It
     <td width="33%" valign="top">
       <img src="screenshots/quiz.png" alt="Quiz Game" width="100%">
       <strong>Quiz Game</strong><br>
-      Interactive quiz with multiple choice answers on tablet
+      Interactive quiz with multiple choice answers created on the fly by the AI
     </td>
     <td width="33%" valign="top">
       <img src="screenshots/memory-game.png" alt="Memory Game" width="100%">
       <strong>Memory Game</strong><br>
-      Interactive memory card game on tablet
+      Interactive memory card game on tablet with three difficulty levels
     </td>
   </tr>
   <tr>
