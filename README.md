@@ -70,17 +70,29 @@ A multimodal AI system for the Pepper robot powered by OpenAI's Realtime API. It
       Configure API providers, system prompt, language settings, audio modes, and feature toggles
     </td>
     <td width="33%" valign="top">
-      <img src="screenshots/navigation-map-overlay.png" alt="Navigation Map" width="100%">
-      <strong>Navigation Map Overlay</strong><br>
-      Real-time map preview with saved locations
+      <img src="screenshots/event-card.png" alt="Event Card in Chat" width="100%">
+      <strong>Event Card in Chat</strong><br>
+      Expandable cards showing triggered events with details and AI response
     </td>
   </tr>
   <tr>
     <td width="33%" valign="top">
       <img src="screenshots/perception-dashboard.png" alt="Human Perception Dashboard" width="100%">
-      <strong>Human Perception Dashboard</strong><br>
-      Real-time human detection with emotions and attention tracking
+      <strong>Perception Dashboard - Live</strong><br>
+      Real-time human detection with tracking duration and gaze status
     </td>
+    <td width="33%" valign="top">
+      <img src="screenshots/perception-radar.png" alt="Perception Radar View" width="100%">
+      <strong>Perception Dashboard - Radar</strong><br>
+      Radar view showing tracked people with distance and gaze direction
+    </td>
+    <td width="33%" valign="top">
+      <img src="screenshots/event-rules.png" alt="Event Rules Editor" width="100%">
+      <strong>Event Rules Editor</strong><br>
+      Create rules with conditions to trigger AI responses on perception events
+    </td>
+  </tr>
+  <tr>
     <td width="33%" valign="top">
       <img src="screenshots/vision-analysis.png" alt="Vision Analysis - Ceiling Detection" width="100%">
       <strong>Vision Analysis - Step 1</strong><br>
@@ -90,6 +102,11 @@ A multimodal AI system for the Pepper robot powered by OpenAI's Realtime API. It
       <img src="screenshots/vision-analysis2.png" alt="Vision Analysis - Detailed Description" width="100%">
       <strong>Vision Analysis - Step 2</strong><br>
       AI analyzes captured image and provides detailed description
+    </td>
+    <td width="33%" valign="top">
+      <img src="screenshots/navigation-map-overlay.png" alt="Navigation Map" width="100%">
+      <strong>Navigation Map Overlay</strong><br>
+      Real-time map preview with saved locations
     </td>
   </tr>
   <tr>
