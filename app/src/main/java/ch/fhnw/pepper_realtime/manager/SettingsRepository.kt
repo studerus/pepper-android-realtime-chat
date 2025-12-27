@@ -201,25 +201,25 @@ class SettingsRepository @Inject constructor(
         const val MODE_AZURE_SPEECH = "azure_speech"
 
         fun getAvailableLanguages(): List<LanguageOption> = listOf(
-            // German variants
-            LanguageOption("German (Switzerland)", "de-CH"),
-            LanguageOption("German (Germany)", "de-DE"),
-            LanguageOption("German (Austria)", "de-AT"),
-
             // English variants
             LanguageOption("English (United States)", "en-US"),
             LanguageOption("English (United Kingdom)", "en-GB"),
             LanguageOption("English (Australia)", "en-AU"),
             LanguageOption("English (Canada)", "en-CA"),
 
+            // German variants
+            LanguageOption("German (Germany)", "de-DE"),
+            LanguageOption("German (Austria)", "de-AT"),
+            LanguageOption("German (Switzerland)", "de-CH"),
+
             // French variants
-            LanguageOption("French (Switzerland)", "fr-CH"),
             LanguageOption("French (France)", "fr-FR"),
             LanguageOption("French (Canada)", "fr-CA"),
+            LanguageOption("French (Switzerland)", "fr-CH"),
 
             // Italian variants
-            LanguageOption("Italian (Switzerland)", "it-CH"),
             LanguageOption("Italian (Italy)", "it-IT"),
+            LanguageOption("Italian (Switzerland)", "it-CH"),
 
             // Spanish variants
             LanguageOption("Spanish (Spain)", "es-ES"),
