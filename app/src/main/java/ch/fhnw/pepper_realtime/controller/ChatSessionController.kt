@@ -16,6 +16,7 @@ import ch.fhnw.pepper_realtime.network.WebSocketConnectionCallback
 import ch.fhnw.pepper_realtime.tools.interfaces.RealtimeMessageSender
 import ch.fhnw.pepper_realtime.ui.ChatMessage
 import ch.fhnw.pepper_realtime.ui.ChatViewModel
+import dagger.hilt.android.scopes.ActivityScoped
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
@@ -24,6 +25,7 @@ import okhttp3.Response
 import okio.ByteString
 import javax.inject.Inject
 
+@ActivityScoped
 class ChatSessionController @Inject constructor(
     private val viewModel: ChatViewModel,
     private val sessionManager: RealtimeSessionManager,
@@ -44,6 +46,8 @@ class ChatSessionController @Inject constructor(
         private const val TAG = "ChatSessionController"
     }
 
+    // @Volatile ensures visibility across threads (connectWebSocket runs on different thread than WebSocket callbacks)
+    @Volatile
     private var connectionCallback: WebSocketConnectionCallback? = null
     private var isRestarting = false // Flag to suppress side effects during restart
 
@@ -75,6 +79,7 @@ class ChatSessionController @Inject constructor(
 
         // Capture for use in lambda
         val shouldRequestResponse = requestResponse
+        val isGoogle = settingsRepository.apiProviderEnum.isGoogleProvider()
 
         applicationScope.launch(ioDispatcher) {
             try {
@@ -84,7 +89,14 @@ class ChatSessionController @Inject constructor(
                     turnManager?.setState(TurnManager.State.THINKING)
                 }
 
-                val sentItem = sessionManager.sendUserTextMessage(text)
+                // For Google: use clientContent with turnComplete parameter
+                // For OpenAI: use conversation.item.create (response.create is sent separately below)
+                val sentItem = if (isGoogle) {
+                    sessionManager.sendGoogleTextMessage(text, triggerResponse = requestResponse)
+                } else {
+                    sessionManager.sendUserTextMessage(text)
+                }
+                
                 if (!sentItem) {
                     Log.e(TAG, "Failed to send message - WebSocket connection broken")
                     viewModel.addMessage(
@@ -107,16 +119,20 @@ class ChatSessionController @Inject constructor(
                     }
 
                     viewModel.setResponseGenerating(true)
-                    val sentResponse = sessionManager.requestResponse()
-                    if (!sentResponse) {
-                        viewModel.setResponseGenerating(false)
-                        Log.e(TAG, "Failed to send response request")
-                        viewModel.addMessage(
-                            ChatMessage(
-                                viewModel.getApplication<android.app.Application>().getString(R.string.error_connection_lost_response),
-                                ChatMessage.Sender.ROBOT
+                    
+                    // Google doesn't need explicit response.create - text input triggers response
+                    if (!isGoogle) {
+                        val sentResponse = sessionManager.requestResponse()
+                        if (!sentResponse) {
+                            viewModel.setResponseGenerating(false)
+                            Log.e(TAG, "Failed to send response request")
+                            viewModel.addMessage(
+                                ChatMessage(
+                                    viewModel.getApplication<android.app.Application>().getString(R.string.error_connection_lost_response),
+                                    ChatMessage.Sender.ROBOT
+                                )
                             )
-                        )
+                        }
                     }
                 }
             } catch (e: Exception) {
@@ -135,22 +151,38 @@ class ChatSessionController @Inject constructor(
         }
     }
 
-    fun sendToolResult(callId: String, result: String) {
+    fun sendToolResult(callId: String, result: String, toolName: String? = null) {
         if (!sessionManager.isConnected) return
         try {
             viewModel.isExpectingFinalAnswerAfterToolCall = true
-            val sentTool = sessionManager.sendToolResult(callId, result)
+            
+            val isGoogle = settingsRepository.apiProviderEnum.isGoogleProvider()
+            
+            val sentTool = if (isGoogle && toolName != null) {
+                // Google uses different format and continues automatically
+                sessionManager.sendGoogleToolResult(callId, toolName, result)
+            } else {
+                sessionManager.sendToolResult(callId, result)
+            }
+            
             if (!sentTool) {
                 Log.e(TAG, "Failed to send tool result")
                 return
             }
+            
             viewModel.setResponseGenerating(true)
-            val sentToolResponse = sessionManager.requestResponse()
-            if (!sentToolResponse) {
-                viewModel.setResponseGenerating(false)
-                Log.e(TAG, "Failed to send tool response request")
-                return
+            
+            // Google Live API continues generation automatically after toolResponse
+            // OpenAI needs explicit response.create
+            if (!isGoogle) {
+                val sentToolResponse = sessionManager.requestResponse()
+                if (!sentToolResponse) {
+                    viewModel.setResponseGenerating(false)
+                    Log.e(TAG, "Failed to send tool response request")
+                    return
+                }
             }
+            
             if (turnManager != null && turnManager.state != TurnManager.State.SPEAKING) {
                 turnManager.setState(TurnManager.State.THINKING)
             }
@@ -217,9 +249,11 @@ class ChatSessionController @Inject constructor(
                             }
                         }
                     } else {
-                        // Realtime API Mode
-                        // Just set LISTENING state - ChatTurnListener will trigger audio start
+                        // Realtime API Mode - set LISTENING state and update status text
                         turnManager?.setState(TurnManager.State.LISTENING)
+                        viewModel.setStatusText(
+                            viewModel.getApplication<android.app.Application>().getString(R.string.status_listening)
+                        )
                     }
                 }
 
@@ -257,24 +291,40 @@ class ChatSessionController @Inject constructor(
             val selectedModel = settingsRepository.model
             val azureEndpoint = keyManager.azureOpenAiEndpoint
 
-            val url = provider.getWebSocketUrl(azureEndpoint, selectedModel)
+            // Google uses API key in URL query param, others use headers
+            val url = provider.getWebSocketUrl(
+                azureEndpoint, 
+                selectedModel, 
+                if (provider.isGoogleProvider()) keyManager.googleApiKey else null
+            )
 
+            // Set up event handler for the provider type
+            eventHandler.isGoogleProvider = provider.isGoogleProvider()
+
+            // Build headers (Google doesn't need auth headers - key is in URL)
             val headers = HashMap<String, String>()
-            if (provider.isAzureProvider()) {
-                headers["api-key"] = keyManager.azureOpenAiKey
-            } else {
-                headers[provider.getAuthHeaderName()] = provider.getAuthorizationHeader(
-                    keyManager.azureOpenAiKey, 
-                    keyManager.openAiApiKey, 
-                    keyManager.xaiApiKey
-                )
-            }
-            // Add OpenAI-Beta header for OpenAI (not x.ai) preview models
-            if (provider == RealtimeApiProvider.OPENAI_DIRECT && selectedModel != "gpt-realtime") {
-                headers["OpenAI-Beta"] = "realtime=v1"
+            if (provider.requiresAuthHeader()) {
+                if (provider.isAzureProvider()) {
+                    headers["api-key"] = keyManager.azureOpenAiKey
+                } else {
+                    val headerName = provider.getAuthHeaderName()
+                    val headerValue = provider.getAuthorizationHeader(
+                        keyManager.azureOpenAiKey, 
+                        keyManager.openAiApiKey, 
+                        keyManager.xaiApiKey
+                    )
+                    if (headerName != null && headerValue != null) {
+                        headers[headerName] = headerValue
+                    }
+                }
+                // Add OpenAI-Beta header for OpenAI (not x.ai) preview models
+                if (provider == RealtimeApiProvider.OPENAI_DIRECT && selectedModel != "gpt-realtime") {
+                    headers["OpenAI-Beta"] = "realtime=v1"
+                }
             }
 
-            sessionManager.connect(url, headers)
+            val headersOrNull = if (headers.isEmpty()) null else headers
+            sessionManager.connect(url, headersOrNull)
 
         } catch (e: Exception) {
             Log.e(TAG, "Error generating WebSocket connection parameters", e)
@@ -341,7 +391,11 @@ class ChatSessionController @Inject constructor(
             }
 
             override fun onBinaryMessage(bytes: ByteString) {
-                // Handle audio input buffer if needed
+                // Google Live API sends binary messages - decode as text JSON
+                val text = bytes.utf8()
+                if (text.startsWith("{") || text.startsWith("[")) {
+                    eventHandler.handle(text)
+                }
             }
 
             override fun onClosing(code: Int, reason: String) {
@@ -350,14 +404,43 @@ class ChatSessionController @Inject constructor(
 
             override fun onClosed(code: Int, reason: String) {
                 Log.d(TAG, "WebSocket closed: $code $reason")
-                failConnectionPromise("Connection closed: $reason")
+                handleConnectionLost(reason, code)
             }
 
             override fun onFailure(t: Throwable, response: Response?) {
                 Log.e(TAG, "WebSocket Failure: ${t.message}")
-                failConnectionPromise("Connection failed: ${t.message}")
+                handleConnectionLost(t.message ?: "Unknown error", null)
             }
         }
+    }
+
+    private fun handleConnectionLost(reason: String, code: Int?) {
+        // Stop audio input to prevent endless loop of failed sends
+        audioInputController.cleanupForRestart()
+        
+        // Stop any ongoing playback
+        audioPlayer.interruptNow()
+        viewModel.setAudioPlaying(false)
+        viewModel.setResponseGenerating(false)
+        
+        // Set turn manager to IDLE
+        turnManager?.setState(TurnManager.State.IDLE)
+        
+        // Show error message for unexpected disconnects (not during restart or explicit close)
+        if (!isRestarting && code != 1000) {
+            val errorMsg = if (code == 1007) {
+                // Protocol error - likely invalid message format
+                viewModel.getApplication<android.app.Application>().getString(R.string.error_connection_protocol, reason)
+            } else {
+                viewModel.getApplication<android.app.Application>().getString(R.string.error_connection_lost)
+            }
+            viewModel.addMessage(ChatMessage(errorMsg, ChatMessage.Sender.ROBOT))
+            viewModel.setStatusText(
+                viewModel.getApplication<android.app.Application>().getString(R.string.error_disconnected)
+            )
+        }
+        
+        failConnectionPromise("Connection lost: $reason")
     }
 
     private fun setupAudioPlayerListener() {
@@ -382,8 +465,11 @@ class ChatSessionController @Inject constructor(
     }
 
     fun failConnectionPromise(message: String) {
-        connectionCallback?.onError(Exception(message))
-        connectionCallback = null
+        // Only fail if we're not in the middle of restarting (to prevent old connection's onClosed from clearing new callback)
+        if (!isRestarting) {
+            connectionCallback?.onError(Exception(message))
+            connectionCallback = null
+        }
     }
 
     fun completeConnectionPromise() {

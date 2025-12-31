@@ -35,11 +35,26 @@ class SettingsRepository @Inject constructor(
         set(value) = settings.edit().putString(KEY_SYSTEM_PROMPT, value).apply()
 
     var model: String
-        get() = settings.getString(KEY_MODEL, context.getString(R.string.openai_default_model)) ?: ""
+        get() {
+            val defaultModel = when (apiProviderEnum) {
+                RealtimeApiProvider.XAI -> "Grok Voice Agent"
+                // Google Live API requires models/ prefix for BidiGenerateContent
+                RealtimeApiProvider.GOOGLE_GEMINI -> "models/gemini-2.5-flash-native-audio-preview-12-2025"
+                else -> context.getString(R.string.openai_default_model)
+            }
+            return settings.getString(KEY_MODEL, defaultModel) ?: defaultModel
+        }
         set(value) = settings.edit().putString(KEY_MODEL, value).apply()
 
     var voice: String
-        get() = settings.getString(KEY_VOICE, "ash") ?: "ash"
+        get() {
+            val defaultVoice = when (apiProviderEnum) {
+                RealtimeApiProvider.XAI -> "Ara"
+                RealtimeApiProvider.GOOGLE_GEMINI -> "Puck"
+                else -> "ash"
+            }
+            return settings.getString(KEY_VOICE, defaultVoice) ?: defaultVoice
+        }
         set(value) = settings.edit().putString(KEY_VOICE, value).apply()
 
     val speed: Float
@@ -168,6 +183,40 @@ class SettingsRepository @Inject constructor(
         get() = settings.getString(KEY_EAGERNESS, "auto") ?: "auto"
         set(value) = settings.edit().putString(KEY_EAGERNESS, value).apply()
 
+    // ==================== Google Live API Settings ====================
+    
+    // VAD Sensitivity: "LOW" or "HIGH"
+    var googleStartSensitivity: String
+        get() = settings.getString(KEY_GOOGLE_START_SENSITIVITY, "HIGH") ?: "HIGH"
+        set(value) = settings.edit().putString(KEY_GOOGLE_START_SENSITIVITY, value).apply()
+    
+    var googleEndSensitivity: String
+        get() = settings.getString(KEY_GOOGLE_END_SENSITIVITY, "HIGH") ?: "HIGH"
+        set(value) = settings.edit().putString(KEY_GOOGLE_END_SENSITIVITY, value).apply()
+    
+    var googlePrefixPaddingMs: Int
+        get() = settings.getInt(KEY_GOOGLE_PREFIX_PADDING_MS, 20)
+        set(value) = settings.edit().putInt(KEY_GOOGLE_PREFIX_PADDING_MS, value).apply()
+    
+    var googleSilenceDurationMs: Int
+        get() = settings.getInt(KEY_GOOGLE_SILENCE_DURATION_MS, 500)
+        set(value) = settings.edit().putInt(KEY_GOOGLE_SILENCE_DURATION_MS, value).apply()
+    
+    // Thinking budget: 0 = disabled, >0 = token budget for thinking
+    var googleThinkingBudget: Int
+        get() = settings.getInt(KEY_GOOGLE_THINKING_BUDGET, 0)
+        set(value) = settings.edit().putInt(KEY_GOOGLE_THINKING_BUDGET, value).apply()
+    
+    // Affective dialog: enables emotional speech output
+    var googleAffectiveDialog: Boolean
+        get() = settings.getBoolean(KEY_GOOGLE_AFFECTIVE_DIALOG, false)
+        set(value) = settings.edit().putBoolean(KEY_GOOGLE_AFFECTIVE_DIALOG, value).apply()
+    
+    // Proactive audio: allows Gemini to proactively decide not to respond when content is not relevant
+    var googleProactiveAudio: Boolean
+        get() = settings.getBoolean(KEY_GOOGLE_PROACTIVE_AUDIO, false)
+        set(value) = settings.edit().putBoolean(KEY_GOOGLE_PROACTIVE_AUDIO, value).apply()
+
     companion object {
         private const val PREFS_NAME = "PepperDialogPrefs"
         private const val KEY_SYSTEM_PROMPT = "systemPrompt"
@@ -195,6 +244,15 @@ class SettingsRepository @Inject constructor(
         private const val KEY_IDLE_TIMEOUT = "idleTimeout"
         private const val KEY_NOISE_REDUCTION = "noiseReduction"
         private const val KEY_EAGERNESS = "eagerness"
+
+        // Google Live API specific settings
+        private const val KEY_GOOGLE_START_SENSITIVITY = "googleStartSensitivity"
+        private const val KEY_GOOGLE_END_SENSITIVITY = "googleEndSensitivity"
+        private const val KEY_GOOGLE_PREFIX_PADDING_MS = "googlePrefixPaddingMs"
+        private const val KEY_GOOGLE_SILENCE_DURATION_MS = "googleSilenceDurationMs"
+        private const val KEY_GOOGLE_THINKING_BUDGET = "googleThinkingBudget"
+        private const val KEY_GOOGLE_AFFECTIVE_DIALOG = "googleAffectiveDialog"
+        private const val KEY_GOOGLE_PROACTIVE_AUDIO = "googleProactiveAudio"
 
         // Audio input mode constants
         const val MODE_REALTIME_API = "realtime_api"

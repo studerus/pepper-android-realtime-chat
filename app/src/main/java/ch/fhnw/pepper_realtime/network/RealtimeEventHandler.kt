@@ -56,19 +56,55 @@ class RealtimeEventHandler(val listener: Listener) {
         fun onUserTranscriptCompleted(itemId: String?, transcript: String?)
         fun onUserTranscriptFailed(itemId: String?, event: RealtimeEvents.UserTranscriptFailed)
         fun onAudioTranscriptDone(transcript: String?, responseId: String?)
+
+        // Google Live API events
+        fun onGoogleSetupComplete() {}
+        fun onGoogleInterrupted() {}
+        fun onGoogleModelTurnStarted() {}  // First modelTurn in a response - signal to enter THINKING
+        fun onGoogleToolCall(functionCalls: List<GoogleLiveEvents.FunctionCall>) {}
+        fun onGoogleToolCallCancellation(ids: List<String>) {}
     }
 
     private val gson = Gson()
 
+    // Flag to indicate if we're handling Google Live API events
+    var isGoogleProvider: Boolean = false
+    
+    // Track if we've already signaled the first modelTurn in current response
+    private var hasSignaledModelTurnStart: Boolean = false
+    
+    // Collect Google transcriptions for logging at turn end
+    private val googleInputBuffer = StringBuilder()
+    private val googleThinkingBuffer = StringBuilder()
+    private val googleOutputBuffer = StringBuilder()
+    
+    /**
+     * Signal that model turn has started (first output or modelTurn).
+     * This is used to mute the microphone when the model starts responding.
+     */
+    private fun signalModelTurnStartedIfNeeded() {
+        if (!hasSignaledModelTurnStart) {
+            // Log collected user input before model starts responding
+            if (googleInputBuffer.isNotEmpty()) {
+                Log.i(TAG, "Google input: \"${googleInputBuffer}\"")
+                googleInputBuffer.clear()
+            }
+            hasSignaledModelTurnStart = true
+            listener.onGoogleModelTurnStarted()
+        }
+    }
+
     fun handle(text: String) {
         try {
             val jsonObject = JsonParser.parseString(text).asJsonObject
-            val type = if (jsonObject.has("type")) jsonObject.get("type").asString else ""
 
-            // Skip logging for high-frequency delta events to avoid log spam
-            if (!type.endsWith(".delta")) {
-                Log.d(TAG, "Received event type: $type")
+            // Check if this is a Google Live API message (no "type" field, uses top-level fields)
+            if (isGoogleProvider || !jsonObject.has("type")) {
+                handleGoogleEvent(jsonObject)
+                return
             }
+
+            val type = jsonObject.get("type").asString
 
             when (type) {
                 "session.created" -> {
@@ -226,6 +262,165 @@ class RealtimeEventHandler(val listener: Listener) {
         } catch (e: Exception) {
             Log.e(TAG, "Error handling event: $text", e)
             listener.onUnknown("error", null)
+        }
+    }
+
+    /**
+     * Handle Google Live API events.
+     * Google uses top-level fields (serverContent, toolCall, setupComplete) instead of "type".
+     */
+    private fun handleGoogleEvent(jsonObject: JsonObject) {
+        try {
+            // Check for error response first
+            if (jsonObject.has("error")) {
+                val error = jsonObject.getAsJsonObject("error")
+                val code = error?.get("code")?.asInt ?: -1
+                val message = error?.get("message")?.asString ?: "Unknown error"
+                val status = error?.get("status")?.asString ?: ""
+                Log.e(TAG, "Google API Error: code=$code, status=$status, message=$message")
+                listener.onError(RealtimeEvents.ErrorEvent().apply {
+                    this.error = RealtimeEvents.Error().apply {
+                        this.code = code.toString()
+                        this.message = message
+                    }
+                })
+                return
+            }
+
+            // Parse the server message
+            val serverMessage = gson.fromJson(jsonObject, GoogleLiveEvents.ServerMessage::class.java)
+
+            // Handle setupComplete
+            if (serverMessage.setupComplete != null) {
+                Log.i(TAG, "Google: Setup complete")
+                listener.onGoogleSetupComplete()
+                return
+            }
+
+            // Handle toolCall
+            if (serverMessage.toolCall != null) {
+                val functionCalls = serverMessage.toolCall.functionCalls
+                if (!functionCalls.isNullOrEmpty()) {
+                    Log.i(TAG, "Google: Tool call - ${functionCalls.map { it.name }.joinToString()}")
+                    listener.onGoogleToolCall(functionCalls)
+                }
+                return
+            }
+
+            // Handle toolCallCancellation
+            if (serverMessage.toolCallCancellation != null) {
+                val ids = serverMessage.toolCallCancellation.ids
+                if (!ids.isNullOrEmpty()) {
+                    Log.i(TAG, "Google: Tool call cancellation for ${ids.size} call(s)")
+                    listener.onGoogleToolCallCancellation(ids)
+                }
+                return
+            }
+
+            // Handle serverContent
+            val serverContent = serverMessage.serverContent
+            if (serverContent != null) {
+                handleGoogleServerContent(serverContent)
+                return
+            }
+
+            // Unknown Google event
+            Log.w(TAG, "Google: Unknown event structure")
+            listener.onUnknown("google_unknown", jsonObject)
+
+        } catch (e: Exception) {
+            Log.e(TAG, "Error handling Google event", e)
+            listener.onUnknown("google_error", jsonObject)
+        }
+    }
+
+    /**
+     * Handle Google serverContent events (audio, text, transcriptions, interruptions).
+     */
+    private fun handleGoogleServerContent(content: GoogleLiveEvents.ServerContent) {
+        // Handle interruption (barge-in)
+        if (content.interrupted == true) {
+            Log.i(TAG, "Google: Interrupted (barge-in)")
+            // Clear buffers on interruption
+            googleInputBuffer.clear()
+            googleThinkingBuffer.clear()
+            googleOutputBuffer.clear()
+            hasSignaledModelTurnStart = false  // Reset for next response
+            listener.onGoogleInterrupted()
+            // Also trigger audio done to stop playback
+            listener.onAudioDone()
+        }
+
+        // Handle input transcription (user speech-to-text) - collect for logging
+        content.inputTranscription?.text?.let { transcript ->
+            if (transcript.isNotEmpty()) {
+                googleInputBuffer.append(transcript)
+                listener.onUserTranscriptCompleted(null, transcript)
+            }
+        }
+
+        // Handle output transcription (model speech-to-text)
+        content.outputTranscription?.text?.let { transcript ->
+            if (transcript.isNotEmpty()) {
+                // Signal model turn started on first output (mutes microphone)
+                signalModelTurnStartedIfNeeded()
+                googleOutputBuffer.append(transcript)
+                listener.onAudioTranscriptDelta(transcript, null)
+            }
+        }
+
+        // Handle model turn (audio/text parts)
+        if (content.modelTurn != null) {
+            // Signal model turn started on first modelTurn (mutes microphone)
+            signalModelTurnStartedIfNeeded()
+        }
+        
+        content.modelTurn?.parts?.forEach { part ->
+            // Handle audio data
+            part.inlineData?.let { inlineData ->
+                if (inlineData.data != null && inlineData.mimeType?.startsWith("audio/") == true) {
+                    measureAudioLatency()
+                    try {
+                        val bytes = Base64.decode(inlineData.data, Base64.DEFAULT)
+                        listener.onAudioDelta(bytes, null)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Google: Failed to decode audio data", e)
+                    }
+                }
+            }
+
+            // Handle text data
+            part.text?.let { text ->
+                if (text.isNotEmpty()) {
+                    if (part.thought == true) {
+                        // Collect thinking traces for logging at turn end
+                        googleThinkingBuffer.append(text)
+                    } else {
+                        // Non-thought text (rarely used - outputTranscription is preferred)
+                        listener.onAudioTranscriptDelta(text, null)
+                    }
+                }
+            }
+        }
+
+        // Handle turn complete
+        if (content.turnComplete == true) {
+            // Log collected thinking and output
+            if (googleThinkingBuffer.isNotEmpty()) {
+                val thinking = googleThinkingBuffer.toString()
+                val preview = if (thinking.length > 500) thinking.take(500) + "..." else thinking
+                Log.i(TAG, "Google thinking: \"$preview\"")
+                googleThinkingBuffer.clear()
+            }
+            if (googleOutputBuffer.isNotEmpty()) {
+                Log.i(TAG, "Google output: \"${googleOutputBuffer}\"")
+                googleOutputBuffer.clear()
+            }
+            
+            hasSignaledModelTurnStart = false  // Reset for next response
+            listener.onAudioDone()
+            // Create a synthetic ResponseDone for compatibility
+            listener.onResponseDone(RealtimeEvents.ResponseDone())
         }
     }
 }

@@ -10,7 +10,11 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Manages audio input capture for Realtime API
- * Captures PCM16 24kHz mono audio and streams it via WebSocket
+ * Captures PCM16 mono audio and streams it via WebSocket
+ * 
+ * Sample rates:
+ * - OpenAI/Azure/x.ai: 24kHz
+ * - Google Gemini: 16kHz (for better performance on Pepper tablet)
  */
 class RealtimeAudioInputManager(
     private val sessionManager: RealtimeSessionManager
@@ -18,6 +22,17 @@ class RealtimeAudioInputManager(
     private var audioRecord: AudioRecord? = null
     private var captureThread: Thread? = null
     private val _isCapturing = AtomicBoolean(false)
+
+    /**
+     * Set to true when using Google provider (uses 16kHz input - Google's native rate)
+     */
+    var isGoogleProvider: Boolean = false
+    
+    private val currentSampleRate: Int
+        get() = if (isGoogleProvider) GOOGLE_SAMPLE_RATE else OPENAI_SAMPLE_RATE
+    
+    private val currentBufferSizeBytes: Int
+        get() = if (isGoogleProvider) GOOGLE_BUFFER_SIZE_BYTES else OPENAI_BUFFER_SIZE_BYTES
 
     val isCapturing: Boolean
         get() = _isCapturing.get()
@@ -27,9 +42,12 @@ class RealtimeAudioInputManager(
      */
     private fun initializeAudioRecord(): Boolean {
         try {
+            val sampleRate = currentSampleRate
+            val bufferSize = currentBufferSizeBytes
+            
             // Calculate minimum buffer size
             val minBufferSize = AudioRecord.getMinBufferSize(
-                SAMPLE_RATE,
+                sampleRate,
                 CHANNEL_CONFIG,
                 AUDIO_FORMAT
             )
@@ -40,12 +58,13 @@ class RealtimeAudioInputManager(
             }
 
             // Use larger of our preferred size or minimum required
-            val bufferSizeInBytes = maxOf(BUFFER_SIZE_BYTES, minBufferSize)
+            val bufferSizeInBytes = maxOf(bufferSize, minBufferSize)
 
             // Create AudioRecord instance
+            // VOICE_COMMUNICATION enables echo cancellation, noise suppression, and AGC
             audioRecord = AudioRecord(
-                MediaRecorder.AudioSource.VOICE_COMMUNICATION, // Optimized for voice with noise suppression
-                SAMPLE_RATE,
+                MediaRecorder.AudioSource.VOICE_COMMUNICATION,
+                sampleRate,
                 CHANNEL_CONFIG,
                 AUDIO_FORMAT,
                 bufferSizeInBytes
@@ -57,7 +76,7 @@ class RealtimeAudioInputManager(
                 return false
             }
 
-            Log.i(TAG, "AudioRecord initialized: ${SAMPLE_RATE}Hz, buffer=$bufferSizeInBytes bytes")
+            Log.i(TAG, "AudioRecord initialized: ${sampleRate}Hz (${if (isGoogleProvider) "Google" else "OpenAI"}), buffer=$bufferSizeInBytes bytes")
             return true
 
         } catch (e: SecurityException) {
@@ -139,10 +158,10 @@ class RealtimeAudioInputManager(
      * Audio capture loop - runs in background thread
      */
     private fun captureLoop() {
-        val buffer = ByteArray(BUFFER_SIZE_BYTES)
+        val buffer = ByteArray(currentBufferSizeBytes)
         var consecutiveErrors = 0
 
-        Log.d(TAG, "Capture loop started")
+        Log.d(TAG, "Capture loop started (${if (isGoogleProvider) "Google 16kHz" else "OpenAI 24kHz"})")
 
         while (_isCapturing.get()) {
             try {
@@ -203,8 +222,12 @@ class RealtimeAudioInputManager(
             // Encode to Base64
             val base64Audio = Base64.encodeToString(buffer, 0, bytesRead, Base64.NO_WRAP)
 
-            // Send via session manager
-            val sent = sessionManager.sendAudioChunk(base64Audio)
+            // Send via session manager (use Google-specific method for 16kHz format)
+            val sent = if (isGoogleProvider) {
+                sessionManager.sendGoogleAudioChunk(base64Audio)
+            } else {
+                sessionManager.sendAudioChunk(base64Audio)
+            }
 
             if (!sent) {
                 Log.w(TAG, "Failed to send audio chunk ($bytesRead bytes)")
@@ -235,15 +258,20 @@ class RealtimeAudioInputManager(
     companion object {
         private const val TAG = "RealtimeAudioInput"
 
-        // Realtime API audio format requirements
-        private const val SAMPLE_RATE = 24000 // 24kHz required by Realtime API
+        // Audio format requirements (same for all providers)
         private const val CHANNEL_CONFIG = AudioFormat.CHANNEL_IN_MONO
         private const val AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT
         private const val BYTES_PER_SAMPLE = 2 // 16-bit = 2 bytes
 
-        // Buffer size: ~100ms of audio (2400 samples * 2 bytes = 4800 bytes)
-        private const val BUFFER_SIZE_SAMPLES = 2400
-        private const val BUFFER_SIZE_BYTES = BUFFER_SIZE_SAMPLES * BYTES_PER_SAMPLE
+        // OpenAI/Azure/x.ai: 24kHz
+        private const val OPENAI_SAMPLE_RATE = 24000
+        private const val OPENAI_BUFFER_SIZE_SAMPLES = 2400 // ~100ms of audio
+        private const val OPENAI_BUFFER_SIZE_BYTES = OPENAI_BUFFER_SIZE_SAMPLES * BYTES_PER_SAMPLE
+
+        // Google Gemini: 16kHz (better performance on Pepper tablet)
+        private const val GOOGLE_SAMPLE_RATE = 16000
+        private const val GOOGLE_BUFFER_SIZE_SAMPLES = 1600 // ~100ms of audio
+        private const val GOOGLE_BUFFER_SIZE_BYTES = GOOGLE_BUFFER_SIZE_SAMPLES * BYTES_PER_SAMPLE
 
         private const val MAX_CONSECUTIVE_ERRORS = 5
     }

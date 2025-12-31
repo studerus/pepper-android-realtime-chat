@@ -9,8 +9,10 @@ import ch.fhnw.pepper_realtime.di.ApplicationScope
 import ch.fhnw.pepper_realtime.di.IoDispatcher
 import ch.fhnw.pepper_realtime.manager.AudioPlayer
 import ch.fhnw.pepper_realtime.manager.TurnManager
+import ch.fhnw.pepper_realtime.network.GoogleLiveEvents
 import ch.fhnw.pepper_realtime.network.RealtimeEventHandler
 import ch.fhnw.pepper_realtime.network.RealtimeEvents
+import ch.fhnw.pepper_realtime.network.RealtimeSessionManager
 import ch.fhnw.pepper_realtime.tools.ToolContext
 import ch.fhnw.pepper_realtime.tools.ToolRegistry
 import ch.fhnw.pepper_realtime.ui.ChatMessage
@@ -18,6 +20,7 @@ import ch.fhnw.pepper_realtime.ui.ChatViewModel
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import org.json.JSONArray
 import org.json.JSONObject
 
 class ChatRealtimeHandler(
@@ -27,7 +30,8 @@ class ChatRealtimeHandler(
     private val ioDispatcher: CoroutineDispatcher,
     private val applicationScope: CoroutineScope,
     private val toolRegistry: ToolRegistry,
-    private var toolContext: ToolContext?
+    private var toolContext: ToolContext?,
+    private val sessionManager: RealtimeSessionManager
 ) : RealtimeEventHandler.Listener {
 
     companion object {
@@ -35,6 +39,12 @@ class ChatRealtimeHandler(
     }
 
     var sessionController: ChatSessionController? = null
+
+    // Track pending Google tool calls to cancel them if interrupted
+    private val pendingGoogleToolCalls = mutableSetOf<String>()
+    
+    // Google Live API: counter to generate unique turn IDs
+    private var googleTurnCounter = 0
 
     fun setToolContext(context: ToolContext?) {
         this.toolContext = context
@@ -51,43 +61,51 @@ class ChatRealtimeHandler(
     }
 
     override fun onAudioTranscriptDelta(delta: String?, responseId: String?) {
-        if (responseId == viewModel.cancelledResponseId) {
-            return // drop transcript of cancelled response
+        // For Google Live API, responseId is null - use a synthetic ID based on turn counter
+        val effectiveResponseId = responseId ?: getGoogleTurnId()
+        
+        if (responseId != null && responseId == viewModel.cancelledResponseId) {
+            return // drop transcript of cancelled response (only for non-Google)
         }
 
         // Debug: Log first delta to verify transcript is being processed
-        val isFirstDelta = responseId != viewModel.lastChatBubbleResponseId
+        val isFirstDelta = effectiveResponseId != viewModel.lastChatBubbleResponseId
         if (isFirstDelta) {
-            Log.d(TAG, "First transcript delta received for response: $responseId, expectingFinalAnswer=${viewModel.isExpectingFinalAnswerAfterToolCall}")
+            Log.d(TAG, "First transcript delta received for response: $effectiveResponseId, expectingFinalAnswer=${viewModel.isExpectingFinalAnswerAfterToolCall}")
             // Set status to Speaking (without transcript)
             val speakingText = viewModel.getApplication<android.app.Application>().getString(R.string.status_speaking)
             viewModel.setStatusText(speakingText)
         }
 
-        // Status bar update removed to rely on streaming bubbles
-
-        // Fix for double bubble creation:
-        // Check if we are already handling this response ID.
-        // If so, unconditionally append to the last message, ignoring potential LiveData latency
-        // in isLastMessageFromRobot().
-        if (responseId != null && responseId == viewModel.lastChatBubbleResponseId) {
-            viewModel.appendToLastMessage(delta ?: "")
+        // Check if we need a new bubble for the final answer after a tool call
+        // This must be checked BEFORE the early return for same responseId
+        if (viewModel.isExpectingFinalAnswerAfterToolCall) {
+            Log.d(TAG, "Creating new chat bubble for final answer after tool call")
+            viewModel.addMessage(ChatMessage(delta ?: "", ChatMessage.Sender.ROBOT))
+            viewModel.isExpectingFinalAnswerAfterToolCall = false
+            viewModel.lastChatBubbleResponseId = effectiveResponseId
             return
         }
 
-        val needNew = viewModel.isExpectingFinalAnswerAfterToolCall
-                || isMessageListEmpty()
+        // Fix for double bubble creation:
+        // Check if we are already handling this response ID.
+        // If so, append to the last message.
+        if (effectiveResponseId == viewModel.lastChatBubbleResponseId) {
+            viewModel.appendToLastRobotMessage(delta ?: "")
+            return
+        }
+
+        // Need new bubble for new response or first message
+        val needNew = isMessageListEmpty()
                 || !isLastMessageFromRobot()
-                || responseId != viewModel.lastChatBubbleResponseId
+                || effectiveResponseId != viewModel.lastChatBubbleResponseId
 
         if (needNew) {
-            Log.d(TAG, "Creating new chat bubble for transcript (needNew=true, responseId=$responseId)")
+            Log.d(TAG, "Creating new chat bubble for transcript (needNew=true, responseId=$effectiveResponseId)")
             viewModel.addMessage(ChatMessage(delta ?: "", ChatMessage.Sender.ROBOT))
-            viewModel.isExpectingFinalAnswerAfterToolCall = false
-            viewModel.lastChatBubbleResponseId = responseId
+            viewModel.lastChatBubbleResponseId = effectiveResponseId
         } else {
-            // Fallback (should be covered by first check, but kept for safety)
-            viewModel.appendToLastMessage(delta ?: "")
+            viewModel.appendToLastRobotMessage(delta ?: "")
         }
     }
 
@@ -116,21 +134,22 @@ class ChatRealtimeHandler(
     }
 
     override fun onAudioDelta(pcm16: ByteArray, responseId: String?) {
-        // Ignore audio from cancelled response
-        if (responseId == viewModel.cancelledResponseId) {
+        // For Google Live API, responseId is null - use a synthetic ID based on turn counter
+        val effectiveResponseId = responseId ?: getGoogleTurnId()
+        
+        // Ignore audio from cancelled response (only for non-Google with actual responseId)
+        if (responseId != null && responseId == viewModel.cancelledResponseId) {
             return
         }
 
         // Note: State transition to SPEAKING is handled by AudioPlayer.Listener.onPlaybackStarted()
         // when playback actually begins, not here when audio chunks arrive
-        if (responseId != null) {
-            if (viewModel.currentResponseId != responseId) {
-                try {
-                    audioPlayer.onResponseBoundary()
-                } catch (_: Exception) {
-                }
-                viewModel.currentResponseId = responseId
+        if (viewModel.currentResponseId != effectiveResponseId) {
+            try {
+                audioPlayer.onResponseBoundary()
+            } catch (_: Exception) {
             }
+            viewModel.currentResponseId = effectiveResponseId
         }
 
         viewModel.setAudioPlaying(true) // Audio chunks are being played
@@ -292,13 +311,12 @@ class ChatRealtimeHandler(
     }
 
     override fun onUserSpeechStopped(itemId: String?) {
-        Log.d(TAG, "User speech stopped: $itemId")
+        // No action needed
     }
 
     override fun onAudioBufferCommitted(itemId: String?) {
         // Server has accepted the audio input and will generate a response
         // Transition to THINKING state (equivalent to after Azure speech recognition sends transcript)
-        Log.d(TAG, "Audio buffer committed: $itemId - entering THINKING state")
         if (turnManager != null && turnManager.state == TurnManager.State.LISTENING) {
             turnManager.setState(TurnManager.State.THINKING)
         }
@@ -306,7 +324,23 @@ class ChatRealtimeHandler(
 
     override fun onUserTranscriptCompleted(itemId: String?, transcript: String?) {
         if (!transcript.isNullOrEmpty()) {
-            Log.d(TAG, "Attempting to update message with itemId: $itemId, transcript: $transcript")
+            // For Google Live API (itemId is null): append to last user message or create new
+            if (itemId == null) {
+                val list = viewModel.messageList.value
+                val lastMessage = list?.lastOrNull()
+                
+                if (lastMessage != null && lastMessage.sender == ChatMessage.Sender.USER) {
+                    // Append to existing user message
+                    viewModel.appendToLastUserMessage(transcript)
+                } else {
+                    // Create new user message
+                    val msg = ChatMessage(transcript, ChatMessage.Sender.USER)
+                    viewModel.addMessage(msg)
+                }
+                return
+            }
+            
+            // For OpenAI/Azure (has itemId): use placeholder system
             val updated = viewModel.updateMessageByItemId(itemId, transcript)
 
             if (!updated) {
@@ -314,8 +348,6 @@ class ChatRealtimeHandler(
                 val msg = ChatMessage(transcript, ChatMessage.Sender.USER)
                 msg.itemId = itemId
                 viewModel.addMessage(msg)
-            } else {
-                Log.d(TAG, "Successfully updated placeholder for itemId: $itemId")
             }
         }
     }
@@ -333,5 +365,132 @@ class ChatRealtimeHandler(
 
     override fun onUserItemCreated(itemId: String?, event: RealtimeEvents.ConversationItemCreated) {
         // Default: no action needed
+    }
+
+    // ==================== GOOGLE LIVE API EVENT HANDLERS ====================
+
+    override fun onGoogleSetupComplete() {
+        Log.i(TAG, "Google Live API setup complete")
+        // Notify session manager that Google setup is confirmed
+        sessionManager.onGoogleSetupComplete()
+    }
+
+    override fun onGoogleModelTurnStarted() {
+        // First modelTurn received - Google has started responding
+        // Increment turn counter for new response ID
+        googleTurnCounter++
+        
+        // Transition to THINKING state (this mutes the microphone)
+        if (turnManager != null && turnManager.state == TurnManager.State.LISTENING) {
+            turnManager.setState(TurnManager.State.THINKING)
+        }
+    }
+    
+    // Helper to get current Google turn ID
+    private fun getGoogleTurnId(): String = "google_turn_$googleTurnCounter"
+
+    override fun onGoogleInterrupted() {
+        Log.i(TAG, "Google: Barge-in detected - stopping audio playback")
+        audioPlayer.interruptNow()
+        viewModel.setAudioPlaying(false)
+        
+        // Clear pending tool calls on interrupt
+        pendingGoogleToolCalls.clear()
+    }
+
+    override fun onGoogleToolCall(functionCalls: List<GoogleLiveEvents.FunctionCall>) {
+        Log.i(TAG, "Google: Processing ${functionCalls.size} tool call(s)")
+        
+        for (fc in functionCalls) {
+            val toolName = fc.name ?: continue
+            val callId = fc.id ?: continue
+            
+            // Track pending tool call
+            pendingGoogleToolCalls.add(callId)
+            
+            // Convert args map to JSONObject (handling nested objects and arrays)
+            val args = convertToJsonObject(fc.args ?: emptyMap())
+
+            Log.i(TAG, "Google tool call: $toolName (id=$callId), args=$args")
+
+            // Show function call card in UI
+            val functionCall = ChatMessage.createFunctionCall(toolName, args.toString(), ChatMessage.Sender.ROBOT)
+            viewModel.addMessage(functionCall)
+
+            viewModel.isExpectingFinalAnswerAfterToolCall = true
+
+            applicationScope.launch(ioDispatcher) {
+                val toolResult: String = try {
+                    toolRegistry.executeTool(toolName, args, toolContext!!)
+                        ?: "{\"error\":\"Tool returned no result.\"}"
+                } catch (toolEx: Exception) {
+                    Log.e(TAG, "Google tool execution crashed for $toolName", toolEx)
+                    try {
+                        JSONObject()
+                            .put("error", "Tool execution failed: ${toolEx.message ?: "Unknown error"}")
+                            .toString()
+                    } catch (_: Exception) {
+                        "{\"error\":\"Tool execution failed.\"}"
+                    }
+                }
+
+                // Check if this call was cancelled while executing
+                if (callId !in pendingGoogleToolCalls) {
+                    Log.w(TAG, "Google tool call $callId was cancelled, not sending result")
+                    return@launch
+                }
+                pendingGoogleToolCalls.remove(callId)
+
+                // Update UI on main thread
+                Handler(Looper.getMainLooper()).post {
+                    viewModel.updateLatestFunctionCallResult(toolResult)
+                }
+
+                // Send result back to Google
+                // Note: Google Live API continues generation automatically after receiving toolResponse
+                val sent = sessionManager.sendGoogleToolResult(callId, toolName, toolResult)
+                if (!sent) {
+                    Log.e(TAG, "Failed to send Google tool result for $toolName")
+                }
+            }
+        }
+    }
+
+    override fun onGoogleToolCallCancellation(ids: List<String>) {
+        Log.i(TAG, "Google: Tool call cancellation for ${ids.size} call(s)")
+        ids.forEach { id ->
+            pendingGoogleToolCalls.remove(id)
+        }
+    }
+
+    /**
+     * Convert a Map<String, Any> to JSONObject, properly handling nested objects and arrays.
+     * Gson deserializes JSON arrays as ArrayList and objects as LinkedTreeMap.
+     */
+    private fun convertToJsonObject(map: Map<String, Any?>): JSONObject {
+        val json = JSONObject()
+        for ((key, value) in map) {
+            json.put(key, convertToJsonValue(value))
+        }
+        return json
+    }
+
+    private fun convertToJsonValue(value: Any?): Any? {
+        return when (value) {
+            null -> JSONObject.NULL
+            is Map<*, *> -> {
+                @Suppress("UNCHECKED_CAST")
+                convertToJsonObject(value as Map<String, Any?>)
+            }
+            is List<*> -> {
+                val jsonArray = JSONArray()
+                for (item in value) {
+                    jsonArray.put(convertToJsonValue(item))
+                }
+                jsonArray
+            }
+            is Number, is String, is Boolean -> value
+            else -> value.toString()
+        }
     }
 }

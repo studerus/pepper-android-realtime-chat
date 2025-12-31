@@ -55,6 +55,9 @@ class ApiKeyManager @Inject constructor(context: Context) {
     val xaiApiKey: String
         get() = getBuildConfigKey("XAI_API_KEY", settings.getString("XAI_API_KEY", "") ?: "")
 
+    val googleApiKey: String
+        get() = getBuildConfigKey("GOOGLE_API_KEY", settings.getString("GOOGLE_API_KEY", "") ?: "")
+
     // Validation methods
     fun hasValidTavilyKey(): Boolean = isValidKey(tavilyApiKey)
 
@@ -132,6 +135,11 @@ class ApiKeyManager @Inject constructor(context: Context) {
         // Check x.ai
         if (isValidKey(xaiApiKey)) {
             configured.add(RealtimeApiProvider.XAI)
+        }
+
+        // Check Google Gemini
+        if (isValidKey(googleApiKey)) {
+            configured.add(RealtimeApiProvider.GOOGLE_GEMINI)
         }
 
         return configured.toTypedArray()

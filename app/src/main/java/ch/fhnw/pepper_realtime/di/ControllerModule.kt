@@ -67,12 +67,14 @@ object ControllerModule {
         turnManager: TurnManager,
         @IoDispatcher ioDispatcher: CoroutineDispatcher,
         @ApplicationScope applicationScope: CoroutineScope,
-        toolRegistry: ToolRegistry
+        toolRegistry: ToolRegistry,
+        sessionManager: RealtimeSessionManager
     ): RealtimeEventHandler {
         // ToolContext is set later
         val handler = ChatRealtimeHandler(
             viewModel, audioPlayer, turnManager,
-            ioDispatcher, applicationScope, toolRegistry, null
+            ioDispatcher, applicationScope, toolRegistry, null,
+            sessionManager
         )
         return RealtimeEventHandler(handler)
     }

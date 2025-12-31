@@ -21,6 +21,9 @@ AZURE_OPENAI_ENDPOINT=your-resource.openai.azure.com
 # Option 3: x.ai Grok - Alternative voice agent provider
 XAI_API_KEY=your_xai_api_key_here
 
+# Option 4: Google Gemini Live API - Native audio model
+GOOGLE_API_KEY=your_google_api_key_here
+
 # SPEECH RECOGNITION (Optional - only needed for Azure Speech mode)
 # The app uses Realtime API for audio input by default (simple setup)
 # Switch to Azure Speech in app Settings → Audio Input for better dialect recognition

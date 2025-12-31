@@ -19,7 +19,7 @@ data class SettingsState(
     val confidenceThreshold: Float = 0.7f,
     val enabledTools: Set<String> = emptySet(),
     
-    // Realtime API Settings
+    // Realtime API Settings (OpenAI)
     val transcriptionModel: String = "whisper-1",
     val transcriptionLanguage: String = "",
     val transcriptionPrompt: String = "",
@@ -29,6 +29,15 @@ data class SettingsState(
     val silenceDuration: Int = 500,
     val idleTimeout: Int? = null,
     val eagerness: String = "auto",
-    val noiseReduction: String = "off"
+    val noiseReduction: String = "off",
+    
+    // Google Live API Settings
+    val googleStartSensitivity: String = "HIGH",
+    val googleEndSensitivity: String = "HIGH",
+    val googlePrefixPaddingMs: Int = 20,
+    val googleSilenceDurationMs: Int = 500,
+    val googleThinkingBudget: Int = 0,
+    val googleAffectiveDialog: Boolean = false,
+    val googleProactiveAudio: Boolean = false
 )
 

@@ -4,6 +4,7 @@ import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioTrack
+import android.os.SystemClock
 import android.os.Build
 import android.os.Process
 import android.util.Log
@@ -13,6 +14,18 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.locks.LockSupport
+
+// File-level TAG so it is accessible from nested classes as well.
+private const val TAG = "AudioPlayer"
+
+/**
+ * Upper bound for queued audio (in ms of audio at current output sample rate).
+ * This keeps peak RAM predictable on older devices.
+ *
+ * Important: This does NOT add constant latency. It only limits how far behind real-time
+ * we are allowed to fall during bursty streaming.
+ */
+private const val MAX_BUFFERED_AUDIO_MS = 8000
 
 /**
  * High-performance AudioPlayer with optimized buffer management and threading
@@ -33,8 +46,9 @@ class AudioPlayer {
     }
 
     // Performance-optimized buffer using bounded queue for O(1) operations
-    // Increased to 150 to handle GA API's larger/more frequent audio chunks (~6-7 seconds of audio at 24kHz)
-    private val audioBuffer = ArrayBlockingQueue<ByteArray>(150)
+    // Larger queue to absorb bursty streams (e.g., Google Live API) without dropping chunks.
+    // Note: This does not add *constant* latency, but may increase latency only if we fall behind.
+    private val audioBuffer = ArrayBlockingQueue<ByteArray>(350)
 
     // Atomic flags for lock-free operations
     private val _isPlaying = AtomicBoolean(false)
@@ -58,6 +72,9 @@ class AudioPlayer {
     // Track frames written for precise drain - using AtomicLong for thread safety
     private val totalFramesWritten = AtomicLong(0)
 
+    // Track queued audio bytes to enforce a predictable memory ceiling.
+    private val queuedBytes = AtomicInteger(0)
+
     // Track playback head position at response start to calculate relative position
     @Volatile
     private var responseStartFrames = 0
@@ -68,6 +85,10 @@ class AudioPlayer {
 
     @Volatile
     private var drainStartTime: Long = 0
+
+    // Rate-limit overflow logs (avoid log spam during bursty streams)
+    @Volatile
+    private var lastOverflowLogMs: Long = 0
 
     init {
         initializeAudioTrack()
@@ -93,19 +114,68 @@ class AudioPlayer {
     fun addChunk(data: ByteArray?) {
         if (data == null || data.isEmpty()) return
 
+        // Enforce a predictable byte ceiling for queued audio (avoid unbounded RAM growth).
+        // Prefer waiting briefly for the consumer to catch up instead of dropping audio.
+        val incomingBytes = data.size
+        val maxBytes = maxBufferedBytes()
+        if (maxBytes > 0) {
+            val startWait = SystemClock.elapsedRealtime()
+            while (queuedBytes.get() + incomingBytes > maxBytes && (SystemClock.elapsedRealtime() - startWait) < 80) {
+                LockSupport.parkNanos(2_000_000) // 2ms
+            }
+
+            // If still above limit, drop the oldest chunks until the new chunk can fit.
+            if (queuedBytes.get() + incomingBytes > maxBytes) {
+                var droppedCount = 0
+                while (queuedBytes.get() + incomingBytes > maxBytes) {
+                    val dropped = audioBuffer.poll() ?: break
+                    queuedBytes.addAndGet(-dropped.size)
+                    memoryPool.release(dropped)
+                    droppedCount++
+                }
+                if (droppedCount > 0) {
+                    val now = SystemClock.elapsedRealtime()
+                    if (now - lastOverflowLogMs > 750) {
+                        lastOverflowLogMs = now
+                        Log.w(TAG, "Audio buffer overflow - dropped $droppedCount chunk(s) to stay within ${maxBytes} bytes")
+                    }
+                }
+            }
+        }
+
         // Use memory pool to reduce allocations
         val pooled = memoryPool.acquireClean(data.size)
         System.arraycopy(data, 0, pooled, 0, data.size)
 
         // Non-blocking add with fallback
-        if (!audioBuffer.offer(pooled)) {
-            // Buffer full - drop oldest chunk to maintain real-time performance
+        var enqueued = audioBuffer.offer(pooled)
+        if (!enqueued) {
+            // Buffer full - drop only ONE oldest chunk as a last resort.
+            // (Aggressive dropping can skip words and is not acceptable for speech UX.)
             val dropped = audioBuffer.poll()
             if (dropped != null) {
+                queuedBytes.addAndGet(-dropped.size)
                 memoryPool.release(dropped)
             }
-            audioBuffer.offer(pooled)
-            Log.w(TAG, "Audio buffer overflow - dropped chunk to maintain real-time performance")
+            enqueued = audioBuffer.offer(pooled)
+
+            // Rate-limit warning to avoid spamming Logcat during bursts.
+            val now = SystemClock.elapsedRealtime()
+            if (now - lastOverflowLogMs > 750) {
+                lastOverflowLogMs = now
+                if (enqueued) {
+                    Log.w(TAG, "Audio buffer overflow - dropped 1 chunk (queue capacity reached)")
+                } else {
+                    Log.w(TAG, "Audio buffer overflow - failed to enqueue chunk even after dropping 1 (queue capacity reached)")
+                }
+            }
+        }
+
+        if (enqueued) {
+            queuedBytes.addAndGet(pooled.size)
+        } else {
+            // If we couldn't enqueue, release to the pool to avoid leaking pooled buffers.
+            memoryPool.release(pooled)
         }
     }
 
@@ -219,8 +289,10 @@ class AudioPlayer {
     private fun cleanupAudioBuffer() {
         var buffer: ByteArray?
         while (audioBuffer.poll().also { buffer = it } != null) {
+            queuedBytes.addAndGet(-buffer!!.size)
             memoryPool.release(buffer!!)
         }
+        queuedBytes.set(0)
     }
 
     fun release() {
@@ -240,7 +312,7 @@ class AudioPlayer {
 
     private fun initializeAudioTrack() {
         try {
-            val internalBufferMs = 100 // Reduced from 200ms for lower completion latency
+            val internalBufferMs = 100
             val channelConfig = AudioFormat.CHANNEL_OUT_MONO
             val audioFormat = AudioFormat.ENCODING_PCM_16BIT
             val minBuf = AudioTrack.getMinBufferSize(sampleRateHz, channelConfig, audioFormat)
@@ -286,8 +358,14 @@ class AudioPlayer {
 
         track.setPlaybackPositionUpdateListener(object : AudioTrack.OnPlaybackPositionUpdateListener {
             override fun onMarkerReached(track: AudioTrack) {
-                val drainDuration = System.currentTimeMillis() - drainStartTime
-                Log.d(TAG, "Playback marker reached - drain took ${drainDuration}ms")
+                val start = drainStartTime
+                val drainDuration = if (start > 0) SystemClock.elapsedRealtime() - start else -1L
+                if (drainDuration >= 0) {
+                    Log.d(TAG, "Playback marker reached - drain took ${drainDuration}ms")
+                } else {
+                    // Defensive: marker may fire if an old marker is behind the current head position.
+                    Log.d(TAG, "Playback marker reached (drainStartTime not set)")
+                }
                 playbackCompleted.set(true)
             }
 
@@ -335,7 +413,9 @@ class AudioPlayer {
 
         try {
             track.play()
-            var frameBytes = frameBytes10ms()
+            // Larger write granularity reduces overhead and helps absorb bursty streams (e.g., Live API).
+            // We still keep carry handling for leftover bytes < frameBytes.
+            var frameBytes = frameBytes10ms() * 4 // ~40ms
             if (frameBytes <= 0) frameBytes = 480 // safety for 24kHz mono pcm16
 
             while (!shouldStop.get()) {
@@ -343,6 +423,7 @@ class AudioPlayer {
 
                 if (data != null) {
                     processAudioChunk(data, frameBytes)
+                    queuedBytes.addAndGet(-data.size)
                     memoryPool.release(data) // Return to pool
                 } else {
                     if (isResponseDone.get()) break
@@ -448,14 +529,24 @@ class AudioPlayer {
             val totalFrames = totalFramesWritten.get()
             val targetFrames = if (totalFrames > Int.MAX_VALUE) Int.MAX_VALUE else totalFrames.toInt()
 
-            drainStartTime = System.currentTimeMillis()
+            drainStartTime = SystemClock.elapsedRealtime()
             playbackCompleted.set(false)
 
             // Set notification marker for event-driven completion
             val track = audioTrack
             if (track != null && targetFrames > 0) {
-                track.setNotificationMarkerPosition(targetFrames)
-                Log.d(TAG, "Set playback marker at frame $targetFrames")
+                // AudioTrack marker is absolute (frames since track start), not relative to this response.
+                // We therefore add the baseline captured at the response boundary.
+                val absoluteMarker = responseStartFrames.toLong() + targetFrames.toLong()
+                val markerFrames = when {
+                    absoluteMarker <= 0L -> 0
+                    absoluteMarker > Int.MAX_VALUE.toLong() -> Int.MAX_VALUE
+                    else -> absoluteMarker.toInt()
+                }
+                if (markerFrames > 0) {
+                    track.setNotificationMarkerPosition(markerFrames)
+                    Log.d(TAG, "Set playback marker at frame $markerFrames (responseStart=$responseStartFrames, written=$targetFrames)")
+                }
             }
 
             // Wait for completion callback with timeout
@@ -471,7 +562,7 @@ class AudioPlayer {
             }
 
             audioTrack?.stop()
-            val totalDrainTime = System.currentTimeMillis() - drainStartTime
+            val totalDrainTime = SystemClock.elapsedRealtime() - drainStartTime
             Log.d(TAG, "Total drain time: ${totalDrainTime}ms")
         } catch (e: Exception) {
             Log.w(TAG, "Drain wait interrupted", e)
@@ -496,6 +587,16 @@ class AudioPlayer {
     private fun frameBytes10ms(): Int {
         val samplesPer10ms = sampleRateHz / 100
         return samplesPer10ms * bytesPerSample * channels
+    }
+
+    private fun maxBufferedBytes(): Int {
+        val bytesPerSecond = sampleRateHz * bytesPerSample * channels
+        val bytes = (bytesPerSecond.toLong() * MAX_BUFFERED_AUDIO_MS.toLong()) / 1000L
+        return when {
+            bytes <= 0L -> 0
+            bytes > Int.MAX_VALUE.toLong() -> Int.MAX_VALUE
+            else -> bytes.toInt()
+        }
     }
 
     /**
@@ -543,8 +644,5 @@ class AudioPlayer {
         }
     }
 
-    companion object {
-        private const val TAG = "AudioPlayer"
-    }
 }
 

@@ -50,15 +50,31 @@ fun SettingsScreen(
     val isRealtimeMode = settings.audioInputMode == SettingsRepository.MODE_REALTIME_API
     val isServerVad = settings.turnDetectionType == "server_vad"
     val isXaiProvider = settings.apiProvider == RealtimeApiProvider.XAI.name
+    val isGoogleProvider = settings.apiProvider == RealtimeApiProvider.GOOGLE_GEMINI.name
     
     // Options - dynamic based on provider
     val openAiModels = listOf("gpt-realtime", "gpt-realtime-mini", "gpt-4o-realtime-preview", "gpt-4o-mini-realtime-preview")
     val xaiModels = listOf("Grok Voice Agent")
-    val models = if (isXaiProvider) xaiModels else openAiModels
+    // Google Live API requires models/ prefix for BidiGenerateContent
+    // Include fallback model for debugging
+    val googleModels = listOf(
+        "models/gemini-2.5-flash-native-audio-preview-12-2025",
+        "models/gemini-2.0-flash-live-001"  // Fallback - known to work
+    )
+    val models = when {
+        isGoogleProvider -> googleModels
+        isXaiProvider -> xaiModels
+        else -> openAiModels
+    }
     val openAiVoices = listOf("alloy", "ash", "ballad", "cedar", "coral", "echo", "marin", "sage", "shimmer", "verse")
     val xaiVoices = listOf("Ara", "Rex", "Sal", "Eve", "Leo")
+    val googleVoices = listOf("Puck", "Charon", "Kore", "Fenrir", "Aoede")
     // Dynamic voice list based on provider
-    val voices = if (isXaiProvider) xaiVoices else openAiVoices
+    val voices = when {
+        isGoogleProvider -> googleVoices
+        isXaiProvider -> xaiVoices
+        else -> openAiVoices
+    }
     val configuredProviders = remember { apiKeyManager.getConfiguredProviders() }
     val languages = SettingsRepository.getAvailableLanguages()
     val audioInputModes = listOf("Direct Audio", "Azure Speech")
@@ -137,16 +153,25 @@ fun SettingsScreen(
                     onOptionSelected = { displayName ->
                         val enumName = getProviderEnumName(displayName)
                         val isNewProviderXai = enumName == RealtimeApiProvider.XAI.name
+                        val isNewProviderGoogle = enumName == RealtimeApiProvider.GOOGLE_GEMINI.name
                         viewModel.setApiProvider(enumName)
                         
                         // Auto-switch model if current model is not available for new provider
-                        val newModels = if (isNewProviderXai) xaiModels else openAiModels
+                        val newModels = when {
+                            isNewProviderGoogle -> googleModels
+                            isNewProviderXai -> xaiModels
+                            else -> openAiModels
+                        }
                         if (settings.model !in newModels) {
                             viewModel.setModel(newModels.first())
                         }
                         
                         // Auto-switch voice if current voice is not available for new provider
-                        val newVoices = if (isNewProviderXai) xaiVoices else openAiVoices
+                        val newVoices = when {
+                            isNewProviderGoogle -> googleVoices
+                            isNewProviderXai -> xaiVoices
+                            else -> openAiVoices
+                        }
                         if (settings.voice !in newVoices) {
                             viewModel.setVoice(newVoices.first())
                         }
@@ -162,23 +187,24 @@ fun SettingsScreen(
                 onOptionSelected = { viewModel.setVoice(it) }
             )
             
-            // Speed - apply immediately
-            SettingsSlider(
-                label = "Speech Speed",
-                value = settings.speedProgress.toFloat(),
-                onValueChange = { viewModel.setSpeedProgress(it.toInt()) },
-                valueRange = 25f..150f,
-                valueDisplay = "%.2fx".format(settings.speedProgress / 100f)
-            )
-            
-            // Temperature - apply immediately
-            SettingsSlider(
-                label = "Temperature",
-                value = settings.temperatureProgress.toFloat(),
-                onValueChange = { viewModel.setTemperatureProgress(it.toInt()) },
-                valueRange = 0f..100f,
-                valueDisplay = "%.2f".format(0.6f + (settings.temperatureProgress / 100f) * 0.6f)
-            )
+            // Speed and Temperature - not supported by Google Live API
+            if (!isGoogleProvider) {
+                SettingsSlider(
+                    label = "Speech Speed",
+                    value = settings.speedProgress.toFloat(),
+                    onValueChange = { viewModel.setSpeedProgress(it.toInt()) },
+                    valueRange = 25f..150f,
+                    valueDisplay = "%.2fx".format(settings.speedProgress / 100f)
+                )
+                
+                SettingsSlider(
+                    label = "Temperature",
+                    value = settings.temperatureProgress.toFloat(),
+                    onValueChange = { viewModel.setTemperatureProgress(it.toInt()) },
+                    valueRange = 0f..100f,
+                    valueDisplay = "%.2f".format(0.6f + (settings.temperatureProgress / 100f) * 0.6f)
+                )
+            }
             
             // Audio Input Mode - apply immediately
             SettingsSegmentedButton(
@@ -229,113 +255,175 @@ fun SettingsScreen(
             
             // Realtime API Settings (shown when Realtime mode selected)
             if (isRealtimeMode) {
-                SettingsSectionHeader(title = "Voice API Settings")
-                
-                SettingsDropdown(
-                    label = "Transcription Model",
-                    options = transcriptionModels,
-                    selectedOption = settings.transcriptionModel,
-                    onOptionSelected = { viewModel.setTranscriptionModel(it) }
-                )
-                
-                SettingsTextField(
-                    label = "Transcription Language (ISO-639-1)",
-                    value = transcriptionLanguage,
-                    onValueChange = { transcriptionLanguage = it },
-                    hint = "e.g., de, en, fr"
-                )
-                
-                SettingsTextField(
-                    label = "Transcription Prompt (Optional)",
-                    value = transcriptionPrompt,
-                    onValueChange = { transcriptionPrompt = it },
-                    hint = "Keywords or guidance text",
-                    singleLine = false,
-                    minLines = 2
-                )
-                
-                SettingsSegmentedButton(
-                    label = "Turn Detection Type",
-                    options = turnDetectionTypes,
-                    selectedOption = if (isServerVad) turnDetectionTypes[0] else turnDetectionTypes[1],
-                    onOptionSelected = { 
-                        val newType = if (it == turnDetectionTypes[0]) "server_vad" else "semantic_vad"
-                        viewModel.setTurnDetectionType(newType)
-                    }
-                )
-                
-                // Server VAD settings
-                if (isServerVad) {
-                    SettingsSlider(
-                        label = "VAD Activation Threshold",
-                        value = settings.vadThreshold,
-                        onValueChange = { viewModel.setVadThreshold(it) },
-                        valueRange = 0f..1f,
-                        valueDisplay = "%.2f".format(settings.vadThreshold)
+                if (isGoogleProvider) {
+                    // Google Live API Settings
+                    SettingsSectionHeader(title = "Google Live API Settings")
+                    
+                    // VAD Sensitivity settings
+                    val sensitivityOptions = listOf("LOW", "HIGH")
+                    
+                    SettingsSegmentedButton(
+                        label = "Start of Speech Sensitivity",
+                        options = sensitivityOptions,
+                        selectedOption = settings.googleStartSensitivity,
+                        onOptionSelected = { viewModel.setGoogleStartSensitivity(it) }
+                    )
+                    
+                    SettingsSegmentedButton(
+                        label = "End of Speech Sensitivity",
+                        options = sensitivityOptions,
+                        selectedOption = settings.googleEndSensitivity,
+                        onOptionSelected = { viewModel.setGoogleEndSensitivity(it) }
                     )
                     
                     SettingsSlider(
                         label = "Prefix Padding",
-                        value = settings.prefixPadding.toFloat(),
-                        onValueChange = { viewModel.setPrefixPadding(it.toInt()) },
-                        valueRange = 0f..1000f,
-                        valueDisplay = "${settings.prefixPadding} ms"
+                        value = settings.googlePrefixPaddingMs.toFloat(),
+                        onValueChange = { viewModel.setGooglePrefixPaddingMs(it.toInt()) },
+                        valueRange = 0f..500f,
+                        valueDisplay = "${settings.googlePrefixPaddingMs} ms"
                     )
                     
                     SettingsSlider(
                         label = "Silence Duration",
-                        value = settings.silenceDuration.toFloat(),
-                        onValueChange = { viewModel.setSilenceDuration(it.toInt()) },
-                        valueRange = 200f..2000f,
-                        valueDisplay = "${settings.silenceDuration} ms"
+                        value = settings.googleSilenceDurationMs.toFloat(),
+                        onValueChange = { viewModel.setGoogleSilenceDurationMs(it.toInt()) },
+                        valueRange = 100f..2000f,
+                        valueDisplay = "${settings.googleSilenceDurationMs} ms"
+                    )
+                    
+                    SettingsSlider(
+                        label = "Thinking Budget",
+                        value = settings.googleThinkingBudget.toFloat(),
+                        onValueChange = { viewModel.setGoogleThinkingBudget(it.toInt()) },
+                        valueRange = 0f..8192f,
+                        valueDisplay = if (settings.googleThinkingBudget == 0) "Off" else "${settings.googleThinkingBudget} tokens"
+                    )
+                    
+                    // Affective Dialog - currently not supported by v1alpha API
+                    // SettingsSwitch(
+                    //     label = "Affective Dialog",
+                    //     description = "Enables emotional speech output",
+                    //     checked = settings.googleAffectiveDialog,
+                    //     onCheckedChange = { viewModel.setGoogleAffectiveDialog(it) }
+                    // )
+                    
+                    SettingsSwitch(
+                        label = "Proactive Audio",
+                        description = "Allow Gemini to decide not to respond when content is not relevant",
+                        checked = settings.googleProactiveAudio,
+                        onCheckedChange = { viewModel.setGoogleProactiveAudio(it) }
+                    )
+                } else {
+                    // OpenAI Realtime API Settings
+                    SettingsSectionHeader(title = "Voice API Settings")
+                    
+                    SettingsDropdown(
+                        label = "Transcription Model",
+                        options = transcriptionModels,
+                        selectedOption = settings.transcriptionModel,
+                        onOptionSelected = { viewModel.setTranscriptionModel(it) }
                     )
                     
                     SettingsTextField(
-                        label = "Idle Timeout (ms, Optional)",
-                        value = idleTimeoutText,
-                        onValueChange = { idleTimeoutText = it },
-                        hint = "Milliseconds - leave empty to disable"
+                        label = "Transcription Language (ISO-639-1)",
+                        value = transcriptionLanguage,
+                        onValueChange = { transcriptionLanguage = it },
+                        hint = "e.g., de, en, fr"
                     )
-                } else {
-                    // Semantic VAD settings
-                    SettingsDropdown(
-                        label = "Eagerness",
-                        options = eagernessLevels,
-                        selectedOption = when (settings.eagerness) {
-                            "low" -> eagernessLevels[1]
-                            "medium" -> eagernessLevels[2]
-                            "high" -> eagernessLevels[3]
-                            else -> eagernessLevels[0]
+                    
+                    SettingsTextField(
+                        label = "Transcription Prompt (Optional)",
+                        value = transcriptionPrompt,
+                        onValueChange = { transcriptionPrompt = it },
+                        hint = "Keywords or guidance text",
+                        singleLine = false,
+                        minLines = 2
+                    )
+                    
+                    SettingsSegmentedButton(
+                        label = "Turn Detection Type",
+                        options = turnDetectionTypes,
+                        selectedOption = if (isServerVad) turnDetectionTypes[0] else turnDetectionTypes[1],
+                        onOptionSelected = { 
+                            val newType = if (it == turnDetectionTypes[0]) "server_vad" else "semantic_vad"
+                            viewModel.setTurnDetectionType(newType)
+                        }
+                    )
+                    
+                    // Server VAD settings
+                    if (isServerVad) {
+                        SettingsSlider(
+                            label = "VAD Activation Threshold",
+                            value = settings.vadThreshold,
+                            onValueChange = { viewModel.setVadThreshold(it) },
+                            valueRange = 0f..1f,
+                            valueDisplay = "%.2f".format(settings.vadThreshold)
+                        )
+                        
+                        SettingsSlider(
+                            label = "Prefix Padding",
+                            value = settings.prefixPadding.toFloat(),
+                            onValueChange = { viewModel.setPrefixPadding(it.toInt()) },
+                            valueRange = 0f..1000f,
+                            valueDisplay = "${settings.prefixPadding} ms"
+                        )
+                        
+                        SettingsSlider(
+                            label = "Silence Duration",
+                            value = settings.silenceDuration.toFloat(),
+                            onValueChange = { viewModel.setSilenceDuration(it.toInt()) },
+                            valueRange = 200f..2000f,
+                            valueDisplay = "${settings.silenceDuration} ms"
+                        )
+                        
+                        SettingsTextField(
+                            label = "Idle Timeout (ms, Optional)",
+                            value = idleTimeoutText,
+                            onValueChange = { idleTimeoutText = it },
+                            hint = "Milliseconds - leave empty to disable"
+                        )
+                    } else {
+                        // Semantic VAD settings
+                        SettingsDropdown(
+                            label = "Eagerness",
+                            options = eagernessLevels,
+                            selectedOption = when (settings.eagerness) {
+                                "low" -> eagernessLevels[1]
+                                "medium" -> eagernessLevels[2]
+                                "high" -> eagernessLevels[3]
+                                else -> eagernessLevels[0]
+                            },
+                            onOptionSelected = { 
+                                val newEagerness = when (it) {
+                                    eagernessLevels[1] -> "low"
+                                    eagernessLevels[2] -> "medium"
+                                    eagernessLevels[3] -> "high"
+                                    else -> "auto"
+                                }
+                                viewModel.setEagerness(newEagerness)
+                            }
+                        )
+                    }
+                    
+                    SettingsSegmentedButton(
+                        label = "Noise Reduction",
+                        options = noiseReductionTypes,
+                        selectedOption = when (settings.noiseReduction) {
+                            "near_field" -> noiseReductionTypes[1]
+                            "far_field" -> noiseReductionTypes[2]
+                            else -> noiseReductionTypes[0]
                         },
                         onOptionSelected = { 
-                            val newEagerness = when (it) {
-                                eagernessLevels[1] -> "low"
-                                eagernessLevels[2] -> "medium"
-                                eagernessLevels[3] -> "high"
-                                else -> "auto"
+                            val newReduction = when (it) {
+                                noiseReductionTypes[1] -> "near_field"
+                                noiseReductionTypes[2] -> "far_field"
+                                else -> "off"
                             }
-                            viewModel.setEagerness(newEagerness)
+                            viewModel.setNoiseReduction(newReduction)
                         }
                     )
                 }
-                
-                SettingsSegmentedButton(
-                    label = "Noise Reduction",
-                    options = noiseReductionTypes,
-                    selectedOption = when (settings.noiseReduction) {
-                        "near_field" -> noiseReductionTypes[1]
-                        "far_field" -> noiseReductionTypes[2]
-                        else -> noiseReductionTypes[0]
-                    },
-                    onOptionSelected = { 
-                        val newReduction = when (it) {
-                            noiseReductionTypes[1] -> "near_field"
-                            noiseReductionTypes[2] -> "far_field"
-                            else -> "off"
-                        }
-                        viewModel.setNoiseReduction(newReduction)
-                    }
-                )
             }
             
             // Function Calls Section

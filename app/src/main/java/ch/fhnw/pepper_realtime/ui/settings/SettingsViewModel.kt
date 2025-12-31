@@ -59,7 +59,15 @@ class SettingsViewModel @Inject constructor(
             silenceDuration = settingsRepository.silenceDuration,
             idleTimeout = settingsRepository.idleTimeout,
             eagerness = settingsRepository.eagerness,
-            noiseReduction = settingsRepository.noiseReduction
+            noiseReduction = settingsRepository.noiseReduction,
+            // Google Live API Settings
+            googleStartSensitivity = settingsRepository.googleStartSensitivity,
+            googleEndSensitivity = settingsRepository.googleEndSensitivity,
+            googlePrefixPaddingMs = settingsRepository.googlePrefixPaddingMs,
+            googleSilenceDurationMs = settingsRepository.googleSilenceDurationMs,
+            googleThinkingBudget = settingsRepository.googleThinkingBudget,
+            googleAffectiveDialog = settingsRepository.googleAffectiveDialog,
+            googleProactiveAudio = settingsRepository.googleProactiveAudio
         )
     }
     
@@ -267,6 +275,68 @@ class SettingsViewModel @Inject constructor(
         if (settingsRepository.isUsingRealtimeAudioInput) {
             if (isBatchMode) pendingUpdate = true else _updateSessionEvent.value = true
         }
+    }
+    
+    // Google Live API Specific Settings
+    fun setGoogleStartSensitivity(sensitivity: String) {
+        if (sensitivity != settingsRepository.googleStartSensitivity) {
+            settingsRepository.googleStartSensitivity = sensitivity
+            _settingsState.update { it.copy(googleStartSensitivity = sensitivity) }
+            triggerGoogleSettingChange()
+        }
+    }
+    
+    fun setGoogleEndSensitivity(sensitivity: String) {
+        if (sensitivity != settingsRepository.googleEndSensitivity) {
+            settingsRepository.googleEndSensitivity = sensitivity
+            _settingsState.update { it.copy(googleEndSensitivity = sensitivity) }
+            triggerGoogleSettingChange()
+        }
+    }
+    
+    fun setGooglePrefixPaddingMs(padding: Int) {
+        if (padding != settingsRepository.googlePrefixPaddingMs) {
+            settingsRepository.googlePrefixPaddingMs = padding
+            _settingsState.update { it.copy(googlePrefixPaddingMs = padding) }
+            triggerGoogleSettingChange()
+        }
+    }
+    
+    fun setGoogleSilenceDurationMs(duration: Int) {
+        if (duration != settingsRepository.googleSilenceDurationMs) {
+            settingsRepository.googleSilenceDurationMs = duration
+            _settingsState.update { it.copy(googleSilenceDurationMs = duration) }
+            triggerGoogleSettingChange()
+        }
+    }
+    
+    fun setGoogleThinkingBudget(budget: Int) {
+        if (budget != settingsRepository.googleThinkingBudget) {
+            settingsRepository.googleThinkingBudget = budget
+            _settingsState.update { it.copy(googleThinkingBudget = budget) }
+            triggerGoogleSettingChange()
+        }
+    }
+    
+    fun setGoogleAffectiveDialog(enabled: Boolean) {
+        if (enabled != settingsRepository.googleAffectiveDialog) {
+            settingsRepository.googleAffectiveDialog = enabled
+            _settingsState.update { it.copy(googleAffectiveDialog = enabled) }
+            triggerGoogleSettingChange()
+        }
+    }
+    
+    fun setGoogleProactiveAudio(enabled: Boolean) {
+        if (enabled != settingsRepository.googleProactiveAudio) {
+            settingsRepository.googleProactiveAudio = enabled
+            _settingsState.update { it.copy(googleProactiveAudio = enabled) }
+            triggerGoogleSettingChange()
+        }
+    }
+    
+    private fun triggerGoogleSettingChange() {
+        // Google settings require session restart to take effect
+        if (isBatchMode) pendingRestart = true else _restartSessionEvent.value = true
     }
 
     // Event consumption methods

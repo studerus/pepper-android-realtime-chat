@@ -12,7 +12,9 @@ enum class RealtimeApiProvider(
 ) {
     AZURE_OPENAI("Azure OpenAI", "gpt-4o-realtime-preview"),
     OPENAI_DIRECT("OpenAI Direct", "gpt-4o-realtime-preview"),
-    XAI("x.ai Grok", "Grok Voice Agent");
+    XAI("x.ai Grok", "Grok Voice Agent"),
+    // Google Live API requires models/ prefix for BidiGenerateContent
+    GOOGLE_GEMINI("Google Gemini", "models/gemini-2.5-flash-native-audio-preview-12-2025");
 
     fun getDisplayName(): String = displayName
 
@@ -21,14 +23,17 @@ enum class RealtimeApiProvider(
      *
      * @param azureEndpoint Azure endpoint (only used for Azure provider)
      * @param model         Specific model to use (overrides default modelName)
+     * @param googleApiKey  Google API key (only used for Google provider, passed as URL param)
      * @return WebSocket URL
      */
-    fun getWebSocketUrl(azureEndpoint: String?, model: String?): String {
+    fun getWebSocketUrl(azureEndpoint: String?, model: String?, googleApiKey: String? = null): String {
         val actualModel = if (!model.isNullOrEmpty()) model else modelName
         return when (this) {
             AZURE_OPENAI -> "wss://$azureEndpoint/openai/realtime?api-version=2024-10-01-preview&deployment=$actualModel"
             OPENAI_DIRECT -> "wss://api.openai.com/v1/realtime?model=$actualModel"
             XAI -> "wss://api.x.ai/v1/realtime"
+            // v1alpha is required for newer native audio models
+            GOOGLE_GEMINI -> "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${googleApiKey ?: ""}"
         }
     }
 
@@ -45,12 +50,25 @@ enum class RealtimeApiProvider(
     fun isXaiProvider(): Boolean = this == XAI
 
     /**
+     * Check if this is the Google Gemini provider
+     */
+    fun isGoogleProvider(): Boolean = this == GOOGLE_GEMINI
+
+    /**
+     * Check if this provider requires an Authorization header
+     * Google uses API key in URL instead
+     */
+    fun requiresAuthHeader(): Boolean = this != GOOGLE_GEMINI
+
+    /**
      * Get authentication header name for this provider
      * Azure uses "api-key", OpenAI and x.ai use "Authorization"
+     * Google doesn't use auth headers (API key is in URL)
      */
     fun getAuthHeaderName(): String = when (this) {
         AZURE_OPENAI -> "api-key"
         OPENAI_DIRECT, XAI -> "Authorization"
+        GOOGLE_GEMINI -> "" // No header needed - API key is in URL
     }
 
     /**
@@ -66,6 +84,7 @@ enum class RealtimeApiProvider(
             AZURE_OPENAI -> azureKey ?: ""
             OPENAI_DIRECT -> "Bearer ${openaiKey ?: ""}"
             XAI -> "Bearer ${xaiKey ?: ""}"
+            GOOGLE_GEMINI -> "" // No header needed - API key is in URL
         }
     }
 

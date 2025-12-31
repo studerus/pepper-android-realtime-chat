@@ -54,6 +54,10 @@ class RealtimeSessionManager @Inject constructor() {
         private const val AUDIO_PAYLOAD_PREFIX = """{"type":"input_audio_buffer.append","audio":""""
         private const val AUDIO_PAYLOAD_SUFFIX = """"}"""
         private const val ESTIMATED_AUDIO_PAYLOAD_SIZE = 6500
+
+        // Google Live API audio payload components (16kHz - Google's native input rate)
+        private const val GOOGLE_AUDIO_PAYLOAD_PREFIX = """{"realtimeInput":{"audio":{"data":""""
+        private const val GOOGLE_AUDIO_PAYLOAD_SUFFIX = """","mimeType":"audio/pcm;rate=16000"}}}"""
     }
 
     // Reusable StringBuilder for audio chunk payloads - reduces allocations from ~10/sec to 0
@@ -77,6 +81,15 @@ class RealtimeSessionManager @Inject constructor() {
 
     fun setSessionConfigCallback(callback: SessionConfigCallback?) {
         this.sessionConfigCallback = callback
+    }
+
+    /**
+     * Called by event handler when Google Live API sends setupComplete.
+     * This confirms the session is ready for communication.
+     */
+    fun onGoogleSetupComplete() {
+        Log.i(TAG, "Google setupComplete received - session is ready")
+        sessionConfigCallback?.onSessionConfigured(true, null)
     }
 
     /**
@@ -275,6 +288,247 @@ class RealtimeSessionManager @Inject constructor() {
         }
     }
 
+    // ==================== GOOGLE LIVE API METHODS ====================
+
+    /**
+     * Send audio chunk to Google Live API.
+     * Uses 16kHz PCM16 mono format for optimal Pepper tablet performance.
+     *
+     * @param base64Audio Base64-encoded PCM16 audio data at 16kHz
+     * @return true if sent successfully
+     */
+    fun sendGoogleAudioChunk(base64Audio: String): Boolean {
+        return try {
+            audioPayloadBuilder.setLength(0)
+            audioPayloadBuilder.append(GOOGLE_AUDIO_PAYLOAD_PREFIX)
+            audioPayloadBuilder.append(base64Audio)
+            audioPayloadBuilder.append(GOOGLE_AUDIO_PAYLOAD_SUFFIX)
+            
+            send(audioPayloadBuilder.toString())
+        } catch (e: Exception) {
+            Log.e(TAG, "Error creating Google audio chunk payload", e)
+            false
+        }
+    }
+
+    /**
+     * Send text message to Google Live API.
+     * Uses clientContent format which allows control over whether a response is triggered.
+     *
+     * @param text Text message to send
+     * @param triggerResponse If true, triggers model response; if false, silent context update
+     * @return true if sent successfully
+     */
+    fun sendGoogleTextMessage(text: String, triggerResponse: Boolean = true): Boolean {
+        return try {
+            val turns = JSONArray().put(JSONObject().apply {
+                put("role", "user")
+                put("parts", JSONArray().put(JSONObject().apply {
+                    put("text", text)
+                }))
+            })
+            val payload = JSONObject().apply {
+                put("clientContent", JSONObject().apply {
+                    put("turns", turns)
+                    put("turnComplete", triggerResponse)
+                })
+            }
+            Log.d(TAG, "Sending Google text message (triggerResponse=$triggerResponse): ${text.take(50)}...")
+            send(payload.toString())
+        } catch (e: Exception) {
+            Log.e(TAG, "Error creating Google text message", e)
+            false
+        }
+    }
+
+    /**
+     * Send tool response to Google Live API.
+     * After receiving toolCall.functionCalls, execute tools and send results here.
+     *
+     * @param callId The function call ID from the toolCall
+     * @param toolName The name of the tool that was called
+     * @param resultJson JSON string containing the tool result
+     * @return true if sent successfully
+     */
+    fun sendGoogleToolResult(callId: String, toolName: String, resultJson: String): Boolean {
+        return try {
+            // Normalize tool response to the format used in the reference Live API app:
+            // response: { success: boolean, result: <any json>, error?: string }
+            val parsedResult = try {
+                JSONObject(resultJson)
+            } catch (_: Exception) {
+                null
+            }
+            val success = parsedResult?.optBoolean("success", true) ?: true
+            val normalizedResponse = JSONObject().apply {
+                put("success", success)
+                put("result", parsedResult ?: resultJson)
+                if (!success) {
+                    val err = parsedResult?.optString("error", "") ?: ""
+                    if (err.isNotEmpty()) put("error", err)
+                }
+            }
+
+            val payload = JSONObject().apply {
+                put("toolResponse", JSONObject().apply {
+                    put("functionResponses", JSONArray().put(JSONObject().apply {
+                        put("id", callId)
+                        put("name", toolName)
+                        put("response", normalizedResponse)
+                    }))
+                })
+            }
+            Log.d(TAG, "Sending Google tool result for $toolName (call_id=$callId)")
+            send(payload.toString())
+        } catch (e: Exception) {
+            Log.e(TAG, "Error creating Google tool result", e)
+            false
+        }
+    }
+
+    /**
+     * Create Google Live API setup payload.
+     * This should be the first message sent after WebSocket connection.
+     */
+    private fun createGoogleSetupPayload(): JSONObject {
+        val settings = settingsRepository!!
+
+        val payload = JSONObject()
+        val setup = JSONObject()
+
+        // Model
+        setup.put("model", settings.model)
+
+        // Generation config with audio output and voice
+        val generationConfig = JSONObject().apply {
+            put("responseModalities", JSONArray().put("AUDIO"))
+            put("speechConfig", JSONObject().apply {
+                put("voiceConfig", JSONObject().apply {
+                    put("prebuiltVoiceConfig", JSONObject().apply {
+                        put("voiceName", settings.voice)
+                    })
+                })
+            })
+        }
+        setup.put("generationConfig", generationConfig)
+
+        // Enable transcriptions (empty object = subscribe to events)
+        // Note: inputAudioConfig/outputAudioConfig rejected by v1alpha API, skipping
+        setup.put("inputAudioTranscription", JSONObject())   // User speech -> text
+        setup.put("outputAudioTranscription", JSONObject())  // Model speech -> text
+
+        // Realtime input config (VAD) - using settings from UI
+        val startSensitivity = if (settings.googleStartSensitivity == "HIGH") 
+            "START_SENSITIVITY_HIGH" else "START_SENSITIVITY_LOW"
+        val endSensitivity = if (settings.googleEndSensitivity == "HIGH") 
+            "END_SENSITIVITY_HIGH" else "END_SENSITIVITY_LOW"
+        
+        val realtimeInputConfig = JSONObject().apply {
+            put("automaticActivityDetection", JSONObject().apply {
+                put("disabled", false)
+                put("startOfSpeechSensitivity", startSensitivity)
+                put("endOfSpeechSensitivity", endSensitivity)
+                put("prefixPaddingMs", settings.googlePrefixPaddingMs)
+                put("silenceDurationMs", settings.googleSilenceDurationMs)
+            })
+        }
+        setup.put("realtimeInputConfig", realtimeInputConfig)
+        
+        // Thinking budget - always set to control thinking behavior
+        // 0 = disabled, >0 = token budget for thinking
+        generationConfig.put("thinkingConfig", JSONObject().apply {
+            put("thinkingBudget", settings.googleThinkingBudget)
+        })
+        
+        // Affective dialog (emotional speech)
+        // Note: enableAffectiveDialog is rejected by v1alpha API with "Unknown name"
+        // The JS SDK may handle this differently. Disabled until API supports it.
+        // if (settings.googleAffectiveDialog) {
+        //     setup.put("enableAffectiveDialog", true)
+        // }
+        
+        // Proactive audio - allows Gemini to proactively decide not to respond when content is not relevant
+        if (settings.googleProactiveAudio) {
+            setup.put("proactivity", JSONObject().apply {
+                put("proactiveAudio", true)
+            })
+        }
+
+        // System instruction
+        val systemPrompt = settings.systemPrompt
+        if (systemPrompt.isNotEmpty()) {
+            setup.put("systemInstruction", JSONObject().apply {
+                put("parts", JSONArray().put(JSONObject().apply {
+                    put("text", systemPrompt)
+                }))
+            })
+        }
+
+        // Tools (using Google's functionDeclarations format)
+        val enabledTools = settings.enabledTools
+        val googleTools = buildGoogleToolsDefinition(enabledTools)
+        if (googleTools.length() > 0) {
+            setup.put("tools", googleTools)
+            Log.d(TAG, "Google setup: ${googleTools.getJSONObject(0).getJSONArray("functionDeclarations").length()} tools enabled")
+        }
+
+        payload.put("setup", setup)
+
+        // Log full payload for debugging (truncated if too long)
+        val payloadStr = payload.toString()
+        val preview = if (payloadStr.length > 1000) payloadStr.take(1000) + "...[truncated]" else payloadStr
+        Log.i(TAG, "Created Google setup payload - Model: ${settings.model}, Voice: ${settings.voice}")
+        Log.d(TAG, "Google setup payload: $preview")
+        return payload
+    }
+
+    /**
+     * Build tools definition in Google's functionDeclarations format.
+     */
+    private fun buildGoogleToolsDefinition(enabledTools: Set<String>): JSONArray {
+        val toolsArray = JSONArray()
+        val functionDeclarations = JSONArray()
+
+        if (toolRegistry == null || toolContext == null) {
+            return toolsArray
+        }
+
+        for (toolName in toolRegistry!!.getAllToolNames()) {
+            if (toolName !in enabledTools) continue
+
+            val tool = toolRegistry!!.getOrCreateTool(toolName) ?: continue
+            if (!tool.isAvailable(toolContext!!)) continue
+
+            try {
+                val openAiDef = tool.getDefinition()
+                
+                // Convert OpenAI format to Google format
+                val googleDecl = JSONObject().apply {
+                    put("name", openAiDef.optString("name", toolName))
+                    put("description", openAiDef.optString("description", ""))
+                    
+                    // Parameters
+                    val params = openAiDef.optJSONObject("parameters")
+                    if (params != null) {
+                        put("parameters", params)
+                    }
+                }
+                functionDeclarations.put(googleDecl)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to convert tool definition for Google: $toolName", e)
+            }
+        }
+
+        if (functionDeclarations.length() > 0) {
+            toolsArray.put(JSONObject().apply {
+                put("functionDeclarations", functionDeclarations)
+            })
+        }
+
+        Log.d(TAG, "Built Google tools with ${functionDeclarations.length()} function declarations")
+        return toolsArray
+    }
+
     fun send(text: String): Boolean {
         // Check connection state first for better diagnostics
         if (connectionState != ConnectionState.CONNECTED) {
@@ -340,11 +594,23 @@ class RealtimeSessionManager @Inject constructor() {
         }
 
         try {
-            val payload = createSessionUpdatePayload("Initial session")
+            // Use different payload format for Google vs OpenAI/x.ai
+            val isGoogle = settingsRepository!!.apiProviderEnum.isGoogleProvider()
+            val payload = if (isGoogle) {
+                createGoogleSetupPayload()
+            } else {
+                createSessionUpdatePayload("Initial session")
+            }
             val sent = send(payload.toString())
 
             if (sent) {
-                sessionConfigCallback?.onSessionConfigured(true, null)
+                // For Google, we must wait for setupComplete event before session is ready
+                // For OpenAI/Azure/x.ai, the session.update response confirms it
+                if (!isGoogle) {
+                    sessionConfigCallback?.onSessionConfigured(true, null)
+                } else {
+                    Log.d(TAG, "Google setup sent - waiting for setupComplete event")
+                }
             } else {
                 val error = "Failed to send initial session config"
                 Log.e(TAG, error)
@@ -360,6 +626,9 @@ class RealtimeSessionManager @Inject constructor() {
     /**
      * Update session configuration with current settings
      * This should be called when settings change during an active session
+     * 
+     * Note: Google Live API does not support mid-session updates.
+     * For Google, settings changes require reconnecting.
      */
     fun updateSession() {
         if (!isConnected) {
@@ -369,6 +638,12 @@ class RealtimeSessionManager @Inject constructor() {
 
         if (settingsRepository == null || toolRegistry == null || toolContext == null) {
             Log.w(TAG, "Session update SKIPPED - missing dependencies")
+            return
+        }
+
+        // Google Live API doesn't support session.update - need to reconnect
+        if (settingsRepository!!.apiProviderEnum.isGoogleProvider()) {
+            Log.w(TAG, "Session update SKIPPED - Google Live API requires reconnection for config changes")
             return
         }
 

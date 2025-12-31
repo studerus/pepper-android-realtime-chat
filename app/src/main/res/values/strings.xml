@@ -26,6 +26,9 @@
     <string name="error_audio_capture_permissions">Failed to start audio capture. Check microphone permissions.</string>
     <string name="error_connection_lost_message">Connection lost during message. Please restart the app.</string>
     <string name="error_connection_lost_response">Connection lost during response request.</string>
+    <string name="error_connection_lost">Connection lost. Please restart the session.</string>
+    <string name="error_connection_protocol">Protocol error: %s</string>
+    <string name="error_disconnected">Disconnected</string>
     <string name="error_connection_failed">Connection failed. Please restart.</string>
     <string name="error_updating_settings">Error updating settings.</string>
     <string name="error_connection_failed_short">Connection Failed</string>

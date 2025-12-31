@@ -89,14 +89,25 @@ class AudioInputController @Inject constructor(
                 Log.i(TAG, "Stopped and cleaned up Azure STT to prevent interference with Realtime API audio")
             }
 
+            val isGoogle = settingsRepository.apiProviderEnum.isGoogleProvider()
+            
+            // Recreate manager if provider changed (different sample rates)
+            if (realtimeAudioInput != null && realtimeAudioInput!!.isGoogleProvider != isGoogle) {
+                realtimeAudioInput?.stop()
+                realtimeAudioInput = null
+                Log.i(TAG, "Recreating RealtimeAudioInputManager for provider change")
+            }
+            
             if (realtimeAudioInput == null) {
-                realtimeAudioInput = RealtimeAudioInputManager(sessionManager)
-                Log.i(TAG, "Created RealtimeAudioInputManager")
+                realtimeAudioInput = RealtimeAudioInputManager(sessionManager).apply {
+                    this.isGoogleProvider = isGoogle
+                }
+                Log.i(TAG, "Created RealtimeAudioInputManager (${if (isGoogle) "Google 16kHz" else "OpenAI 24kHz"})")
             }
             applicationScope.launch(ioDispatcher) {
                 val started = realtimeAudioInput!!.start()
                 if (started) {
-                    Log.i(TAG, "Realtime API audio capture started (server VAD enabled)")
+                    Log.i(TAG, "Realtime API audio capture started (${if (isGoogle) "Google 16kHz" else "OpenAI 24kHz"})")
                 } else {
                     Log.e(TAG, "Failed to start Realtime API audio capture")
                     viewModel.setStatusText(getString(R.string.error_audio_capture_failed))

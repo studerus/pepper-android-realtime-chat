@@ -525,7 +525,11 @@ class ChatViewModel @Inject constructor(
         addMessage(ChatMessage("", imagePath, ChatMessage.Sender.ROBOT))
     }
 
-    fun appendToLastMessage(text: String) {
+    /**
+     * Append text to the last ROBOT regular message bubble.
+     * This prevents mixing user and assistant text in the same bubble.
+     */
+    fun appendToLastRobotMessage(text: String) {
         _messageList.update { current ->
             if (current.isEmpty()) return@update current
 
@@ -542,6 +546,35 @@ class ChatViewModel @Inject constructor(
                 current
             }
         }
+    }
+
+    /**
+     * Append text to the last USER regular message bubble.
+     */
+    fun appendToLastUserMessage(text: String) {
+        _messageList.update { current ->
+            if (current.isEmpty()) return@update current
+
+            val lastIndex = current.size - 1
+            val lastMsg = current[lastIndex]
+
+            if (lastMsg.sender == ChatMessage.Sender.USER &&
+                lastMsg.type == ChatMessage.Type.REGULAR_MESSAGE
+            ) {
+                current.toMutableList().apply {
+                    this[lastIndex] = lastMsg.copyWithNewText(lastMsg.message + text)
+                }
+            } else {
+                current
+            }
+        }
+    }
+
+    /**
+     * Backwards-compatible helper: historically this appended only to the ROBOT bubble.
+     */
+    fun appendToLastMessage(text: String) {
+        appendToLastRobotMessage(text)
     }
 
     fun updateLastRobotMessage(newText: String) {

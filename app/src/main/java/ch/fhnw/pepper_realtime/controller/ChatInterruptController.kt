@@ -2,6 +2,7 @@ package ch.fhnw.pepper_realtime.controller
 
 import android.util.Log
 import ch.fhnw.pepper_realtime.manager.AudioPlayer
+import ch.fhnw.pepper_realtime.manager.SettingsRepository
 import ch.fhnw.pepper_realtime.network.RealtimeSessionManager
 import ch.fhnw.pepper_realtime.ui.ChatViewModel
 import org.json.JSONObject
@@ -13,7 +14,8 @@ class ChatInterruptController @Inject constructor(
     private val sessionManager: RealtimeSessionManager,
     private val audioPlayer: AudioPlayer,
     private val gestureController: GestureController,
-    private val audioInputController: AudioInputController
+    private val audioInputController: AudioInputController,
+    private val settingsRepository: SettingsRepository
 ) {
 
     companion object {
@@ -26,40 +28,46 @@ class ChatInterruptController @Inject constructor(
 
             val isGenerating = viewModel.isResponseGenerating.value == true
             val isPlaying = viewModel.isAudioPlaying.value == true
+            val isGoogle = settingsRepository.apiProviderEnum.isGoogleProvider()
 
-            Log.d(TAG, "🚨 Interrupt: isResponseGenerating=$isGenerating, isAudioPlaying=$isPlaying")
+            Log.d(TAG, "🚨 Interrupt: isResponseGenerating=$isGenerating, isAudioPlaying=$isPlaying, isGoogle=$isGoogle")
 
-            if (isGenerating) {
-                val cancel = JSONObject()
-                cancel.put("type", "response.cancel")
-                sessionManager.send(cancel.toString())
+            // Google Live API handles interruption automatically via barge-in detection
+            // Only send OpenAI-specific cancel/truncate commands for non-Google providers
+            if (!isGoogle) {
+                if (isGenerating) {
+                    val cancel = JSONObject()
+                    cancel.put("type", "response.cancel")
+                    sessionManager.send(cancel.toString())
 
-                viewModel.cancelledResponseId = viewModel.currentResponseId
-                viewModel.setResponseGenerating(false)
-                Log.d(TAG, "Sent response.cancel for active generation")
-            }
-
-            val lastItemId = viewModel.lastAssistantItemId
-
-            // Only truncate if we are actively generating or playing
-            if (lastItemId != null && (isGenerating || isPlaying)) {
-                var playedMs = max(0, audioPlayer.getEstimatedPlaybackPositionMs())
-
-                // Safety margin to prevent "invalid_value" error if our local clock is slightly
-                // ahead of server or if we try to truncate right at the end of the stream.
-                if (playedMs > 0) {
-                    playedMs = max(0, playedMs - 500)
+                    viewModel.cancelledResponseId = viewModel.currentResponseId
+                    Log.d(TAG, "Sent response.cancel for active generation")
                 }
 
-                Log.d(TAG, "Sending truncate for item=$lastItemId, audio_end_ms=$playedMs")
-                val truncate = JSONObject()
-                truncate.put("type", "conversation.item.truncate")
-                truncate.put("item_id", lastItemId)
-                truncate.put("content_index", 0)
-                truncate.put("audio_end_ms", playedMs)
-                sessionManager.send(truncate.toString())
+                val lastItemId = viewModel.lastAssistantItemId
+
+                // Only truncate if we are actively generating or playing
+                if (lastItemId != null && (isGenerating || isPlaying)) {
+                    var playedMs = max(0, audioPlayer.getEstimatedPlaybackPositionMs())
+
+                    // Safety margin to prevent "invalid_value" error if our local clock is slightly
+                    // ahead of server or if we try to truncate right at the end of the stream.
+                    if (playedMs > 0) {
+                        playedMs = max(0, playedMs - 500)
+                    }
+
+                    Log.d(TAG, "Sending truncate for item=$lastItemId, audio_end_ms=$playedMs")
+                    val truncate = JSONObject()
+                    truncate.put("type", "conversation.item.truncate")
+                    truncate.put("item_id", lastItemId)
+                    truncate.put("content_index", 0)
+                    truncate.put("audio_end_ms", playedMs)
+                    sessionManager.send(truncate.toString())
+                }
             }
 
+            // Always stop local playback regardless of provider
+            viewModel.setResponseGenerating(false)
             audioPlayer.interruptNow()
             viewModel.setAudioPlaying(false)
             gestureController.stopNow()
