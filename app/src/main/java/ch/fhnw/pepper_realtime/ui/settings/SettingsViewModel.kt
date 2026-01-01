@@ -70,6 +70,7 @@ class SettingsViewModel @Inject constructor(
             googleProactiveAudio = settingsRepository.googleProactiveAudio,
             googleShowThinking = settingsRepository.googleShowThinking,
             googleSearchGrounding = settingsRepository.googleSearchGrounding,
+            googleContextCompression = settingsRepository.googleContextCompression,
             xaiWebSearch = settingsRepository.xaiWebSearch,
             xaiXSearch = settingsRepository.xaiXSearch
         )
@@ -350,6 +351,14 @@ class SettingsViewModel @Inject constructor(
         if (enabled != settingsRepository.googleSearchGrounding) {
             settingsRepository.googleSearchGrounding = enabled
             _settingsState.update { it.copy(googleSearchGrounding = enabled) }
+            triggerGoogleSettingChange()  // Requires session restart
+        }
+    }
+    
+    fun setGoogleContextCompression(enabled: Boolean) {
+        if (enabled != settingsRepository.googleContextCompression) {
+            settingsRepository.googleContextCompression = enabled
+            _settingsState.update { it.copy(googleContextCompression = enabled) }
             triggerGoogleSettingChange()  // Requires session restart
         }
     }

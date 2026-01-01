@@ -41,6 +41,7 @@ data class SettingsState(
     val googleProactiveAudio: Boolean = false,
     val googleShowThinking: Boolean = false,
     val googleSearchGrounding: Boolean = false,
+    val googleContextCompression: Boolean = true,
     // x.ai specific settings
     val xaiWebSearch: Boolean = true,
     val xaiXSearch: Boolean = true

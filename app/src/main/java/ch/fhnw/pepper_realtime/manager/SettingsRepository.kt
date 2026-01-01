@@ -227,6 +227,11 @@ class SettingsRepository @Inject constructor(
         get() = settings.getBoolean(KEY_GOOGLE_SEARCH_GROUNDING, false)
         set(value) = settings.edit().putBoolean(KEY_GOOGLE_SEARCH_GROUNDING, value).apply()
     
+    // Context window compression - enables unlimited session length via sliding window
+    var googleContextCompression: Boolean
+        get() = settings.getBoolean(KEY_GOOGLE_CONTEXT_COMPRESSION, true)  // Default true for better UX
+        set(value) = settings.edit().putBoolean(KEY_GOOGLE_CONTEXT_COMPRESSION, value).apply()
+    
     // x.ai Web Search - native web search capability
     var xaiWebSearch: Boolean
         get() = settings.getBoolean(KEY_XAI_WEB_SEARCH, true)  // Default true for backwards compatibility
@@ -275,6 +280,7 @@ class SettingsRepository @Inject constructor(
         private const val KEY_GOOGLE_PROACTIVE_AUDIO = "googleProactiveAudio"
         private const val KEY_GOOGLE_SHOW_THINKING = "googleShowThinking"
         private const val KEY_GOOGLE_SEARCH_GROUNDING = "googleSearchGrounding"
+        private const val KEY_GOOGLE_CONTEXT_COMPRESSION = "googleContextCompression"
         private const val KEY_XAI_WEB_SEARCH = "xaiWebSearch"
         private const val KEY_XAI_X_SEARCH = "xaiXSearch"
 

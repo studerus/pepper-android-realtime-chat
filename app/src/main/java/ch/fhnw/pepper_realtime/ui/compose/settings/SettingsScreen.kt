@@ -370,6 +370,13 @@ fun SettingsScreen(
                         checked = settings.googleShowThinking,
                         onCheckedChange = { viewModel.setGoogleShowThinking(it) }
                     )
+                    
+                    SettingsSwitch(
+                        label = "Long Sessions",
+                        description = "Enable context compression for unlimited session length (default: 15min audio, 2min video)",
+                        checked = settings.googleContextCompression,
+                        onCheckedChange = { viewModel.setGoogleContextCompression(it) }
+                    )
                 } else {
                     // OpenAI Realtime API Settings
                     SettingsSectionHeader(title = "Voice API Settings")

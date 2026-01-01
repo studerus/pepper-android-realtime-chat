@@ -521,6 +521,16 @@ class RealtimeSessionManager @Inject constructor() {
                 put("proactiveAudio", true)
             })
         }
+        
+        // Context window compression - enables unlimited session length via sliding window
+        // Without compression: 15min audio-only, 2min audio+video
+        // With compression: unlimited
+        if (settings.googleContextCompression) {
+            setup.put("contextWindowCompression", JSONObject().apply {
+                put("slidingWindow", JSONObject()) // Default parameters (80% trigger)
+            })
+            Log.i(TAG, "Context window compression enabled for long sessions")
+        }
 
         // System instruction
         val systemPrompt = settings.systemPrompt
