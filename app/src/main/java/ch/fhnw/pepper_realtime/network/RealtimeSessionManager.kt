@@ -342,18 +342,52 @@ class RealtimeSessionManager @Inject constructor() {
     }
 
     /**
+     * Send an image to Google Live API via clientContent.
+     * Uses inlineData format for binary image data.
+     * Note: turnComplete=true is required for reliable context addition.
+     *
+     * @param base64 Base64-encoded image data
+     * @param mime MIME type (e.g., "image/jpeg", "image/png")
+     * @return true if sent successfully
+     */
+    fun sendGoogleImageMessage(base64: String, mime: String): Boolean {
+        return try {
+            val payload = JSONObject().apply {
+                put("clientContent", JSONObject().apply {
+                    put("turns", JSONArray().put(JSONObject().apply {
+                        put("role", "user")
+                        put("parts", JSONArray().put(JSONObject().apply {
+                            put("inlineData", JSONObject().apply {
+                                put("mimeType", mime)
+                                put("data", base64)
+                            })
+                        }))
+                    }))
+                    put("turnComplete", true) // Must be true for reliable context addition
+                })
+            }
+            Log.d(TAG, "Sending Google image message (${mime}, ${base64.length} chars)")
+            send(payload.toString())
+        } catch (e: Exception) {
+            Log.e(TAG, "Error creating Google image message", e)
+            false
+        }
+    }
+
+    /**
      * Send tool response to Google Live API.
      * After receiving toolCall.functionCalls, execute tools and send results here.
      *
      * @param callId The function call ID from the toolCall
      * @param toolName The name of the tool that was called
      * @param resultJson JSON string containing the tool result
+     * @param scheduling Optional scheduling mode for NON_BLOCKING tools: "INTERRUPT", "WHEN_IDLE", or "SILENT"
      * @return true if sent successfully
      */
-    fun sendGoogleToolResult(callId: String, toolName: String, resultJson: String): Boolean {
+    fun sendGoogleToolResult(callId: String, toolName: String, resultJson: String, scheduling: String? = null): Boolean {
         return try {
             // Normalize tool response to the format used in the reference Live API app:
-            // response: { success: boolean, result: <any json>, error?: string }
+            // response: { success: boolean, result: <any json>, error?: string, scheduling?: string }
             val parsedResult = try {
                 JSONObject(resultJson)
             } catch (_: Exception) {
@@ -367,6 +401,10 @@ class RealtimeSessionManager @Inject constructor() {
                     val err = parsedResult?.optString("error", "") ?: ""
                     if (err.isNotEmpty()) put("error", err)
                 }
+                // Add scheduling for NON_BLOCKING tools (e.g., SILENT for analyze_vision)
+                if (scheduling != null) {
+                    put("scheduling", scheduling)
+                }
             }
 
             val payload = JSONObject().apply {
@@ -378,7 +416,7 @@ class RealtimeSessionManager @Inject constructor() {
                     }))
                 })
             }
-            Log.d(TAG, "Sending Google tool result for $toolName (call_id=$callId)")
+            Log.d(TAG, "Sending Google tool result for $toolName (call_id=$callId, scheduling=$scheduling)")
             send(payload.toString())
         } catch (e: Exception) {
             Log.e(TAG, "Error creating Google tool result", e)
@@ -514,6 +552,12 @@ class RealtimeSessionManager @Inject constructor() {
                 val googleDecl = JSONObject().apply {
                     put("name", openAiDef.optString("name", toolName))
                     put("description", openAiDef.optString("description", ""))
+                    
+                    // analyze_vision should be non-blocking so image can be sent with turnComplete=true
+                    // and the tool response won't trigger a second response (uses scheduling=SILENT)
+                    if (toolName == "analyze_vision") {
+                        put("behavior", "NON_BLOCKING")
+                    }
                     
                     // Parameters
                     val params = openAiDef.optJSONObject("parameters")

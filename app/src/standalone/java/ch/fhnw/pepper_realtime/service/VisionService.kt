@@ -425,14 +425,25 @@ class VisionService(context: Context) {
                 // Convert to Base64
                 val base64 = Base64.encodeToString(jpegBytes, Base64.NO_WRAP)
 
-                // Decide path: if GA gpt-realtime is active, send image directly via WS
-                val useGaImagePath = shouldSendImageDirectToRealtime()
-                if (useGaImagePath) {
+                // Decide path: if Realtime API is active (OpenAI or Google), send image directly via WS
+                val useRealtimeImagePath = shouldSendImageDirectToRealtime()
+                if (useRealtimeImagePath) {
                     try {
                         val activity = activityRef ?: throw IllegalStateException("Activity reference not available")
                         val sm = activity.sessionManager
                         if (!sm.isConnected) throw IllegalStateException("Realtime session not connected")
-                        val sentItem = sm.sendUserImageMessage(base64, "image/jpeg")
+                        
+                        // Use different method based on provider
+                        val sentItem = if (isGoogleProvider()) {
+                            // Google Live API: use clientContent with inlineData
+                            Log.d(TAG, "Sending image to Google Gemini Live API")
+                            sm.sendGoogleImageMessage(base64, "image/jpeg")
+                        } else {
+                            // OpenAI Realtime API: use conversation.item.create with input_image
+                            Log.d(TAG, "Sending image to OpenAI Realtime API")
+                            sm.sendUserImageMessage(base64, "image/jpeg")
+                        }
+                        
                         if (!sentItem) throw IllegalStateException("Failed to send image message")
                         working = false
                         callback.onResult(JSONObject().put("status", "sent_to_realtime").toString())
@@ -454,6 +465,7 @@ class VisionService(context: Context) {
 
     /**
      * Decide if we should send the image directly to the Realtime API.
+     * Supports both OpenAI Realtime API and Google Gemini Live API.
      */
     private fun shouldSendImageDirectToRealtime(): Boolean {
         return try {
@@ -463,9 +475,25 @@ class VisionService(context: Context) {
             }
             val model = activity.getModel()
             Log.d(TAG, "Current model for vision decision: $model")
-            model == "gpt-realtime" || model == "gpt-realtime-mini"
+            // OpenAI Realtime API models
+            model == "gpt-realtime" || model == "gpt-realtime-mini" ||
+            // Google Gemini Live API models (with or without models/ prefix)
+            model.startsWith("models/gemini") || model.contains("gemini")
         } catch (e: Exception) {
             Log.w(TAG, "Error checking model for vision path", e)
+            false
+        }
+    }
+
+    /**
+     * Check if the current provider is Google Gemini.
+     */
+    private fun isGoogleProvider(): Boolean {
+        return try {
+            val activity = activityRef ?: return false
+            val model = activity.getModel()
+            model.startsWith("models/gemini") || model.contains("gemini")
+        } catch (e: Exception) {
             false
         }
     }

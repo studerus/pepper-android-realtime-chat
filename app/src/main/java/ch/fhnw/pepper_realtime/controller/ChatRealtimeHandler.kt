@@ -452,7 +452,9 @@ class ChatRealtimeHandler(
 
                 // Send result back to Google
                 // Note: Google Live API continues generation automatically after receiving toolResponse
-                val sent = sessionManager.sendGoogleToolResult(callId, toolName, toolResult)
+                // For analyze_vision, use SILENT scheduling to avoid double response (image triggers response via turnComplete=true)
+                val scheduling = if (toolName == "analyze_vision") "SILENT" else null
+                val sent = sessionManager.sendGoogleToolResult(callId, toolName, toolResult, scheduling)
                 if (!sent) {
                     Log.e(TAG, "Failed to send Google tool result for $toolName")
                 }

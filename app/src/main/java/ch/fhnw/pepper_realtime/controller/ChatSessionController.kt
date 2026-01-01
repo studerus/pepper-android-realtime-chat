@@ -160,7 +160,9 @@ class ChatSessionController @Inject constructor(
             
             val sentTool = if (isGoogle && toolName != null) {
                 // Google uses different format and continues automatically
-                sessionManager.sendGoogleToolResult(callId, toolName, result)
+                // For analyze_vision, use SILENT scheduling to avoid double response
+                val scheduling = if (toolName == "analyze_vision") "SILENT" else null
+                sessionManager.sendGoogleToolResult(callId, toolName, result, scheduling)
             } else {
                 sessionManager.sendToolResult(callId, result)
             }
