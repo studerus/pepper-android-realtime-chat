@@ -614,7 +614,7 @@ This app sends data to third-party services when features are used:
 - **"Navigate to [location]"** - Alternative navigation command
 
 ### Settings Access
-- **Tap the wrench icon** (🔧) in the top-right toolbar or **swipe from right edge** to access settings drawer
+- **Tap the wrench icon** (🔧) in the top-right toolbar or **swipe from left edge** to access settings drawer
 
 ### Available Settings
 - **API Provider** - Choose between OpenAI Direct, Azure OpenAI, x.ai Grok, or Google Gemini
