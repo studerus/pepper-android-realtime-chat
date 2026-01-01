@@ -234,6 +234,11 @@
     <string name="mic_button_paused">Microphone paused - will activate when robot finishes</string>
     <string name="mic_button_muted">Microphone muted - tap to unmute</string>
     
+    <!-- Video Button Content Descriptions -->
+    <string name="video_button_active">Video streaming active - tap to stop</string>
+    <string name="video_button_paused">Video streaming paused</string>
+    <string name="video_button_off">Video streaming off - tap to start</string>
+    
     <string name="exit_confirmation_title">Exit App?</string>
     <string name="exit_confirmation_message">Are you sure you want to close the application?</string>
     <string name="exit_confirmation_yes">Yes, Exit</string>

@@ -68,6 +68,10 @@ class ChatViewModel @Inject constructor(
     private val _isMuted = MutableStateFlow(false)
     private val _userWantsMicOn = MutableStateFlow(true) // User's desired mic state (persists across robot states)
     private val _isInterruptFabVisible = MutableStateFlow(false)
+    
+    // Video streaming state
+    private val _isVideoStreamActive = MutableStateFlow(false)
+    private val _videoPreviewFrame = MutableStateFlow<android.graphics.Bitmap?>(null)
 
     // Connection State
     private val _isConnected = MutableStateFlow(false)
@@ -107,6 +111,8 @@ class ChatViewModel @Inject constructor(
     val isMuted: StateFlow<Boolean> = _isMuted.asStateFlow()
     val userWantsMicOn: StateFlow<Boolean> = _userWantsMicOn.asStateFlow()
     val isInterruptFabVisible: StateFlow<Boolean> = _isInterruptFabVisible.asStateFlow()
+    val isVideoStreamActive: StateFlow<Boolean> = _isVideoStreamActive.asStateFlow()
+    val videoPreviewFrame: StateFlow<android.graphics.Bitmap?> = _videoPreviewFrame.asStateFlow()
     val navigationState: StateFlow<NavigationUiState> = _navigationState.asStateFlow()
     val dashboardState: StateFlow<DashboardState> = _dashboardState.asStateFlow()
     val melodyPlayerState: StateFlow<MelodyPlayerState> = _melodyPlayerState.asStateFlow()
@@ -209,6 +215,15 @@ class ChatViewModel @Inject constructor(
 
     fun setInterruptFabVisible(visible: Boolean) {
         _isInterruptFabVisible.value = visible
+    }
+
+    // Video Streaming Methods
+    fun setVideoStreamActive(active: Boolean) {
+        _isVideoStreamActive.value = active
+    }
+
+    fun setVideoPreviewFrame(frame: android.graphics.Bitmap?) {
+        _videoPreviewFrame.value = frame
     }
 
     // Navigation/Map Overlay Methods

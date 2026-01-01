@@ -50,7 +50,8 @@ fun MainScreen(
     onExit: () -> Unit,
     onInterrupt: () -> Unit,
     onStatusClick: () -> Unit,
-    onMicToggle: () -> Unit
+    onMicToggle: () -> Unit,
+    onVideoToggle: () -> Unit = {}
 ) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -72,6 +73,12 @@ fun MainScreen(
     val faceManagementState by viewModel.faceManagementState.collectAsStateWithLifecycle()
     val eventRulesState by viewModel.eventRulesState.collectAsStateWithLifecycle()
     val perceptionSettingsState by viewModel.perceptionSettingsState.collectAsStateWithLifecycle()
+    val isVideoStreamActive by viewModel.isVideoStreamActive.collectAsStateWithLifecycle()
+    val videoPreviewFrame by viewModel.videoPreviewFrame.collectAsStateWithLifecycle()
+    val settingsState by settingsViewModel.settingsState.collectAsStateWithLifecycle()
+    
+    // Determine if Google provider is active (for video streaming button)
+    val isGoogleProvider = settingsState.apiProvider.contains("GOOGLE", ignoreCase = true)
     
     // Local State for Image Overlay
     var overlayImageUrl by remember { mutableStateOf<String?>(null) }
@@ -234,6 +241,28 @@ fun MainScreen(
                             onClick = onMicToggle
                         )
                     }
+                    
+                    // Video Button (only visible for Google provider)
+                    if (statusText.isNotEmpty() && isGoogleProvider) {
+                        VideoButton(
+                            isStreaming = isVideoStreamActive,
+                            isPaused = isRobotSpeakingOrThinking,
+                            onClick = onVideoToggle
+                        )
+                    }
+                }
+
+                // ---------------- Video Preview Overlay ----------------
+                // Positioned at top-right corner when video streaming is active
+                if (isGoogleProvider) {
+                    VideoPreview(
+                        frame = videoPreviewFrame,
+                        isVisible = isVideoStreamActive,
+                        onDismiss = onVideoToggle,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = 80.dp, end = 16.dp) // Below TopAppBar
+                    )
                 }
 
                 // ---------------- Overlays & Dialogs ----------------

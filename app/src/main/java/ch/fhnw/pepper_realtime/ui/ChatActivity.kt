@@ -33,6 +33,7 @@ import ch.fhnw.pepper_realtime.controller.AudioInputController
 import ch.fhnw.pepper_realtime.controller.AudioVolumeController
 import ch.fhnw.pepper_realtime.controller.ChatLifecycleController
 import ch.fhnw.pepper_realtime.controller.RobotFocusManager
+import ch.fhnw.pepper_realtime.controller.VideoInputController
 import ch.fhnw.pepper_realtime.manager.ApiKeyManager
 import ch.fhnw.pepper_realtime.manager.AudioPlayer
 import ch.fhnw.pepper_realtime.manager.NavigationServiceManager
@@ -76,6 +77,7 @@ class ChatActivity : AppCompatActivity(), ToolHost {
     @Inject internal lateinit var _toolRegistry: ToolRegistry
     @Inject internal lateinit var toolContextFactory: ToolContextFactory
     @Inject internal lateinit var lifecycleController: ChatLifecycleController
+    @Inject internal lateinit var videoInputController: VideoInputController
     @Inject @IoDispatcher internal lateinit var ioDispatcher: CoroutineDispatcher
     @Inject @ApplicationScope internal lateinit var applicationScope: CoroutineScope
 
@@ -149,7 +151,8 @@ class ChatActivity : AppCompatActivity(), ToolHost {
                         }
                     },
                     onStatusClick = { onStatusCapsuleClick() },
-                    onMicToggle = { onMicrophoneToggle() }
+                    onMicToggle = { onMicrophoneToggle() },
+                    onVideoToggle = { onVideoToggle() }
                 )
             }
         }
@@ -191,6 +194,17 @@ class ChatActivity : AppCompatActivity(), ToolHost {
                 launch {
                     settingsViewModel.volumeChangeEvent.collect { volume ->
                         volume?.let { volumeController?.setVolume(this@ChatActivity, it) }
+                    }
+                }
+                // Collect video stream frames for preview
+                launch {
+                    videoInputController.currentFrame.collect { frame ->
+                        viewModel.setVideoPreviewFrame(frame)
+                    }
+                }
+                launch {
+                    videoInputController.isStreaming.collect { isStreaming ->
+                        viewModel.setVideoStreamActive(isStreaming)
                     }
                 }
                 // Note: Perception monitoring runs continuously via WebSocket with auto-reconnect.
@@ -253,6 +267,19 @@ class ChatActivity : AppCompatActivity(), ToolHost {
             // No action in other states - capsule just shows status
         } catch (e: Exception) {
             Log.e(TAG, "Status capsule click failed", e)
+        }
+    }
+
+    /**
+     * Handle tap on video button - toggles video streaming.
+     */
+    private fun onVideoToggle() {
+        try {
+            val newState = videoInputController.toggleStreaming()
+            viewModel.setVideoStreamActive(newState)
+            Log.i(TAG, "Video streaming toggled: active=$newState")
+        } catch (e: Exception) {
+            Log.e(TAG, "Video toggle failed", e)
         }
     }
 
@@ -324,6 +351,7 @@ class ChatActivity : AppCompatActivity(), ToolHost {
 
     private fun shutdown() {
         chatDeps.audioInputController.shutdown()
+        videoInputController.shutdown()
 
         chatDeps.audioPlayer.setListener(null)
         chatDeps.sessionManager.listener = null

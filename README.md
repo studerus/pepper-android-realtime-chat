@@ -163,6 +163,7 @@ A multimodal AI system for the Pepper robot powered by advanced speech-to-speech
 - **Modern Tablet UI** - Clean Jetpack Compose chat interface with interactive function cards, real-time overlays, and adaptive toolbar
 - **Gaze Control** - Precise 3D head/eye positioning with duration control and automatic return
 - **Vision Analysis** - Camera-based image understanding and analysis with intelligent obstacle detection
+- **Live Video Streaming** - Continuous video stream (1 FPS) to Gemini Live API for real-time visual context (Google provider only)
 - **Touch Interaction** - Responds to touches on head, hands, and bumpers with contextual AI reactions
 - **Navigation & Mapping** - Complete room mapping and autonomous navigation system
 - **Human Approach & Following** - Intelligent human detection, approaching, and continuous following
@@ -491,6 +492,7 @@ This allows the Android app to automatically start the face recognition server v
 - **Show Thinking**: Display AI thinking traces in chat bubbles (requires Thinking Budget > 0)
 - **Google Search Grounding**: Real-time web search for improved accuracy and reduced hallucinations
 - **Proactive Audio**: Allows Gemini to proactively decide not to respond when content is not relevant
+- **Live Video Streaming**: Continuous 1 FPS video stream to Gemini for real-time visual context during conversations
 - **30 Distinct Voices**: Extensive selection including Puck, Charon, Kore, Fenrir, Aoede, and many more
 - **Note**: Uses `v1alpha` API version with `gemini-2.5-flash-native-audio-preview` model
 
@@ -796,6 +798,16 @@ The UI provides two separate controls for better user experience:
   - **Red with slash** = Microphone muted (stays off until you unmute)
 - **Persistent intent** - Muting during robot speech keeps mic off after robot finishes
 - **Pre-mute feature** - Tap mute while robot is speaking to prevent auto-reactivation
+
+#### Video Button (Google Gemini Only)
+- **Only visible** when using Google Gemini Live API provider
+- **Toggles live video streaming** at 1 FPS to provide visual context during conversations
+- **Three visual states**:
+  - **Green pulsing** = Video streaming active (camera capturing and sending frames)
+  - **Amber outlined** = Video paused (will resume when robot finishes speaking)
+  - **Gray** = Video streaming off
+- **Camera Preview** - Small preview window appears in the top-right corner when streaming
+- **Token Usage** - Video streaming consumes additional tokens; disabled by default
 
 ### Automatic Response Interruption
 Certain events automatically interrupt ongoing responses to provide immediate feedback:
@@ -1497,6 +1509,7 @@ app/src/
 │   ├── controller/                      # Application logic controllers
 │   │   ├── AudioInputController.kt      # Audio input & STT management
 │   │   ├── AudioVolumeController.kt     # System volume control
+│   │   ├── VideoInputController.kt      # Video streaming interface
 │   │   ├── ChatInterruptController.kt   # Interruption logic
 │   │   ├── ChatLifecycleController.kt   # App lifecycle orchestration
 │   │   ├── ChatRealtimeHandler.kt       # WebSocket event bridging
@@ -1582,7 +1595,8 @@ app/src/
 ├── pepper/java/ch/fhnw/pepper_realtime/    # Pepper-specific implementations
 │   ├── controller/
 │   │   ├── GestureController.kt         # Real Pepper animations
-│   │   └── MovementController.kt        # Real robot movement
+│   │   ├── MovementController.kt        # Real robot movement
+│   │   └── VideoInputControllerImpl.kt  # Pepper camera video streaming
 │   ├── manager/
 │   │   ├── NavigationServiceManager.kt  # Real navigation system
 │   │   ├── LocalizationCoordinator.kt   # Real localization logic
@@ -1602,7 +1616,8 @@ app/src/
 └── standalone/java/ch/fhnw/pepper_realtime/   # Standalone stub implementations
     ├── controller/
     │   ├── GestureController.kt         # Stub (log only)
-    │   └── MovementController.kt        # Stub (log only)
+    │   ├── MovementController.kt        # Stub (log only)
+    │   └── VideoInputControllerImpl.kt  # Android Camera2 video streaming
     ├── manager/
     │   ├── NavigationServiceManager.kt  # Stub (simulated navigation)
     │   ├── LocalizationCoordinator.kt   # Stub (simulated localization)
