@@ -502,7 +502,15 @@ fun SettingsScreen(
                     }
                 },
                 apiKeyManager = apiKeyManager,
-                toolRegistry = toolRegistry
+                toolRegistry = toolRegistry,
+                isGoogleProvider = isGoogleProvider,
+                googleSearchEnabled = settings.googleSearchGrounding,
+                onGoogleSearchToggled = { viewModel.setGoogleSearchGrounding(it) },
+                isXaiProvider = isXaiProvider,
+                xaiWebSearchEnabled = settings.xaiWebSearch,
+                onXaiWebSearchToggled = { viewModel.setXaiWebSearch(it) },
+                xaiXSearchEnabled = settings.xaiXSearch,
+                onXaiXSearchToggled = { viewModel.setXaiXSearch(it) }
             )
             
             Spacer(modifier = Modifier.height(32.dp))
@@ -515,11 +523,73 @@ private fun ToolsSection(
     enabledTools: Set<String>,
     onToolToggled: (String, Boolean) -> Unit,
     apiKeyManager: ApiKeyManager,
-    toolRegistry: ToolRegistry
+    toolRegistry: ToolRegistry,
+    isGoogleProvider: Boolean = false,
+    googleSearchEnabled: Boolean = false,
+    onGoogleSearchToggled: (Boolean) -> Unit = {},
+    isXaiProvider: Boolean = false,
+    xaiWebSearchEnabled: Boolean = true,
+    onXaiWebSearchToggled: (Boolean) -> Unit = {},
+    xaiXSearchEnabled: Boolean = true,
+    onXaiXSearchToggled: (Boolean) -> Unit = {}
 ) {
     val toolNames = remember(toolRegistry) { toolRegistry.getAllToolNames() }
+    val hasServerSideTools = isGoogleProvider || isXaiProvider
     
     Column {
+        // Server-side tools (API-specific)
+        if (hasServerSideTools) {
+            Text(
+                text = "Server-Side Tools",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+            
+            if (isGoogleProvider) {
+                ToolSettingItem(
+                    toolName = "Google Search",
+                    description = "Ground responses with real-time web search for improved accuracy",
+                    isEnabled = googleSearchEnabled,
+                    onToggle = onGoogleSearchToggled,
+                    apiKeyRequired = null,
+                    isApiKeyAvailable = true
+                )
+            }
+            
+            if (isXaiProvider) {
+                ToolSettingItem(
+                    toolName = "Web Search",
+                    description = "Search the web for real-time information",
+                    isEnabled = xaiWebSearchEnabled,
+                    onToggle = onXaiWebSearchToggled,
+                    apiKeyRequired = null,
+                    isApiKeyAvailable = true
+                )
+                
+                ToolSettingItem(
+                    toolName = "X Search",
+                    description = "Search X/Twitter posts for latest discussions and news",
+                    isEnabled = xaiXSearchEnabled,
+                    onToggle = onXaiXSearchToggled,
+                    apiKeyRequired = null,
+                    isApiKeyAvailable = true
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Text(
+                text = "Client-Side Tools",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+        }
+        
+        // Regular client-side tools
         toolNames.forEach { toolName ->
             val tool = remember(toolName) { toolRegistry.getOrCreateTool(toolName) }
             val description = remember(tool) {

@@ -68,7 +68,10 @@ class SettingsViewModel @Inject constructor(
             googleThinkingBudget = settingsRepository.googleThinkingBudget,
             googleAffectiveDialog = settingsRepository.googleAffectiveDialog,
             googleProactiveAudio = settingsRepository.googleProactiveAudio,
-            googleShowThinking = settingsRepository.googleShowThinking
+            googleShowThinking = settingsRepository.googleShowThinking,
+            googleSearchGrounding = settingsRepository.googleSearchGrounding,
+            xaiWebSearch = settingsRepository.xaiWebSearch,
+            xaiXSearch = settingsRepository.xaiXSearch
         )
     }
     
@@ -340,6 +343,32 @@ class SettingsViewModel @Inject constructor(
             settingsRepository.googleShowThinking = enabled
             _settingsState.update { it.copy(googleShowThinking = enabled) }
             // No restart needed - this is a UI-only setting
+        }
+    }
+    
+    fun setGoogleSearchGrounding(enabled: Boolean) {
+        if (enabled != settingsRepository.googleSearchGrounding) {
+            settingsRepository.googleSearchGrounding = enabled
+            _settingsState.update { it.copy(googleSearchGrounding = enabled) }
+            triggerGoogleSettingChange()  // Requires session restart
+        }
+    }
+    
+    fun setXaiWebSearch(enabled: Boolean) {
+        if (enabled != settingsRepository.xaiWebSearch) {
+            settingsRepository.xaiWebSearch = enabled
+            _settingsState.update { it.copy(xaiWebSearch = enabled) }
+            // x.ai tools are part of session config, requires restart
+            if (isBatchMode) pendingRestart = true else _restartSessionEvent.value = true
+        }
+    }
+    
+    fun setXaiXSearch(enabled: Boolean) {
+        if (enabled != settingsRepository.xaiXSearch) {
+            settingsRepository.xaiXSearch = enabled
+            _settingsState.update { it.copy(xaiXSearch = enabled) }
+            // x.ai tools are part of session config, requires restart
+            if (isBatchMode) pendingRestart = true else _restartSessionEvent.value = true
         }
     }
     

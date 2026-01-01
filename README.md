@@ -473,8 +473,8 @@ This allows the Android app to automatically start the face recognition server v
 3. Uses the Grok Voice Agent API (speech-to-speech model, OpenAI Realtime API compatible)
 
 **Unique Features:**
-- **Native Web Search**: Built-in web search without Tavily API
-- **Native X Search**: Search posts on X/Twitter in real-time
+- **Native Web Search**: Built-in web search without Tavily API (configurable in settings)
+- **Native X Search**: Search posts on X/Twitter in real-time (configurable in settings)
 - **5 Distinct Voices**: Ara, Rex, Sal, Eve, Leo
 - **100+ Languages**: Multilingual support out of the box
 - **Note**: Vision analysis requires `GROQ_API_KEY` (Grok Voice Agent API doesn't support images)
@@ -489,6 +489,7 @@ This allows the Android app to automatically start the face recognition server v
 - **Automatic Voice Activity Detection**: Configurable start/end sensitivity, prefix padding, and silence duration
 - **Thinking Budget**: Optional chain-of-thought reasoning with configurable token budget
 - **Show Thinking**: Display AI thinking traces in chat bubbles (requires Thinking Budget > 0)
+- **Google Search Grounding**: Real-time web search for improved accuracy and reduced hallucinations
 - **Proactive Audio**: Allows Gemini to proactively decide not to respond when content is not relevant
 - **30 Distinct Voices**: Extensive selection including Puck, Charon, Kore, Fenrir, Aoede, and many more
 - **Note**: Uses `v1alpha` API version with `gemini-2.5-flash-native-audio-preview` model

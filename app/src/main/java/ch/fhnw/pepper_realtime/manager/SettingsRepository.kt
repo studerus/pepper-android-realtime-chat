@@ -221,6 +221,21 @@ class SettingsRepository @Inject constructor(
     var googleShowThinking: Boolean
         get() = settings.getBoolean(KEY_GOOGLE_SHOW_THINKING, false)
         set(value) = settings.edit().putBoolean(KEY_GOOGLE_SHOW_THINKING, value).apply()
+    
+    // Google Search grounding - enables web search for improved accuracy
+    var googleSearchGrounding: Boolean
+        get() = settings.getBoolean(KEY_GOOGLE_SEARCH_GROUNDING, false)
+        set(value) = settings.edit().putBoolean(KEY_GOOGLE_SEARCH_GROUNDING, value).apply()
+    
+    // x.ai Web Search - native web search capability
+    var xaiWebSearch: Boolean
+        get() = settings.getBoolean(KEY_XAI_WEB_SEARCH, true)  // Default true for backwards compatibility
+        set(value) = settings.edit().putBoolean(KEY_XAI_WEB_SEARCH, value).apply()
+    
+    // x.ai X Search - search X/Twitter posts
+    var xaiXSearch: Boolean
+        get() = settings.getBoolean(KEY_XAI_X_SEARCH, true)  // Default true for backwards compatibility
+        set(value) = settings.edit().putBoolean(KEY_XAI_X_SEARCH, value).apply()
 
     companion object {
         private const val PREFS_NAME = "PepperDialogPrefs"
@@ -259,6 +274,9 @@ class SettingsRepository @Inject constructor(
         private const val KEY_GOOGLE_AFFECTIVE_DIALOG = "googleAffectiveDialog"
         private const val KEY_GOOGLE_PROACTIVE_AUDIO = "googleProactiveAudio"
         private const val KEY_GOOGLE_SHOW_THINKING = "googleShowThinking"
+        private const val KEY_GOOGLE_SEARCH_GROUNDING = "googleSearchGrounding"
+        private const val KEY_XAI_WEB_SEARCH = "xaiWebSearch"
+        private const val KEY_XAI_X_SEARCH = "xaiXSearch"
 
         // Audio input mode constants
         const val MODE_REALTIME_API = "realtime_api"

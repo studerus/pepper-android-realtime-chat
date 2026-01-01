@@ -39,6 +39,10 @@ data class SettingsState(
     val googleThinkingBudget: Int = 0,
     val googleAffectiveDialog: Boolean = false,
     val googleProactiveAudio: Boolean = false,
-    val googleShowThinking: Boolean = false
+    val googleShowThinking: Boolean = false,
+    val googleSearchGrounding: Boolean = false,
+    // x.ai specific settings
+    val xaiWebSearch: Boolean = true,
+    val xaiXSearch: Boolean = true
 )
 

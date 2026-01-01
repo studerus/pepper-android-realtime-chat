@@ -61,6 +61,9 @@ class SettingsViewModelTest {
         whenever(repository.googleAffectiveDialog).thenReturn(false)
         whenever(repository.googleProactiveAudio).thenReturn(false)
         whenever(repository.googleShowThinking).thenReturn(false)
+        whenever(repository.googleSearchGrounding).thenReturn(false)
+        whenever(repository.xaiWebSearch).thenReturn(true)
+        whenever(repository.xaiXSearch).thenReturn(true)
 
         viewModel = SettingsViewModel(repository)
     }

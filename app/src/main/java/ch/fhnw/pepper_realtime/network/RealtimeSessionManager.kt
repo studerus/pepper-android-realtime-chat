@@ -464,12 +464,11 @@ class RealtimeSessionManager @Inject constructor() {
             })
         }
 
-        // Tools (using Google's functionDeclarations format)
+        // Tools (using Google's format: google_search and/or functionDeclarations)
         val enabledTools = settings.enabledTools
         val googleTools = buildGoogleToolsDefinition(enabledTools)
         if (googleTools.length() > 0) {
             setup.put("tools", googleTools)
-            Log.d(TAG, "Google setup: ${googleTools.getJSONObject(0).getJSONArray("functionDeclarations").length()} tools enabled")
         }
 
         payload.put("setup", setup)
@@ -483,11 +482,20 @@ class RealtimeSessionManager @Inject constructor() {
     }
 
     /**
-     * Build tools definition in Google's functionDeclarations format.
+     * Build tools definition in Google's format.
+     * Includes functionDeclarations for custom tools and optional google_search for grounding.
      */
     private fun buildGoogleToolsDefinition(enabledTools: Set<String>): JSONArray {
         val toolsArray = JSONArray()
         val functionDeclarations = JSONArray()
+
+        // Add Google Search grounding if enabled
+        if (settingsRepository?.googleSearchGrounding == true) {
+            toolsArray.put(JSONObject().apply {
+                put("google_search", JSONObject())
+            })
+            Log.d(TAG, "Google Search grounding enabled")
+        }
 
         if (toolRegistry == null || toolContext == null) {
             return toolsArray
@@ -525,7 +533,7 @@ class RealtimeSessionManager @Inject constructor() {
             })
         }
 
-        Log.d(TAG, "Built Google tools with ${functionDeclarations.length()} function declarations")
+        Log.d(TAG, "Built Google tools: ${if (settingsRepository?.googleSearchGrounding == true) "google_search + " else ""}${functionDeclarations.length()} function declarations")
         return toolsArray
     }
 
@@ -883,17 +891,27 @@ class RealtimeSessionManager @Inject constructor() {
         // Build tools array
         val toolsArray = toolRegistry!!.buildToolsDefinitionForAzure(toolContext!!, enabledTools)
         
-        // Add x.ai native tools (web_search and x_search)
+        // Add x.ai native tools (web_search and x_search) if enabled
         if (settings.apiProviderEnum == RealtimeApiProvider.XAI) {
-            // web_search - native x.ai web search
-            toolsArray.put(JSONObject().apply {
-                put("type", "web_search")
-            })
-            // x_search - search X/Twitter posts
-            toolsArray.put(JSONObject().apply {
-                put("type", "x_search")
-            })
-            Log.i(TAG, "x.ai: Added native web_search and x_search tools")
+            val xaiToolsAdded = mutableListOf<String>()
+            
+            if (settings.xaiWebSearch) {
+                toolsArray.put(JSONObject().apply {
+                    put("type", "web_search")
+                })
+                xaiToolsAdded.add("web_search")
+            }
+            
+            if (settings.xaiXSearch) {
+                toolsArray.put(JSONObject().apply {
+                    put("type", "x_search")
+                })
+                xaiToolsAdded.add("x_search")
+            }
+            
+            if (xaiToolsAdded.isNotEmpty()) {
+                Log.i(TAG, "x.ai: Added native tools: ${xaiToolsAdded.joinToString(", ")}")
+            }
         }
         
         sessionConfig.put("tools", toolsArray)
