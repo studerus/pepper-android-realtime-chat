@@ -51,6 +51,15 @@ class SettingsViewModelTest {
         whenever(repository.idleTimeout).thenReturn(0)
         whenever(repository.eagerness).thenReturn("auto")
         whenever(repository.noiseReduction).thenReturn("off")
+        
+        // Google Live API settings
+        whenever(repository.googleStartSensitivity).thenReturn("HIGH")
+        whenever(repository.googleEndSensitivity).thenReturn("HIGH")
+        whenever(repository.googlePrefixPaddingMs).thenReturn(20)
+        whenever(repository.googleSilenceDurationMs).thenReturn(500)
+        whenever(repository.googleThinkingBudget).thenReturn(0)
+        whenever(repository.googleAffectiveDialog).thenReturn(false)
+        whenever(repository.googleProactiveAudio).thenReturn(false)
 
         viewModel = SettingsViewModel(repository)
     }

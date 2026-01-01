@@ -376,8 +376,9 @@ class RealtimeEventHandlerTest {
 
         eventHandler.handle(event)
 
-        // Empty type should be treated as unknown
-        verify(mockListener).onUnknown(eq(""), any())
+        // Messages without type field are treated as potential Google events,
+        // but if they don't match Google's format, they're reported as google_unknown
+        verify(mockListener).onUnknown(eq("google_unknown"), any())
     }
 
     // ========== Rate Limits Event ==========
