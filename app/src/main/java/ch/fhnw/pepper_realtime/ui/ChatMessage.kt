@@ -19,7 +19,8 @@ class ChatMessage private constructor(
         REGULAR_MESSAGE,
         FUNCTION_CALL,
         IMAGE_MESSAGE,
-        EVENT_TRIGGER
+        EVENT_TRIGGER,
+        THINKING_MESSAGE  // AI thinking traces (Google Live API with thinking budget)
     }
 
     var message: String = ""
@@ -111,6 +112,16 @@ class ChatMessage private constructor(
                 it.eventResolvedText = resolvedText
                 it.eventPersonName = personName
                 it.message = "" // Will be generated in display
+            }
+        }
+        
+        /**
+         * Static factory for AI thinking trace messages (Google Live API).
+         * Displayed with 💭 emoji and italic styling.
+         */
+        fun createThinking(text: String): ChatMessage {
+            return ChatMessage(Sender.ROBOT, Type.THINKING_MESSAGE, UUID.randomUUID().toString()).also {
+                it.message = text
             }
         }
     }

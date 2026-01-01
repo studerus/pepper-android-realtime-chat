@@ -363,6 +363,13 @@ fun SettingsScreen(
                         checked = settings.googleProactiveAudio,
                         onCheckedChange = { viewModel.setGoogleProactiveAudio(it) }
                     )
+                    
+                    SettingsSwitch(
+                        label = "Show Thinking",
+                        description = "Display AI thinking traces in chat (requires Thinking Budget > 0)",
+                        checked = settings.googleShowThinking,
+                        onCheckedChange = { viewModel.setGoogleShowThinking(it) }
+                    )
                 } else {
                     // OpenAI Realtime API Settings
                     SettingsSectionHeader(title = "Voice API Settings")

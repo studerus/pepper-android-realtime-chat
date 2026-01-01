@@ -166,6 +166,12 @@ private fun ChatMessageItem(
                 MessageBubble(message = message)
             }
         }
+        ChatMessage.Type.THINKING_MESSAGE -> {
+            // AI thinking traces (Google Live API with thinking budget)
+            if (message.message.isNotEmpty()) {
+                ThinkingBubble(message = message)
+            }
+        }
     }
 }
 

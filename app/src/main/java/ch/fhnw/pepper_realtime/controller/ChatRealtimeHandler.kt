@@ -31,7 +31,8 @@ class ChatRealtimeHandler(
     private val applicationScope: CoroutineScope,
     private val toolRegistry: ToolRegistry,
     private var toolContext: ToolContext?,
-    private val sessionManager: RealtimeSessionManager
+    private val sessionManager: RealtimeSessionManager,
+    private val settingsRepository: ch.fhnw.pepper_realtime.manager.SettingsRepository
 ) : RealtimeEventHandler.Listener {
 
     companion object {
@@ -380,6 +381,9 @@ class ChatRealtimeHandler(
         // Increment turn counter for new response ID
         googleTurnCounter++
         
+        // Reset thinking bubble tracking for new turn
+        currentThinkingBubbleId = null
+        
         // Transition to THINKING state (this mutes the microphone)
         if (turnManager != null && turnManager.state == TurnManager.State.LISTENING) {
             turnManager.setState(TurnManager.State.THINKING)
@@ -460,6 +464,35 @@ class ChatRealtimeHandler(
         Log.i(TAG, "Google: Tool call cancellation for ${ids.size} call(s)")
         ids.forEach { id ->
             pendingGoogleToolCalls.remove(id)
+        }
+    }
+
+    // Track if we have an active thinking bubble to append to
+    private var currentThinkingBubbleId: String? = null
+
+    override fun onGoogleThinkingDelta(text: String) {
+        // Only show thinking traces if enabled in settings
+        if (!settingsRepository.googleShowThinking) return
+        
+        // Skip empty or whitespace-only chunks
+        if (text.isBlank()) return
+        
+        // Clean up text: trim and normalize multiple newlines to single ones
+        val cleanText = text.trim()
+            .replace(Regex("\\n{3,}"), "\n\n")  // Max 2 consecutive newlines
+            .trimEnd()
+        if (cleanText.isEmpty()) return
+        
+        // Note: Google sends thinking traces as single chunks, not streaming word-by-word
+        // Check if we already have a thinking bubble to append to
+        if (currentThinkingBubbleId != null) {
+            // Append to existing thinking bubble
+            viewModel.appendToThinkingMessage(cleanText)
+        } else {
+            // Create new thinking bubble with emoji prefix
+            val thinkingMessage = ChatMessage.createThinking("💭 $cleanText")
+            currentThinkingBubbleId = thinkingMessage.uuid
+            viewModel.addMessage(thinkingMessage)
         }
     }
 

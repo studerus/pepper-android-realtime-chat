@@ -60,6 +60,7 @@ class SettingsViewModelTest {
         whenever(repository.googleThinkingBudget).thenReturn(0)
         whenever(repository.googleAffectiveDialog).thenReturn(false)
         whenever(repository.googleProactiveAudio).thenReturn(false)
+        whenever(repository.googleShowThinking).thenReturn(false)
 
         viewModel = SettingsViewModel(repository)
     }

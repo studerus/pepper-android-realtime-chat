@@ -67,7 +67,8 @@ class SettingsViewModel @Inject constructor(
             googleSilenceDurationMs = settingsRepository.googleSilenceDurationMs,
             googleThinkingBudget = settingsRepository.googleThinkingBudget,
             googleAffectiveDialog = settingsRepository.googleAffectiveDialog,
-            googleProactiveAudio = settingsRepository.googleProactiveAudio
+            googleProactiveAudio = settingsRepository.googleProactiveAudio,
+            googleShowThinking = settingsRepository.googleShowThinking
         )
     }
     
@@ -331,6 +332,14 @@ class SettingsViewModel @Inject constructor(
             settingsRepository.googleProactiveAudio = enabled
             _settingsState.update { it.copy(googleProactiveAudio = enabled) }
             triggerGoogleSettingChange()
+        }
+    }
+    
+    fun setGoogleShowThinking(enabled: Boolean) {
+        if (enabled != settingsRepository.googleShowThinking) {
+            settingsRepository.googleShowThinking = enabled
+            _settingsState.update { it.copy(googleShowThinking = enabled) }
+            // No restart needed - this is a UI-only setting
         }
     }
     

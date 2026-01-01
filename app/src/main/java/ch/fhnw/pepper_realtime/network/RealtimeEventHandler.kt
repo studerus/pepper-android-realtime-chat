@@ -63,6 +63,7 @@ class RealtimeEventHandler(val listener: Listener) {
         fun onGoogleModelTurnStarted() {}  // First modelTurn in a response - signal to enter THINKING
         fun onGoogleToolCall(functionCalls: List<GoogleLiveEvents.FunctionCall>) {}
         fun onGoogleToolCallCancellation(ids: List<String>) {}
+        fun onGoogleThinkingDelta(text: String) {}  // AI thinking traces (when thinking budget > 0)
     }
 
     private val gson = Gson()
@@ -395,6 +396,8 @@ class RealtimeEventHandler(val listener: Listener) {
                     if (part.thought == true) {
                         // Collect thinking traces for logging at turn end
                         googleThinkingBuffer.append(text)
+                        // Also send to listener for UI display (if enabled in settings)
+                        listener.onGoogleThinkingDelta(text)
                     } else {
                         // Non-thought text (rarely used - outputTranscription is preferred)
                         listener.onAudioTranscriptDelta(text, null)

@@ -18,6 +18,7 @@ import ch.fhnw.pepper_realtime.controller.RobotFocusManager
 import ch.fhnw.pepper_realtime.data.LocationProvider
 import ch.fhnw.pepper_realtime.manager.AudioPlayer
 import ch.fhnw.pepper_realtime.manager.NavigationServiceManager
+import ch.fhnw.pepper_realtime.manager.SettingsRepository
 import ch.fhnw.pepper_realtime.manager.TouchSensorManager
 import ch.fhnw.pepper_realtime.manager.TurnManager
 import ch.fhnw.pepper_realtime.network.RealtimeEventHandler
@@ -68,13 +69,14 @@ object ControllerModule {
         @IoDispatcher ioDispatcher: CoroutineDispatcher,
         @ApplicationScope applicationScope: CoroutineScope,
         toolRegistry: ToolRegistry,
-        sessionManager: RealtimeSessionManager
+        sessionManager: RealtimeSessionManager,
+        settingsRepository: SettingsRepository
     ): RealtimeEventHandler {
         // ToolContext is set later
         val handler = ChatRealtimeHandler(
             viewModel, audioPlayer, turnManager,
             ioDispatcher, applicationScope, toolRegistry, null,
-            sessionManager
+            sessionManager, settingsRepository
         )
         return RealtimeEventHandler(handler)
     }

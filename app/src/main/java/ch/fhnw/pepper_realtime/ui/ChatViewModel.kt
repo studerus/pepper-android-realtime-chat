@@ -577,6 +577,26 @@ class ChatViewModel @Inject constructor(
         appendToLastRobotMessage(text)
     }
 
+    /**
+     * Append text to the last THINKING message bubble (Google Live API thinking traces).
+     */
+    fun appendToThinkingMessage(text: String) {
+        _messageList.update { current ->
+            if (current.isEmpty()) return@update current
+
+            val lastIndex = current.size - 1
+            val lastMsg = current[lastIndex]
+
+            if (lastMsg.type == ChatMessage.Type.THINKING_MESSAGE) {
+                current.toMutableList().apply {
+                    this[lastIndex] = lastMsg.copyWithNewText(lastMsg.message + text)
+                }
+            } else {
+                current
+            }
+        }
+    }
+
     fun updateLastRobotMessage(newText: String) {
         _messageList.update { current ->
             if (current.isEmpty()) return@update current

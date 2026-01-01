@@ -38,6 +38,7 @@ data class SettingsState(
     val googleSilenceDurationMs: Int = 500,
     val googleThinkingBudget: Int = 0,
     val googleAffectiveDialog: Boolean = false,
-    val googleProactiveAudio: Boolean = false
+    val googleProactiveAudio: Boolean = false,
+    val googleShowThinking: Boolean = false
 )
 

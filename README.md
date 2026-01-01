@@ -488,6 +488,7 @@ This allows the Android app to automatically start the face recognition server v
 - **Native Audio Model**: End-to-end speech model (audio in, audio out) without separate STT/TTS
 - **Automatic Voice Activity Detection**: Configurable start/end sensitivity, prefix padding, and silence duration
 - **Thinking Budget**: Optional chain-of-thought reasoning with configurable token budget
+- **Show Thinking**: Display AI thinking traces in chat bubbles (requires Thinking Budget > 0)
 - **Proactive Audio**: Allows Gemini to proactively decide not to respond when content is not relevant
 - **30 Distinct Voices**: Extensive selection including Puck, Charon, Kore, Fenrir, Aoede, and many more
 - **Note**: Uses `v1alpha` API version with `gemini-2.5-flash-native-audio-preview` model

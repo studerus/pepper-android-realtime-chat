@@ -216,6 +216,11 @@ class SettingsRepository @Inject constructor(
     var googleProactiveAudio: Boolean
         get() = settings.getBoolean(KEY_GOOGLE_PROACTIVE_AUDIO, false)
         set(value) = settings.edit().putBoolean(KEY_GOOGLE_PROACTIVE_AUDIO, value).apply()
+    
+    // Show thinking traces in chat (only works when thinking budget > 0)
+    var googleShowThinking: Boolean
+        get() = settings.getBoolean(KEY_GOOGLE_SHOW_THINKING, false)
+        set(value) = settings.edit().putBoolean(KEY_GOOGLE_SHOW_THINKING, value).apply()
 
     companion object {
         private const val PREFS_NAME = "PepperDialogPrefs"
@@ -253,6 +258,7 @@ class SettingsRepository @Inject constructor(
         private const val KEY_GOOGLE_THINKING_BUDGET = "googleThinkingBudget"
         private const val KEY_GOOGLE_AFFECTIVE_DIALOG = "googleAffectiveDialog"
         private const val KEY_GOOGLE_PROACTIVE_AUDIO = "googleProactiveAudio"
+        private const val KEY_GOOGLE_SHOW_THINKING = "googleShowThinking"
 
         // Audio input mode constants
         const val MODE_REALTIME_API = "realtime_api"
