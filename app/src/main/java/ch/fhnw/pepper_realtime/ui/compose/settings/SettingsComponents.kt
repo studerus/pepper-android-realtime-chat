@@ -103,6 +103,71 @@ fun SettingsDropdown(
 }
 
 /**
+ * Voice dropdown with descriptions shown in the menu.
+ * Selected value shows only the voice name, dropdown items show "Name — Description".
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsVoiceDropdown(
+    label: String,
+    voices: Map<String, String>,
+    selectedVoice: String,
+    onVoiceSelected: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val description = voices[selectedVoice] ?: ""
+    
+    Column(modifier = modifier) {
+        SettingsLabel(text = label)
+        
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { expanded = !expanded }
+        ) {
+            OutlinedTextField(
+                value = if (description.isNotEmpty()) "$selectedVoice — $description" else selectedVoice,
+                onValueChange = {},
+                readOnly = true,
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                modifier = Modifier
+                    .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                    .fillMaxWidth()
+            )
+            
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                voices.forEach { (name, desc) ->
+                    DropdownMenuItem(
+                        text = {
+                            Column {
+                                Text(
+                                    text = name,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                if (desc.isNotEmpty()) {
+                                    Text(
+                                        text = desc,
+                                        fontSize = 12.sp,
+                                        color = Color.Gray
+                                    )
+                                }
+                            }
+                        },
+                        onClick = {
+                            onVoiceSelected(name)
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
  * Segmented button for settings with 2-4 options.
  * Stays inline (no popup) to avoid fullscreen mode issues.
  */

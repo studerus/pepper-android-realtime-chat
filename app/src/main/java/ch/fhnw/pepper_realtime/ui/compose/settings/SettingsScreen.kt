@@ -66,10 +66,59 @@ fun SettingsScreen(
         isXaiProvider -> xaiModels
         else -> openAiModels
     }
-    val openAiVoices = listOf("alloy", "ash", "ballad", "cedar", "coral", "echo", "marin", "sage", "shimmer", "verse")
-    val xaiVoices = listOf("Ara", "Rex", "Sal", "Eve", "Leo")
-    val googleVoices = listOf("Puck", "Charon", "Kore", "Fenrir", "Aoede")
-    // Dynamic voice list based on provider
+    // Voice options with descriptions for each provider
+    val openAiVoices = linkedMapOf(
+        "alloy" to "Neutral, balanced",
+        "ash" to "Clear, precise",
+        "ballad" to "Melodic, smooth",
+        "cedar" to "Natural, clear",
+        "coral" to "Warm, friendly",
+        "echo" to "Resonant, deep",
+        "marin" to "Natural, clear",
+        "sage" to "Calm, thoughtful",
+        "shimmer" to "Bright, energetic",
+        "verse" to "Versatile, expressive"
+    )
+    val xaiVoices = linkedMapOf(
+        "Ara" to "Female, warm, friendly",
+        "Rex" to "Male, confident, clear",
+        "Sal" to "Neutral, smooth, balanced",
+        "Eve" to "Female, energetic, upbeat",
+        "Leo" to "Male, authoritative, strong"
+    )
+    val googleVoices = linkedMapOf(
+        "Zephyr" to "Bright",
+        "Puck" to "Upbeat",
+        "Charon" to "Informative",
+        "Kore" to "Firm",
+        "Fenrir" to "Excitable",
+        "Leda" to "Youthful",
+        "Orus" to "Firm",
+        "Aoede" to "Breezy",
+        "Callirrhoe" to "Easy-going",
+        "Autonoe" to "Bright",
+        "Enceladus" to "Breathy",
+        "Iapetus" to "Clear",
+        "Umbriel" to "Easy-going",
+        "Algieba" to "Smooth",
+        "Despina" to "Smooth",
+        "Erinome" to "Clear",
+        "Algenib" to "Gravelly",
+        "Rasalgethi" to "Informative",
+        "Laomedeia" to "Upbeat",
+        "Achernar" to "Soft",
+        "Alnilam" to "Firm",
+        "Schedar" to "Even",
+        "Gacrux" to "Mature",
+        "Pulcherrima" to "Forward",
+        "Achird" to "Friendly",
+        "Zubenelgenubi" to "Casual",
+        "Vindemiatrix" to "Gentle",
+        "Sadachbia" to "Lively",
+        "Sadaltager" to "Knowledgeable",
+        "Sulafat" to "Warm"
+    )
+    // Dynamic voice map based on provider
     val voices = when {
         isGoogleProvider -> googleVoices
         isXaiProvider -> xaiVoices
@@ -172,19 +221,19 @@ fun SettingsScreen(
                             isNewProviderXai -> xaiVoices
                             else -> openAiVoices
                         }
-                        if (settings.voice !in newVoices) {
-                            viewModel.setVoice(newVoices.first())
+                        if (settings.voice !in newVoices.keys) {
+                            viewModel.setVoice(newVoices.keys.first())
                         }
                     }
                 )
             }
             
-            // Voice - apply immediately
-            SettingsDropdown(
+            // Voice - apply immediately (with descriptions)
+            SettingsVoiceDropdown(
                 label = "Voice",
-                options = voices,
-                selectedOption = settings.voice,
-                onOptionSelected = { viewModel.setVoice(it) }
+                voices = voices,
+                selectedVoice = settings.voice,
+                onVoiceSelected = { viewModel.setVoice(it) }
             )
             
             // Speed and Temperature - not supported by Google Live API
