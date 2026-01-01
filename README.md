@@ -2,7 +2,7 @@
 
 [![Android CI](https://github.com/studerus/pepper-android-realtime-chat/actions/workflows/android-ci.yml/badge.svg)](https://github.com/studerus/pepper-android-realtime-chat/actions/workflows/android-ci.yml)
 
-A multimodal AI system for the Pepper robot powered by OpenAI's Realtime API and Google Gemini Live API. It enables natural interactions through voice, touch, vision, and movement, with advanced function calling for robot control (navigation, gestures, animations), information tools (search, weather), and interactive tablet activities (quizzes, memory games, tic-tac-toe, drawing game).
+A multimodal AI system for the Pepper robot powered by advanced speech-to-speech AI models (OpenAI Realtime API, Google Gemini Live, x.ai Grok). It enables natural interactions through voice, touch, vision, and movement, with advanced function calling for robot control (navigation, gestures, animations), information tools (search, weather), and interactive tablet activities (quizzes, memory games, tic-tac-toe, drawing game).
 
 <p align="center">
   <img src="screenshots/IMG_20251002_141923.jpg" alt="Pepper Robot with Chat Interface" width="50%">
@@ -147,13 +147,18 @@ A multimodal AI system for the Pepper robot powered by OpenAI's Realtime API and
 
 ## ✨ Features
 
+- **Real-time Voice Chat** - Natural conversations powered by speech-to-speech (S2S) AI models:
+  - **OpenAI** - gpt-realtime, gpt-realtime-mini, gpt-4o-realtime-preview, gpt-4o-mini-realtime-preview
+  - **Azure OpenAI** - Same models with network-level isolation and customer-managed encryption for enterprise compliance
+  - **x.ai** - Grok Voice Agent API with native web/X search
+  - **Google** - Gemini Live API with native audio model and 30 voices
+- **Audio Input Modes** - Two optimized modes for voice capture:
+  - **Direct Audio** - Low-latency streaming with native voice activity detection
+  - **Azure Speech STT** - Speech is first transcribed to text via Azure Speech Services; performs better for regional dialects (e.g., Swiss German) and provides confidence scores that inform the AI when transcription quality may be uncertain
+- **Synchronized Gestures** - Automatic body language during speech output for natural communication
 - **Dual Build Flavors** - Two app variants for different use cases:
   - **Pepper Flavor** - Full robot integration with QiSDK for Pepper hardware
   - **Standalone Flavor** - Runs on any Android device for testing and development without robot hardware
-- **Real-time Voice Chat** - Natural conversations using the Realtime API (via OpenAI or Azure), x.ai Grok Voice Agent API, or Google Gemini Live API with two audio input modes:
-  - **Direct audio streaming** - Audio input with native voice activity detection
-  - **Azure Speech Services STT** - Streaming transcription with superior dialect recognition and confidence scores (warns AI when transcription quality is low)
-- **Synchronized Gestures** - Automatic body language during speech output for natural communication
 - **Expressive Animations** - Rich library of robot animations triggered by voice commands (wave, bow, applause, kisses, laugh, etc.)
 - **Modern Tablet UI** - Clean Jetpack Compose chat interface with interactive function cards, real-time overlays, and adaptive toolbar
 - **Gaze Control** - Precise 3D head/eye positioning with duration control and automatic return
@@ -435,9 +440,9 @@ This allows the Android app to automatically start the face recognition server v
 
 ### Required APIs (Core Functionality)
 
-**Choose one of the following voice agent API providers:**
+**Choose one of the following speech-to-speech AI providers:**
 
-#### Option 1: Realtime API via OpenAI directly (Recommended - Easiest Setup)
+#### Option 1: OpenAI Direct (Recommended - Easiest Setup)
 1. Go to [platform.openai.com](https://platform.openai.com/)
 2. Create an API key
 3. That's it! The app supports all Realtime API models:
@@ -446,7 +451,7 @@ This allows the Android app to automatically start the face recognition server v
    - `gpt-4o-realtime-preview` (Older model - requires Groq for vision)
    - `gpt-4o-mini-realtime-preview` (Older mini model - requires Groq for vision)
 
-#### Option 2: Realtime API via Azure OpenAI (Enterprise Option with Privacy Benefits)
+#### Option 2: Azure OpenAI (Enterprise Option with Privacy Benefits)
 1. Go to [Azure Portal](https://portal.azure.com/)
 2. Create an Azure OpenAI resource
 3. Deploy one or more of the supported models:
@@ -484,13 +489,13 @@ This allows the Android app to automatically start the face recognition server v
 - **Automatic Voice Activity Detection**: Configurable start/end sensitivity, prefix padding, and silence duration
 - **Thinking Budget**: Optional chain-of-thought reasoning with configurable token budget
 - **Proactive Audio**: Allows Gemini to proactively decide not to respond when content is not relevant
-- **5 Distinct Voices**: Puck, Charon, Kore, Fenrir, Aoede
+- **30 Distinct Voices**: Extensive selection including Puck, Charon, Kore, Fenrir, Aoede, and many more
 - **Note**: Uses `v1alpha` API version with `gemini-2.5-flash-native-audio-preview` model
 
 ### Optional APIs (Extended Features)
 
 #### Azure Speech Services (Optional - for Dialects)
-- **Default**: App uses Realtime API for audio input (no separate key needed)
+- **Default**: App uses the AI model's native audio input (no separate key needed)
 - **Alternative**: Azure Speech for better dialect recognition
 - **Setup**: 
 1. Go to [Azure Portal](https://portal.azure.com/)
@@ -621,17 +626,16 @@ This app sends data to third-party services when features are used:
 - **ASR Confidence Threshold** - Set minimum confidence level for speech recognition acceptance
 
 #### API Provider Selection
-You can switch between different Realtime API providers in the settings:
+You can switch between different AI providers in the settings:
 
-- **OpenAI Direct** (Recommended): Supports all four models (`gpt-realtime`, `gpt-realtime-mini`, `gpt-4o-realtime-preview`, `gpt-4o-mini-realtime-preview`) directly from OpenAI with 10 voices
-- **Azure OpenAI** (Enterprise): Supports all four models with your Azure deployment and privacy benefits
-- **x.ai Grok**: Speech-to-speech voice model with native web/X search capabilities and 5 unique voices (Ara, Rex, Sal, Eve, Leo)
-- **Google Gemini**: Native audio model with end-to-end speech, configurable VAD, thinking budget, and 5 voices (Puck, Charon, Kore, Fenrir, Aoede)
+- **OpenAI Direct** (Realtime API): Supports all four models (`gpt-realtime`, `gpt-realtime-mini`, `gpt-4o-realtime-preview`, `gpt-4o-mini-realtime-preview`) directly from OpenAI with 10 voices
+- **Azure OpenAI** (Realtime API): Supports all four models with your Azure deployment, network-level isolation, and customer-managed encryption for enterprise compliance
+- **x.ai Grok** (Grok Voice Agent API): Speech-to-speech voice model with native web/X search capabilities and 5 unique voices
+- **Google Gemini** (Live API): Native audio model with end-to-end speech, configurable VAD, thinking budget, and 30 voices
 
 **Note**: Changing the API provider automatically updates available models and voices. Model/voice changes restart the session automatically.
 
-### Customizing the System Prompt
-
+### System Prompt
 The default system prompt is optimized following OpenAI's [Realtime API Prompting Guide](https://cookbook.openai.com/examples/realtime_prompting_guide). It includes:
 
 - **Structured sections** - Role, Personality, Tools, Instructions for better model understanding
