@@ -291,6 +291,36 @@ class RealtimeSessionManager @Inject constructor() {
     // ==================== GOOGLE LIVE API METHODS ====================
 
     /**
+     * Send an image/video frame to Google Live API via realtimeInput.video.
+     * This is the streaming format that adds to context WITHOUT triggering a response.
+     * Use this for Drawing Game or other cases where you want silent context updates.
+     * 
+     * Format: {"realtimeInput": {"video": {"data": ..., "mimeType": "image/jpeg"}}}
+     * Analogous to audio: {"realtimeInput": {"audio": {"data": ..., "mimeType": "audio/pcm"}}}
+     *
+     * @param base64 Base64-encoded image data (NO_WRAP)
+     * @param mime MIME type (e.g., "image/jpeg", "image/png")
+     * @return true if sent successfully
+     */
+    fun sendGoogleMediaFrame(base64: String, mime: String): Boolean {
+        return try {
+            val payload = JSONObject().apply {
+                put("realtimeInput", JSONObject().apply {
+                    put("video", JSONObject().apply {
+                        put("data", base64)
+                        put("mimeType", mime)
+                    })
+                })
+            }
+            Log.d(TAG, "Sending Google video frame (${mime}, ${base64.length} chars)")
+            send(payload.toString())
+        } catch (e: Exception) {
+            Log.e(TAG, "Error creating Google video frame payload", e)
+            false
+        }
+    }
+
+    /**
      * Send audio chunk to Google Live API.
      * Uses 16kHz PCM16 mono format for optimal Pepper tablet performance.
      *
@@ -344,13 +374,13 @@ class RealtimeSessionManager @Inject constructor() {
     /**
      * Send an image to Google Live API via clientContent.
      * Uses inlineData format for binary image data.
-     * Note: turnComplete=true is required for reliable context addition.
      *
      * @param base64 Base64-encoded image data
      * @param mime MIME type (e.g., "image/jpeg", "image/png")
+     * @param turnComplete If true, triggers model response; if false, silent context update (may be unreliable)
      * @return true if sent successfully
      */
-    fun sendGoogleImageMessage(base64: String, mime: String): Boolean {
+    fun sendGoogleImageMessage(base64: String, mime: String, turnComplete: Boolean = true): Boolean {
         return try {
             val payload = JSONObject().apply {
                 put("clientContent", JSONObject().apply {
@@ -363,10 +393,10 @@ class RealtimeSessionManager @Inject constructor() {
                             })
                         }))
                     }))
-                    put("turnComplete", true) // Must be true for reliable context addition
+                    put("turnComplete", turnComplete)
                 })
             }
-            Log.d(TAG, "Sending Google image message (${mime}, ${base64.length} chars)")
+            Log.d(TAG, "Sending Google image message (${mime}, ${base64.length} chars, turnComplete=$turnComplete)")
             send(payload.toString())
         } catch (e: Exception) {
             Log.e(TAG, "Error creating Google image message", e)

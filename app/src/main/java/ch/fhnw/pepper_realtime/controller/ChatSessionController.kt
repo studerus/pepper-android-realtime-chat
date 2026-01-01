@@ -369,7 +369,16 @@ class ChatSessionController @Inject constructor(
             Log.e(TAG, "Cannot send image - WebSocket not connected")
             return false
         }
-        return sessionManager.sendUserImageMessage(base64, mime)
+        
+        val isGoogle = settingsRepository.apiProviderEnum.isGoogleProvider()
+        return if (isGoogle) {
+            // Google Live API: use realtimeInput.media (streaming format, no response triggered)
+            // This is like sending a video frame - adds to context silently
+            sessionManager.sendGoogleMediaFrame(base64, mime)
+        } else {
+            // OpenAI Realtime API: use conversation.item.create (no response.create = context only)
+            sessionManager.sendUserImageMessage(base64, mime)
+        }
     }
 
     private fun setupSessionManagerListeners() {
