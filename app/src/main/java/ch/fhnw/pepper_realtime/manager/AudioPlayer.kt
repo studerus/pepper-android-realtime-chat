@@ -376,9 +376,14 @@ class AudioPlayer {
     }
 
     private fun hasSufficientBuffer(): Boolean {
-        // Start only when we have a small headroom of chunks to avoid initial underflow
-        val minChunks = 6 // ~60ms at 10ms frames
-        return audioBuffer.size >= minChunks
+        // Start only when we have enough audio to avoid initial underflow.
+        // Using bytes instead of chunk count because chunk sizes vary by provider:
+        // - OpenAI: ~10ms chunks (240 bytes)
+        // - x.ai: larger chunks (potentially 200-500ms)
+        // - Google: variable chunk sizes
+        // Target: ~60ms of audio = 60 * 24 * 2 = 2880 bytes at 24kHz mono PCM16
+        val minBufferBytes = 60 * sampleRateHz * bytesPerSample * channels / 1000
+        return queuedBytes.get() >= minBufferBytes
     }
 
     /**
