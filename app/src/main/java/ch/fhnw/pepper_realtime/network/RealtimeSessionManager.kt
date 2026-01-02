@@ -291,6 +291,29 @@ class RealtimeSessionManager @Inject constructor() {
     // ==================== GOOGLE LIVE API METHODS ====================
 
     /**
+     * Send audioStreamEnd event to Google Live API.
+     * Should be called when audio input is paused for more than ~1 second,
+     * e.g., when microphone is muted or when transitioning away from LISTENING state.
+     * This signals to Google to flush any buffered audio and process it.
+     *
+     * @return true if sent successfully
+     */
+    fun sendGoogleAudioStreamEnd(): Boolean {
+        return try {
+            val payload = JSONObject().apply {
+                put("realtimeInput", JSONObject().apply {
+                    put("audioStreamEnd", true)
+                })
+            }
+            Log.d(TAG, "Sending Google audioStreamEnd")
+            send(payload.toString())
+        } catch (e: Exception) {
+            Log.e(TAG, "Error sending Google audioStreamEnd", e)
+            false
+        }
+    }
+
+    /**
      * Send an image/video frame to Google Live API via realtimeInput.video.
      * This is the streaming format that adds to context WITHOUT triggering a response.
      * Use this for Drawing Game or other cases where you want silent context updates.

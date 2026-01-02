@@ -150,6 +150,12 @@ class RealtimeAudioInputManager(
         }
         captureThread = null
 
+        // For Google Live API: Send audioStreamEnd to flush buffered audio
+        // This signals to Google that the audio stream is paused/ended
+        if (isGoogleProvider && sessionManager.isConnected) {
+            sessionManager.sendGoogleAudioStreamEnd()
+        }
+
         cleanup()
         Log.i(TAG, "Audio capture stopped")
     }
