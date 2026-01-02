@@ -72,6 +72,21 @@ class ChatViewModel @Inject constructor(
     // Video streaming state
     private val _isVideoStreamActive = MutableStateFlow(false)
     private val _videoPreviewFrame = MutableStateFlow<android.graphics.Bitmap?>(null)
+    
+    // Google Live API: Flag to ignore incoming audio after manual interrupt
+    // This prevents audio from continuing to play after user taps the interrupt button
+    // The flag is cleared when a new model turn starts (triggered by user's next speech)
+    private val _ignoreGoogleAudioUntilNextTurn = MutableStateFlow(false)
+    val ignoreGoogleAudioUntilNextTurn: StateFlow<Boolean> = _ignoreGoogleAudioUntilNextTurn.asStateFlow()
+    
+    fun setIgnoreGoogleAudio(ignore: Boolean) {
+        _ignoreGoogleAudioUntilNextTurn.value = ignore
+        if (ignore) {
+            Log.d(TAG, "🔇 Google audio ignored until next turn (manual interrupt)")
+        } else {
+            Log.d(TAG, "🔊 Google audio acceptance resumed (new turn started)")
+        }
+    }
 
     // Connection State
     private val _isConnected = MutableStateFlow(false)

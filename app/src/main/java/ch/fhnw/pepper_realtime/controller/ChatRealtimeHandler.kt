@@ -142,6 +142,13 @@ class ChatRealtimeHandler(
         if (responseId != null && responseId == viewModel.cancelledResponseId) {
             return
         }
+        
+        // Google Live API: Ignore audio after manual interrupt until next turn
+        // This prevents continued playback after user taps interrupt button
+        if (responseId == null && viewModel.ignoreGoogleAudioUntilNextTurn.value) {
+            Log.d(TAG, "Ignoring Google audio chunk (manual interrupt active)")
+            return
+        }
 
         // Note: State transition to SPEAKING is handled by AudioPlayer.Listener.onPlaybackStarted()
         // when playback actually begins, not here when audio chunks arrive
@@ -372,6 +379,8 @@ class ChatRealtimeHandler(
 
     override fun onGoogleSetupComplete() {
         Log.i(TAG, "Google Live API setup complete")
+        // Reset interrupt flag for fresh session
+        viewModel.setIgnoreGoogleAudio(false)
         // Notify session manager that Google setup is confirmed
         sessionManager.onGoogleSetupComplete()
     }
@@ -380,6 +389,9 @@ class ChatRealtimeHandler(
         // First modelTurn received - Google has started responding
         // Increment turn counter for new response ID
         googleTurnCounter++
+        
+        // Clear the manual interrupt flag - new turn means user triggered new response
+        viewModel.setIgnoreGoogleAudio(false)
         
         // Reset thinking bubble tracking for new turn
         currentThinkingBubbleId = null
@@ -400,6 +412,9 @@ class ChatRealtimeHandler(
         
         // Clear pending tool calls on interrupt
         pendingGoogleToolCalls.clear()
+        
+        // Clear the manual interrupt flag - server confirmed interruption
+        viewModel.setIgnoreGoogleAudio(false)
     }
 
     override fun onGoogleToolCall(functionCalls: List<GoogleLiveEvents.FunctionCall>) {

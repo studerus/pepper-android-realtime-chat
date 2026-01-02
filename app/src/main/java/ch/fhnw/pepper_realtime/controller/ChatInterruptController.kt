@@ -32,7 +32,13 @@ class ChatInterruptController @Inject constructor(
 
             Log.d(TAG, "🚨 Interrupt: isResponseGenerating=$isGenerating, isAudioPlaying=$isPlaying, isGoogle=$isGoogle")
 
-            // Google Live API handles interruption automatically via barge-in detection
+            // Google Live API: Set flag to ignore incoming audio until next user turn
+            // The server will stop generating when it detects user audio (barge-in)
+            if (isGoogle) {
+                viewModel.setIgnoreGoogleAudio(true)
+                Log.d(TAG, "Google: Manual interrupt - ignoring audio until next turn")
+            }
+            
             // Only send OpenAI-specific cancel/truncate commands for non-Google providers
             if (!isGoogle) {
                 if (isGenerating) {
