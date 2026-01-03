@@ -95,16 +95,14 @@ class SearchInternetTool : Tool {
                 JSONObject().put("answer", result).toString()
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error in internet search", e)
+            Log.e("SearchInternetTool", "Error in internet search", e)
             JSONObject().put("error", e.message ?: "Failed to search internet").toString()
         }
     }
 
     override val apiKeyRequirement = ApiKeyRequirement.Required(ApiKeyType.TAVILY)
 
-    companion object {
-        private const val TAG = "SearchInternetTool"
-    }
+
 }
 
 

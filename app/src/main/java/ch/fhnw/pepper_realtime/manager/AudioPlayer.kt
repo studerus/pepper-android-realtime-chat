@@ -100,13 +100,7 @@ class AudioPlayer {
 
     fun isPlaying(): Boolean = _isPlaying.get()
 
-    fun setSampleRate(hz: Int) {
-        if (hz > 0 && hz != sampleRateHz) {
-            sampleRateHz = hz
-            release()
-            initializeAudioTrack()
-        }
-    }
+
 
     /**
      * Optimized chunk addition with memory pooling and contamination prevention

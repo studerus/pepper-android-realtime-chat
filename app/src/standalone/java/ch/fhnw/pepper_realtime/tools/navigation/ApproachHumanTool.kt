@@ -12,9 +12,7 @@ import java.util.Locale
  */
 class ApproachHumanTool : Tool {
 
-    companion object {
-        private const val TAG = "ApproachHumanTool[STUB]"
-    }
+
 
     override fun getName(): String = "approach_human"
 
@@ -40,7 +38,7 @@ class ApproachHumanTool : Tool {
 
     override fun execute(args: JSONObject, context: ToolContext): String {
         val distance = args.optDouble("distance", 1.0)
-        Log.i(TAG, "🤖 [SIMULATED] Approach human to %.2fm distance".format(distance))
+        Log.i("ApproachHumanTool[STUB]", "🤖 [SIMULATED] Approach human to %.2fm distance".format(distance))
         return JSONObject()
             .put("success", true)
             .put("message", String.format(Locale.US, "Would approach nearest human to %.1fm distance", distance))

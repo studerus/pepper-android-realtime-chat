@@ -27,9 +27,7 @@ class AudioInputController @Inject constructor(
     @ApplicationScope private val applicationScope: CoroutineScope
 ) {
 
-    companion object {
-        private const val TAG = "AudioInputController"
-    }
+    private val TAG = "AudioInputController"
 
     // State
     private var sttManager: SpeechRecognizerManager? = null

@@ -55,7 +55,7 @@ class PlayYouTubeVideoTool : Tool {
             return result.toString()
         }
 
-        Log.i(TAG, "Searching YouTube for: $query")
+        Log.i("PlayYouTubeVideoTool", "Searching YouTube for: $query")
 
         return try {
             // Create YouTube search service
@@ -106,16 +106,14 @@ class PlayYouTubeVideoTool : Tool {
             }.toString()
 
         } catch (e: Exception) {
-            Log.e(TAG, "Error playing YouTube video", e)
+            Log.e("PlayYouTubeVideoTool", "Error playing YouTube video", e)
             JSONObject().put("error", "Failed to search or play video: ${e.message}").toString()
         }
     }
 
     override val apiKeyRequirement = ApiKeyRequirement.Required(ApiKeyType.YOUTUBE)
 
-    companion object {
-        private const val TAG = "PlayYouTubeVideoTool"
-    }
+
 }
 
 

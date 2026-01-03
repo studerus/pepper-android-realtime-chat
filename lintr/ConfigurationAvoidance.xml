@@ -1,7 +1,7 @@
 <problems>
 <problem>
   <file>file://$PROJECT_DIR$/build.gradle</file>
-  <line>7</line>
+  <line>11</line>
   <module>pepper_android_realtime</module>
   <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/build.gradle" />
   <problem_class id="ConfigurationAvoidance" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Configuration avoidance</problem_class>

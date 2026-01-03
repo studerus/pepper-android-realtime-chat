@@ -67,8 +67,6 @@ class MemoryGameTool : Tool {
     }
 
 
-    companion object {
-        private const val TAG = "MemoryGameTool"
-    }
+
 }
 

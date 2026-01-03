@@ -4,20 +4,16 @@
     <!-- Status Messages -->
     <string name="status_listening">Listening</string>
     <string name="status_thinking">Thinking…</string>
-    <string name="app_paused">App paused</string>
     <string name="status_speaking">Tap to interrupt</string>
     <string name="status_updating_recognizer">Updating recognizer…</string>
     <string name="status_starting_new_session">Starting new session…</string>
     <string name="status_reconnecting">Reconnecting…</string>
     <string name="status_recognizer_not_ready">Recognizer not ready.</string>
     <string name="status_warming_up">Warming up recognizer…</string>
-    <string name="status_please_wait">Please wait…</string>
     <string name="status_muted_tap_to_unmute">Muted</string>
+    <string name="status_listening_partial">Listening: %s</string>
     
     <!-- Navigation Status Messages -->
-    <string name="nav_map_none">🗺️ Map: none</string>
-    <string name="nav_map_saved">🗺️ Map: Saved</string>
-    <string name="nav_localization_not_running">🧭 Localization: Not running</string>
     <string name="nav_localization_stopped">🧭 Localization: Stopped</string>
     
     <!-- Error Messages -->
@@ -34,50 +30,26 @@
     <string name="error_connection_failed_short">Connection Failed</string>
     <string name="error_not_connected">Error: Not connected to the server.</string>
     <string name="error_generic">Error: %s</string>
-    <string name="status_listening_partial">Listening: %s</string>
-    
-    <!-- Chat Messages -->
     <string name="new_session_error">Error: Could not start a new session.</string>
     <string name="server_error_prefix">Server Error: %s</string>
-    
-    <!-- Setup Messages -->
     <string name="setup_error_during">Error during setup: %s</string>
     <string name="robot_initialization_timeout">Robot initialization timeout - check robot status</string>
     <string name="robot_focus_lost_message">Robot focus lost - app will continue without robot features</string>
     <string name="error_processing_message">Error processing your message. Please try again or restart the app if the problem persists.</string>
-    
-    <!-- System Prompt Default: Now loaded from assets/default_system_prompt.txt for better formatting -->
-    
-    <!-- Settings -->
-    <string name="temperature_format">%.2f</string>
-    <string name="volume_format">%d%%</string>
-    <string name="silence_timeout_format">%dms</string>
-    <string name="confidence_threshold_format">%d%%</string>
-    
-    <!-- Vision Analysis -->
+    <string name="app_paused">App paused</string>
+
+    <!-- General Settings Default -->
+    <string name="openai_default_model">gpt-realtime</string>
+
     <string name="vision_context_suffix">" Context: This photo was just taken by you, the robot. If a person is visible, it's likely the user you're speaking with, so address them directly as 'you'."</string>
     
     <!-- Quiz -->
     <string name="quiz_feedback_format">For the question \'%1$s\' I have chosen the answer \'%2$s\'.</string>
     
     <!-- Content Descriptions -->
-    <string name="interrupt_button_description">Interrupt assistant</string>
-    
-    <!-- Memory Game Strings -->
-    <string name="memory_game_title">Memory Game</string>
-    <string name="memory_close_button">✕</string>
     <string name="memory_moves_format">Moves: %d</string>
     <string name="memory_pairs_format">Pairs: %1$d/%2$d</string>
-    <string name="memory_time_format">Time: %1$02d:%2$02d</string>
-    <string name="memory_card_face_down" translatable="false">？</string>
-    <string name="warmup_failed_msg">Connected to AI, but speech recognition warmup failed. You can still use the app, speech recognition will initialize on first use.</string>
-    <string name="ready_sr_lazy_init">Ready (Speech Recognition will initialize on first use)</string>
-    <string name="last_update_format">Last update: %1$s</string>
-    <string name="api_key_required_format">API key required: %1$s</string>
-    
-    <!-- Popups -->
-    <string name="popup_map_status_prefix">🗺️ Map: </string>
-    <string name="popup_localization_status_prefix">🧭 Localization: </string>
+    <string name="memory_time_label">Time: %s</string>
     
     <!-- Tic Tac Toe Game -->
     <string name="ttt_your_turn">Your turn! (You are X)</string>
@@ -85,140 +57,16 @@
     <string name="ttt_you_won">🎉 You won! Great job!</string>
     <string name="ttt_ai_won">🤖 AI wins! Good game!</string>
     <string name="ttt_draw">🤝 It\'s a draw! Well played!</string>
-    
-    <!-- SettingsManager Strings -->
-    <string name="openai_default_model">gpt-realtime</string>
-    
-    <!-- Tool Settings -->
-    <string name="tool_not_available">Tool not available</string>
-    <string name="tool_description_error">Error loading description</string>
-    
-    <!-- Audio Input Mode -->
-    <string name="audio_input_mode_label">Audio Input</string>
-    <string-array name="audio_input_modes">
-        <item>Realtime API (Simple Setup)</item>
-        <item>Azure Speech (Best for Dialects)</item>
-    </string-array>
-    
-    <!-- Section Headers -->
-    <string name="azure_speech_settings_header">Azure Speech Settings</string>
-    <string name="realtime_api_settings_header">Realtime API Settings</string>
-    
-    <!-- Realtime API Settings -->
-    <string name="realtime_transcription_model_label">Transcription Model</string>
-    <string-array name="transcription_models">
-        <item>whisper-1</item>
-        <item>gpt-4o-mini-transcribe</item>
-        <item>gpt-4o-transcribe</item>
-        <item>gpt-4o-transcribe-diarize</item>
-    </string-array>
-    
-    <string name="realtime_transcription_language_label">Transcription Language (ISO-639-1)</string>
-    <string name="realtime_transcription_language_hint">e.g., de, en, fr</string>
-    
-    <string name="realtime_transcription_prompt_label">Transcription Prompt (Optional)</string>
-    <string name="realtime_transcription_prompt_hint">Keywords or guidance text</string>
-    
-    <string name="realtime_turn_detection_label">Turn Detection Type</string>
-    <string-array name="turn_detection_types">
-        <item>Server VAD (Volume-based)</item>
-        <item>Semantic VAD (Context-aware)</item>
-    </string-array>
-    
-    <string name="realtime_eagerness_label">Eagerness</string>
-    <string-array name="eagerness_levels">
-        <item>Auto (Medium)</item>
-        <item>Low (Max 8s)</item>
-        <item>Medium (Max 4s)</item>
-        <item>High (Max 2s)</item>
-    </string-array>
-    
-    <string name="realtime_vad_threshold_label">VAD Activation Threshold</string>
-    <string name="realtime_vad_threshold_format">%.2f</string>
-    
-    <string name="realtime_prefix_padding_label">Prefix Padding</string>
-    <string name="realtime_prefix_padding_format">%d ms</string>
-    
-    <string name="realtime_silence_duration_label">Silence Duration</string>
-    <string name="realtime_silence_duration_format">%d ms</string>
-    
-    <string name="realtime_idle_timeout_label">Idle Timeout (ms, Optional)</string>
-    <string name="realtime_idle_timeout_hint">Milliseconds - leave empty to disable</string>
-    
-    <string name="realtime_noise_reduction_label">Noise Reduction</string>
-    <string-array name="noise_reduction_types">
-        <item>Off</item>
-        <item>Near Field (Headset)</item>
-        <item>Far Field (Room Mic)</item>
-    </string-array>
-    
-    <!-- Speed Setting -->
-    <string name="speed_label">Speech Speed</string>
-    <string name="speed_format">%.2fx</string>
-    
-    <!-- Layout Hardcoded Strings -->
-    <string name="map_status_none">🗺️ Map: None</string>
-    <string name="localization_waiting">🧭 Localization: Waiting</string>
-    <string name="initializing">Initializing…</string>
-    <string name="close_tap">✕ Tap to close</string>
-    <string name="menu_settings">Settings</string>
-    <string name="menu_new_chat">New Chat</string>
-    <string name="menu_navigation_status">Navigation Status</string>
-    <string name="menu_perception_dashboard">Perception Dashboard</string>
-    <string name="quiz_question_placeholder">Question text will go here.</string>
-    <string name="quiz_option_1">Option 1</string>
-    <string name="quiz_option_2">Option 2</string>
-    <string name="quiz_option_3">Option 3</string>
-    <string name="quiz_option_4">Option 4</string>
     <string name="tictactoe_title">🎮 Tic Tac Toe</string>
     <string name="close_symbol">✕</string>
-    <string name="youtube_loading">Loading video…</string>
-    <string name="youtube_close">Close Video</string>
-    <!-- Function call strings are now in Compose (FunctionCallCard.kt) -->
-    <string name="perception_dashboard_title">👁️ Human Perception Dashboard</string>
-    <string name="close_dashboard">Close Dashboard</string>
-    <!-- Dashboard labels are hardcoded in layout XML -->
-    <string name="settings_header_title">PepperDialog Settings</string>
-    <string name="system_prompt_label">System Prompt</string>
-    <string name="system_prompt_hint">e.g., You are a helpful assistant.</string>
-    <string name="model_label">Model</string>
-    <string name="api_provider_label">API Provider</string>
-    <string name="voice_label">Voice</string>
-    <string name="speed_display">1.00x</string>
-    <string name="temperature_label">Temperature</string>
-    <string name="temperature_display">1.0</string>
-    <string name="speech_language_label">Speech Language</string>
-    <string name="silence_timeout_label">Silence Timeout (ms)</string>
-    <string name="silence_timeout_display">500</string>
-    <string name="asr_confidence_label">ASR Confidence Threshold</string>
-    <string name="asr_confidence_display">70%</string>
-    <string name="vad_threshold_display">0.50</string>
-    <string name="prefix_padding_display">300 ms</string>
-    <string name="silence_duration_display">500 ms</string>
-    <string name="volume_label">Volume</string>
-    <string name="volume_display">100%</string>
-    <string name="function_calls_label">Function Calls</string>
-    <string name="function_calls_description">Select which tools the AI can use during conversations</string>
-    <string name="tool_name_placeholder">Tool Name</string>
-    <string name="expand_description">Expand description</string>
-    <string name="tool_description_placeholder">Tool description will appear here</string>
-    <string name="navigation_status_title">📍 Navigation Status</string>
-    <string name="map_label">🗺️ Map:</string>
-    <string name="map_none">None</string>
-    <string name="localization_label">🧭 Localization:</string>
-    <string name="waiting">Waiting</string>
-    <string name="human_face_description">Human face picture</string>
-    <string name="demographics_placeholder">25y, ♂️</string>
-    <string name="distance_placeholder">1.2m</string>
-    <string name="emotion_joyful">😊 Joyful</string>
-    <string name="pleasure_positive">😊 Positive</string>
-    <string name="excitement_excited">⚡ Excited</string>
-    <string name="smile_genuine">😊 Genuine</string>
-    <string name="attention_focused">Focused</string>
-    <string name="engagement_engaged">Engaged</string>
-    <!-- Table column labels are hardcoded in perception_dashboard_overlay.xml -->
+    <string name="close_button_label">Close</string>
+
+    <string name="warmup_failed_msg">Connected to AI, but speech recognition warmup failed. You can still use the app, speech recognition will initialize on first use.</string>
+    <string name="ready_sr_lazy_init">Ready (Speech Recognition will initialize on first use)</string>
+    <string name="last_update_format">Last update: %1$s</string>
+    <!-- Popups -->
     
-    <!-- New Compose Strings -->
+    <!-- Compose UI Strings -->
     <string name="main_title">Pepper Chat</string>
     <string name="content_desc_perception_dashboard">Perception Dashboard</string>
     <string name="content_desc_new_chat">New Chat</string>
@@ -228,6 +76,10 @@
     <string name="content_desc_full_screen_image">Full screen image</string>
     <string name="content_desc_close">Close</string>
     <string name="content_desc_exit">Exit App</string>
+    <string name="content_desc_expand">Expand</string>
+    <string name="content_desc_collapse">Collapse</string>
+    <string name="content_desc_chat_image">Chat image</string>
+    <string name="content_desc_face">Face</string>
     
     <!-- Microphone Button Content Descriptions -->
     <string name="mic_button_active">Microphone active - tap to mute</string>
@@ -245,77 +97,13 @@
     <string name="exit_confirmation_no">Cancel</string>
     <string name="please_wait">Please wait…</string>
     
+    <!-- Navigation Overlay -->
     <string name="nav_overlay_title">Navigation &amp; Map</string>
-    <string name="nav_overlay_map_label">Map:</string>
     <string name="nav_overlay_localization_label">Localization:</string>
     <string name="nav_status_no_map">No Map Available</string>
     <string name="nav_status_map_not_loaded">Map saved but not loaded.\nStart navigation to load.</string>
-    <string name="nav_status_localizing">Localizing…</string>
-    <string name="nav_status_localization_failed">Localization Failed</string>
-    <string name="nav_status_map_loaded_not_localized">Map Loaded (Not Localized)</string>
-    <string name="nav_status_default_map">No Map</string>
-    <string name="nav_status_default_localization">Waiting for localization…</string>
 
-    <string name="dashboard_header_picture">Picture</string>
-    <string name="dashboard_header_demographics">Demographics</string>
-    <string name="dashboard_header_distance">Distance</string>
-    <string name="dashboard_header_emotion">Emotion</string>
-    <string name="dashboard_header_pleasure">Pleasure</string>
-    <string name="dashboard_header_excitement">Excitement</string>
-    <string name="dashboard_header_smile">Smile</string>
-    <string name="dashboard_header_attention">Attention</string>
-    <string name="dashboard_header_engagement">Engagement</string>
-    <string name="dashboard_header_emotions">Emotions</string>
-    <string name="dashboard_header_face_analysis">Face Analysis</string>
-    <string name="dashboard_unknown">Unknown</string>
-    <string name="dashboard_looking_at_robot">Looking at Robot</string>
-    <string name="dashboard_looking_away">Looking Away</string>
-    <string name="dashboard_looking_up">Looking Up</string>
-    <string name="dashboard_masked">Masked</string>
-    <string name="dashboard_no_mask">No Mask</string>
-    <string name="dashboard_sunglasses">Sunglasses</string>
-    <string name="dashboard_reading_glasses">Reading Glasses</string>
-    <string name="dashboard_no_glasses">No Glasses</string>
-    <string name="dashboard_glasses_unknown">Unknown</string>
-    
     <string name="no_humans_detected">No humans detected</string>
-    <string name="content_desc_face">Face</string>
-    <string name="yes">Yes</string>
-    <string name="no">No</string>
-    
-    <string name="memory_time_label">Time: %s</string>
-    <string name="close_button_label">Close</string>
-    
-    <!-- Function Call Card Strings -->
-    <string name="func_arguments_label">Arguments:</string>
-    <string name="func_result_label">Result:</string>
-    <string name="func_name_search_internet">Internet Search</string>
-    <string name="func_name_get_weather">Weather</string>
-    <string name="func_name_analyze_vision">Vision Analysis</string>
-    <string name="func_name_play_animation">Animation</string>
-    <string name="func_name_get_datetime">Date/Time</string>
-    <string name="func_name_get_joke">Random Joke</string>
-    <string name="func_name_quiz">Quiz Question</string>
-    <string name="func_name_memory_game">Memory Game</string>
-    <string name="func_name_play_melody">Play Melody</string>
-    <string name="func_name_unknown">Unknown</string>
-    <string name="func_status_search_done">Internet search completed</string>
-    <string name="func_status_search_pending">Searching internet…</string>
-    <string name="func_status_weather_done">Weather information retrieved</string>
-    <string name="func_status_weather_pending">Getting weather…</string>
-    <string name="func_status_vision_done">Image analysis completed</string>
-    <string name="func_status_vision_pending">Analyzing image…</string>
-    <string name="func_status_animation_done">Animation played</string>
-    <string name="func_status_animation_pending">Playing animation…</string>
-    <string name="func_status_melody_done">Melody played</string>
-    <string name="func_status_melody_pending">Playing melody…</string>
-    <string name="func_status_generic_done">Function completed</string>
-    <string name="func_status_generic_pending">Function executing…</string>
-    <string name="content_desc_expand">Expand</string>
-    <string name="content_desc_collapse">Collapse</string>
-    <string name="content_desc_chat_image">Chat image</string>
-    <string name="no_description_available">No description available</string>
-    <string name="select_tools_description">Select which tools the AI can use during conversations</string>
     
     <!-- Drawing Game Strings -->
     <string name="drawing_title">Drawing Canvas</string>
@@ -323,7 +111,9 @@
     <string name="drawing_status_drawing">Drawing…</string>
     <string name="drawing_status_sent">Image sent</string>
     <string name="drawing_status_ready">Ready</string>
-    <string name="func_name_drawing_game">Drawing Game</string>
-    <string name="func_status_drawing_done">Drawing canvas opened</string>
-    <string name="func_status_drawing_pending">Opening drawing canvas…</string>
+
+    <!-- YouTube Strings (Used in dialog_youtube_player.xml) -->
+    <string name="youtube_loading">Loading video…</string>
+    <string name="youtube_close">Close Video</string>
+
 </resources>

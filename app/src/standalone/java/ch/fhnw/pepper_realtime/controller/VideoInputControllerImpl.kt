@@ -212,6 +212,7 @@ class VideoInputControllerImpl @Inject constructor(
         }
     }
 
+    @Suppress("DEPRECATION")
     private fun createCaptureSession() {
         val device = cameraDevice ?: return
         val reader = imageReader ?: return

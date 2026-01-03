@@ -18,9 +18,7 @@ import java.util.concurrent.atomic.AtomicReference
 @Suppress("SpellCheckingInspection") // "Groq" is the correct API provider name
 class AnalyzeVisionTool : Tool {
 
-    companion object {
-        private const val TAG = "AnalyzeVisionTool"
-    }
+
 
     override fun getName(): String = "analyze_vision"
 
@@ -48,7 +46,7 @@ class AnalyzeVisionTool : Tool {
         // Vision analysis now works with gpt-realtime (built-in) or Groq (optional)
         // No longer require API key check as it's handled by VisionService internally
 
-        Log.i(TAG, "Analyzing vision with prompt: ${if (prompt.isEmpty()) "(default analysis)" else prompt}")
+        Log.i("AnalyzeVisionTool", "Analyzing vision with prompt: ${if (prompt.isEmpty()) "(default analysis)" else prompt}")
 
         return try {
             // Use existing VisionService - pass Activity for access to SettingsManager and SessionManager
@@ -151,7 +149,7 @@ class AnalyzeVisionTool : Tool {
             }
 
         } catch (e: Exception) {
-            Log.e(TAG, "Error during vision analysis", e)
+            Log.e("AnalyzeVisionTool", "Error during vision analysis", e)
             JSONObject().put("error", "Vision analysis failed: ${e.message}").toString()
         }
     }

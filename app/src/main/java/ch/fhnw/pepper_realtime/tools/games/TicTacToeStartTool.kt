@@ -30,7 +30,7 @@ class TicTacToeStartTool : Tool {
     }
 
     override fun execute(args: JSONObject, context: ToolContext): String {
-        Log.i(TAG, "Starting Tic Tac Toe game")
+        Log.i("TicTacToeStartTool", "Starting Tic Tac Toe game")
 
         val activity = context.activity as? ChatActivity
         if (activity == null || !context.hasUi()) {
@@ -44,7 +44,7 @@ class TicTacToeStartTool : Tool {
         
         activity.runOnUiThread {
             success = activity.viewModel.startTicTacToeGame { message, requestResponse ->
-                Log.i(TAG, "TicTacToe game update: $message")
+                Log.i("TicTacToeStartTool", "TicTacToe game update: $message")
                 context.sendAsyncUpdate(message, requestResponse)
             }
             latch.countDown()
@@ -65,9 +65,7 @@ class TicTacToeStartTool : Tool {
     }
 
 
-    companion object {
-        private const val TAG = "TicTacToeStartTool"
-    }
+
 }
 
 

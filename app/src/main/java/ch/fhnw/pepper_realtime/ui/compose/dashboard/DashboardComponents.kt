@@ -278,53 +278,7 @@ internal fun SettingsSection(
     }
 }
 
-@Composable
-internal fun SettingsSlider(
-    label: String,
-    value: Float,
-    onValueChange: (Float) -> Unit,
-    valueRange: ClosedFloatingPointRange<Float>,
-    valueFormat: (Float) -> String,
-    description: String
-) {
-    Column(modifier = Modifier.padding(vertical = 8.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = label,
-                fontWeight = FontWeight.Medium,
-                fontSize = 14.sp
-            )
-            Text(
-                text = valueFormat(value),
-                fontSize = 14.sp,
-                color = DashboardColors.AccentBlue,
-                fontWeight = FontWeight.Bold
-            )
-        }
-        
-        Slider(
-            value = value,
-            onValueChange = onValueChange,
-            valueRange = valueRange,
-            modifier = Modifier.fillMaxWidth(),
-            colors = SliderDefaults.colors(
-                thumbColor = DashboardColors.AccentBlue,
-                activeTrackColor = DashboardColors.AccentBlue,
-                inactiveTrackColor = DashboardColors.HeaderBackground
-            )
-        )
-        
-        Text(
-            text = description,
-            fontSize = 12.sp,
-            color = DashboardColors.TextLight
-        )
-    }
-}
+
 
 /**
  * Settings slider that applies changes immediately when released.

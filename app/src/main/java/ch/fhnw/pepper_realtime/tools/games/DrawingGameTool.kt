@@ -64,8 +64,6 @@ class DrawingGameTool : Tool {
         }
     }
 
-    companion object {
-        private const val TAG = "DrawingGameTool"
-    }
+
 }
 

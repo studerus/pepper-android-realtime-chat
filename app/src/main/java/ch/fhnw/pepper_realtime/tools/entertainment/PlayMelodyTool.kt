@@ -56,7 +56,7 @@ class PlayMelodyTool : Tool {
             return JSONObject().put("error", "No UI available").toString()
         }
 
-        Log.i(TAG, "Starting melody player: $melody")
+        Log.i("PlayMelodyTool", "Starting melody player: $melody")
 
         // Mute microphone while melody is playing
         context.toolHost.muteMicrophone()
@@ -108,7 +108,5 @@ class PlayMelodyTool : Tool {
         }
     }
 
-    companion object {
-        private const val TAG = "PlayMelodyTool"
-    }
+
 }

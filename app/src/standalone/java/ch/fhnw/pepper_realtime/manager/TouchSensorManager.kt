@@ -27,6 +27,7 @@ class TouchSensorManager {
     /**
      * Simulates initializing touch sensors
      */
+    @Suppress("EmptyMethod")
     fun initialize(@Suppress("UNUSED_PARAMETER") qiContext: Any?) {
         Log.i(TAG, "🤖 [SIMULATED] TouchSensorManager initialized")
     }
@@ -34,6 +35,7 @@ class TouchSensorManager {
     /**
      * Sets the touch event listener
      */
+    @Suppress("EmptyMethod")
     fun setListener(@Suppress("UNUSED_PARAMETER") listener: TouchEventListener?) {
         // Listener not used in standalone simulation
     }

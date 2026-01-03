@@ -26,9 +26,7 @@ class YouTubePlayerDialog(
         fun onPlayerClosed()
     }
 
-    companion object {
-        private const val TAG = "YouTubePlayerDialog"
-    }
+
 
     private var dialog: AlertDialog? = null
     private var webView: WebView? = null
@@ -44,11 +42,11 @@ class YouTubePlayerDialog(
 
     fun playVideo(video: YouTubeSearchService.YouTubeVideo?) {
         if (video == null) {
-            Log.e(TAG, "Cannot play null video")
+        Log.e("YouTubePlayerDialog", "Cannot play null video")
             return
         }
 
-        Log.i(TAG, "Opening YouTube player for: ${video.title}")
+        Log.i("YouTubePlayerDialog", "Opening YouTube player for: ${video.title}")
 
         // Create and show dialog
         createDialog(video)
@@ -147,7 +145,7 @@ class YouTubePlayerDialog(
         wv.webViewClient = object : WebViewClient() {
             @Deprecated("Deprecated in Java")
             override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
-                Log.d(TAG, "WebView attempting to load: $url")
+                Log.d("YouTubePlayerDialog", "WebView attempting to load: $url")
                 // Keep navigation within WebView for YouTube
                 return !(url.contains("youtube.com") || url.contains("youtu.be") || url.contains("googlevideo.com"))
             }
@@ -159,14 +157,14 @@ class YouTubePlayerDialog(
 
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
-                Log.d(TAG, "YouTube page loaded: $url")
+                Log.d("YouTubePlayerDialog", "YouTube page loaded: $url")
             }
 
             @Deprecated("Deprecated in Java")
             override fun onReceivedError(view: WebView, errorCode: Int, description: String, failingUrl: String) {
                 @Suppress("DEPRECATION")
                 super.onReceivedError(view, errorCode, description, failingUrl)
-                Log.e(TAG, "WebView error: $errorCode - $description for URL: $failingUrl")
+                Log.e("YouTubePlayerDialog", "WebView error: $errorCode - $description for URL: $failingUrl")
             }
 
             override fun onReceivedError(view: WebView, request: WebResourceRequest?, error: WebResourceError?) {
@@ -174,7 +172,7 @@ class YouTubePlayerDialog(
                 try {
                     val url = request?.url?.toString() ?: ""
                     val desc = error?.description ?: ""
-                    Log.e(TAG, "WebView error: $desc for URL: $url")
+                    Log.e("YouTubePlayerDialog", "WebView error: $desc for URL: $url")
                 } catch (ignored: Exception) {
                 }
             }
@@ -183,26 +181,26 @@ class YouTubePlayerDialog(
         // Add WebChromeClient for better YouTube support
         wv.webChromeClient = object : WebChromeClient() {
             override fun onConsoleMessage(message: ConsoleMessage): Boolean {
-                Log.d(TAG, "WebView console: ${message.message()} [${message.sourceId()}:${message.lineNumber()}]")
+                Log.d("YouTubePlayerDialog", "WebView console: ${message.message()} [${message.sourceId()}:${message.lineNumber()}]")
                 return true
             }
 
             override fun onPermissionRequest(request: PermissionRequest) {
                 try {
                     request.grant(request.resources)
-                    Log.d(TAG, "Granted WebView permission request")
+                    Log.d("YouTubePlayerDialog", "Granted WebView permission request")
                 } catch (e: Exception) {
-                    Log.w(TAG, "Failed to grant WebView permissions", e)
+                    Log.w("YouTubePlayerDialog", "Failed to grant WebView permissions", e)
                 }
             }
 
             override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
-                Log.d(TAG, "WebView custom view shown")
+                Log.d("YouTubePlayerDialog", "WebView custom view shown")
                 super.onShowCustomView(view, callback)
             }
 
             override fun onHideCustomView() {
-                Log.d(TAG, "WebView custom view hidden")
+                Log.d("YouTubePlayerDialog", "WebView custom view hidden")
                 super.onHideCustomView()
             }
         }
@@ -213,12 +211,12 @@ class YouTubePlayerDialog(
         // Load mobile YouTube directly - most reliable method
         // IFrame embedding is blocked by YouTube (Error 152), so we skip the wrapper and go straight to m.youtube.com
         val mobileUrl = "https://m.youtube.com/watch?v=$videoId&autoplay=1"
-        Log.i(TAG, "Loading mobile YouTube directly: $mobileUrl")
+        Log.i("YouTubePlayerDialog", "Loading mobile YouTube directly: $mobileUrl")
         wv.loadUrl(mobileUrl)
     }
 
     fun closePlayer() {
-        Log.i(TAG, "Closing YouTube player")
+        Log.i("YouTubePlayerDialog", "Closing YouTube player")
 
         // Stop WebView
         webView?.let { wv ->

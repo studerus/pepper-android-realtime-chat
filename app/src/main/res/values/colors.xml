@@ -1,11 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Original Material colors kept for compatibility -->
-    <color name="purple_500">#FF6200EE</color>
+    <!-- Material colors kept for compatibility -->
     <color name="teal_200">#FF03DAC5</color>
     <color name="teal_700">#FF018786</color>
     
-    <!-- New Professional Blue theme -->
+    <!-- Professional Blue theme -->
     <color name="professional_blue">#FF1E40AF</color>
     <color name="professional_blue_dark">#FF1E3A8A</color>
     <color name="professional_blue_light">#FF3B82F6</color>
@@ -13,24 +12,4 @@
     <!-- Base colors -->
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-    <color name="correct_green">#FF4CAF50</color>
-    <color name="incorrect_red">#FFF44336</color>
-    <color name="quiz_initial_bg">#FFF7F7F7</color>
-    <color name="quiz_stroke">#FFBDBDBD</color>
-    <color name="quiz_ripple">#1F000000</color>
-    
-    <!-- Status bar colors -->
-    <color name="muted_status_background">#FFE53935</color>
-    <color name="normal_status_background">#DDDDDD</color>
-    
-    <!-- Function call colors for light theme -->
-    <color name="function_call_background">#FFF1F5F9</color>
-    <color name="function_call_title">#FF475569</color>
-    <color name="function_call_summary">#FF64748B</color>
-    <color name="function_call_status_success">#FF059669</color>
-    <color name="function_call_status_pending">#FFD97706</color>
-    <color name="function_call_icon">#FF3B82F6</color>
-    <color name="function_call_label">#FF1F2937</color>
-    <color name="function_call_code">#FF0F172A</color>
-    <color name="code_background">#FFE2E8F0</color>
 </resources>

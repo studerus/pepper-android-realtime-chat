@@ -1,7 +1,6 @@
 package ch.fhnw.pepper_realtime.manager
 
 import ch.fhnw.pepper_realtime.data.PerceptionData
-import ch.fhnw.pepper_realtime.ui.DashboardState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

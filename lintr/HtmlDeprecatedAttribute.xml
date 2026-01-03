@@ -1,7 +1,7 @@
 <problems>
 <problem>
   <file>file://$PROJECT_DIR$/README.md</file>
-  <line>5</line>
+  <line>7</line>
   <module>pepper_android_realtime</module>
   <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/README.md" />
   <problem_class id="HtmlDeprecatedAttribute" severity="WARNING" attribute_key="DEPRECATED_ATTRIBUTES">Obsolete attribute</problem_class>
@@ -13,7 +13,7 @@
 </problem>
 <problem>
   <file>file://$PROJECT_DIR$/README.md</file>
-  <line>55</line>
+  <line>62</line>
   <module>pepper_android_realtime</module>
   <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/README.md" />
   <problem_class id="HtmlDeprecatedAttribute" severity="WARNING" attribute_key="DEPRECATED_ATTRIBUTES">Obsolete attribute</problem_class>
@@ -25,7 +25,7 @@
 </problem>
 <problem>
   <file>file://$PROJECT_DIR$/README.md</file>
-  <line>55</line>
+  <line>62</line>
   <module>pepper_android_realtime</module>
   <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/README.md" />
   <problem_class id="HtmlDeprecatedAttribute" severity="WARNING" attribute_key="DEPRECATED_ATTRIBUTES">Obsolete attribute</problem_class>
@@ -37,7 +37,7 @@
 </problem>
 <problem>
   <file>file://$PROJECT_DIR$/README.md</file>
-  <line>60</line>
+  <line>67</line>
   <module>pepper_android_realtime</module>
   <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/README.md" />
   <problem_class id="HtmlDeprecatedAttribute" severity="WARNING" attribute_key="DEPRECATED_ATTRIBUTES">Obsolete attribute</problem_class>
@@ -49,31 +49,7 @@
 </problem>
 <problem>
   <file>file://$PROJECT_DIR$/README.md</file>
-  <line>60</line>
-  <module>pepper_android_realtime</module>
-  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/README.md" />
-  <problem_class id="HtmlDeprecatedAttribute" severity="WARNING" attribute_key="DEPRECATED_ATTRIBUTES">Obsolete attribute</problem_class>
-  <description>Obsolete attribute #loc</description>
-  <highlighted_element>valign</highlighted_element>
-  <language>XML</language>
-  <offset>20</offset>
-  <length>6</length>
-</problem>
-<problem>
-  <file>file://$PROJECT_DIR$/README.md</file>
-  <line>65</line>
-  <module>pepper_android_realtime</module>
-  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/README.md" />
-  <problem_class id="HtmlDeprecatedAttribute" severity="WARNING" attribute_key="DEPRECATED_ATTRIBUTES">Obsolete attribute</problem_class>
-  <description>Obsolete attribute #loc</description>
-  <highlighted_element>width</highlighted_element>
-  <language>XML</language>
-  <offset>8</offset>
-  <length>5</length>
-</problem>
-<problem>
-  <file>file://$PROJECT_DIR$/README.md</file>
-  <line>65</line>
+  <line>67</line>
   <module>pepper_android_realtime</module>
   <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/README.md" />
   <problem_class id="HtmlDeprecatedAttribute" severity="WARNING" attribute_key="DEPRECATED_ATTRIBUTES">Obsolete attribute</problem_class>
@@ -109,7 +85,7 @@
 </problem>
 <problem>
   <file>file://$PROJECT_DIR$/README.md</file>
-  <line>77</line>
+  <line>79</line>
   <module>pepper_android_realtime</module>
   <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/README.md" />
   <problem_class id="HtmlDeprecatedAttribute" severity="WARNING" attribute_key="DEPRECATED_ATTRIBUTES">Obsolete attribute</problem_class>
@@ -121,7 +97,7 @@
 </problem>
 <problem>
   <file>file://$PROJECT_DIR$/README.md</file>
-  <line>77</line>
+  <line>79</line>
   <module>pepper_android_realtime</module>
   <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/README.md" />
   <problem_class id="HtmlDeprecatedAttribute" severity="WARNING" attribute_key="DEPRECATED_ATTRIBUTES">Obsolete attribute</problem_class>
@@ -133,7 +109,7 @@
 </problem>
 <problem>
   <file>file://$PROJECT_DIR$/README.md</file>
-  <line>82</line>
+  <line>84</line>
   <module>pepper_android_realtime</module>
   <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/README.md" />
   <problem_class id="HtmlDeprecatedAttribute" severity="WARNING" attribute_key="DEPRECATED_ATTRIBUTES">Obsolete attribute</problem_class>
@@ -145,7 +121,7 @@
 </problem>
 <problem>
   <file>file://$PROJECT_DIR$/README.md</file>
-  <line>82</line>
+  <line>84</line>
   <module>pepper_android_realtime</module>
   <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/README.md" />
   <problem_class id="HtmlDeprecatedAttribute" severity="WARNING" attribute_key="DEPRECATED_ATTRIBUTES">Obsolete attribute</problem_class>
@@ -181,7 +157,7 @@
 </problem>
 <problem>
   <file>file://$PROJECT_DIR$/README.md</file>
-  <line>94</line>
+  <line>96</line>
   <module>pepper_android_realtime</module>
   <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/README.md" />
   <problem_class id="HtmlDeprecatedAttribute" severity="WARNING" attribute_key="DEPRECATED_ATTRIBUTES">Obsolete attribute</problem_class>
@@ -193,7 +169,7 @@
 </problem>
 <problem>
   <file>file://$PROJECT_DIR$/README.md</file>
-  <line>94</line>
+  <line>96</line>
   <module>pepper_android_realtime</module>
   <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/README.md" />
   <problem_class id="HtmlDeprecatedAttribute" severity="WARNING" attribute_key="DEPRECATED_ATTRIBUTES">Obsolete attribute</problem_class>
@@ -205,7 +181,7 @@
 </problem>
 <problem>
   <file>file://$PROJECT_DIR$/README.md</file>
-  <line>99</line>
+  <line>101</line>
   <module>pepper_android_realtime</module>
   <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/README.md" />
   <problem_class id="HtmlDeprecatedAttribute" severity="WARNING" attribute_key="DEPRECATED_ATTRIBUTES">Obsolete attribute</problem_class>
@@ -217,7 +193,175 @@
 </problem>
 <problem>
   <file>file://$PROJECT_DIR$/README.md</file>
-  <line>99</line>
+  <line>101</line>
+  <module>pepper_android_realtime</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/README.md" />
+  <problem_class id="HtmlDeprecatedAttribute" severity="WARNING" attribute_key="DEPRECATED_ATTRIBUTES">Obsolete attribute</problem_class>
+  <description>Obsolete attribute #loc</description>
+  <highlighted_element>valign</highlighted_element>
+  <language>XML</language>
+  <offset>20</offset>
+  <length>6</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/README.md</file>
+  <line>106</line>
+  <module>pepper_android_realtime</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/README.md" />
+  <problem_class id="HtmlDeprecatedAttribute" severity="WARNING" attribute_key="DEPRECATED_ATTRIBUTES">Obsolete attribute</problem_class>
+  <description>Obsolete attribute #loc</description>
+  <highlighted_element>width</highlighted_element>
+  <language>XML</language>
+  <offset>8</offset>
+  <length>5</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/README.md</file>
+  <line>106</line>
+  <module>pepper_android_realtime</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/README.md" />
+  <problem_class id="HtmlDeprecatedAttribute" severity="WARNING" attribute_key="DEPRECATED_ATTRIBUTES">Obsolete attribute</problem_class>
+  <description>Obsolete attribute #loc</description>
+  <highlighted_element>valign</highlighted_element>
+  <language>XML</language>
+  <offset>20</offset>
+  <length>6</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/README.md</file>
+  <line>113</line>
+  <module>pepper_android_realtime</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/README.md" />
+  <problem_class id="HtmlDeprecatedAttribute" severity="WARNING" attribute_key="DEPRECATED_ATTRIBUTES">Obsolete attribute</problem_class>
+  <description>Obsolete attribute #loc</description>
+  <highlighted_element>width</highlighted_element>
+  <language>XML</language>
+  <offset>8</offset>
+  <length>5</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/README.md</file>
+  <line>113</line>
+  <module>pepper_android_realtime</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/README.md" />
+  <problem_class id="HtmlDeprecatedAttribute" severity="WARNING" attribute_key="DEPRECATED_ATTRIBUTES">Obsolete attribute</problem_class>
+  <description>Obsolete attribute #loc</description>
+  <highlighted_element>valign</highlighted_element>
+  <language>XML</language>
+  <offset>20</offset>
+  <length>6</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/README.md</file>
+  <line>118</line>
+  <module>pepper_android_realtime</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/README.md" />
+  <problem_class id="HtmlDeprecatedAttribute" severity="WARNING" attribute_key="DEPRECATED_ATTRIBUTES">Obsolete attribute</problem_class>
+  <description>Obsolete attribute #loc</description>
+  <highlighted_element>width</highlighted_element>
+  <language>XML</language>
+  <offset>8</offset>
+  <length>5</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/README.md</file>
+  <line>118</line>
+  <module>pepper_android_realtime</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/README.md" />
+  <problem_class id="HtmlDeprecatedAttribute" severity="WARNING" attribute_key="DEPRECATED_ATTRIBUTES">Obsolete attribute</problem_class>
+  <description>Obsolete attribute #loc</description>
+  <highlighted_element>valign</highlighted_element>
+  <language>XML</language>
+  <offset>20</offset>
+  <length>6</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/README.md</file>
+  <line>123</line>
+  <module>pepper_android_realtime</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/README.md" />
+  <problem_class id="HtmlDeprecatedAttribute" severity="WARNING" attribute_key="DEPRECATED_ATTRIBUTES">Obsolete attribute</problem_class>
+  <description>Obsolete attribute #loc</description>
+  <highlighted_element>width</highlighted_element>
+  <language>XML</language>
+  <offset>8</offset>
+  <length>5</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/README.md</file>
+  <line>123</line>
+  <module>pepper_android_realtime</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/README.md" />
+  <problem_class id="HtmlDeprecatedAttribute" severity="WARNING" attribute_key="DEPRECATED_ATTRIBUTES">Obsolete attribute</problem_class>
+  <description>Obsolete attribute #loc</description>
+  <highlighted_element>valign</highlighted_element>
+  <language>XML</language>
+  <offset>20</offset>
+  <length>6</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/README.md</file>
+  <line>130</line>
+  <module>pepper_android_realtime</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/README.md" />
+  <problem_class id="HtmlDeprecatedAttribute" severity="WARNING" attribute_key="DEPRECATED_ATTRIBUTES">Obsolete attribute</problem_class>
+  <description>Obsolete attribute #loc</description>
+  <highlighted_element>width</highlighted_element>
+  <language>XML</language>
+  <offset>8</offset>
+  <length>5</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/README.md</file>
+  <line>130</line>
+  <module>pepper_android_realtime</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/README.md" />
+  <problem_class id="HtmlDeprecatedAttribute" severity="WARNING" attribute_key="DEPRECATED_ATTRIBUTES">Obsolete attribute</problem_class>
+  <description>Obsolete attribute #loc</description>
+  <highlighted_element>valign</highlighted_element>
+  <language>XML</language>
+  <offset>20</offset>
+  <length>6</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/README.md</file>
+  <line>135</line>
+  <module>pepper_android_realtime</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/README.md" />
+  <problem_class id="HtmlDeprecatedAttribute" severity="WARNING" attribute_key="DEPRECATED_ATTRIBUTES">Obsolete attribute</problem_class>
+  <description>Obsolete attribute #loc</description>
+  <highlighted_element>width</highlighted_element>
+  <language>XML</language>
+  <offset>8</offset>
+  <length>5</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/README.md</file>
+  <line>135</line>
+  <module>pepper_android_realtime</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/README.md" />
+  <problem_class id="HtmlDeprecatedAttribute" severity="WARNING" attribute_key="DEPRECATED_ATTRIBUTES">Obsolete attribute</problem_class>
+  <description>Obsolete attribute #loc</description>
+  <highlighted_element>valign</highlighted_element>
+  <language>XML</language>
+  <offset>20</offset>
+  <length>6</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/README.md</file>
+  <line>140</line>
+  <module>pepper_android_realtime</module>
+  <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/README.md" />
+  <problem_class id="HtmlDeprecatedAttribute" severity="WARNING" attribute_key="DEPRECATED_ATTRIBUTES">Obsolete attribute</problem_class>
+  <description>Obsolete attribute #loc</description>
+  <highlighted_element>width</highlighted_element>
+  <language>XML</language>
+  <offset>8</offset>
+  <length>5</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/README.md</file>
+  <line>140</line>
   <module>pepper_android_realtime</module>
   <entry_point TYPE="file" FQNAME="file://$PROJECT_DIR$/README.md" />
   <problem_class id="HtmlDeprecatedAttribute" severity="WARNING" attribute_key="DEPRECATED_ATTRIBUTES">Obsolete attribute</problem_class>

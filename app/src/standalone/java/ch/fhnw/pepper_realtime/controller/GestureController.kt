@@ -98,6 +98,7 @@ class GestureController {
         Log.i(TAG, "🤖 [SIMULATED] GestureController shutdown")
     }
 
+    @Suppress("SameReturnValue")
     fun getRandomExplainAnimationResId(): Int {
         // Return a dummy ID for standalone mode
         return 0

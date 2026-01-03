@@ -17,9 +17,7 @@ import java.util.concurrent.atomic.AtomicReference
 @Suppress("SpellCheckingInspection") // "Groq" is the correct API provider name
 class AnalyzeVisionTool : Tool {
 
-    companion object {
-        private const val TAG = "AnalyzeVisionTool[Standalone]"
-    }
+
 
     override fun getName(): String = "analyze_vision"
 
@@ -44,7 +42,7 @@ class AnalyzeVisionTool : Tool {
     override fun execute(args: JSONObject, context: ToolContext): String {
         val prompt = args.optString("prompt", "")
 
-        Log.i(TAG, "Analyzing vision with Android camera, prompt: ${if (prompt.isEmpty()) "(default analysis)" else prompt}")
+        Log.i("AnalyzeVisionTool[Standalone]", "Analyzing vision with Android camera, prompt: ${if (prompt.isEmpty()) "(default analysis)" else prompt}")
 
         return try {
             // Use VisionService - pass Activity for access to SettingsManager and SessionManager
@@ -143,7 +141,7 @@ class AnalyzeVisionTool : Tool {
             }
 
         } catch (e: Exception) {
-            Log.e(TAG, "Error during vision analysis", e)
+            Log.e("AnalyzeVisionTool", "Error during vision analysis", e)
             JSONObject().put("error", "Vision analysis failed: ${e.message}").toString()
         }
     }

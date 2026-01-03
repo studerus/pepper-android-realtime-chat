@@ -76,6 +76,7 @@ class NavigationServiceManager(@Suppress("UNUSED_PARAMETER") movementController:
     /**
      * Simulates initializing navigation service
      */
+    @Suppress("EmptyMethod")
     fun initialize(@Suppress("UNUSED_PARAMETER") qiContext: Any?) {
         Log.i(TAG, "🤖 [SIMULATED] NavigationServiceManager initialized")
     }
@@ -83,6 +84,7 @@ class NavigationServiceManager(@Suppress("UNUSED_PARAMETER") movementController:
     /**
      * Simulates setting dependencies
      */
+    @Suppress("EmptyMethod")
     fun setDependencies(
         @Suppress("UNUSED_PARAMETER") perceptionService: PerceptionService?,
         @Suppress("UNUSED_PARAMETER") touchSensorManager: TouchSensorManager?,

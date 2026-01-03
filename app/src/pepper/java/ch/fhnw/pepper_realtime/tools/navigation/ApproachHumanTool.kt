@@ -15,9 +15,7 @@ import java.util.Locale
  */
 class ApproachHumanTool : Tool {
 
-    companion object {
-        private const val TAG = "ApproachHumanTool"
-    }
+
 
     override fun getName(): String = "approach_human"
 
@@ -65,7 +63,7 @@ class ApproachHumanTool : Tool {
             return JSONObject().put("error", message).toString()
         }
 
-        Log.i(TAG, "Starting human approach - target ID: $humanId, speed: $speed m/s")
+
 
         return try {
             val perceptionService = context.perceptionService
@@ -109,7 +107,7 @@ class ApproachHumanTool : Tool {
 
             // Add listener for temporary unreachable state
             approachHuman.addOnHumanIsTemporarilyUnreachableListener {
-                Log.i(TAG, "Human temporarily unreachable - sending status update")
+                Log.i("ApproachHumanTool", "Human temporarily unreachable - sending status update")
                 context.sendAsyncUpdate(
                     "[APPROACH INTERRUPTED] Pepper cannot reach the person. The path may be blocked by obstacles. " +
                             "Use vision analysis to identify what is blocking your path - look around your current position, starting with (1.0, 0.0, 0.0) in front of you, to see what obstacles are nearby.",
@@ -126,7 +124,7 @@ class ApproachHumanTool : Tool {
                     future.error?.message ?: "Unknown approach error"
                 } else null
 
-                Log.i(TAG, "Approach completed - success: $success, error: $error")
+                Log.i("ApproachHumanTool", "Approach completed - success: $success, error: $error")
 
                 val message: String
                 if (success) {
@@ -150,7 +148,7 @@ class ApproachHumanTool : Tool {
 
                     // Add vision analysis suggestion for obstacle-related errors in the same message
                     val isObstacleError = isObstacleRelatedApproachError(error)
-                    Log.i(TAG, "Approach error: '$error' -> obstacle-related: $isObstacleError")
+                    Log.i("ApproachHumanTool", "Approach error: '$error' -> obstacle-related: $isObstacleError")
                     if (isObstacleError) {
                         messageBuilder.append(
                             String.format(
@@ -181,7 +179,7 @@ class ApproachHumanTool : Tool {
             }.toString()
 
         } catch (e: Exception) {
-            Log.e(TAG, "Error during human approach", e)
+            Log.e("ApproachHumanTool", "Error during human approach", e)
             JSONObject()
                 .put("error", "Failed to approach human: ${e.message}")
                 .toString()

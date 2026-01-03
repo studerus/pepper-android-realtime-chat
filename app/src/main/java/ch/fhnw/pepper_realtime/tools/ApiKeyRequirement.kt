@@ -25,9 +25,6 @@ enum class ApiKeyType {
     YOUTUBE,
     GROQ;
 
-    /**
-     * Check if this API key type is available in the given context
-     */
     fun isAvailable(context: ToolContext): Boolean {
         return when (this) {
             TAVILY -> context.apiKeyManager.isInternetSearchAvailable()
@@ -36,5 +33,7 @@ enum class ApiKeyType {
             GROQ -> context.apiKeyManager.isVisionAnalysisAvailable()
         }
     }
+
+
 }
 

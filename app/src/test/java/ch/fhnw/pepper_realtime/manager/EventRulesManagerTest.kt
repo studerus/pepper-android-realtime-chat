@@ -2,7 +2,6 @@ package ch.fhnw.pepper_realtime.manager
 
 import ch.fhnw.pepper_realtime.data.ConditionOperator
 import ch.fhnw.pepper_realtime.data.EventRule
-import ch.fhnw.pepper_realtime.data.MatchedRule
 import ch.fhnw.pepper_realtime.data.PersonEventType
 import ch.fhnw.pepper_realtime.data.RuleActionType
 import ch.fhnw.pepper_realtime.data.RuleCondition

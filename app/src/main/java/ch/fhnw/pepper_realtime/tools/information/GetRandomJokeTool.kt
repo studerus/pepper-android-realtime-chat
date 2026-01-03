@@ -68,14 +68,12 @@ class GetRandomJokeTool : Tool {
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "readJokesFromAssets failed: jokes.json", e)
+            Log.e("GetRandomJokeTool", "readJokesFromAssets failed: jokes.json", e)
             null
         }
     }
 
-    companion object {
-        private const val TAG = "GetRandomJokeTool"
-    }
+
 }
 
 

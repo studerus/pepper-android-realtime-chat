@@ -58,12 +58,12 @@ class RealtimeEventHandler(val listener: Listener) {
         fun onAudioTranscriptDone(transcript: String?, responseId: String?)
 
         // Google Live API events
-        fun onGoogleSetupComplete() {}
-        fun onGoogleInterrupted() {}
-        fun onGoogleModelTurnStarted() {}  // First modelTurn in a response - signal to enter THINKING
-        fun onGoogleToolCall(functionCalls: List<GoogleLiveEvents.FunctionCall>) {}
-        fun onGoogleToolCallCancellation(ids: List<String>) {}
-        fun onGoogleThinkingDelta(text: String) {}  // AI thinking traces (when thinking budget > 0)
+        @Suppress("EmptyMethod") fun onGoogleSetupComplete() {}
+        @Suppress("EmptyMethod") fun onGoogleInterrupted() {}
+        @Suppress("EmptyMethod") fun onGoogleModelTurnStarted() {}  // First modelTurn in a response - signal to enter THINKING
+        @Suppress("EmptyMethod") fun onGoogleToolCall(functionCalls: List<GoogleLiveEvents.FunctionCall>) {}
+        @Suppress("EmptyMethod") fun onGoogleToolCallCancellation(ids: List<String>) {}
+        @Suppress("EmptyMethod") fun onGoogleThinkingDelta(text: String) {}  // AI thinking traces (when thinking budget > 0)
     }
 
     private val gson = Gson()

@@ -38,7 +38,7 @@ class TicTacToeMoveTool : Tool {
 
     override fun execute(args: JSONObject, context: ToolContext): String {
         val position = args.getInt("position")
-        Log.i(TAG, "AI making Tic Tac Toe move at position: $position")
+        Log.i("TicTacToeMoveTool", "AI making Tic Tac Toe move at position: $position")
 
         val activity = context.activity as? ChatActivity
         if (activity == null) {
@@ -83,9 +83,7 @@ class TicTacToeMoveTool : Tool {
     }
 
 
-    companion object {
-        private const val TAG = "TicTacToeMoveTool"
-    }
+
 }
 
 

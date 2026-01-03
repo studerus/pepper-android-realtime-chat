@@ -1,7 +1,6 @@
 package ch.fhnw.pepper_realtime.ui
 
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
-import ch.fhnw.pepper_realtime.data.EventRule
 import ch.fhnw.pepper_realtime.manager.DashboardManager
 import ch.fhnw.pepper_realtime.manager.DrawingGameManager
 import ch.fhnw.pepper_realtime.manager.EventRulesManager

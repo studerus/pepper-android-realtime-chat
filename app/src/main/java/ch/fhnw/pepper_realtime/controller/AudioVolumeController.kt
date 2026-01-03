@@ -12,9 +12,7 @@ import kotlin.math.roundToInt
  */
 class AudioVolumeController {
 
-    companion object {
-        private const val TAG = "AudioVolumeController"
-    }
+
 
     /**
      * Set media volume as a percentage (0-100)
@@ -27,10 +25,10 @@ class AudioVolumeController {
                 val volume = percentage / 100.0
                 val targetVol = max(0, min(maxVol, (volume * maxVol).roundToInt()))
                 audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, targetVol, 0)
-                Log.d(TAG, "Set volume to $percentage% (hardware level: $targetVol/$maxVol)")
+                Log.d("AudioVolumeController", "Set volume to $percentage% (hardware level: $targetVol/$maxVol)")
             }
         } catch (e: Exception) {
-            Log.w(TAG, "Setting media volume failed", e)
+            Log.w("AudioVolumeController", "Setting media volume failed", e)
         }
     }
 }

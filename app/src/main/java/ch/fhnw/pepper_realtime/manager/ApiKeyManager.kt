@@ -16,10 +16,8 @@ import javax.inject.Singleton
 @Singleton
 class ApiKeyManager @Inject constructor(context: Context) {
 
-    companion object {
-        private const val TAG = "ApiKeyManager"
-        private const val PREFS_NAME = "PepperDialogPrefs"
-    }
+    private val PREFS_NAME = "PepperDialogPrefs"
+    private val TAG = "ApiKeyManager"
 
     private val settings: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
@@ -66,6 +64,7 @@ class ApiKeyManager @Inject constructor(context: Context) {
     fun hasValidYouTubeKey(): Boolean = isValidKey(youTubeApiKey)
 
     // Feature availability checks
+    @Suppress("SameReturnValue")
     fun isVisionAnalysisAvailable(): Boolean = true // Always available now (gpt-realtime has built-in vision)
 
     fun isInternetSearchAvailable(): Boolean = hasValidTavilyKey()

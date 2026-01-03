@@ -1,23 +1,103 @@
 <problems>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/main/java/ch/fhnw/pepper_realtime/network/RealtimeSessionManager.java</file>
-  <line>30</line>
+  <file>file://$PROJECT_DIR$/app/src/main/java/ch/fhnw/pepper_realtime/network/RealtimeEventHandler.kt</file>
+  <line>53</line>
   <module>pepper_android_realtime.app.main</module>
   <package>ch.fhnw.pepper_realtime.network</package>
-  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.network.RealtimeSessionManager.Listener void onBinaryMessage(okio.ByteString bytes)" />
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.network.RealtimeEventHandler.Listener void onUserSpeechStopped(java.lang.String itemId)" />
   <problem_class id="EmptyMethod" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Empty method</problem_class>
   <hints>
     <hint value="true" />
   </hints>
   <description>All implementations of this method are empty</description>
-  <highlighted_element>onBinaryMessage</highlighted_element>
-  <language>JAVA</language>
-  <offset>13</offset>
-  <length>15</length>
+  <highlighted_element>onUserSpeechStopped</highlighted_element>
+  <language>kotlin</language>
+  <offset>12</offset>
+  <length>19</length>
 </problem>
 <problem>
-  <file>file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/manager/TouchSensorManager.java</file>
-  <line>14</line>
+  <file>file://$PROJECT_DIR$/app/src/main/java/ch/fhnw/pepper_realtime/network/RealtimeEventHandler.kt</file>
+  <line>55</line>
+  <module>pepper_android_realtime.app.main</module>
+  <package>ch.fhnw.pepper_realtime.network</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.network.RealtimeEventHandler.Listener void onUserItemCreated(java.lang.String itemId, ch.fhnw.pepper_realtime.network.RealtimeEvents.ConversationItemCreated event)" />
+  <problem_class id="EmptyMethod" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Empty method</problem_class>
+  <hints>
+    <hint value="true" />
+  </hints>
+  <description>All implementations of this method are empty</description>
+  <highlighted_element>onUserItemCreated</highlighted_element>
+  <language>kotlin</language>
+  <offset>12</offset>
+  <length>17</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/app/src/main/java/ch/fhnw/pepper_realtime/ui/compose/games/TicTacToeDialog.kt</file>
+  <line>47</line>
+  <module>pepper_android_realtime.app.main</module>
+  <package>ch.fhnw.pepper_realtime.ui.compose.games</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.ui.compose.games.TicTacToeGameState void setBoard(int[] board)" />
+  <problem_class id="EmptyMethod" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Empty method</problem_class>
+  <hints>
+    <hint value="false" />
+  </hints>
+  <description>The method is empty</description>
+  <highlighted_element>set</highlighted_element>
+  <language>kotlin</language>
+  <offset>16</offset>
+  <length>3</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/app/src/main/java/ch/fhnw/pepper_realtime/ui/compose/games/TicTacToeDialog.kt</file>
+  <line>49</line>
+  <module>pepper_android_realtime.app.main</module>
+  <package>ch.fhnw.pepper_realtime.ui.compose.games</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.ui.compose.games.TicTacToeGameState void setCurrentPlayer(int currentPlayer)" />
+  <problem_class id="EmptyMethod" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Empty method</problem_class>
+  <hints>
+    <hint value="false" />
+  </hints>
+  <description>The method is empty</description>
+  <highlighted_element>set</highlighted_element>
+  <language>kotlin</language>
+  <offset>16</offset>
+  <length>3</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/app/src/main/java/ch/fhnw/pepper_realtime/ui/compose/games/TicTacToeDialog.kt</file>
+  <line>51</line>
+  <module>pepper_android_realtime.app.main</module>
+  <package>ch.fhnw.pepper_realtime.ui.compose.games</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.ui.compose.games.TicTacToeGameState void setGameResult(int gameResult)" />
+  <problem_class id="EmptyMethod" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Empty method</problem_class>
+  <hints>
+    <hint value="false" />
+  </hints>
+  <description>The method is empty</description>
+  <highlighted_element>set</highlighted_element>
+  <language>kotlin</language>
+  <offset>16</offset>
+  <length>3</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/app/src/pepper/java/ch/fhnw/pepper_realtime/manager/NavigationServiceManager.kt</file>
+  <line>29</line>
+  <module>pepper_android_realtime.app.main</module>
+  <package>ch.fhnw.pepper_realtime.manager</package>
+  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.manager.NavigationServiceManager.NavigationServiceListener void onNavigationPhaseChanged(ch.fhnw.pepper_realtime.manager.NavigationServiceManager.NavigationPhase phase)" />
+  <problem_class id="EmptyMethod" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Empty method</problem_class>
+  <hints>
+    <hint value="true" />
+  </hints>
+  <description>All implementations of this method are empty</description>
+  <highlighted_element>onNavigationPhaseChanged</highlighted_element>
+  <language>kotlin</language>
+  <offset>12</offset>
+  <length>24</length>
+</problem>
+<problem>
+  <file>file://$PROJECT_DIR$/app/src/pepper/java/ch/fhnw/pepper_realtime/manager/TouchSensorManager.kt</file>
+  <line>29</line>
   <module>pepper_android_realtime.app.main</module>
   <package>ch.fhnw.pepper_realtime.manager</package>
   <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.manager.TouchSensorManager.TouchEventListener void onSensorReleased(java.lang.String sensorName, java.lang.Object touchState)" />
@@ -27,24 +107,8 @@
   </hints>
   <description>All implementations of this method are empty</description>
   <highlighted_element>onSensorReleased</highlighted_element>
-  <language>JAVA</language>
-  <offset>13</offset>
+  <language>kotlin</language>
+  <offset>12</offset>
   <length>16</length>
-</problem>
-<problem>
-  <file>file://$PROJECT_DIR$/app/src/standalone/java/ch/fhnw/pepper_realtime/manager/TouchSensorManager.java</file>
-  <line>27</line>
-  <module>pepper_android_realtime.app.main</module>
-  <package>ch.fhnw.pepper_realtime.manager</package>
-  <entry_point TYPE="method" FQNAME="ch.fhnw.pepper_realtime.manager.TouchSensorManager void setListener(ch.fhnw.pepper_realtime.manager.TouchSensorManager.TouchEventListener listener)" />
-  <problem_class id="EmptyMethod" severity="WARNING" attribute_key="WARNING_ATTRIBUTES">Empty method</problem_class>
-  <hints>
-    <hint value="false" />
-  </hints>
-  <description>The method is empty</description>
-  <highlighted_element>setListener</highlighted_element>
-  <language>JAVA</language>
-  <offset>16</offset>
-  <length>11</length>
 </problem>
 </problems>
