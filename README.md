@@ -1572,8 +1572,14 @@ app/src/
 │   │       ├── MessageBubble.kt         # User/Robot message bubbles
 │   │       ├── FunctionCallCard.kt      # Expandable function call cards
 │   │       ├── ChatImage.kt             # Image messages with Coil
-│   │       ├── DashboardOverlay.kt      # Perception dashboard
 │   │       ├── NavigationOverlay.kt     # Map & navigation overlay
+│   │       ├── dashboard/               # Perception dashboard (modular)
+│   │       │   ├── DashboardOverlay.kt          # Main dashboard container
+│   │       │   ├── DashboardComponents.kt       # Shared colors, dialogs, sliders
+│   │       │   ├── LiveViewContent.kt           # Tab 1: Live human detection
+│   │       │   ├── RadarViewContent.kt          # Tab 2: Radar canvas view
+│   │       │   ├── KnownFacesContent.kt         # Tab 3: Face management
+│   │       │   └── PerceptionSettingsContent.kt # Tab 4: Settings
 │   │       ├── games/                   # Game UI components
 │   │       │   ├── DrawingCanvasDialog.kt # Drawing canvas UI
 │   │       │   ├── TicTacToeDialog.kt   # TicTacToe game UI
