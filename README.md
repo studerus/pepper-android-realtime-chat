@@ -492,7 +492,7 @@ This allows the Android app to automatically start the face recognition server v
 - **Show Thinking**: Display AI thinking traces in chat bubbles (requires Thinking Budget > 0)
 - **Google Search Grounding**: Real-time web search for improved accuracy and reduced hallucinations
 - **Proactive Audio**: Allows Gemini to proactively decide not to respond when content is not relevant
-- **Live Video Streaming**: Continuous 1 FPS video stream to Gemini for real-time visual context during conversations
+- **Live Video Streaming**: Continuous 1 FPS video stream to Gemini for real-time visual context during conversations. **Recommended for vision tasks** - the video stream provides more reliable visual understanding than static image analysis, as Gemini Live is optimized for continuous video input.
 - **30 Distinct Voices**: Extensive selection including Puck, Charon, Kore, Fenrir, Aoede, and many more
 - **Note**: Uses `v1alpha` API version with `gemini-2.5-flash-native-audio-preview` model
 
