@@ -21,3 +21,6 @@ local.properties
 # Face recognition build output (can be in root or tools directory)
 output/
 tools/pepper-face-recognition/output/
+
+# Linting reports
+lintr/
