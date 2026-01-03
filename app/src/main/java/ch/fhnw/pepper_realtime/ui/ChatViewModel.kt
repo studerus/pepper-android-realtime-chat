@@ -26,8 +26,8 @@ import ch.fhnw.pepper_realtime.data.RulePersistence
 import ch.fhnw.pepper_realtime.data.EventRule
 import ch.fhnw.pepper_realtime.data.MatchedRule
 import ch.fhnw.pepper_realtime.data.RuleActionType
-import ch.fhnw.pepper_realtime.ui.compose.FaceManagementState
-import ch.fhnw.pepper_realtime.ui.compose.PerceptionSettingsState
+import ch.fhnw.pepper_realtime.ui.compose.dashboard.FaceManagementState
+import ch.fhnw.pepper_realtime.ui.compose.dashboard.PerceptionSettingsState
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import ch.fhnw.pepper_realtime.network.WebSocketConnectionCallback

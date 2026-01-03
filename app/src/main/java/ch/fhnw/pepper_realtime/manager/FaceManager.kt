@@ -1,8 +1,8 @@
 package ch.fhnw.pepper_realtime.manager
 
 import ch.fhnw.pepper_realtime.service.LocalFaceRecognitionService
-import ch.fhnw.pepper_realtime.ui.compose.FaceManagementState
-import ch.fhnw.pepper_realtime.ui.compose.PerceptionSettingsState
+import ch.fhnw.pepper_realtime.ui.compose.dashboard.FaceManagementState
+import ch.fhnw.pepper_realtime.ui.compose.dashboard.PerceptionSettingsState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

@@ -35,6 +35,7 @@ import ch.fhnw.pepper_realtime.ui.compose.games.MelodyPlayerDialog
 import ch.fhnw.pepper_realtime.ui.compose.games.QuizDialog
 import ch.fhnw.pepper_realtime.ui.compose.games.TicTacToeDialog
 import ch.fhnw.pepper_realtime.ui.compose.settings.SettingsScreen
+import ch.fhnw.pepper_realtime.ui.compose.dashboard.DashboardOverlay
 import ch.fhnw.pepper_realtime.ui.settings.SettingsViewModel
 import ch.fhnw.pepper_realtime.tools.ToolRegistry
 import kotlinx.coroutines.launch
