@@ -1525,8 +1525,13 @@ app/src/
 │   ├── manager/                         # Application managers
 │   │   ├── ApiKeyManager.kt             # API key management
 │   │   ├── AudioPlayer.kt               # Audio playback engine
+│   │   ├── DashboardManager.kt          # Dashboard state management
 │   │   ├── DrawingGameManager.kt        # Drawing game state & logic
+│   │   ├── EventRulesManager.kt         # Event rules & persistence
+│   │   ├── FaceManager.kt               # Face recognition & settings
+│   │   ├── MelodyManager.kt             # Melody playback coordination
 │   │   ├── MemoryGameManager.kt         # Memory game state & logic
+│   │   ├── NavigationManager.kt         # Navigation overlay state
 │   │   ├── PermissionManager.kt         # Android permission handling
 │   │   ├── QuizGameManager.kt           # Quiz game state & logic
 │   │   ├── RealtimeAudioInputManager.kt # Audio input for Realtime API

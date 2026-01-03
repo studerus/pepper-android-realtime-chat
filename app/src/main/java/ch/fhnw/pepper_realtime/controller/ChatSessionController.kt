@@ -315,7 +315,7 @@ class ChatSessionController @Inject constructor(
                         keyManager.openAiApiKey, 
                         keyManager.xaiApiKey
                     )
-                    if (headerName != null && headerValue != null) {
+                    if (headerName.isNotEmpty() && headerValue.isNotEmpty()) {
                         headers[headerName] = headerValue
                     }
                 }

@@ -10,11 +10,15 @@ import ch.fhnw.pepper_realtime.controller.ChatSessionController
 import ch.fhnw.pepper_realtime.data.MapGraphInfo
 import ch.fhnw.pepper_realtime.data.ResponseState
 import ch.fhnw.pepper_realtime.data.SavedLocation
+import ch.fhnw.pepper_realtime.manager.DashboardManager
 import ch.fhnw.pepper_realtime.manager.DrawingGameManager
+import ch.fhnw.pepper_realtime.manager.EventRulesManager
+import ch.fhnw.pepper_realtime.manager.FaceManager
+import ch.fhnw.pepper_realtime.manager.MelodyManager
 import ch.fhnw.pepper_realtime.manager.MemoryGameManager
+import ch.fhnw.pepper_realtime.manager.NavigationManager
 import ch.fhnw.pepper_realtime.manager.QuizGameManager
 import ch.fhnw.pepper_realtime.manager.TicTacToeGameManager
-import ch.fhnw.pepper_realtime.manager.audio.ToneGenerator
 import ch.fhnw.pepper_realtime.service.LocalFaceRecognitionService
 import ch.fhnw.pepper_realtime.service.PerceptionWebSocketClient
 import ch.fhnw.pepper_realtime.service.EventRuleEngine
@@ -43,8 +47,11 @@ class ChatViewModel @Inject constructor(
     private val drawingGameManager: DrawingGameManager,
     val localFaceRecognitionService: LocalFaceRecognitionService,
     val perceptionWebSocketClient: PerceptionWebSocketClient,
-    val eventRuleEngine: EventRuleEngine,
-    private val rulePersistence: RulePersistence
+    private val melodyManager: MelodyManager,
+    private val navigationManager: NavigationManager,
+    private val dashboardManager: DashboardManager,
+    private val eventRulesManager: EventRulesManager,
+    private val faceManager: FaceManager
 ) : AndroidViewModel(application) {
 
     companion object {
@@ -91,27 +98,15 @@ class ChatViewModel @Inject constructor(
     // Connection State
     private val _isConnected = MutableStateFlow(false)
 
-    // Navigation/Map Overlay State
-    private val _navigationState = MutableStateFlow(NavigationUiState())
+    // Navigation/Map Overlay State - delegated to NavigationManager
 
-    // Dashboard Overlay State
-    private val _dashboardState = MutableStateFlow(DashboardState())
+    // Dashboard Overlay State - delegated to DashboardManager
 
-    // Melody Player State
-    private val _melodyPlayerState = MutableStateFlow(MelodyPlayerState())
-    private val toneGenerator = ToneGenerator()
-    private var melodyJob: Job? = null
-    private var onMelodyFinishedCallback: ((wasCancelled: Boolean) -> Unit)? = null
-    private val melodyCallbackLock = Any()
+    // Melody Player State - delegated to MelodyManager
 
-    // Face Management State
-    private val _faceManagementState = MutableStateFlow(FaceManagementState())
-    
-    // Perception Settings State
-    private val _perceptionSettingsState = MutableStateFlow(PerceptionSettingsState())
+    // Face Management State - delegated to FaceManager
 
-    // Event Rules State
-    private val _eventRulesState = MutableStateFlow(EventRulesState())
+    // Event Rules State - delegated to EventRulesManager
 
     // Internal Response State - atomic updates replace @Volatile variables
     private val _responseState = MutableStateFlow(ResponseState())
@@ -128,39 +123,43 @@ class ChatViewModel @Inject constructor(
     val isInterruptFabVisible: StateFlow<Boolean> = _isInterruptFabVisible.asStateFlow()
     val isVideoStreamActive: StateFlow<Boolean> = _isVideoStreamActive.asStateFlow()
     val videoPreviewFrame: StateFlow<android.graphics.Bitmap?> = _videoPreviewFrame.asStateFlow()
-    val navigationState: StateFlow<NavigationUiState> = _navigationState.asStateFlow()
-    val dashboardState: StateFlow<DashboardState> = _dashboardState.asStateFlow()
-    val melodyPlayerState: StateFlow<MelodyPlayerState> = _melodyPlayerState.asStateFlow()
-    val faceManagementState: StateFlow<FaceManagementState> = _faceManagementState.asStateFlow()
-    val perceptionSettingsState: StateFlow<PerceptionSettingsState> = _perceptionSettingsState.asStateFlow()
-    val eventRulesState: StateFlow<EventRulesState> = _eventRulesState.asStateFlow()
+    val navigationState: StateFlow<NavigationUiState> = navigationManager.state
+    val dashboardState: StateFlow<DashboardState> = dashboardManager.state
+    val melodyPlayerState: StateFlow<MelodyPlayerState> = melodyManager.state
+    val faceManagementState: StateFlow<FaceManagementState> = faceManager.faceManagementState
+    val perceptionSettingsState: StateFlow<PerceptionSettingsState> = faceManager.perceptionSettingsState
+    val eventRulesState: StateFlow<EventRulesState> = eventRulesManager.state
 
     init {
         // Provide coroutine scope to game managers
         ticTacToeGameManager.setCoroutineScope(viewModelScope)
         memoryGameManager.setCoroutineScope(viewModelScope)
         drawingGameManager.setCoroutineScope(viewModelScope)
+        melodyManager.setCoroutineScope(viewModelScope)
+        faceManager.setCoroutineScope(viewModelScope)
         
-        // Initialize event rule engine
-        initializeEventRules()
-    }
-    
-    /**
-     * Initialize the event rule engine with persisted rules.
-     */
-    private fun initializeEventRules() {
-        val rules = rulePersistence.loadRules()
-        eventRuleEngine.loadRules(rules)
-        _eventRulesState.update { it.copy(rules = rules) }
+        // Setup dashboard callback to refresh faces when opened
+        dashboardManager.setOnDashboardOpenedCallback { refreshFaceList() }
         
-        // Set up listener for matched rules
-        eventRuleEngine.setListener(object : EventRuleEngine.RuleMatchListener {
-            override fun onRuleMatched(matchedRule: MatchedRule) {
-                handleRuleAction(matchedRule)
+        // Initialize event rules manager with callback for chat actions
+        eventRulesManager.setRuleActionHandler(object : EventRulesManager.RuleActionHandler {
+            override fun onAddEventMessage(matchedRule: MatchedRule) {
+                val eventMessage = ChatMessage.createEventTrigger(
+                    ruleName = matchedRule.rule.name,
+                    eventType = matchedRule.event.type.name,
+                    actionType = matchedRule.rule.actionType.name,
+                    template = matchedRule.rule.template,
+                    resolvedText = matchedRule.resolvedTemplate,
+                    personName = null
+                )
+                addMessage(eventMessage)
+            }
+            
+            override fun onSendToRealtimeAPI(text: String, requestResponse: Boolean, allowInterrupt: Boolean) {
+                sendMessageToRealtimeAPI(text, requestResponse, allowInterrupt)
             }
         })
-        
-        Log.i(TAG, "Event rules initialized with ${rules.size} rules")
+        eventRulesManager.initialize()
     }
 
     /**
@@ -168,8 +167,11 @@ class ChatViewModel @Inject constructor(
      * Should be called from ChatActivity after TurnManager is available.
      */
     fun setRobotStateProvider(provider: EventRuleEngine.RobotStateProvider) {
-        eventRuleEngine.setRobotStateProvider(provider)
+        eventRulesManager.setRobotStateProvider(provider)
     }
+
+    // Expose eventRuleEngine for external access (e.g., for PerceptionService event evaluation)
+    val eventRuleEngine: EventRuleEngine get() = eventRulesManager.engine
 
     // Game state flows - delegated to managers
     val quizState: StateFlow<QuizState> = quizGameManager.state
@@ -241,155 +243,35 @@ class ChatViewModel @Inject constructor(
         _videoPreviewFrame.value = frame
     }
 
-    // Navigation/Map Overlay Methods
-    fun setLocalizationStatus(status: String) {
-        _navigationState.update { it.copy(localizationStatus = status) }
-    }
-
-    fun showNavigationOverlay() {
-        _navigationState.update { it.copy(isVisible = true) }
-    }
-
-    fun hideNavigationOverlay() {
-        _navigationState.update { it.copy(isVisible = false) }
-    }
-
-    fun toggleNavigationOverlay() {
-        _navigationState.update { it.copy(isVisible = !it.isVisible) }
-    }
-
+    // Navigation/Map Overlay Methods - delegated to NavigationManager
+    fun setLocalizationStatus(status: String) = navigationManager.setLocalizationStatus(status)
+    fun showNavigationOverlay() = navigationManager.showNavigationOverlay()
+    fun hideNavigationOverlay() = navigationManager.hideNavigationOverlay()
+    fun toggleNavigationOverlay() = navigationManager.toggleNavigationOverlay()
     fun updateMapData(
         hasMapOnDisk: Boolean,
         mapBitmap: Bitmap?,
         mapGfx: MapGraphInfo?,
         locations: List<SavedLocation>
-    ) {
-        _navigationState.update {
-            it.copy(
-                hasMapOnDisk = hasMapOnDisk,
-                mapBitmap = mapBitmap,
-                mapGfx = mapGfx,
-                savedLocations = locations
-            )
-        }
-    }
+    ) = navigationManager.updateMapData(hasMapOnDisk, mapBitmap, mapGfx, locations)
 
-    // Dashboard Overlay Methods
-    fun showDashboard() {
-        _dashboardState.update { it.copy(isVisible = true, isMonitoring = true) }
-        refreshFaceList() // Load faces when dashboard opens
-    }
+    // Dashboard Overlay Methods - delegated to DashboardManager
+    fun showDashboard() = dashboardManager.showDashboard()
+    fun hideDashboard() = dashboardManager.hideDashboard()
+    fun toggleDashboard() = dashboardManager.toggleDashboard()
+    fun updateDashboardHumans(humans: List<ch.fhnw.pepper_realtime.data.PerceptionData.HumanInfo>, timestamp: String) = 
+        dashboardManager.updateDashboardHumans(humans, timestamp)
+    fun resetDashboard() = dashboardManager.resetDashboard()
 
-    fun hideDashboard() {
-        _dashboardState.update { it.copy(isVisible = false, isMonitoring = false) }
-    }
-
-    fun toggleDashboard() {
-        val willBeVisible = !_dashboardState.value.isVisible
-        _dashboardState.update { it.copy(isVisible = willBeVisible, isMonitoring = willBeVisible) }
-        if (willBeVisible) {
-            refreshFaceList() // Load faces when dashboard opens
-        }
-    }
-
-    fun updateDashboardHumans(humans: List<ch.fhnw.pepper_realtime.data.PerceptionData.HumanInfo>, timestamp: String) {
-        _dashboardState.update { it.copy(humans = humans, lastUpdate = timestamp) }
-    }
-
-    fun resetDashboard() {
-        _dashboardState.value = DashboardState()
-    }
-
-    // Face Management Methods (integrated into Dashboard)
-    fun refreshFaceList() {
-        viewModelScope.launch {
-            _faceManagementState.update { it.copy(isLoading = true, error = null) }
-            
-            // listFaces() will automatically start the server if needed
-            val faces = localFaceRecognitionService.listFaces()
-            
-            // Check if we got faces (empty list could mean server not available or no faces)
-            val isAvailable = localFaceRecognitionService.isServerAvailable()
-            
-            _faceManagementState.update { 
-                it.copy(
-                    isLoading = false, 
-                    isServerAvailable = isAvailable,
-                    faces = faces, 
-                    error = null
-                ) 
-            }
-        }
-    }
-
-    fun registerFace(name: String) {
-        viewModelScope.launch {
-            _faceManagementState.update { it.copy(isLoading = true) }
-            val success = localFaceRecognitionService.registerFace(name)
-            if (success) {
-                refreshFaceList()
-            } else {
-                _faceManagementState.update { 
-                    it.copy(isLoading = false, error = "Failed to register face") 
-                }
-            }
-        }
-    }
-
-    fun deleteFace(name: String) {
-        viewModelScope.launch {
-            _faceManagementState.update { it.copy(isLoading = true) }
-            val success = localFaceRecognitionService.deleteFace(name)
-            if (success) {
-                refreshFaceList()
-            } else {
-                _faceManagementState.update { 
-                    it.copy(isLoading = false, error = "Failed to delete face") 
-                }
-            }
-        }
-    }
-    
-    // Perception Settings Methods
-    fun refreshPerceptionSettings() {
-        viewModelScope.launch {
-            _perceptionSettingsState.update { it.copy(isLoading = true, error = null) }
-            
-            val settings = localFaceRecognitionService.fetchSettings()
-            
-            _perceptionSettingsState.update { 
-                if (settings != null) {
-                    it.copy(isLoading = false, settings = settings, error = null)
-                } else {
-                    it.copy(isLoading = false, error = "Could not fetch settings from server")
-                }
-            }
-        }
-    }
-    
-    fun updatePerceptionSettings(settings: LocalFaceRecognitionService.PerceptionSettings) {
-        viewModelScope.launch {
-            _perceptionSettingsState.update { it.copy(isSaving = true, error = null) }
-            
-            val success = localFaceRecognitionService.updateSettings(settings)
-            
-            _perceptionSettingsState.update { 
-                if (success) {
-                    it.copy(isSaving = false, settings = settings, error = null)
-                } else {
-                    it.copy(isSaving = false, error = "Failed to update settings")
-                }
-            }
-        }
-    }
-
-    /**
-     * Recognize faces from Pepper's camera.
-     * Returns the recognition result for use in chat flow.
-     */
-    suspend fun recognizeFaces(): LocalFaceRecognitionService.RecognitionResult {
-        return localFaceRecognitionService.recognize()
-    }
+    // Face Management Methods - delegated to FaceManager
+    fun refreshFaceList() = faceManager.refreshFaceList()
+    fun registerFace(name: String) = faceManager.registerFace(name)
+    fun deleteFace(name: String) = faceManager.deleteFace(name)
+    fun refreshPerceptionSettings() = faceManager.refreshPerceptionSettings()
+    fun updatePerceptionSettings(settings: LocalFaceRecognitionService.PerceptionSettings) = 
+        faceManager.updatePerceptionSettings(settings)
+    suspend fun recognizeFaces(): LocalFaceRecognitionService.RecognitionResult = 
+        faceManager.recognizeFaces()
 
     // Quiz Dialog Methods - delegated to QuizGameManager
     fun showQuiz(
@@ -458,79 +340,19 @@ class ChatViewModel @Inject constructor(
         drawingGameManager.dismissGame()
     }
 
-    // Melody Player Methods
+    // Melody Player Methods - delegated to MelodyManager
     /**
      * Start playing a melody with visual overlay.
-     * @param melody The melody string to play
-     * @param onFinished Callback when playback finishes with wasCancelled parameter
-     * @return true if playback started successfully
      */
     fun startMelodyPlayer(melody: String, onFinished: ((wasCancelled: Boolean) -> Unit)? = null): Boolean {
-        if (_melodyPlayerState.value.isVisible) {
-            Log.w(TAG, "Melody player already active")
-            return false
-        }
-
-        synchronized(melodyCallbackLock) {
-            onMelodyFinishedCallback = onFinished
-        }
-
-        _melodyPlayerState.update {
-            it.copy(
-                isVisible = true,
-                melody = melody,
-                isPlaying = true,
-                progress = 0f,
-                currentNote = ""
-            )
-        }
-
-        melodyJob = viewModelScope.launch {
-            toneGenerator.playMelody(melody, object : ToneGenerator.PlaybackCallback {
-                override fun onNoteChanged(note: String, noteIndex: Int, totalNotes: Int) {
-                    _melodyPlayerState.update { it.copy(currentNote = note) }
-                }
-
-                override fun onProgressChanged(progress: Float) {
-                    _melodyPlayerState.update { it.copy(progress = progress) }
-                }
-
-                override fun onPlaybackFinished(wasCancelled: Boolean) {
-                    _melodyPlayerState.update {
-                        it.copy(
-                            isPlaying = false,
-                            isVisible = false,
-                            progress = if (wasCancelled) it.progress else 1f
-                        )
-                    }
-                    melodyJob = null
-                    // Call the finish callback with cancellation status (atomic to prevent double-invoke)
-                    synchronized(melodyCallbackLock) {
-                        onMelodyFinishedCallback?.invoke(wasCancelled)
-                        onMelodyFinishedCallback = null
-                    }
-                }
-            })
-        }
-
-        return true
+        return melodyManager.startMelodyPlayer(melody, onFinished)
     }
 
     /**
      * Stop the melody player and cancel playback.
      */
     fun dismissMelodyPlayer() {
-        toneGenerator.cancel()
-        melodyJob?.cancel()
-        melodyJob = null
-        _melodyPlayerState.update {
-            it.copy(isVisible = false, isPlaying = false)
-        }
-        // Call the finish callback with cancelled=true (atomic to prevent double-invoke)
-        synchronized(melodyCallbackLock) {
-            onMelodyFinishedCallback?.invoke(true)
-            onMelodyFinishedCallback = null
-        }
+        melodyManager.dismissMelodyPlayer()
     }
 
     /**
@@ -777,160 +599,16 @@ class ChatViewModel @Inject constructor(
         sessionController?.disconnectWebSocketGracefully()
     }
 
-    // ==================== Event Rules ====================
-
-    /**
-     * Handle a matched rule by executing the appropriate action.
-     */
-    private fun handleRuleAction(matchedRule: MatchedRule) {
-        Log.i(TAG, "Handling rule action: ${matchedRule.rule.name} (${matchedRule.rule.actionType})")
-        
-        // Add to recent triggered rules for UI feedback
-        _eventRulesState.update { state ->
-            val newRecent = (listOf(matchedRule) + state.recentTriggeredRules).take(10)
-            state.copy(recentTriggeredRules = newRecent)
-        }
-        
-        // Add event trigger message to chat history
-        val eventMessage = ChatMessage.createEventTrigger(
-            ruleName = matchedRule.rule.name,
-            eventType = matchedRule.event.type.name,
-            actionType = matchedRule.rule.actionType.name,
-            template = matchedRule.rule.template,
-            resolvedText = matchedRule.resolvedTemplate,
-            personName = null // Could be extracted from humanInfo if needed
-        )
-        addMessage(eventMessage)
-        
-        when (matchedRule.rule.actionType) {
-            RuleActionType.INTERRUPT_AND_RESPOND -> {
-                // Interrupt current speech, send context, trigger response
-                // allowInterrupt=true triggers interrupt in ChatSessionController
-                sendMessageToRealtimeAPI(
-                    text = matchedRule.resolvedTemplate,
-                    requestResponse = true,
-                    allowInterrupt = true
-                )
-            }
-            RuleActionType.APPEND_AND_RESPOND -> {
-                // Add context without interruption, trigger response
-                sendMessageToRealtimeAPI(
-                    text = matchedRule.resolvedTemplate,
-                    requestResponse = true,
-                    allowInterrupt = false
-                )
-            }
-            RuleActionType.SILENT_UPDATE -> {
-                // Silent context update, no response triggered
-                sendMessageToRealtimeAPI(
-                    text = matchedRule.resolvedTemplate,
-                    requestResponse = false,
-                    allowInterrupt = false
-                )
-            }
-        }
-    }
-
-    /**
-     * Show the event rules overlay.
-     */
-    fun showEventRules() {
-        _eventRulesState.update { it.copy(isVisible = true) }
-    }
-
-    /**
-     * Hide the event rules overlay.
-     */
-    fun hideEventRules() {
-        _eventRulesState.update { it.copy(isVisible = false) }
-    }
-
-    /**
-     * Toggle the event rules overlay visibility.
-     */
-    fun toggleEventRules() {
-        _eventRulesState.update { it.copy(isVisible = !it.isVisible) }
-    }
-
-    /**
-     * Add a new event rule.
-     */
-    fun addEventRule(rule: EventRule) {
-        eventRuleEngine.addRule(rule)
-        saveEventRules()
-        _eventRulesState.update { it.copy(rules = eventRuleEngine.getRules()) }
-    }
-
-    /**
-     * Update an existing event rule.
-     */
-    fun updateEventRule(rule: EventRule) {
-        eventRuleEngine.updateRule(rule)
-        saveEventRules()
-        _eventRulesState.update { it.copy(rules = eventRuleEngine.getRules()) }
-    }
-
-    /**
-     * Delete an event rule.
-     */
-    fun deleteEventRule(ruleId: String) {
-        eventRuleEngine.removeRule(ruleId)
-        saveEventRules()
-        _eventRulesState.update { it.copy(rules = eventRuleEngine.getRules()) }
-    }
-
-    /**
-     * Toggle a rule's enabled state.
-     */
-    fun toggleEventRuleEnabled(ruleId: String) {
-        val rules = eventRuleEngine.getRules()
-        val rule = rules.find { it.id == ruleId } ?: return
-        val updatedRule = rule.copy(enabled = !rule.enabled)
-        updateEventRule(updatedRule)
-    }
-
-    /**
-     * Save current rules to persistence.
-     */
-    private fun saveEventRules() {
-        rulePersistence.saveRules(eventRuleEngine.getRules())
-    }
-
-    /**
-     * Reset rules to defaults.
-     */
-    fun resetEventRulesToDefaults() {
-        rulePersistence.resetToDefaults()
-        val rules = rulePersistence.loadRules()
-        eventRuleEngine.loadRules(rules)
-        eventRuleEngine.resetCooldowns()
-        _eventRulesState.update { it.copy(rules = rules) }
-    }
-
-    /**
-     * Export rules as JSON string.
-     */
-    fun exportEventRules(): String {
-        return rulePersistence.exportToJson()
-    }
-
-    /**
-     * Import rules from JSON string.
-     */
-    fun importEventRules(json: String, merge: Boolean = false): Int {
-        val count = rulePersistence.importFromJson(json, merge)
-        if (count >= 0) {
-            val rules = rulePersistence.loadRules()
-            eventRuleEngine.loadRules(rules)
-            _eventRulesState.update { it.copy(rules = rules) }
-        }
-        return count
-    }
-
-    /**
-     * Set the rule being edited.
-     */
-    fun setEditingRule(rule: EventRule?) {
-        _eventRulesState.update { it.copy(editingRule = rule) }
-    }
+    // ==================== Event Rules - delegated to EventRulesManager ====================
+    fun showEventRules() = eventRulesManager.showEventRules()
+    fun hideEventRules() = eventRulesManager.hideEventRules()
+    fun toggleEventRules() = eventRulesManager.toggleEventRules()
+    fun addEventRule(rule: EventRule) = eventRulesManager.addEventRule(rule)
+    fun updateEventRule(rule: EventRule) = eventRulesManager.updateEventRule(rule)
+    fun deleteEventRule(ruleId: String) = eventRulesManager.deleteEventRule(ruleId)
+    fun toggleEventRuleEnabled(ruleId: String) = eventRulesManager.toggleEventRuleEnabled(ruleId)
+    fun resetEventRulesToDefaults() = eventRulesManager.resetEventRulesToDefaults()
+    fun exportEventRules(): String = eventRulesManager.exportEventRules()
+    fun importEventRules(json: String, merge: Boolean = false): Int = eventRulesManager.importEventRules(json, merge)
+    fun setEditingRule(rule: EventRule?) = eventRulesManager.setEditingRule(rule)
 }
