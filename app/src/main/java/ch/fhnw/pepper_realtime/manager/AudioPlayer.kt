@@ -24,8 +24,11 @@ private const val TAG = "AudioPlayer"
  *
  * Important: This does NOT add constant latency. It only limits how far behind real-time
  * we are allowed to fall during bursty streaming.
+ * 
+ * Note: Some providers (e.g., x.ai) send audio chunks faster than real-time,
+ * requiring a larger buffer to avoid overflow during long responses.
  */
-private const val MAX_BUFFERED_AUDIO_MS = 8000
+private const val MAX_BUFFERED_AUDIO_MS = 30000
 
 /**
  * High-performance AudioPlayer with optimized buffer management and threading

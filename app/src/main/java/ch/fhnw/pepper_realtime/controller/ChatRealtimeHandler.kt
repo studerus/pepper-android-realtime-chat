@@ -193,7 +193,7 @@ class ChatRealtimeHandler(
 
             if (functionCalls.isNotEmpty()) {
                 // x.ai server-side tools that are executed by the API, not locally
-                val serverSideTools = setOf("web_search", "web_search_with_snippets", "x_search", "x_keyword_search", "x_user_search", "file_search")
+                val serverSideTools = setOf("web_search", "web_search_with_snippets", "x_search", "x_keyword_search", "x_semantic_search", "x_user_search", "file_search")
                 
                 for (fc in functionCalls) {
                     val toolName = fc.name
@@ -368,6 +368,11 @@ class ChatRealtimeHandler(
     }
 
     override fun onUnknown(type: String, raw: JsonObject?) {
+        // Ignore known heartbeat messages
+        if (type == "ping" || type == "conversation.created") {
+            Log.d(TAG, "Received heartbeat/info message: $type")
+            return
+        }
         Log.w(TAG, "Unknown WebSocket message type: $type")
     }
 
