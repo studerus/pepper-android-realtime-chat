@@ -20,7 +20,6 @@ class PerceptionData {
         var attentionState: String = "Unknown"
         var smileState: String = "Unknown"
         var distanceMeters: Double = -1.0
-        var basicEmotion: BasicEmotion = BasicEmotion.UNKNOWN
 
         // --- Position relative to robot (for bird's eye view) ---
         var positionX: Double = 0.0  // Meters in front of robot (positive = in front)

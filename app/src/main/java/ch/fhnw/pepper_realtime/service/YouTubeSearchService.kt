@@ -1,16 +1,13 @@
 package ch.fhnw.pepper_realtime.service
 
 import android.util.Log
-import ch.fhnw.pepper_realtime.di.IoDispatcher
 import ch.fhnw.pepper_realtime.network.HttpClientManager
-import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Request
 import org.json.JSONObject
 import java.io.IOException
 import java.net.URLEncoder
-import javax.inject.Inject
 
 /**
  * Service for searching YouTube videos via the YouTube Data API v3.
@@ -18,13 +15,6 @@ import javax.inject.Inject
 class YouTubeSearchService(
     private val apiKey: String
 ) {
-    // Secondary constructor for DI (if needed in future)
-    @Inject
-    constructor(
-        apiKey: String,
-        @Suppress("UNUSED_PARAMETER") httpClientManager: HttpClientManager,
-        @Suppress("UNUSED_PARAMETER") @IoDispatcher ioDispatcher: CoroutineDispatcher
-    ) : this(apiKey)
     companion object {
         private const val TAG = "YouTubeSearchService"
         private const val YOUTUBE_API_BASE_URL = "https://www.googleapis.com/youtube/v3/search"

@@ -129,14 +129,6 @@ class HttpClientManager @Inject constructor() {
     // ==================== COROUTINE-BASED API ====================
 
     /**
-     * Execute a request using the API client as a suspend function.
-     * This is the preferred way to make network calls in Kotlin code.
-     */
-    suspend fun executeApiRequest(request: Request): Response {
-        return apiClient.executeAsync(request)
-    }
-
-    /**
      * Execute a request using the quick API client as a suspend function.
      */
     suspend fun executeQuickApiRequest(request: Request): Response {

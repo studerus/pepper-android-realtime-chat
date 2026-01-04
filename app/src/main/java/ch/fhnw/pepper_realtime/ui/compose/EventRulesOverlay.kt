@@ -46,7 +46,6 @@ private object RulesColors {
     val SuccessGreen = Color(0xFF059669)
     val DeleteRed = Color(0xFFDC2626)
     val WarningOrange = Color(0xFFEA580C)
-    val BorderColor = Color(0xFFE5E7EB)
     val DisabledGray = Color(0xFF9CA3AF)
 }
 

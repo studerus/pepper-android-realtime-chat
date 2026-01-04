@@ -323,14 +323,6 @@ class SettingsViewModel @Inject constructor(
         }
     }
     
-    fun setGoogleAffectiveDialog(enabled: Boolean) {
-        if (enabled != settingsRepository.googleAffectiveDialog) {
-            settingsRepository.googleAffectiveDialog = enabled
-            _settingsState.update { it.copy(googleAffectiveDialog = enabled) }
-            triggerGoogleSettingChange()
-        }
-    }
-    
     fun setGoogleProactiveAudio(enabled: Boolean) {
         if (enabled != settingsRepository.googleProactiveAudio) {
             settingsRepository.googleProactiveAudio = enabled

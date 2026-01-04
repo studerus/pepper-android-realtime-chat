@@ -44,7 +44,6 @@ private object DrawingColors {
     val UnsavedIndicator = Color(0xFFFF9800)
     val ClearButton = Color(0xFFFF9800)
     val CloseButton = Color(0xFFF44336)
-    val ToolbarBackground = Color(0xFFF5F5F5)
     
     // Available colors for drawing
     val PaletteColors = listOf(

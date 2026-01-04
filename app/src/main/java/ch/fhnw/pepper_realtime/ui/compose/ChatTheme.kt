@@ -30,7 +30,6 @@ object ChatColors {
     
     // Primary theme colors - Professional Blue
     val Primary = Color(0xFF1E40AF)
-    val PrimaryVariant = Color(0xFF1E3A8A)
 }
 
 private val LightColorScheme = lightColorScheme(

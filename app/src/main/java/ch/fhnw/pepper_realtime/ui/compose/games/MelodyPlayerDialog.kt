@@ -20,7 +20,6 @@ import androidx.compose.ui.unit.sp
 import ch.fhnw.pepper_realtime.ui.MelodyPlayerState
 
 private object MelodyColors {
-    val Background = Color(0xFF1A1A2E)
     val CardBackground = Color(0xFF16213E)
     val AccentPrimary = Color(0xFFE94560)
     val AccentSecondary = Color(0xFF0F3460)

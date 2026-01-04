@@ -29,7 +29,6 @@ import ch.fhnw.pepper_realtime.ui.MemoryGameInternalState
 private object MemoryColors {
     val CardFaceDown = Color(0xFF1E40AF) // Professional Blue
     val CardFaceUp = Color.White
-    val TextOnBlue = Color.White
     val TextOnWhite = Color.Black
     val Background = Color(0xFFF5F5F5)
 }
