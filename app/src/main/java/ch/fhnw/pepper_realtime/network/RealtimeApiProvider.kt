@@ -45,11 +45,6 @@ enum class RealtimeApiProvider(
     fun isAzureProvider(): Boolean = this == AZURE_OPENAI
 
     /**
-     * Check if this is the x.ai provider
-     */
-    fun isXaiProvider(): Boolean = this == XAI
-
-    /**
      * Check if this is the Google Gemini provider
      */
     fun isGoogleProvider(): Boolean = this == GOOGLE_GEMINI

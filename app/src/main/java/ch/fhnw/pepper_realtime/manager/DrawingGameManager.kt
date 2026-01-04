@@ -75,11 +75,6 @@ class DrawingGameManager @Inject constructor() {
     }
 
     /**
-     * Check if the drawing game is currently active.
-     */
-    fun isGameActive(): Boolean = _state.value.isVisible
-
-    /**
      * Called when the user draws on the canvas.
      * Resets the inactivity timer and stores the current bitmap.
      * @param bitmap The current canvas bitmap

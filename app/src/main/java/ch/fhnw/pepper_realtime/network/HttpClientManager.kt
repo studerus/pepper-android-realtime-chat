@@ -144,41 +144,6 @@ class HttpClientManager @Inject constructor() {
     }
 
     /**
-     * Convenience method to POST JSON and get response body as string.
-     */
-    suspend fun postJson(url: String, json: String, headers: Map<String, String> = emptyMap()): String {
-        val mediaType = "application/json; charset=utf-8".toMediaType()
-        val body = json.toRequestBody(mediaType)
-        
-        val requestBuilder = Request.Builder()
-            .url(url)
-            .post(body)
-        
-        headers.forEach { (key, value) ->
-            requestBuilder.addHeader(key, value)
-        }
-        
-        val response = executeApiRequest(requestBuilder.build())
-        return response.use { it.body?.string() ?: "" }
-    }
-
-    /**
-     * Convenience method to GET and return response body as string.
-     */
-    suspend fun get(url: String, headers: Map<String, String> = emptyMap()): String {
-        val requestBuilder = Request.Builder()
-            .url(url)
-            .get()
-        
-        headers.forEach { (key, value) ->
-            requestBuilder.addHeader(key, value)
-        }
-        
-        val response = executeQuickApiRequest(requestBuilder.build())
-        return response.use { it.body?.string() ?: "" }
-    }
-
-    /**
      * Extension function to convert OkHttp's callback-based API to a suspend function.
      */
     private suspend fun OkHttpClient.executeAsync(request: Request): Response {

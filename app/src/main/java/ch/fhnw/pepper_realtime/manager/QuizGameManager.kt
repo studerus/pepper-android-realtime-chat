@@ -50,11 +50,6 @@ class QuizGameManager @Inject constructor() {
     }
 
     /**
-     * Check if a quiz is currently visible.
-     */
-    fun isQuizVisible(): Boolean = _state.value.isVisible
-
-    /**
      * Handle user answer selection.
      * Note: Does NOT dismiss the quiz immediately - the UI handles the delay
      * to show correct/incorrect feedback before auto-dismissing.

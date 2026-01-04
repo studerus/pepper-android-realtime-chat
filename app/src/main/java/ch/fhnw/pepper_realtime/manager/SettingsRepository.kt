@@ -28,8 +28,6 @@ class SettingsRepository @Inject constructor(
         }
     }
 
-    fun getSettings(): SharedPreferences = settings
-
     var systemPrompt: String
         get() = settings.getString(KEY_SYSTEM_PROMPT, defaultSystemPrompt) ?: defaultSystemPrompt
         set(value) = settings.edit().putString(KEY_SYSTEM_PROMPT, value).apply()

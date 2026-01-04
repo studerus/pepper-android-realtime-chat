@@ -97,11 +97,6 @@ class MemoryGameManager @Inject constructor() {
     }
 
     /**
-     * Check if a game is currently active.
-     */
-    fun isGameActive(): Boolean = _state.value.isVisible
-
-    /**
      * Handle card click.
      * @param cardId The ID of the clicked card
      */

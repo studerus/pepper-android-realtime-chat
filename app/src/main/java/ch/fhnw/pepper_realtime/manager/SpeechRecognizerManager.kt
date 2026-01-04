@@ -29,7 +29,6 @@ class SpeechRecognizerManager {
     private val executor: ExecutorService = Executors.newSingleThreadExecutor()
     private var recognizer: SpeechRecognizer? = null
     private var activityCallbacks: ActivityCallbacks? = null
-    private val recognizerLock = Any()
 
     @Volatile
     private var isRunning = false

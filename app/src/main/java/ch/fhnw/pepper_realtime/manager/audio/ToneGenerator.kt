@@ -105,13 +105,6 @@ class ToneGenerator {
         callback?.onPlaybackFinished(wasCancelled = false)
     }
 
-    /**
-     * Plays a melody string (simple version without callbacks).
-     */
-    suspend fun playMelody(melody: String) {
-        playMelody(melody, null)
-    }
-
     private suspend fun playTone(frequency: Double, durationMs: Long) = withContext(Dispatchers.Default) {
         if (isCancelled.get()) return@withContext
         

@@ -297,30 +297,7 @@ object GoogleLiveEvents {
 
     // ==================== AVAILABLE VOICES ====================
 
-    /**
-     * Available voices for Google Gemini Live API.
-     */
-    object Voices {
-        const val PUCK = "Puck"
-        const val CHARON = "Charon"
-        const val KORE = "Kore"
-        const val FENRIR = "Fenrir"
-        const val AOEDE = "Aoede"
-
-        val ALL = listOf(PUCK, CHARON, KORE, FENRIR, AOEDE)
-        val DEFAULT = PUCK
-    }
-
-    // ==================== AUDIO CONSTANTS ====================
-
-    /**
-     * Audio format constants for Google Live API.
-     */
-    object Audio {
-        const val INPUT_SAMPLE_RATE = 16000  // Input recommended at 16kHz for Pepper tablet
-        const val OUTPUT_SAMPLE_RATE = 24000  // Output is always 24kHz
-        const val INPUT_MIME_TYPE = "audio/pcm;rate=$INPUT_SAMPLE_RATE"
-        const val OUTPUT_MIME_TYPE = "audio/pcm;rate=$OUTPUT_SAMPLE_RATE"
-    }
+    // Note: Available voices: Puck, Charon, Kore, Fenrir, Aoede
+    // Audio: Input 16kHz, Output 24kHz (PCM format)
 }
 

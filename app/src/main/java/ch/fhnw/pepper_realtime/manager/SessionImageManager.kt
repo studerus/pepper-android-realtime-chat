@@ -49,12 +49,6 @@ class SessionImageManager {
         Log.i(TAG, "Session image cleanup complete - deleted: $deletedCount, failed: $failedCount")
     }
 
-    /**
-     * Get the number of tracked images
-     */
-    @Synchronized
-    fun getImageCount(): Int = sessionImagePaths.size
-
     companion object {
         private const val TAG = "SessionImageManager"
     }
