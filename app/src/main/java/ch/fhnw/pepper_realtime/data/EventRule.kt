@@ -50,13 +50,8 @@ data class RuleCondition(
             "trackAge" to FieldInfo("Track Age (ms)", FieldType.NUMBER),
             "peopleCount" to FieldInfo("People Count", FieldType.NUMBER),
             "robotState" to FieldInfo("Robot State", FieldType.STRING)
+            // Note: robotState accepts values: IDLE, LISTENING, THINKING, SPEAKING
         )
-        
-        /**
-         * Possible values for robotState field.
-         * IDLE, LISTENING, THINKING, SPEAKING
-         */
-        val robotStateValues = listOf("IDLE", "LISTENING", "THINKING", "SPEAKING")
     }
 }
 
@@ -110,23 +105,11 @@ data class EventRule(
 ) {
     companion object {
         /**
-         * Available placeholders for templates.
-         * Note: Some placeholders (age, gender, emotion, etc.) are no longer available
-         * as the head-based perception system doesn't provide this data.
-         */
-        val availablePlaceholders = listOf(
-            "{personName}" to "Name of the recognized person",
-            "{distance}" to "Distance in meters (e.g., '1.2m')",
-            "{isLooking}" to "Whether person is looking at robot (true/false)",
-            "{gazeDuration}" to "How long looking at robot (e.g., '5s')",
-            "{trackAge}" to "How long person has been tracked (e.g., '30s')",
-            "{peopleCount}" to "Number of people detected",
-            "{robotState}" to "Robot state (LISTENING, SPEAKING, THINKING, IDLE)",
-            "{timestamp}" to "Current time"
-        )
-
-        /**
          * Default rules that ship with the app.
+         * 
+         * Available template placeholders:
+         * {personName}, {distance}, {isLooking}, {gazeDuration},
+         * {trackAge}, {peopleCount}, {robotState}, {timestamp}
          */
         val defaultRules = listOf(
             EventRule(

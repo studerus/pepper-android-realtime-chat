@@ -82,10 +82,5 @@ class ChatInterruptController @Inject constructor(
             Log.e(TAG, "Error during interruptSpeech", e)
         }
     }
-
-    fun interruptAndMute() {
-        interruptSpeech()
-        audioInputController.mute()
-    }
 }
 

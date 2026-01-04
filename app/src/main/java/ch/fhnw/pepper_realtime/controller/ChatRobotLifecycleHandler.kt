@@ -242,10 +242,6 @@ class ChatRobotLifecycleHandler(
         activity.runOnUiThread { viewModel.setStatusText(error) }
     }
 
-    fun isFocusAvailable(): Boolean {
-        return true // Placeholder until RobotFocusManager is exposed via ChatActivity
-    }
-
     private val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
 
     private fun initializeDashboardListener() {

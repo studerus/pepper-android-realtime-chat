@@ -58,12 +58,6 @@ class ChatLifecycleController @Inject constructor(
         }
     }
 
-    /**
-     * Check if app was stopped by going to background
-     */
-    val isBackgrounded: Boolean
-        get() = wasStoppedByBackground
-
     private fun pauseActiveServices() {
         audioInputController.cleanupForRestart()
 
