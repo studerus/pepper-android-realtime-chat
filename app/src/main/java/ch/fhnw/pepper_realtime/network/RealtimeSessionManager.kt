@@ -73,6 +73,28 @@ class RealtimeSessionManager @Inject constructor() {
     @Volatile
     private var connectionState = ConnectionState.DISCONNECTED
 
+    /**
+     * Monotonically increasing token to invalidate callbacks from previous/stale WebSockets.
+     * This prevents "zombie" sessions after rapid reconnects or refreshes.
+     */
+    @Volatile
+    private var connectionToken: Long = 0
+
+    private fun redactUrlForLogs(url: String): String {
+        // Avoid leaking API keys in logs (e.g., Google uses ?key=...).
+        return try {
+            val uri = android.net.Uri.parse(url)
+            val redactedQuery = uri.queryParameterNames.joinToString("&") { name ->
+                val value = if (name.equals("key", ignoreCase = true)) "<redacted>" else (uri.getQueryParameter(name) ?: "")
+                "$name=$value"
+            }
+            uri.buildUpon().encodedQuery(redactedQuery).build().toString()
+        } catch (_: Exception) {
+            // Fallback: best-effort redaction
+            url.replace(Regex("([?&]key=)[^&]+", RegexOption.IGNORE_CASE), "$1<redacted>")
+        }
+    }
+
     // Session configuration dependencies
     private var toolRegistry: ToolRegistry? = null
     private var toolContext: ToolContext? = null
@@ -126,8 +148,10 @@ class RealtimeSessionManager @Inject constructor() {
             return
         }
 
+        val myToken = ++connectionToken
         connectionState = ConnectionState.CONNECTING
         Log.d(TAG, "Connection state: CONNECTING")
+        Log.i(TAG, "Connecting WebSocket (token=$myToken, url=${redactUrlForLogs(url)})")
 
         val builder = okhttp3.Request.Builder().url(url)
         headers?.forEach { (key, value) ->
@@ -137,6 +161,15 @@ class RealtimeSessionManager @Inject constructor() {
 
         val wsListener = object : WebSocketListener() {
             override fun onOpen(ws: WebSocket, response: Response) {
+                if (myToken != connectionToken) {
+                    Log.w(TAG, "Ignoring onOpen for stale WebSocket (token=$myToken, current=$connectionToken)")
+                    try {
+                        ws.close(1000, "Stale connection")
+                    } catch (_: Exception) {
+                        // Ignore
+                    }
+                    return
+                }
                 Log.i(TAG, "WebSocket onOpen: ${response.message} Code: ${response.code}")
                 webSocket = ws
                 connectionState = ConnectionState.CONNECTED
@@ -145,14 +178,24 @@ class RealtimeSessionManager @Inject constructor() {
             }
 
             override fun onMessage(ws: WebSocket, text: String) {
+                if (myToken != connectionToken) return
                 listener?.onTextMessage(text)
             }
 
             override fun onMessage(ws: WebSocket, bytes: ByteString) {
+                if (myToken != connectionToken) return
                 listener?.onBinaryMessage(bytes)
             }
 
             override fun onClosing(ws: WebSocket, code: Int, reason: String) {
+                if (myToken != connectionToken) {
+                    try {
+                        ws.close(1000, null)
+                    } catch (_: Exception) {
+                        // Ignore
+                    }
+                    return
+                }
                 connectionState = ConnectionState.CLOSING
                 Log.d(TAG, "Connection state: CLOSING (code=$code, reason=$reason)")
                 listener?.onClosing(code, reason)
@@ -160,6 +203,7 @@ class RealtimeSessionManager @Inject constructor() {
             }
 
             override fun onClosed(ws: WebSocket, code: Int, reason: String) {
+                if (myToken != connectionToken) return
                 connectionState = ConnectionState.DISCONNECTED
                 Log.d(TAG, "Connection state: DISCONNECTED (code=$code, reason=$reason)")
                 listener?.onClosed(code, reason)
@@ -167,6 +211,7 @@ class RealtimeSessionManager @Inject constructor() {
             }
 
             override fun onFailure(ws: WebSocket, t: Throwable, response: Response?) {
+                if (myToken != connectionToken) return
                 connectionState = ConnectionState.DISCONNECTED
                 Log.e(TAG, "WebSocket failure: ${t.message}", t)
                 Log.d(TAG, "Connection state: DISCONNECTED (failure)")
@@ -174,7 +219,8 @@ class RealtimeSessionManager @Inject constructor() {
                 if (webSocket == ws) webSocket = null
             }
         }
-        client.newWebSocket(request, wsListener)
+        // Capture the WebSocket immediately so a subsequent close() during CONNECTING can cancel it.
+        webSocket = client.newWebSocket(request, wsListener)
     }
 
     fun sendUserTextMessage(text: String): Boolean {
@@ -680,16 +726,29 @@ class RealtimeSessionManager @Inject constructor() {
             return
         }
 
+        // Invalidate any in-flight callbacks from previous sockets immediately.
+        val prevToken = connectionToken
+        connectionToken++
+        Log.i(TAG, "Closing WebSocket (token=$prevToken -> ${connectionToken}, code=$code, reason=${reason ?: ""})")
         connectionState = ConnectionState.CLOSING
         Log.d(TAG, "Connection state: CLOSING (explicit close, code=$code)")
 
+        val ws = webSocket
         try {
-            webSocket?.close(code, reason)
+            // Attempt a graceful close first...
+            ws?.close(code, reason)
         } catch (_: Exception) {
             // Ignore exceptions during close
         }
-        // Note: webSocket will be set to null in onClosed callback
-        // Set it here too for immediate state consistency
+
+        // ...but also cancel to ensure immediate teardown and prevent "zombie" sessions.
+        try {
+            ws?.cancel()
+        } catch (_: Exception) {
+            // Ignore
+        }
+
+        // Note: callbacks might still arrive; connectionToken guards against stale events.
         webSocket = null
         connectionState = ConnectionState.DISCONNECTED
     }
