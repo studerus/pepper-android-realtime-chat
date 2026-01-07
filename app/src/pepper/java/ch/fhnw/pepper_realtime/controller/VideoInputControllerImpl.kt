@@ -84,15 +84,7 @@ class VideoInputControllerImpl @Inject constructor(
 
         Log.i(TAG, "Starting video streaming at 1 FPS using Pepper's head camera")
 
-        // Build TakePicture action
-        try {
-            takePictureAction = TakePictureBuilder.with(qiContext).build()
-            Log.d(TAG, "TakePicture action built successfully")
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to build TakePicture action", e)
-            return false
-        }
-
+        // Set streaming state and start the loop (TakePicture will be built on IO thread)
         _isStreaming.value = true
         startStreamingLoop()
         return true
@@ -101,6 +93,18 @@ class VideoInputControllerImpl @Inject constructor(
     private fun startStreamingLoop() {
         streamingJob = serviceScope.launch {
             Log.i(TAG, "Streaming loop started")
+            
+            // Build TakePicture action on IO thread to avoid NetworkOnMainThreadException
+            try {
+                takePictureAction = withContext(Dispatchers.IO) {
+                    TakePictureBuilder.with(qiContext).build()
+                }
+                Log.d(TAG, "TakePicture action built successfully")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to build TakePicture action", e)
+                _isStreaming.value = false
+                return@launch
+            }
             
             while (isActive && _isStreaming.value) {
                 try {
