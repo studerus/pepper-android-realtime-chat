@@ -1,6 +1,5 @@
 package ch.fhnw.pepper_realtime.network
 
-import android.os.Looper
 import android.util.Log
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -10,7 +9,6 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.resume
@@ -48,7 +46,6 @@ class HttpClientManager @Inject constructor() {
     private val webSocketClient: OkHttpClient
     private val apiClient: OkHttpClient
     private val quickApiClient: OkHttpClient
-    private val shutdownInitiated = AtomicBoolean(false)
 
     init {
         Log.i(TAG, "Initializing optimized HTTP client manager")
@@ -178,46 +175,6 @@ class HttpClientManager @Inject constructor() {
         )
     }
 
-    /**
-     * Cleanup resources - call on app shutdown
-     */
-    fun shutdown() {
-        if (!shutdownInitiated.compareAndSet(false, true)) {
-            Log.d(TAG, "Shutdown already in progress - ignoring duplicate request")
-            return
-        }
-
-        synchronized(HttpClientManager::class.java) {
-            if (instance == this) {
-                instance = null
-            }
-        }
-
-        val task = Runnable { shutdownInternal() }
-        if (Looper.myLooper() == Looper.getMainLooper()) {
-            Log.d(TAG, "Shutdown requested on main thread - offloading to background thread")
-            Thread(task, "http-client-shutdown").start()
-        } else {
-            task.run()
-        }
-    }
-
-    private fun shutdownInternal() {
-        try {
-            webSocketClient.dispatcher.executorService.shutdown()
-            apiClient.dispatcher.executorService.shutdown()
-            quickApiClient.dispatcher.executorService.shutdown()
-
-            webSocketClient.connectionPool.evictAll()
-
-            Log.i(TAG, "HTTP client manager shutdown completed")
-        } catch (e: Exception) {
-            Log.w(TAG, "Error during HTTP client shutdown", e)
-        } finally {
-            Log.i(TAG, "HTTP client manager instance reset for clean restart")
-            shutdownInitiated.set(false)
-        }
-    }
 }
 
 

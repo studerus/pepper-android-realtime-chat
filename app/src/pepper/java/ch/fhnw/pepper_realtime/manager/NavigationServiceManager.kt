@@ -629,14 +629,6 @@ class NavigationServiceManager(private val movementController: MovementControlle
 
         Log.i(TAG, "NavigationServiceManager shutdown complete")
     }
-
-    /**
-     * Aggressively clear map-related caches and force GC to free memory before loading big maps.
-     */
-    fun resetMapCache() {
-        Log.i(TAG, "Resetting map cache before loading new map")
-        mapCache.reset()
-    }
 }
 
 
