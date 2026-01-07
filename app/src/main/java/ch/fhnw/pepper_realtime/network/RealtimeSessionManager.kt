@@ -439,8 +439,7 @@ class RealtimeSessionManager @Inject constructor() {
      */
     fun sendGoogleToolResult(callId: String, toolName: String, resultJson: String, scheduling: String? = null): Boolean {
         return try {
-            // Normalize tool response to the format used in the reference Live API app:
-            // response: { success: boolean, result: <any json>, error?: string, scheduling?: string }
+            // Normalize tool response
             val parsedResult = try {
                 JSONObject(resultJson)
             } catch (_: Exception) {
@@ -454,7 +453,8 @@ class RealtimeSessionManager @Inject constructor() {
                     val err = parsedResult?.optString("error", "") ?: ""
                     if (err.isNotEmpty()) put("error", err)
                 }
-                // Add scheduling for NON_BLOCKING tools (e.g., SILENT for analyze_vision)
+                // scheduling is inside response for NON_BLOCKING functions
+                // SILENT = don't generate a follow-up response for this tool result
                 if (scheduling != null) {
                     put("scheduling", scheduling)
                 }
@@ -616,10 +616,13 @@ class RealtimeSessionManager @Inject constructor() {
                     put("name", openAiDef.optString("name", toolName))
                     put("description", openAiDef.optString("description", ""))
                     
-                    // analyze_vision should be non-blocking so image can be sent with turnComplete=true
-                    // and the tool response won't trigger a second response (uses scheduling=SILENT)
-                    if (toolName == "analyze_vision") {
+                    // Non-blocking tools:
+                    // - analyze_vision: image sent with turnComplete=true, response uses scheduling=SILENT
+                    // - skipResponseIfAnnounced tools: action may be announced, response uses scheduling=SILENT
+                    // NON_BLOCKING is required for scheduling to work
+                    if (toolName == "analyze_vision" || tool.skipResponseIfAnnounced) {
                         put("behavior", "NON_BLOCKING")
+                        Log.i(TAG, "Tool '$toolName' marked as NON_BLOCKING (skipResponseIfAnnounced=${tool.skipResponseIfAnnounced})")
                     }
                     
                     // Parameters

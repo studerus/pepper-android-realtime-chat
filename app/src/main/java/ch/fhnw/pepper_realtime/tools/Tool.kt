@@ -38,6 +38,18 @@ interface Tool {
         get() = ApiKeyRequirement.None
 
     /**
+     * If true, no response will be requested after tool execution
+     * when the model already announced the action in the same response.
+     * 
+     * Use this for "fire and forget" tools like animations where the
+     * announcement IS the response and no follow-up is needed.
+     * 
+     * Default is false - most tools need a response to present results.
+     */
+    val skipResponseIfAnnounced: Boolean
+        get() = false
+
+    /**
      * Check if this tool is currently available based on context.
      * Default implementation checks API key availability based on apiKeyRequirement.
      *

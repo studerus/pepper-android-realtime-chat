@@ -17,6 +17,9 @@ class PlayAnimationTool : Tool {
 
     override fun getName(): String = "play_animation"
 
+    // Don't request another response if the model already announced the animation
+    override val skipResponseIfAnnounced: Boolean = true
+
     override fun getDefinition(): JSONObject {
         return JSONObject().apply {
             put("type", "function")

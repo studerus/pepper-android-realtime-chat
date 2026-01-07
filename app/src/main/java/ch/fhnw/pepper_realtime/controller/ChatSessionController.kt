@@ -151,10 +151,10 @@ class ChatSessionController @Inject constructor(
         }
     }
 
-    fun sendToolResult(callId: String, result: String, toolName: String? = null) {
+    fun sendToolResult(callId: String, result: String, toolName: String? = null, requestResponse: Boolean = true) {
         if (!sessionManager.isConnected) return
         try {
-            viewModel.isExpectingFinalAnswerAfterToolCall = true
+            viewModel.isExpectingFinalAnswerAfterToolCall = requestResponse
             
             val isGoogle = settingsRepository.apiProviderEnum.isGoogleProvider()
             
@@ -172,21 +172,30 @@ class ChatSessionController @Inject constructor(
                 return
             }
             
-            viewModel.setResponseGenerating(true)
-            
             // Google Live API continues generation automatically after toolResponse
             // OpenAI needs explicit response.create
-            if (!isGoogle) {
+            // Skip if requestResponse=false (tool already announced, no follow-up needed)
+            if (!isGoogle && requestResponse) {
+                viewModel.setResponseGenerating(true)
                 val sentToolResponse = sessionManager.requestResponse()
                 if (!sentToolResponse) {
                     viewModel.setResponseGenerating(false)
                     Log.e(TAG, "Failed to send tool response request")
                     return
                 }
-            }
-            
-            if (turnManager != null && turnManager.state != TurnManager.State.SPEAKING) {
-                turnManager.setState(TurnManager.State.THINKING)
+                if (turnManager != null && turnManager.state != TurnManager.State.SPEAKING) {
+                    turnManager.setState(TurnManager.State.THINKING)
+                }
+            } else if (!requestResponse) {
+                // No response requested - transition to LISTENING after audio finishes
+                // Don't set responseGenerating=true since we're not expecting a response
+                Log.d(TAG, "Tool completed without requesting response, will return to LISTENING after audio")
+            } else {
+                // Google: generating continues automatically
+                viewModel.setResponseGenerating(true)
+                if (turnManager != null && turnManager.state != TurnManager.State.SPEAKING) {
+                    turnManager.setState(TurnManager.State.THINKING)
+                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error sending tool result", e)

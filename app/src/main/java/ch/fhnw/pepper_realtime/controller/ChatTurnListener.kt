@@ -101,14 +101,9 @@ class ChatTurnListener @Inject constructor(
         Log.i(TAG, "State: Exiting SPEAKING - stopping gestures")
         gestureController.stopNow()
         
-        // Check user's mute intent to determine status text
-        // Note: Actual mic state change happens in onEnterListening
-        val userWantsMicOn = viewModel.userWantsMicOn.value
-        if (!userWantsMicOn) {
-            viewModel.setStatusText(getString(R.string.status_muted_tap_to_unmute))
-        } else {
-            viewModel.setStatusText(getString(R.string.status_listening))
-        }
+        // Don't set status text here - let onEnterListening or onEnterThinking handle it
+        // Setting "listening" here would override the correct "thinking" status when
+        // transitioning SPEAKING -> THINKING
         viewModel.setInterruptFabVisible(false)
     }
 

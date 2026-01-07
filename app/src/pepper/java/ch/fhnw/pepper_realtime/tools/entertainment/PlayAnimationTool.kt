@@ -13,6 +13,10 @@ import org.json.JSONObject
 /**
  * Tool for playing preinstalled Pepper animations.
  * Supports various emotional and gestural animations.
+ * 
+ * IMPORTANT: This tool stops the GestureController before playing the animation
+ * to avoid resource conflicts. The GestureController will automatically restart
+ * when the TurnManager enters SPEAKING state again.
  */
 class PlayAnimationTool : Tool {
 
@@ -22,11 +26,14 @@ class PlayAnimationTool : Tool {
 
     override fun getName(): String = "play_animation"
 
+    // Don't request another response if the model already announced the animation
+    override val skipResponseIfAnnounced: Boolean = true
+
     override fun getDefinition(): JSONObject {
         return JSONObject().apply {
             put("type", "function")
             put("name", getName())
-            put("description", "Play a preinstalled Pepper animation. Use the hello_01 animation when the user wants you to wave or say hello.")
+            put("description", "Play a preinstalled Pepper animation. Use hello_01 when the user wants you to wave or say hello.")
             put("parameters", JSONObject().apply {
                 put("type", "object")
                 put("properties", JSONObject().apply {
@@ -67,10 +74,14 @@ class PlayAnimationTool : Tool {
             return JSONObject().put("error", "QiContext not ready").toString()
         }
 
+        // Stop gesture controller to free animation resources before starting
+        Log.d(TAG, "Stopping GestureController before playing animation: $name")
+        context.gestureController.stopNow()
+
         try {
             val qiContext = context.qiContext as QiContext
             
-            // Start animation asynchronously
+            // Start animation asynchronously (non-blocking)
             AnimationBuilder.with(qiContext)
                 .withResources(resId)
                 .buildAsync()
@@ -82,12 +93,19 @@ class PlayAnimationTool : Tool {
                         .run()
                 }
                 .thenConsume { future ->
-                    if (future.hasError()) {
-                        Log.e(TAG, "Animation failed", future.error)
+                    if (future.isSuccess) {
+                        Log.i(TAG, "Animation '$name' completed successfully")
+                    } else if (future.hasError()) {
+                        Log.e(TAG, "Animation '$name' failed", future.error)
                     }
                 }
         } catch (e: Exception) {
-            Log.e(TAG, "Error starting animation", e)
+            Log.e(TAG, "Error starting animation '$name'", e)
+            return JSONObject()
+                .put("status", "failed")
+                .put("name", name)
+                .put("error", e.message ?: "Unknown error")
+                .toString()
         }
 
         return JSONObject()

@@ -218,7 +218,16 @@ class ChatRealtimeHandler(
                         continue
                     }
 
-                    viewModel.isExpectingFinalAnswerAfterToolCall = true
+                    // Check if tool should skip response when already announced
+                    val tool = toolRegistry.getOrCreateTool(toolName.orEmpty())
+                    val skipResponse = messageItems.isNotEmpty() && (tool?.skipResponseIfAnnounced == true)
+                    val shouldRequestResponse = !skipResponse
+                    
+                    if (skipResponse) {
+                        Log.d(TAG, "Tool '$toolName' was announced in response, skipping follow-up response request")
+                    }
+
+                    viewModel.isExpectingFinalAnswerAfterToolCall = shouldRequestResponse
                     
                     applicationScope.launch(ioDispatcher) {
                         val toolResult: String = try {
@@ -240,7 +249,7 @@ class ChatRealtimeHandler(
                         Handler(Looper.getMainLooper()).post {
                             viewModel.updateLatestFunctionCallResult(fResult)
                         }
-                        sessionController?.sendToolResult(callId ?: "", fResult)
+                        sessionController?.sendToolResult(callId ?: "", fResult, requestResponse = shouldRequestResponse)
                             ?: Log.e(TAG, "SessionController is null, cannot send tool result")
                     }
                 }
@@ -441,7 +450,17 @@ class ChatRealtimeHandler(
             val functionCall = ChatMessage.createFunctionCall(toolName, args.toString(), ChatMessage.Sender.ROBOT)
             viewModel.addMessage(functionCall)
 
-            viewModel.isExpectingFinalAnswerAfterToolCall = true
+            // Check if tool should skip response when already announced
+            // For Google: if audio is playing, the model announced the action
+            val tool = toolRegistry.getOrCreateTool(toolName)
+            val wasAnnounced = audioPlayer.isPlaying()
+            val skipResponse = wasAnnounced && (tool?.skipResponseIfAnnounced == true)
+            
+            if (skipResponse) {
+                Log.d(TAG, "Google: Tool '$toolName' was announced (audio playing), using SILENT scheduling")
+            }
+
+            viewModel.isExpectingFinalAnswerAfterToolCall = !skipResponse
 
             applicationScope.launch(ioDispatcher) {
                 val toolResult: String = try {
@@ -471,12 +490,18 @@ class ChatRealtimeHandler(
                 }
 
                 // Send result back to Google
-                // Note: Google Live API continues generation automatically after receiving toolResponse
-                // For analyze_vision, use SILENT scheduling to avoid double response (image triggers response via turnComplete=true)
-                val scheduling = if (toolName == "analyze_vision") "SILENT" else null
-                val sent = sessionManager.sendGoogleToolResult(callId, toolName, toolResult, scheduling)
-                if (!sent) {
-                    Log.e(TAG, "Failed to send Google tool result for $toolName")
+                // Use SILENT scheduling to prevent follow-up response when:
+                // - analyze_vision: image triggers response via turnComplete=true
+                // - skipResponse: tool was announced, no need for another response
+                // TEST: If skipResponse, don't send tool response at all to see if that prevents duplicate audio
+                if (skipResponse) {
+                    Log.d(TAG, "Google: Skipping tool response for '$toolName' (skipResponseIfAnnounced)")
+                } else {
+                    val scheduling = if (toolName == "analyze_vision") "SILENT" else null
+                    val sent = sessionManager.sendGoogleToolResult(callId, toolName, toolResult, scheduling)
+                    if (!sent) {
+                        Log.e(TAG, "Failed to send Google tool result for $toolName")
+                    }
                 }
             }
         }
