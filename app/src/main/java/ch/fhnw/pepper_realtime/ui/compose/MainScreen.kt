@@ -128,8 +128,10 @@ fun MainScreen(
         gesturesEnabled = true
     ) {
         Scaffold(
+            contentWindowInsets = WindowInsets(0.dp),
             topBar = {
                 CenterAlignedTopAppBar(
+                    windowInsets = WindowInsets(0.dp),
                     title = { Text(stringResource(R.string.main_title)) },
                     modifier = Modifier.shadow(4.dp),
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(

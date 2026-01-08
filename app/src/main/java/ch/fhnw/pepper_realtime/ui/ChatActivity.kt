@@ -118,6 +118,8 @@ class ChatActivity : AppCompatActivity(), ToolHost {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         // 2. Enable Immersive Sticky Mode (Hide System Bars)
+        // Prevent layout resize when system bars or privacy indicators appear
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         hideSystemUI()
 
         // Set Controller on ViewModel (Break circular dependency)
