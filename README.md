@@ -5,9 +5,11 @@
 A multimodal AI system for the Pepper robot powered by advanced speech-to-speech AI models (OpenAI Realtime API, Google Gemini Live, x.ai Grok). It enables natural interactions through voice, touch, vision, and movement, with advanced function calling for robot control (navigation, gestures, animations), information tools (search, weather), and interactive tablet activities (quizzes, memory games, tic-tac-toe, drawing game).
 
 <p align="center">
-  <img src="screenshots/IMG_20251002_141923.jpg" alt="Pepper Robot with Chat Interface" width="50%">
+  <a href="https://www.youtube.com/watch?v=qgT8SUdD-wQ">
+    <img src="https://img.youtube.com/vi/qgT8SUdD-wQ/maxresdefault.jpg" alt="Pepper Realtime AI Assistant Demo Video" width="70%">
+  </a>
   <br>
-  <em>Pepper robot engaging in natural conversation with advanced AI capabilities</em>
+  <em>▶️ Watch the demo video – Pepper robot engaging in natural conversation with advanced AI capabilities</em>
 </p>
 
 ## 📑 Table of Contents
