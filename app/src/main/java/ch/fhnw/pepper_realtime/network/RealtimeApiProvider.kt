@@ -11,7 +11,7 @@ enum class RealtimeApiProvider(
     private val modelName: String
 ) {
     AZURE_OPENAI("Azure OpenAI", "gpt-4o-realtime-preview"),
-    OPENAI_DIRECT("OpenAI Direct", "gpt-4o-realtime-preview"),
+    OPENAI_DIRECT("OpenAI Direct", "gpt-realtime-1.5"),
     XAI("x.ai Grok", "Grok Voice Agent"),
     // Google Live API requires models/ prefix for BidiGenerateContent
     GOOGLE_GEMINI("Google Gemini", "models/gemini-2.5-flash-native-audio-preview-12-2025");
@@ -29,7 +29,13 @@ enum class RealtimeApiProvider(
     fun getWebSocketUrl(azureEndpoint: String?, model: String?, googleApiKey: String? = null): String {
         val actualModel = if (!model.isNullOrEmpty()) model else modelName
         return when (this) {
-            AZURE_OPENAI -> "wss://$azureEndpoint/openai/realtime?api-version=2024-10-01-preview&deployment=$actualModel"
+            AZURE_OPENAI -> if (isOpenAiGaRealtimeModel(actualModel)) {
+                // Azure GA Realtime endpoint
+                "wss://$azureEndpoint/openai/v1/realtime?model=$actualModel"
+            } else {
+                // Azure preview endpoint
+                "wss://$azureEndpoint/openai/realtime?api-version=2025-04-01-preview&deployment=$actualModel"
+            }
             OPENAI_DIRECT -> "wss://api.openai.com/v1/realtime?model=$actualModel"
             XAI -> "wss://api.x.ai/v1/realtime"
             // v1alpha is required for newer native audio models
@@ -90,6 +96,7 @@ enum class RealtimeApiProvider(
 
     companion object {
         private const val TAG = "RealtimeApiProvider"
+        private val OPENAI_GA_REALTIME_PREFIX = "gpt-realtime"
 
         /**
          * Parse provider from string (for settings persistence)
@@ -107,7 +114,15 @@ enum class RealtimeApiProvider(
                 AZURE_OPENAI
             }
         }
+
+        /**
+         * Returns true for OpenAI Realtime GA models that use the newer session schema.
+         * Examples: gpt-realtime, gpt-realtime-mini, gpt-realtime-1.5, and their snapshots.
+         */
+        fun isOpenAiGaRealtimeModel(model: String?): Boolean {
+            if (model.isNullOrBlank()) return false
+            val normalized = model.trim().lowercase()
+            return normalized.startsWith(OPENAI_GA_REALTIME_PREFIX) && !normalized.contains("preview")
+        }
     }
 }
-
-

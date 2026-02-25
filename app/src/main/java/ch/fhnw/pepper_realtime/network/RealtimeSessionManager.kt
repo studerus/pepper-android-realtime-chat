@@ -917,8 +917,12 @@ class RealtimeSessionManager @Inject constructor() {
 
             Log.i(TAG, "x.ai config - Voice: $xaiVoice")
         }
-        // For OpenAI Direct with gpt-realtime, use GA API structure
-        else if (model == "gpt-realtime" && settings.apiProviderEnum == RealtimeApiProvider.OPENAI_DIRECT) {
+        // For OpenAI Direct/Azure with GA Realtime models, use GA API structure
+        else if (
+            (settings.apiProviderEnum == RealtimeApiProvider.OPENAI_DIRECT ||
+                settings.apiProviderEnum == RealtimeApiProvider.AZURE_OPENAI) &&
+            RealtimeApiProvider.isOpenAiGaRealtimeModel(model)
+        ) {
             sessionConfig.put("type", "realtime")
 
             // GA API uses structured audio configuration
@@ -1004,7 +1008,7 @@ class RealtimeSessionManager @Inject constructor() {
             sessionConfig.put("audio", audio)
             // Note: temperature not supported in GA API
         } else {
-            // Preview/Mini models (Beta API) - use legacy parameters with server VAD
+            // Legacy preview models (Beta API) - use legacy parameters with server VAD
             sessionConfig.put("voice", voice)
             sessionConfig.put("speed", speed)
             sessionConfig.put("temperature", temperature)

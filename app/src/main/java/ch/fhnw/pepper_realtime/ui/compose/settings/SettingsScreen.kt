@@ -53,7 +53,13 @@ fun SettingsScreen(
     val isGoogleProvider = settings.apiProvider == RealtimeApiProvider.GOOGLE_GEMINI.name
     
     // Options - dynamic based on provider
-    val openAiModels = listOf("gpt-realtime", "gpt-realtime-mini", "gpt-4o-realtime-preview", "gpt-4o-mini-realtime-preview")
+    val openAiModels = listOf(
+        "gpt-realtime-1.5",
+        "gpt-realtime",
+        "gpt-realtime-mini",
+        "gpt-4o-realtime-preview",
+        "gpt-4o-mini-realtime-preview"
+    )
     val xaiModels = listOf("Grok Voice Agent")
     // Google Live API requires models/ prefix for BidiGenerateContent
     // Include fallback model for debugging
