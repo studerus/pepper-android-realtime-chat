@@ -12,6 +12,8 @@ A multimodal AI system for the Pepper robot powered by advanced speech-to-speech
   <em>▶️ Watch the demo video – Pepper robot engaging in natural conversation with advanced AI capabilities</em>
 </p>
 
+> **📄 Published at HRI 2026** — This framework was presented at the 21st ACM/IEEE International Conference on Human-Robot Interaction (HRI '26) in Edinburgh, Scotland. Read the paper: [https://doi.org/10.1145/3757279.3788808](https://doi.org/10.1145/3757279.3788808)
+
 ## 📑 Table of Contents
 
 - [Screenshots](#-screenshots)
@@ -54,6 +56,7 @@ A multimodal AI system for the Pepper robot powered by advanced speech-to-speech
 - [Development](#-development)
 - [Troubleshooting](#-troubleshooting)
 - [Contributing](#-contributing)
+- [Citation](#-citation)
 - [License](#-license)
 - [Acknowledgments](#-acknowledgments)
 
@@ -1731,6 +1734,26 @@ adb logcat | grep -E "(LocalizeAndMap|mapping|create_environment_map)"
 
 ### Maintenance Plan
 This project is actively maintained. Issues are monitored, and pull requests for bug fixes and feature enhancements are welcome and will be reviewed.
+
+## 📝 Citation
+
+If you use this framework in your research, please cite our paper:
+
+> Erich Studerus, Vivienne Jia Zhong, and Stephan Vonschallen. 2026. A Framework for Low-Latency, LLM-Driven Multimodal Interaction on the Pepper Robot. In *Proceedings of the 21st ACM/IEEE International Conference on Human-Robot Interaction (HRI '26)*, March 16–19, 2026, Edinburgh, Scotland, UK. ACM. [https://doi.org/10.1145/3757279.3788808](https://doi.org/10.1145/3757279.3788808)
+
+```bibtex
+@inproceedings{studerus2026pepper,
+  author    = {Studerus, Erich and Zhong, Vivienne Jia and Vonschallen, Stephan},
+  title     = {A Framework for Low-Latency, LLM-Driven Multimodal Interaction on the Pepper Robot},
+  booktitle = {Proceedings of the 21st ACM/IEEE International Conference on Human-Robot Interaction},
+  series    = {HRI '26},
+  year      = {2026},
+  location  = {Edinburgh, Scotland, UK},
+  publisher = {ACM},
+  doi       = {10.1145/3757279.3788808},
+  url       = {https://doi.org/10.1145/3757279.3788808}
+}
+```
 
 ## 📄 License
 
