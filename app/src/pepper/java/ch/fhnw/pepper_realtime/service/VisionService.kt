@@ -11,6 +11,7 @@ import com.aldebaran.qi.sdk.`object`.camera.TakePicture
 import com.aldebaran.qi.sdk.`object`.image.TimestampedImageHandle
 import com.aldebaran.qi.sdk.builder.TakePictureBuilder
 import ch.fhnw.pepper_realtime.network.HttpClientManager
+import ch.fhnw.pepper_realtime.network.RealtimeApiProvider
 import kotlinx.coroutines.*
 import ch.fhnw.pepper_realtime.ui.ChatActivity
 import okhttp3.MediaType.Companion.toMediaType
@@ -149,21 +150,31 @@ class VisionService(context: Context) {
                                             ?: throw IllegalStateException("Activity reference not available")
                                         val sm = activity.sessionManager
                                         if (!sm.isConnected) throw IllegalStateException("Realtime session not connected")
-                                        
-                                        // Use different method based on provider
-                                        val sentItem = if (isGoogleProvider()) {
-                                            // Google Live API: use clientContent with inlineData
-                                            Log.d(TAG, "Sending image to Google Gemini Live API")
+
+                                        if (isGoogleProvider() && isGemini31()) {
+                                            // Gemini 3.1: send image now (first frame) AND pass
+                                            // base64 back for a second frame after the turn.
+                                            Log.d(TAG, "Gemini 3.1: Sending image (1st frame) + deferring for 2nd frame after turn")
                                             sm.sendGoogleImageMessage(base64, "image/jpeg")
+                                            working = false
+                                            callback.onResult(JSONObject()
+                                                .put("status", "deferred_image")
+                                                .put("base64", base64)
+                                                .put("mimeType", "image/jpeg")
+                                                .toString())
+                                        } else if (isGoogleProvider()) {
+                                            Log.d(TAG, "Sending image to Google Gemini Live API")
+                                            val sentItem = sm.sendGoogleImageMessage(base64, "image/jpeg")
+                                            if (!sentItem) throw IllegalStateException("Failed to send image message")
+                                            working = false
+                                            callback.onResult(JSONObject().put("status", "sent_to_realtime").toString())
                                         } else {
-                                            // OpenAI Realtime API: use conversation.item.create with input_image
                                             Log.d(TAG, "Sending image to OpenAI Realtime API")
-                                            sm.sendUserImageMessage(base64, "image/jpeg")
+                                            val sentItem = sm.sendUserImageMessage(base64, "image/jpeg")
+                                            if (!sentItem) throw IllegalStateException("Failed to send image message")
+                                            working = false
+                                            callback.onResult(JSONObject().put("status", "sent_to_realtime").toString())
                                         }
-                                        
-                                        if (!sentItem) throw IllegalStateException("Failed to send image message")
-                                        working = false
-                                        callback.onResult(JSONObject().put("status", "sent_to_realtime").toString())
                                     } catch (e: Exception) {
                                         Log.e(TAG, "Failed to send image to realtime API, falling back to Groq", e)
                                         analyzeWithGroq(base64, prompt, apiKey, callback)
@@ -219,6 +230,15 @@ class VisionService(context: Context) {
             val activity = activityRef ?: return false
             val model = activity.getModel()
             model.startsWith("models/gemini") || model.contains("gemini")
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    private fun isGemini31(): Boolean {
+        return try {
+            val activity = activityRef ?: return false
+            RealtimeApiProvider.isGemini31Model(activity.getModel())
         } catch (e: Exception) {
             false
         }

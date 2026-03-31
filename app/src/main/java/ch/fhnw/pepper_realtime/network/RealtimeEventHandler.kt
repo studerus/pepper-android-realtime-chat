@@ -325,8 +325,28 @@ class RealtimeEventHandler(val listener: Listener) {
                 return
             }
 
-            // Unknown Google event
-            Log.w(TAG, "Google: Unknown event structure")
+            // Handle usageMetadata (Gemini 3.1+ sends token usage after each turn)
+            if (serverMessage.usageMetadata != null) {
+                val meta = serverMessage.usageMetadata
+                Log.d(TAG, "Google: Usage - prompt=${meta.promptTokenCount}, response=${meta.responseTokenCount}, total=${meta.totalTokenCount}")
+                return
+            }
+
+            // Handle goAway (session about to be terminated)
+            if (serverMessage.goAway != null) {
+                Log.w(TAG, "Google: GoAway received - timeLeft=${serverMessage.goAway.timeLeft}")
+                return
+            }
+
+            // Handle sessionResumptionUpdate (Gemini 3.1+ sends periodic resumption handles)
+            if (serverMessage.sessionResumptionUpdate != null) {
+                Log.v(TAG, "Google: Session resumption handle updated (resumable=${serverMessage.sessionResumptionUpdate.resumable})")
+                return
+            }
+
+            // Unknown Google event - log the JSON for debugging
+            val preview = jsonObject.toString().let { if (it.length > 300) it.take(300) + "..." else it }
+            Log.w(TAG, "Google: Unknown event structure: $preview")
             listener.onUnknown("google_unknown", jsonObject)
 
         } catch (e: Exception) {

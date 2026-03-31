@@ -17,6 +17,7 @@ import ch.fhnw.pepper_realtime.tools.ToolContext
 import ch.fhnw.pepper_realtime.tools.ToolRegistry
 import ch.fhnw.pepper_realtime.ui.ChatMessage
 import ch.fhnw.pepper_realtime.ui.ChatViewModel
+import ch.fhnw.pepper_realtime.network.RealtimeApiProvider
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -46,6 +47,15 @@ class ChatRealtimeHandler(
     
     // Google Live API: counter to generate unique turn IDs
     private var googleTurnCounter = 0
+
+    // Gemini 3.1 deferred vision: image + text to send after the model's
+    // acknowledgment turn completes (avoids confusing the model mid-turn).
+    private data class DeferredVisionData(
+        val base64: String,
+        val mimeType: String,
+        val contextSuffix: String
+    )
+    private var pendingDeferredVision: DeferredVisionData? = null
 
     fun setToolContext(context: ToolContext?) {
         this.toolContext = context
@@ -175,6 +185,23 @@ class ChatRealtimeHandler(
         try {
             if (event.response?.output.isNullOrEmpty()) {
                 Log.i(TAG, "Response.done with no output. Finishing turn and returning to LISTENING.")
+
+                // Gemini 3.1 deferred vision: send image + text now that
+                // the model's acknowledgment turn has finished.
+                val deferred = pendingDeferredVision
+                if (deferred != null) {
+                    pendingDeferredVision = null
+                    Log.d(TAG, "Dispatching deferred vision: image + text trigger")
+                    applicationScope.launch(ioDispatcher) {
+                        sessionManager.sendGoogleImageMessage(deferred.base64, deferred.mimeType)
+                        sessionManager.sendGoogleTextMessage(
+                            "Here is the photo. Please describe what you see.${deferred.contextSuffix}",
+                            triggerResponse = true
+                        )
+                    }
+                    return
+                }
+
                 if (turnManager != null && !audioPlayer.isPlaying()) {
                     turnManager.setState(TurnManager.State.LISTENING)
                 }
@@ -426,6 +453,7 @@ class ChatRealtimeHandler(
         
         // Clear pending tool calls on interrupt
         pendingGoogleToolCalls.clear()
+        pendingDeferredVision = null
         
         // Clear the manual interrupt flag - server confirmed interruption
         viewModel.setIgnoreGoogleAudio(false)
@@ -490,17 +518,48 @@ class ChatRealtimeHandler(
                 }
 
                 // Send result back to Google
-                // Use SILENT scheduling to prevent follow-up response when:
-                // - analyze_vision: image triggers response via turnComplete=true
-                // - skipResponse: tool was announced, no need for another response
-                // TEST: If skipResponse, don't send tool response at all to see if that prevents duplicate audio
                 if (skipResponse) {
                     Log.d(TAG, "Google: Skipping tool response for '$toolName' (skipResponseIfAnnounced)")
                 } else {
-                    val scheduling = if (toolName == "analyze_vision") "SILENT" else null
-                    val sent = sessionManager.sendGoogleToolResult(callId, toolName, toolResult, scheduling)
-                    if (!sent) {
-                        Log.e(TAG, "Failed to send Google tool result for $toolName")
+                    val isGemini31 = RealtimeApiProvider.isGemini31Model(settingsRepository.model)
+
+                    // Gemini 3.1 + analyze_vision: image was deferred (not sent during
+                    // tool execution because synchronous tool calls block context updates).
+                    // Two-step flow:
+                    //   1) Tool response tells model to announce "analyzing photo" but NOT
+                    //      describe anything yet (avoids hallucination).
+                    //   2) Image + text trigger follow, prompting the actual description.
+                    val deferredImage = if (isGemini31 && toolName == "analyze_vision") {
+                        try {
+                            val obj = JSONObject(toolResult)
+                            if (obj.optString("status") == "deferred_image") obj else null
+                        } catch (_: Exception) { null }
+                    } else null
+
+                    if (deferredImage != null) {
+                        val base64 = deferredImage.getString("base64")
+                        val mime = deferredImage.optString("mimeType", "image/jpeg")
+                        val contextSuffix = viewModel.getApplication<android.app.Application>()
+                            .getString(R.string.vision_context_suffix)
+
+                        // Step 1: tool response — model acknowledges, does NOT describe yet
+                        val cleanResult = JSONObject()
+                            .put("instruction", "The photo was captured successfully. " +
+                                "Tell the user briefly that you are now analyzing the photo. " +
+                                "Do NOT describe or guess what is in the photo yet — " +
+                                "the actual image will arrive in the next message.")
+                            .toString()
+                        Log.d(TAG, "Google 3.1 deferred vision: sending tool response, deferring image to after turn completes")
+                        sessionManager.sendGoogleToolResult(callId, toolName, cleanResult)
+
+                        // Step 2: store image for dispatch after model's acknowledgment turn
+                        pendingDeferredVision = DeferredVisionData(base64, mime, contextSuffix)
+                    } else {
+                        val scheduling = if (!isGemini31 && toolName == "analyze_vision") "SILENT" else null
+                        val sent = sessionManager.sendGoogleToolResult(callId, toolName, toolResult, scheduling)
+                        if (!sent) {
+                            Log.e(TAG, "Failed to send Google tool result for $toolName")
+                        }
                     }
                 }
             }

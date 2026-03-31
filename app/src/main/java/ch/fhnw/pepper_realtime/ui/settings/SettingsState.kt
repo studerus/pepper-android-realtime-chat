@@ -37,6 +37,7 @@ data class SettingsState(
     val googlePrefixPaddingMs: Int = 20,
     val googleSilenceDurationMs: Int = 500,
     val googleThinkingBudget: Int = 0,
+    val googleThinkingLevel: String = "minimal",
     val googleAffectiveDialog: Boolean = false,
     val googleProactiveAudio: Boolean = false,
     val googleShowThinking: Boolean = false,

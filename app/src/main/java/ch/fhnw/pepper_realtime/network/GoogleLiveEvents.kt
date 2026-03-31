@@ -28,7 +28,16 @@ object GoogleLiveEvents {
         val toolCall: ToolCall? = null,
 
         @SerializedName("toolCallCancellation")
-        val toolCallCancellation: ToolCallCancellation? = null
+        val toolCallCancellation: ToolCallCancellation? = null,
+
+        @SerializedName("usageMetadata")
+        val usageMetadata: UsageMetadata? = null,
+
+        @SerializedName("goAway")
+        val goAway: GoAway? = null,
+
+        @SerializedName("sessionResumptionUpdate")
+        val sessionResumptionUpdate: SessionResumptionUpdate? = null
     )
 
     /**
@@ -128,6 +137,54 @@ object GoogleLiveEvents {
     data class ToolCallCancellation(
         @SerializedName("ids")
         val ids: List<String>? = null
+    )
+
+    /**
+     * Usage metadata sent by Gemini 3.1+ after each model turn with token counts.
+     */
+    data class UsageMetadata(
+        @SerializedName("promptTokenCount")
+        val promptTokenCount: Int? = null,
+
+        @SerializedName("responseTokenCount")
+        val responseTokenCount: Int? = null,
+
+        @SerializedName("totalTokenCount")
+        val totalTokenCount: Int? = null,
+
+        @SerializedName("promptTokensDetails")
+        val promptTokensDetails: List<TokenDetail>? = null,
+
+        @SerializedName("responseTokensDetails")
+        val responseTokensDetails: List<TokenDetail>? = null
+    )
+
+    data class TokenDetail(
+        @SerializedName("modality")
+        val modality: String? = null,
+
+        @SerializedName("tokenCount")
+        val tokenCount: Int? = null
+    )
+
+    /**
+     * GoAway event sent when the session is about to be terminated (e.g., timeout).
+     */
+    data class GoAway(
+        @SerializedName("timeLeft")
+        val timeLeft: String? = null
+    )
+
+    /**
+     * Session resumption update sent periodically by Gemini 3.1+ with a handle
+     * that can be used to resume the session after a disconnect.
+     */
+    data class SessionResumptionUpdate(
+        @SerializedName("newHandle")
+        val newHandle: String? = null,
+
+        @SerializedName("resumable")
+        val resumable: Boolean? = null
     )
 
     // ==================== CLIENT → SERVER MESSAGES ====================

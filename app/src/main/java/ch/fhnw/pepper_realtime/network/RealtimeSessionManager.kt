@@ -412,25 +412,43 @@ class RealtimeSessionManager @Inject constructor() {
 
     /**
      * Send text message to Google Live API.
-     * Uses clientContent format which allows control over whether a response is triggered.
+     * Gemini 3.1+: uses realtimeInput (clientContent only for initial history seeding).
+     *   realtimeInput.text always triggers a model response, so silent context updates
+     *   (triggerResponse=false) are skipped entirely for 3.1.
+     * Gemini 2.5: uses clientContent with turnComplete control.
      *
      * @param text Text message to send
-     * @param triggerResponse If true, triggers model response; if false, silent context update
+     * @param triggerResponse If true, triggers model response; if false, silent context update (2.5 only)
      * @return true if sent successfully
      */
     fun sendGoogleTextMessage(text: String, triggerResponse: Boolean = true): Boolean {
         return try {
-            val turns = JSONArray().put(JSONObject().apply {
-                put("role", "user")
-                put("parts", JSONArray().put(JSONObject().apply {
-                    put("text", text)
-                }))
-            })
-            val payload = JSONObject().apply {
-                put("clientContent", JSONObject().apply {
-                    put("turns", turns)
-                    put("turnComplete", triggerResponse)
+            val isGemini31 = RealtimeApiProvider.isGemini31Model(settingsRepository?.model)
+
+            if (isGemini31 && !triggerResponse) {
+                Log.d(TAG, "Skipping silent text update for Gemini 3.1 (realtimeInput has no silent mode): ${text.take(50)}...")
+                return true
+            }
+
+            val payload = if (isGemini31) {
+                JSONObject().apply {
+                    put("realtimeInput", JSONObject().apply {
+                        put("text", text)
+                    })
+                }
+            } else {
+                val turns = JSONArray().put(JSONObject().apply {
+                    put("role", "user")
+                    put("parts", JSONArray().put(JSONObject().apply {
+                        put("text", text)
+                    }))
                 })
+                JSONObject().apply {
+                    put("clientContent", JSONObject().apply {
+                        put("turns", turns)
+                        put("turnComplete", triggerResponse)
+                    })
+                }
             }
             Log.d(TAG, "Sending Google text message (triggerResponse=$triggerResponse): ${text.take(50)}...")
             send(payload.toString())
@@ -441,29 +459,41 @@ class RealtimeSessionManager @Inject constructor() {
     }
 
     /**
-     * Send an image to Google Live API via clientContent.
-     * Uses inlineData format for binary image data.
+     * Send an image to Google Live API.
+     * Gemini 3.1+: uses realtimeInput.video format (clientContent restricted to initial history).
+     * Gemini 2.5: uses clientContent with inlineData.
      *
      * @param base64 Base64-encoded image data
      * @param mime MIME type (e.g., "image/jpeg", "image/png")
-     * @param turnComplete If true, triggers model response; if false, silent context update (may be unreliable)
+     * @param turnComplete If true, triggers model response; if false, silent context update (2.5 only)
      * @return true if sent successfully
      */
     fun sendGoogleImageMessage(base64: String, mime: String, turnComplete: Boolean = true): Boolean {
         return try {
-            val payload = JSONObject().apply {
-                put("clientContent", JSONObject().apply {
-                    put("turns", JSONArray().put(JSONObject().apply {
-                        put("role", "user")
-                        put("parts", JSONArray().put(JSONObject().apply {
-                            put("inlineData", JSONObject().apply {
-                                put("mimeType", mime)
-                                put("data", base64)
-                            })
+            val payload = if (RealtimeApiProvider.isGemini31Model(settingsRepository?.model)) {
+                JSONObject().apply {
+                    put("realtimeInput", JSONObject().apply {
+                        put("video", JSONObject().apply {
+                            put("data", base64)
+                            put("mimeType", mime)
+                        })
+                    })
+                }
+            } else {
+                JSONObject().apply {
+                    put("clientContent", JSONObject().apply {
+                        put("turns", JSONArray().put(JSONObject().apply {
+                            put("role", "user")
+                            put("parts", JSONArray().put(JSONObject().apply {
+                                put("inlineData", JSONObject().apply {
+                                    put("mimeType", mime)
+                                    put("data", base64)
+                                })
+                            }))
                         }))
-                    }))
-                    put("turnComplete", turnComplete)
-                })
+                        put("turnComplete", turnComplete)
+                    })
+                }
             }
             Log.d(TAG, "Sending Google image message (${mime}, ${base64.length} chars, turnComplete=$turnComplete)")
             send(payload.toString())
@@ -480,7 +510,8 @@ class RealtimeSessionManager @Inject constructor() {
      * @param callId The function call ID from the toolCall
      * @param toolName The name of the tool that was called
      * @param resultJson JSON string containing the tool result
-     * @param scheduling Optional scheduling mode for NON_BLOCKING tools: "INTERRUPT", "WHEN_IDLE", or "SILENT"
+     * @param scheduling Optional scheduling mode for NON_BLOCKING tools: "INTERRUPT", "WHEN_IDLE", or "SILENT".
+     *                   Ignored for Gemini 3.1+ (async function calls not supported).
      * @return true if sent successfully
      */
     fun sendGoogleToolResult(callId: String, toolName: String, resultJson: String, scheduling: String? = null): Boolean {
@@ -492,6 +523,7 @@ class RealtimeSessionManager @Inject constructor() {
                 null
             }
             val success = parsedResult?.optBoolean("success", true) ?: true
+            val effectiveScheduling = if (RealtimeApiProvider.isGemini31Model(settingsRepository?.model)) null else scheduling
             val normalizedResponse = JSONObject().apply {
                 put("success", success)
                 put("result", parsedResult ?: resultJson)
@@ -499,10 +531,8 @@ class RealtimeSessionManager @Inject constructor() {
                     val err = parsedResult?.optString("error", "") ?: ""
                     if (err.isNotEmpty()) put("error", err)
                 }
-                // scheduling is inside response for NON_BLOCKING functions
-                // SILENT = don't generate a follow-up response for this tool result
-                if (scheduling != null) {
-                    put("scheduling", scheduling)
+                if (effectiveScheduling != null) {
+                    put("scheduling", effectiveScheduling)
                 }
             }
 
@@ -515,7 +545,7 @@ class RealtimeSessionManager @Inject constructor() {
                     }))
                 })
             }
-            Log.d(TAG, "Sending Google tool result for $toolName (call_id=$callId, scheduling=$scheduling)")
+            Log.d(TAG, "Sending Google tool result for $toolName (call_id=$callId, scheduling=$effectiveScheduling)")
             send(payload.toString())
         } catch (e: Exception) {
             Log.e(TAG, "Error creating Google tool result", e)
@@ -571,21 +601,20 @@ class RealtimeSessionManager @Inject constructor() {
         }
         setup.put("realtimeInputConfig", realtimeInputConfig)
         
-        // Thinking budget - always set to control thinking behavior
-        // 0 = disabled, >0 = token budget for thinking
-        generationConfig.put("thinkingConfig", JSONObject().apply {
-            put("thinkingBudget", settings.googleThinkingBudget)
-        })
+        // Thinking config - format differs between model generations
+        val isGemini31 = RealtimeApiProvider.isGemini31Model(settings.model)
+        if (isGemini31) {
+            generationConfig.put("thinkingConfig", JSONObject().apply {
+                put("thinkingLevel", settings.googleThinkingLevel)
+            })
+        } else {
+            generationConfig.put("thinkingConfig", JSONObject().apply {
+                put("thinkingBudget", settings.googleThinkingBudget)
+            })
+        }
         
-        // Affective dialog (emotional speech)
-        // Note: enableAffectiveDialog is rejected by v1alpha API with "Unknown name"
-        // The JS SDK may handle this differently. Disabled until API supports it.
-        // if (settings.googleAffectiveDialog) {
-        //     setup.put("enableAffectiveDialog", true)
-        // }
-        
-        // Proactive audio - allows Gemini to proactively decide not to respond when content is not relevant
-        if (settings.googleProactiveAudio) {
+        // Proactive audio - not supported in Gemini 3.1+
+        if (!isGemini31 && settings.googleProactiveAudio) {
             setup.put("proactivity", JSONObject().apply {
                 put("proactiveAudio", true)
             })

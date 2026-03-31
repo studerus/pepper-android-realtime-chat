@@ -120,11 +120,14 @@ class AnalyzeVisionTool : Tool {
                     return JSONObject().put("error", "Vision analysis timed out or cancelled").toString()
                 }
 
-                // Check if this was the GA path (direct image send)
                 var finalResult = result.get()
                 try {
                     val resultJson = JSONObject(finalResult)
-                    if (resultJson.optString("status") == "sent_to_realtime") {
+                    val status = resultJson.optString("status")
+                    if (status == "deferred_image") {
+                        // Gemini 3.1: pass through with base64 intact for ChatRealtimeHandler
+                        finalResult = resultJson.toString()
+                    } else if (status == "sent_to_realtime") {
                         val contextMessage = context.appContext.getString(R.string.vision_context_suffix)
                         finalResult = JSONObject()
                             .put("description", "A photo has been sent for you to analyze.$contextMessage")

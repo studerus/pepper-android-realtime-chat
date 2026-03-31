@@ -14,7 +14,7 @@ enum class RealtimeApiProvider(
     OPENAI_DIRECT("OpenAI Direct", "gpt-realtime-1.5"),
     XAI("x.ai Grok", "Grok Voice Agent"),
     // Google Live API requires models/ prefix for BidiGenerateContent
-    GOOGLE_GEMINI("Google Gemini", "models/gemini-2.5-flash-native-audio-preview-12-2025");
+    GOOGLE_GEMINI("Google Gemini", "models/gemini-3.1-flash-live-preview");
 
     fun getDisplayName(): String = displayName
 
@@ -123,6 +123,16 @@ enum class RealtimeApiProvider(
             if (model.isNullOrBlank()) return false
             val normalized = model.trim().lowercase()
             return normalized.startsWith(OPENAI_GA_REALTIME_PREFIX) && !normalized.contains("preview")
+        }
+
+        /**
+         * Returns true for Gemini 3.1+ models which use different API semantics
+         * (thinkingLevel instead of thinkingBudget, realtimeInput for text, no proactive audio, etc.)
+         */
+        fun isGemini31Model(model: String?): Boolean {
+            if (model.isNullOrBlank()) return false
+            val normalized = model.trim().lowercase()
+            return normalized.contains("gemini-3")
         }
     }
 }

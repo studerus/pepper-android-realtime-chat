@@ -51,6 +51,7 @@ fun SettingsScreen(
     val isServerVad = settings.turnDetectionType == "server_vad"
     val isXaiProvider = settings.apiProvider == RealtimeApiProvider.XAI.name
     val isGoogleProvider = settings.apiProvider == RealtimeApiProvider.GOOGLE_GEMINI.name
+    val isGemini31 = RealtimeApiProvider.isGemini31Model(settings.model)
     
     // Options - dynamic based on provider
     val openAiModels = listOf(
@@ -64,8 +65,9 @@ fun SettingsScreen(
     // Google Live API requires models/ prefix for BidiGenerateContent
     // Include fallback model for debugging
     val googleModels = listOf(
+        "models/gemini-3.1-flash-live-preview",
         "models/gemini-2.5-flash-native-audio-preview-12-2025",
-        "models/gemini-2.0-flash-live-001"  // Fallback - known to work
+        "models/gemini-2.0-flash-live-001"
     )
     val models = when {
         isGoogleProvider -> googleModels
@@ -347,32 +349,39 @@ fun SettingsScreen(
                         valueDisplay = "${settings.googleSilenceDurationMs} ms"
                     )
                     
-                    SettingsSlider(
-                        label = "Thinking Budget",
-                        value = settings.googleThinkingBudget.toFloat(),
-                        onValueChange = { viewModel.setGoogleThinkingBudget(it.toInt()) },
-                        valueRange = 0f..8192f,
-                        valueDisplay = if (settings.googleThinkingBudget == 0) "Off" else "${settings.googleThinkingBudget} tokens"
-                    )
-                    
-                    // Affective Dialog - currently not supported by v1alpha API
-                    // SettingsSwitch(
-                    //     label = "Affective Dialog",
-                    //     description = "Enables emotional speech output",
-                    //     checked = settings.googleAffectiveDialog,
-                    //     onCheckedChange = { viewModel.setGoogleAffectiveDialog(it) }
-                    // )
-                    
-                    SettingsSwitch(
-                        label = "Proactive Audio",
-                        description = "Allow Gemini to decide not to respond when content is not relevant",
-                        checked = settings.googleProactiveAudio,
-                        onCheckedChange = { viewModel.setGoogleProactiveAudio(it) }
-                    )
+                    if (isGemini31) {
+                        // Gemini 3.1+: thinkingLevel dropdown
+                        val thinkingLevels = listOf("minimal", "low", "medium", "high")
+                        SettingsDropdown(
+                            label = "Thinking Level",
+                            options = thinkingLevels,
+                            selectedOption = settings.googleThinkingLevel,
+                            onOptionSelected = { viewModel.setGoogleThinkingLevel(it) }
+                        )
+                    } else {
+                        // Gemini 2.5: thinkingBudget slider
+                        SettingsSlider(
+                            label = "Thinking Budget",
+                            value = settings.googleThinkingBudget.toFloat(),
+                            onValueChange = { viewModel.setGoogleThinkingBudget(it.toInt()) },
+                            valueRange = 0f..8192f,
+                            valueDisplay = if (settings.googleThinkingBudget == 0) "Off" else "${settings.googleThinkingBudget} tokens"
+                        )
+                    }
+
+                    // Proactive Audio - not supported in Gemini 3.1
+                    if (!isGemini31) {
+                        SettingsSwitch(
+                            label = "Proactive Audio",
+                            description = "Allow Gemini to decide not to respond when content is not relevant",
+                            checked = settings.googleProactiveAudio,
+                            onCheckedChange = { viewModel.setGoogleProactiveAudio(it) }
+                        )
+                    }
                     
                     SettingsSwitch(
                         label = "Show Thinking",
-                        description = "Display AI thinking traces in chat (requires Thinking Budget > 0)",
+                        description = if (isGemini31) "Display AI thinking traces in chat" else "Display AI thinking traces in chat (requires Thinking Budget > 0)",
                         checked = settings.googleShowThinking,
                         onCheckedChange = { viewModel.setGoogleShowThinking(it) }
                     )

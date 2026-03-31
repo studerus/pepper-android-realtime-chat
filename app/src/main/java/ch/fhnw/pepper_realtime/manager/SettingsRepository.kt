@@ -37,7 +37,7 @@ class SettingsRepository @Inject constructor(
             val defaultModel = when (apiProviderEnum) {
                 RealtimeApiProvider.XAI -> "Grok Voice Agent"
                 // Google Live API requires models/ prefix for BidiGenerateContent
-                RealtimeApiProvider.GOOGLE_GEMINI -> "models/gemini-2.5-flash-native-audio-preview-12-2025"
+                RealtimeApiProvider.GOOGLE_GEMINI -> "models/gemini-3.1-flash-live-preview"
                 else -> context.getString(R.string.openai_default_model)
             }
             return settings.getString(KEY_MODEL, defaultModel) ?: defaultModel
@@ -200,10 +200,15 @@ class SettingsRepository @Inject constructor(
         get() = settings.getInt(KEY_GOOGLE_SILENCE_DURATION_MS, 500)
         set(value) = settings.edit().putInt(KEY_GOOGLE_SILENCE_DURATION_MS, value).apply()
     
-    // Thinking budget: 0 = disabled, >0 = token budget for thinking
+    // Thinking budget: 0 = disabled, >0 = token budget for thinking (Gemini 2.5)
     var googleThinkingBudget: Int
         get() = settings.getInt(KEY_GOOGLE_THINKING_BUDGET, 0)
         set(value) = settings.edit().putInt(KEY_GOOGLE_THINKING_BUDGET, value).apply()
+
+    // Thinking level for Gemini 3.1+: minimal, low, medium, high
+    var googleThinkingLevel: String
+        get() = settings.getString(KEY_GOOGLE_THINKING_LEVEL, "minimal") ?: "minimal"
+        set(value) = settings.edit().putString(KEY_GOOGLE_THINKING_LEVEL, value).apply()
     
     // Affective dialog: enables emotional speech output
     var googleAffectiveDialog: Boolean
@@ -274,6 +279,7 @@ class SettingsRepository @Inject constructor(
         private const val KEY_GOOGLE_PREFIX_PADDING_MS = "googlePrefixPaddingMs"
         private const val KEY_GOOGLE_SILENCE_DURATION_MS = "googleSilenceDurationMs"
         private const val KEY_GOOGLE_THINKING_BUDGET = "googleThinkingBudget"
+        private const val KEY_GOOGLE_THINKING_LEVEL = "googleThinkingLevel"
         private const val KEY_GOOGLE_AFFECTIVE_DIALOG = "googleAffectiveDialog"
         private const val KEY_GOOGLE_PROACTIVE_AUDIO = "googleProactiveAudio"
         private const val KEY_GOOGLE_SHOW_THINKING = "googleShowThinking"

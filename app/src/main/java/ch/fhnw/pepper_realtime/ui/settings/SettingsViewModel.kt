@@ -66,6 +66,7 @@ class SettingsViewModel @Inject constructor(
             googlePrefixPaddingMs = settingsRepository.googlePrefixPaddingMs,
             googleSilenceDurationMs = settingsRepository.googleSilenceDurationMs,
             googleThinkingBudget = settingsRepository.googleThinkingBudget,
+            googleThinkingLevel = settingsRepository.googleThinkingLevel,
             googleAffectiveDialog = settingsRepository.googleAffectiveDialog,
             googleProactiveAudio = settingsRepository.googleProactiveAudio,
             googleShowThinking = settingsRepository.googleShowThinking,
@@ -319,6 +320,14 @@ class SettingsViewModel @Inject constructor(
         if (budget != settingsRepository.googleThinkingBudget) {
             settingsRepository.googleThinkingBudget = budget
             _settingsState.update { it.copy(googleThinkingBudget = budget) }
+            triggerGoogleSettingChange()
+        }
+    }
+
+    fun setGoogleThinkingLevel(level: String) {
+        if (level != settingsRepository.googleThinkingLevel) {
+            settingsRepository.googleThinkingLevel = level
+            _settingsState.update { it.copy(googleThinkingLevel = level) }
             triggerGoogleSettingChange()
         }
     }
