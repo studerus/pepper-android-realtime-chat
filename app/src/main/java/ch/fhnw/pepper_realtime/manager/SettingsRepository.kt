@@ -246,6 +246,14 @@ class SettingsRepository @Inject constructor(
         set(value) = settings.edit().putBoolean(KEY_XAI_X_SEARCH, value).apply()
 
     /**
+     * Remove persisted model and voice so the getters return the
+     * provider-specific defaults. Call after changing [apiProvider].
+     */
+    fun clearModelAndVoice() {
+        settings.edit().remove(KEY_MODEL).remove(KEY_VOICE).apply()
+    }
+
+    /**
      * Clear all saved settings so every property falls back to its default value.
      * API keys are stored separately and are NOT affected.
      */
