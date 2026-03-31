@@ -36,13 +36,15 @@ class SettingsRepository @Inject constructor(
         get() {
             val defaultModel = when (apiProviderEnum) {
                 RealtimeApiProvider.XAI -> "Grok Voice Agent"
-                // Google Live API requires models/ prefix for BidiGenerateContent
                 RealtimeApiProvider.GOOGLE_GEMINI -> "models/gemini-3.1-flash-live-preview"
                 else -> context.getString(R.string.openai_default_model)
             }
-            return settings.getString(KEY_MODEL, defaultModel) ?: defaultModel
+            val key = "${KEY_MODEL}_${apiProvider}"
+            return settings.getString(key, null)
+                ?: settings.getString(KEY_MODEL, defaultModel)
+                ?: defaultModel
         }
-        set(value) = settings.edit().putString(KEY_MODEL, value).apply()
+        set(value) = settings.edit().putString("${KEY_MODEL}_${apiProvider}", value).apply()
 
     var voice: String
         get() {
@@ -51,9 +53,12 @@ class SettingsRepository @Inject constructor(
                 RealtimeApiProvider.GOOGLE_GEMINI -> "Puck"
                 else -> "ash"
             }
-            return settings.getString(KEY_VOICE, defaultVoice) ?: defaultVoice
+            val key = "${KEY_VOICE}_${apiProvider}"
+            return settings.getString(key, null)
+                ?: settings.getString(KEY_VOICE, defaultVoice)
+                ?: defaultVoice
         }
-        set(value) = settings.edit().putString(KEY_VOICE, value).apply()
+        set(value) = settings.edit().putString("${KEY_VOICE}_${apiProvider}", value).apply()
 
     val speed: Float
         get() {
@@ -244,14 +249,6 @@ class SettingsRepository @Inject constructor(
     var xaiXSearch: Boolean
         get() = settings.getBoolean(KEY_XAI_X_SEARCH, true)  // Default true for backwards compatibility
         set(value) = settings.edit().putBoolean(KEY_XAI_X_SEARCH, value).apply()
-
-    /**
-     * Remove persisted model and voice so the getters return the
-     * provider-specific defaults. Call after changing [apiProvider].
-     */
-    fun clearModelAndVoice() {
-        settings.edit().remove(KEY_MODEL).remove(KEY_VOICE).apply()
-    }
 
     /**
      * Clear all saved settings so every property falls back to its default value.

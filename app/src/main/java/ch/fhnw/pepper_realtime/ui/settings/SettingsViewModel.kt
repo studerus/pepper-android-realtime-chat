@@ -143,7 +143,6 @@ class SettingsViewModel @Inject constructor(
     fun setApiProvider(provider: String) {
         if (provider != settingsRepository.apiProvider) {
             settingsRepository.apiProvider = provider
-            settingsRepository.clearModelAndVoice()
             val newModel = settingsRepository.model
             val newVoice = settingsRepository.voice
             _settingsState.update { it.copy(apiProvider = provider, model = newModel, voice = newVoice) }
