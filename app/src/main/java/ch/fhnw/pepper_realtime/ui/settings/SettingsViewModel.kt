@@ -387,6 +387,12 @@ class SettingsViewModel @Inject constructor(
         if (isBatchMode) pendingRestart = true else _restartSessionEvent.value = true
     }
 
+    fun resetToDefaults() {
+        settingsRepository.resetToDefaults()
+        _settingsState.value = loadSettingsFromRepository()
+        if (isBatchMode) pendingRestart = true else _restartSessionEvent.value = true
+    }
+
     // Event consumption methods
     fun consumeRestartSessionEvent() {
         _restartSessionEvent.value = false

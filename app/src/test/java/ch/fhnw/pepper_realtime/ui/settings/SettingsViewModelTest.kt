@@ -58,10 +58,12 @@ class SettingsViewModelTest {
         whenever(repository.googlePrefixPaddingMs).thenReturn(20)
         whenever(repository.googleSilenceDurationMs).thenReturn(500)
         whenever(repository.googleThinkingBudget).thenReturn(0)
+        whenever(repository.googleThinkingLevel).thenReturn("minimal")
         whenever(repository.googleAffectiveDialog).thenReturn(false)
         whenever(repository.googleProactiveAudio).thenReturn(false)
         whenever(repository.googleShowThinking).thenReturn(false)
         whenever(repository.googleSearchGrounding).thenReturn(false)
+        whenever(repository.googleContextCompression).thenReturn(true)
         whenever(repository.xaiWebSearch).thenReturn(true)
         whenever(repository.xaiXSearch).thenReturn(true)
 

@@ -245,6 +245,15 @@ class SettingsRepository @Inject constructor(
         get() = settings.getBoolean(KEY_XAI_X_SEARCH, true)  // Default true for backwards compatibility
         set(value) = settings.edit().putBoolean(KEY_XAI_X_SEARCH, value).apply()
 
+    /**
+     * Clear all saved settings so every property falls back to its default value.
+     * API keys are stored separately and are NOT affected.
+     */
+    fun resetToDefaults() {
+        settings.edit().clear().apply()
+        Log.i("SettingsRepository", "All settings reset to defaults")
+    }
+
     companion object {
         private const val PREFS_NAME = "PepperDialogPrefs"
         private const val KEY_SYSTEM_PROMPT = "systemPrompt"

@@ -157,6 +157,29 @@ fun SettingsScreen(
     // Note: Text field changes are now applied immediately via LaunchedEffect above
     // commitChanges() is called from MainScreen when drawer closes
     
+    var showResetDialog by remember { mutableStateOf(false) }
+
+    if (showResetDialog) {
+        AlertDialog(
+            onDismissRequest = { showResetDialog = false },
+            title = { Text("Reset Settings") },
+            text = { Text("Reset all settings to their default values? API keys will not be affected. The session will restart.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showResetDialog = false
+                    viewModel.resetToDefaults()
+                }) {
+                    Text("Reset", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     ChatTheme {
         Column(
             modifier = modifier
@@ -534,7 +557,21 @@ fun SettingsScreen(
                 xaiXSearchEnabled = settings.xaiXSearch,
                 onXaiXSearchToggled = { viewModel.setXaiXSearch(it) }
             )
-            
+
+            Spacer(modifier = Modifier.height(24.dp))
+            HorizontalDivider()
+            Spacer(modifier = Modifier.height(16.dp))
+
+            OutlinedButton(
+                onClick = { showResetDialog = true },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                Text("Reset All Settings to Defaults")
+            }
+
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
