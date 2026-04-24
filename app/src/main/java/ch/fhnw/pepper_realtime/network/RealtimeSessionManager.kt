@@ -920,19 +920,20 @@ class RealtimeSessionManager @Inject constructor() {
 
             sessionConfig.put("audio", audio)
 
-            // x.ai voice: Use directly if it's an x.ai voice, otherwise map from OpenAI names
-            val xaiVoices = setOf("Ara", "Rex", "Sal", "Eve", "Leo")
-            val xaiVoice = if (voice in xaiVoices) {
-                voice // Already an x.ai voice
+            // x.ai voice IDs are lowercase: eve, ara, rex, sal, leo.
+            val normalizedVoice = voice.lowercase()
+            val xaiVoices = setOf("ara", "rex", "sal", "eve", "leo")
+            val xaiVoice = if (normalizedVoice in xaiVoices) {
+                normalizedVoice
             } else {
                 // Fallback mapping from OpenAI voice names (for backwards compatibility)
-                when (voice.lowercase()) {
-                    "alloy", "ash" -> "Ara"
-                    "echo", "ballad" -> "Rex"
-                    "shimmer", "coral" -> "Eve"
-                    "verse" -> "Sal"
-                    "sage" -> "Leo"
-                    else -> "Ara"
+                when (normalizedVoice) {
+                    "alloy", "ash" -> "ara"
+                    "echo", "ballad" -> "rex"
+                    "shimmer", "coral" -> "eve"
+                    "verse" -> "sal"
+                    "sage" -> "leo"
+                    else -> "ara"
                 }
             }
             sessionConfig.put("voice", xaiVoice)
@@ -941,6 +942,9 @@ class RealtimeSessionManager @Inject constructor() {
             if (settings.isUsingRealtimeAudioInput) {
                 sessionConfig.put("turn_detection", JSONObject().apply {
                     put("type", "server_vad")
+                    put("threshold", settings.vadThreshold.coerceIn(0.1f, 0.9f))
+                    put("prefix_padding_ms", settings.prefixPadding)
+                    put("silence_duration_ms", settings.silenceDuration)
                 })
             }
 
@@ -1146,5 +1150,4 @@ class RealtimeSessionManager @Inject constructor() {
         }
     }
 }
-
 

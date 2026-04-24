@@ -39,6 +39,15 @@ interface RobotLifecycleBridge {
          * Called when robot focus is lost (Pepper) or simulation paused (Standalone)
          */
         fun onRobotFocusLost()
+
+        /**
+         * Called when QiSDK refuses to grant robot focus (Pepper only).
+         * Surfaces the exact reason reported by the robot service so callers can
+         * display it instead of a generic timeout.
+         *
+         * Default implementation is empty to avoid breaking existing listeners.
+         */
+        fun onRobotFocusRefused(reason: String) {}
     }
 }
 

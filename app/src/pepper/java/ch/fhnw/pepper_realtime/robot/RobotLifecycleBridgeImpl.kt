@@ -52,6 +52,7 @@ class RobotLifecycleBridgeImpl : RobotLifecycleBridge, RobotLifecycleCallbacks {
 
     override fun onRobotFocusRefused(reason: String) {
         Log.e(TAG, "🤖 Robot focus refused: $reason")
+        listener?.onRobotFocusRefused(reason)
     }
 }
 

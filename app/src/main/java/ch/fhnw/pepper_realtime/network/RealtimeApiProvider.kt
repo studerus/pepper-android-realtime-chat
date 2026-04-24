@@ -2,6 +2,10 @@ package ch.fhnw.pepper_realtime.network
 
 import android.util.Log
 
+const val XAI_THINK_FAST_MODEL = "grok-voice-think-fast-1.0"
+const val XAI_FAST_MODEL = "grok-voice-fast-1.0"
+const val XAI_LEGACY_MODEL_LABEL = "Grok Voice Agent"
+
 /**
  * Enumeration of available Realtime API providers
  * Supports Azure OpenAI, direct OpenAI, and x.ai connections
@@ -12,7 +16,7 @@ enum class RealtimeApiProvider(
 ) {
     AZURE_OPENAI("Azure OpenAI", "gpt-4o-realtime-preview"),
     OPENAI_DIRECT("OpenAI Direct", "gpt-realtime-1.5"),
-    XAI("x.ai Grok", "Grok Voice Agent"),
+    XAI("x.ai Grok", XAI_THINK_FAST_MODEL),
     // Google Live API requires models/ prefix for BidiGenerateContent
     GOOGLE_GEMINI("Google Gemini", "models/gemini-3.1-flash-live-preview");
 
@@ -27,7 +31,12 @@ enum class RealtimeApiProvider(
      * @return WebSocket URL
      */
     fun getWebSocketUrl(azureEndpoint: String?, model: String?, googleApiKey: String? = null): String {
-        val actualModel = if (!model.isNullOrEmpty()) model else modelName
+        val requestedModel = if (!model.isNullOrBlank()) model.trim() else modelName
+        val actualModel = if (this == XAI && requestedModel == XAI_LEGACY_MODEL_LABEL) {
+            XAI_THINK_FAST_MODEL
+        } else {
+            requestedModel
+        }
         return when (this) {
             AZURE_OPENAI -> if (isOpenAiGaRealtimeModel(actualModel)) {
                 // Azure GA Realtime endpoint
@@ -37,7 +46,7 @@ enum class RealtimeApiProvider(
                 "wss://$azureEndpoint/openai/realtime?api-version=2025-04-01-preview&deployment=$actualModel"
             }
             OPENAI_DIRECT -> "wss://api.openai.com/v1/realtime?model=$actualModel"
-            XAI -> "wss://api.x.ai/v1/realtime"
+            XAI -> "wss://api.x.ai/v1/realtime?model=$actualModel"
             // v1alpha is required for newer native audio models
             GOOGLE_GEMINI -> "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${googleApiKey ?: ""}"
         }

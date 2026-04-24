@@ -14,6 +14,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ch.fhnw.pepper_realtime.manager.ApiKeyManager
 import ch.fhnw.pepper_realtime.manager.SettingsRepository
 import ch.fhnw.pepper_realtime.network.RealtimeApiProvider
+import ch.fhnw.pepper_realtime.network.XAI_FAST_MODEL
+import ch.fhnw.pepper_realtime.network.XAI_THINK_FAST_MODEL
 import ch.fhnw.pepper_realtime.tools.ToolRegistry
 import ch.fhnw.pepper_realtime.ui.compose.ChatTheme
 import ch.fhnw.pepper_realtime.ui.settings.SettingsViewModel
@@ -61,7 +63,10 @@ fun SettingsScreen(
         "gpt-4o-realtime-preview",
         "gpt-4o-mini-realtime-preview"
     )
-    val xaiModels = listOf("Grok Voice Agent")
+    val xaiModels = listOf(
+        XAI_THINK_FAST_MODEL,
+        XAI_FAST_MODEL
+    )
     // Google Live API requires models/ prefix for BidiGenerateContent
     // Include fallback model for debugging
     val googleModels = listOf(
@@ -88,11 +93,11 @@ fun SettingsScreen(
         "verse" to "Versatile, expressive"
     )
     val xaiVoices = linkedMapOf(
-        "Ara" to "Female, warm, friendly",
-        "Rex" to "Male, confident, clear",
-        "Sal" to "Neutral, smooth, balanced",
-        "Eve" to "Female, energetic, upbeat",
-        "Leo" to "Male, authoritative, strong"
+        "eve" to "Female",
+        "ara" to "Female",
+        "rex" to "Male",
+        "sal" to "Male",
+        "leo" to "Male"
     )
     val googleVoices = linkedMapOf(
         "Zephyr" to "Bright",
@@ -263,12 +268,12 @@ fun SettingsScreen(
             SettingsVoiceDropdown(
                 label = "Voice",
                 voices = voices,
-                selectedVoice = settings.voice,
+                selectedVoice = if (isXaiProvider) settings.voice.lowercase() else settings.voice,
                 onVoiceSelected = { viewModel.setVoice(it) }
             )
             
-            // Speed and Temperature - not supported by Google Live API
-            if (!isGoogleProvider) {
+            // Speed and Temperature - not supported by Google Live API or x.ai Voice Agent
+            if (!isGoogleProvider && !isXaiProvider) {
                 SettingsSlider(
                     label = "Speech Speed",
                     value = settings.speedProgress.toFloat(),
@@ -414,6 +419,33 @@ fun SettingsScreen(
                         description = "Enable context compression for unlimited session length (default: 15min audio, 2min video)",
                         checked = settings.googleContextCompression,
                         onCheckedChange = { viewModel.setGoogleContextCompression(it) }
+                    )
+                } else if (isXaiProvider) {
+                    // x.ai Voice Agent Settings
+                    SettingsSectionHeader(title = "x.ai Voice Agent Settings")
+
+                    SettingsSlider(
+                        label = "VAD Activation Threshold",
+                        value = settings.vadThreshold.coerceIn(0.1f, 0.9f),
+                        onValueChange = { viewModel.setVadThreshold(it) },
+                        valueRange = 0.1f..0.9f,
+                        valueDisplay = "%.2f".format(settings.vadThreshold.coerceIn(0.1f, 0.9f))
+                    )
+
+                    SettingsSlider(
+                        label = "Prefix Padding",
+                        value = settings.prefixPadding.toFloat(),
+                        onValueChange = { viewModel.setPrefixPadding(it.toInt()) },
+                        valueRange = 0f..1000f,
+                        valueDisplay = "${settings.prefixPadding} ms"
+                    )
+
+                    SettingsSlider(
+                        label = "Silence Duration",
+                        value = settings.silenceDuration.toFloat(),
+                        onValueChange = { viewModel.setSilenceDuration(it.toInt()) },
+                        valueRange = 200f..2000f,
+                        valueDisplay = "${settings.silenceDuration} ms"
                     )
                 } else {
                     // OpenAI Realtime API Settings

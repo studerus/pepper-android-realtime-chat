@@ -6,6 +6,8 @@ import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
 import ch.fhnw.pepper_realtime.R
 import ch.fhnw.pepper_realtime.network.RealtimeApiProvider
+import ch.fhnw.pepper_realtime.network.XAI_LEGACY_MODEL_LABEL
+import ch.fhnw.pepper_realtime.network.XAI_THINK_FAST_MODEL
 import ch.fhnw.pepper_realtime.tools.ToolRegistry
 import ch.fhnw.pepper_realtime.ui.settings.LanguageOption
 import javax.inject.Inject
@@ -35,28 +37,38 @@ class SettingsRepository @Inject constructor(
     var model: String
         get() {
             val defaultModel = when (apiProviderEnum) {
-                RealtimeApiProvider.XAI -> "Grok Voice Agent"
+                RealtimeApiProvider.XAI -> XAI_THINK_FAST_MODEL
                 RealtimeApiProvider.GOOGLE_GEMINI -> "models/gemini-3.1-flash-live-preview"
                 else -> context.getString(R.string.openai_default_model)
             }
             val key = "${KEY_MODEL}_${apiProvider}"
-            return settings.getString(key, null)
+            val savedModel = settings.getString(key, null)
                 ?: settings.getString(KEY_MODEL, defaultModel)
                 ?: defaultModel
+            return if (apiProviderEnum == RealtimeApiProvider.XAI && savedModel == XAI_LEGACY_MODEL_LABEL) {
+                XAI_THINK_FAST_MODEL
+            } else {
+                savedModel
+            }
         }
         set(value) = settings.edit().putString("${KEY_MODEL}_${apiProvider}", value).apply()
 
     var voice: String
         get() {
             val defaultVoice = when (apiProviderEnum) {
-                RealtimeApiProvider.XAI -> "Ara"
+                RealtimeApiProvider.XAI -> "ara"
                 RealtimeApiProvider.GOOGLE_GEMINI -> "Puck"
                 else -> "ash"
             }
             val key = "${KEY_VOICE}_${apiProvider}"
-            return settings.getString(key, null)
+            val savedVoice = settings.getString(key, null)
                 ?: settings.getString(KEY_VOICE, defaultVoice)
                 ?: defaultVoice
+            return if (apiProviderEnum == RealtimeApiProvider.XAI) {
+                savedVoice.lowercase()
+            } else {
+                savedVoice
+            }
         }
         set(value) = settings.edit().putString("${KEY_VOICE}_${apiProvider}", value).apply()
 
