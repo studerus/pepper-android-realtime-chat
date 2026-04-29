@@ -153,7 +153,7 @@ A multimodal AI system for the Pepper robot powered by advanced speech-to-speech
 ## ✨ Features
 
 - **Real-time Voice Chat** - Natural conversations powered by speech-to-speech (S2S) AI models:
-  - **OpenAI** - gpt-realtime, gpt-realtime-mini, gpt-4o-realtime-preview, gpt-4o-mini-realtime-preview
+  - **OpenAI** - gpt-realtime-1.5, gpt-realtime, gpt-realtime-mini, gpt-4o-realtime-preview, gpt-4o-mini-realtime-preview
   - **Azure OpenAI** - Same models with network-level isolation and customer-managed encryption for enterprise compliance
   - **x.ai** - `grok-voice-think-fast-1.0` (default) and `grok-voice-fast-1.0` Voice Agent API with native web/X search
   - **Google** - Gemini Live API with native audio model and 30 voices
@@ -452,6 +452,7 @@ This allows the Android app to automatically start the face recognition server v
 1. Go to [platform.openai.com](https://platform.openai.com/)
 2. Create an API key
 3. That's it! The app supports all Realtime API models:
+   - `gpt-realtime-1.5` (Latest GA model with built-in vision ✅, default for OpenAI Direct)
    - `gpt-realtime` (GA model with built-in vision ✅)
    - `gpt-realtime-mini` (Affordable GA model with built-in vision ✅)
    - `gpt-4o-realtime-preview` (Older model - requires Groq for vision)
@@ -461,6 +462,7 @@ This allows the Android app to automatically start the face recognition server v
 1. Go to [Azure Portal](https://portal.azure.com/)
 2. Create an Azure OpenAI resource
 3. Deploy one or more of the supported models:
+   - `gpt-realtime-1.5` (Latest GA model with built-in vision)
    - `gpt-realtime` (GA model with built-in vision)
    - `gpt-realtime-mini` (Affordable GA model with built-in vision)
    - `gpt-4o-realtime-preview` (Older model - requires Groq for vision)
@@ -521,7 +523,7 @@ This allows the Android app to automatically start the face recognition server v
 #### Groq API (Vision Analysis - Optional)  
 - **Free Tier**: 14,400 requests/day
 - **Get Key**: [console.groq.com](https://console.groq.com/)
-- **Enables**: Alternative vision analysis provider (gpt-realtime and gpt-realtime-mini have built-in vision, only required for vision analysis with gpt-4o-realtime-preview and gpt-4o-mini-realtime-preview)
+- **Enables**: Alternative vision analysis provider (gpt-realtime-1.5, gpt-realtime, and gpt-realtime-mini have built-in vision, only required for vision analysis with gpt-4o-realtime-preview and gpt-4o-mini-realtime-preview)
 
 #### Tavily API (Internet Search)
 - **Free Tier**: 1,000 searches/month
@@ -643,8 +645,8 @@ This app sends data to third-party services when features are used:
 #### API Provider Selection
 You can switch between different AI providers in the settings:
 
-- **OpenAI Direct** (Realtime API): Supports all four models (`gpt-realtime`, `gpt-realtime-mini`, `gpt-4o-realtime-preview`, `gpt-4o-mini-realtime-preview`) directly from OpenAI with 10 voices
-- **Azure OpenAI** (Realtime API): Supports all four models with your Azure deployment, network-level isolation, and customer-managed encryption for enterprise compliance
+- **OpenAI Direct** (Realtime API): Supports all five models (`gpt-realtime-1.5`, `gpt-realtime`, `gpt-realtime-mini`, `gpt-4o-realtime-preview`, `gpt-4o-mini-realtime-preview`) directly from OpenAI with 10 voices
+- **Azure OpenAI** (Realtime API): Supports all five models with your Azure deployment, network-level isolation, and customer-managed encryption for enterprise compliance
 - **x.ai Grok** (Grok Voice Agent API): `grok-voice-think-fast-1.0` by default, with `grok-voice-fast-1.0` also selectable; native web/X search capabilities, configurable server VAD, and 5 voices (`eve`, `ara`, `rex`, `sal`, `leo`)
 - **Google Gemini** (Live API): Native audio model with end-to-end speech, configurable VAD, thinking budget, and 30 voices
 
@@ -1673,7 +1675,7 @@ app/src/
 - For x.ai: Ensure `XAI_API_KEY` is set and the selected model is `grok-voice-think-fast-1.0` or `grok-voice-fast-1.0`
 
 #### "Vision analysis not available"
-- Vision works automatically with `gpt-realtime` and `gpt-realtime-mini` models (built-in)
+- Vision works automatically with `gpt-realtime-1.5`, `gpt-realtime`, and `gpt-realtime-mini` models (built-in)
 - For other models (preview models, x.ai Grok): Add `GROQ_API_KEY` to `local.properties` for Groq-based vision
 - Check camera permissions and robot focus
 

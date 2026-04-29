@@ -488,8 +488,12 @@ class VisionService(context: Context) {
             }
             val model = activity.getModel()
             Log.d(TAG, "Current model for vision decision: $model")
-            // OpenAI Realtime API models
-            model == "gpt-realtime" || model == "gpt-realtime-mini" ||
+            // OpenAI Realtime GA models with built-in vision
+            // (gpt-realtime, gpt-realtime-mini, gpt-realtime-1.5, future snapshots).
+            // Excludes legacy preview models (gpt-4o-realtime-preview,
+            // gpt-4o-mini-realtime-preview) which do not support image input
+            // and therefore must use the Groq vision fallback.
+            RealtimeApiProvider.isOpenAiGaRealtimeModel(model) ||
             // Google Gemini Live API models (with or without models/ prefix)
             model.startsWith("models/gemini") || model.contains("gemini")
         } catch (e: Exception) {
