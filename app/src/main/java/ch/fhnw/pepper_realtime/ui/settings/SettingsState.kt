@@ -30,6 +30,7 @@ data class SettingsState(
     val idleTimeout: Int? = null,
     val eagerness: String = "auto",
     val noiseReduction: String = "off",
+    val openAiReasoningEffort: String = "low",
     
     // Google Live API Settings
     val googleStartSensitivity: String = "HIGH",

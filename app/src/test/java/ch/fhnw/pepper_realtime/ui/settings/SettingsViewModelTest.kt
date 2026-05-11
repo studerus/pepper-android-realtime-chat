@@ -51,6 +51,7 @@ class SettingsViewModelTest {
         whenever(repository.idleTimeout).thenReturn(0)
         whenever(repository.eagerness).thenReturn("auto")
         whenever(repository.noiseReduction).thenReturn("off")
+        whenever(repository.openAiReasoningEffort).thenReturn("low")
         
         // Google Live API settings
         whenever(repository.googleStartSensitivity).thenReturn("HIGH")

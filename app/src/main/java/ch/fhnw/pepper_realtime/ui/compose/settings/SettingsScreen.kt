@@ -57,6 +57,7 @@ fun SettingsScreen(
     
     // Options - dynamic based on provider
     val openAiModels = listOf(
+        "gpt-realtime-2",
         "gpt-realtime-1.5",
         "gpt-realtime",
         "gpt-realtime-mini",
@@ -450,7 +451,20 @@ fun SettingsScreen(
                 } else {
                     // OpenAI Realtime API Settings
                     SettingsSectionHeader(title = "Voice API Settings")
-                    
+
+                    // Reasoning effort - only available on reasoning-capable Realtime models
+                    // (e.g. gpt-realtime-2). Hidden for non-reasoning models so the dropdown
+                    // doesn't show up for plain gpt-realtime / gpt-4o-realtime-preview.
+                    if (RealtimeApiProvider.isOpenAiReasoningModel(settings.model)) {
+                        val reasoningEffortLevels = listOf("minimal", "low", "medium", "high", "xhigh")
+                        SettingsDropdown(
+                            label = "Reasoning Effort",
+                            options = reasoningEffortLevels,
+                            selectedOption = settings.openAiReasoningEffort,
+                            onOptionSelected = { viewModel.setOpenAiReasoningEffort(it) }
+                        )
+                    }
+
                     SettingsDropdown(
                         label = "Transcription Model",
                         options = transcriptionModels,

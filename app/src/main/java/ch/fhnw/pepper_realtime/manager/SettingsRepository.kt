@@ -198,6 +198,13 @@ class SettingsRepository @Inject constructor(
         get() = settings.getString(KEY_EAGERNESS, "auto") ?: "auto"
         set(value) = settings.edit().putString(KEY_EAGERNESS, value).apply()
 
+    // Reasoning effort for OpenAI reasoning-capable Realtime models (e.g. gpt-realtime-2).
+    // Options: minimal, low, medium, high, xhigh. Default "low" matches OpenAI's recommendation
+    // for balancing latency and reasoning depth in voice agents.
+    var openAiReasoningEffort: String
+        get() = settings.getString(KEY_OPENAI_REASONING_EFFORT, "low") ?: "low"
+        set(value) = settings.edit().putString(KEY_OPENAI_REASONING_EFFORT, value).apply()
+
     // ==================== Google Live API Settings ====================
     
     // VAD Sensitivity: "LOW" or "HIGH"
@@ -298,6 +305,7 @@ class SettingsRepository @Inject constructor(
         private const val KEY_IDLE_TIMEOUT = "idleTimeout"
         private const val KEY_NOISE_REDUCTION = "noiseReduction"
         private const val KEY_EAGERNESS = "eagerness"
+        private const val KEY_OPENAI_REASONING_EFFORT = "openAiReasoningEffort"
 
         // Google Live API specific settings
         private const val KEY_GOOGLE_START_SENSITIVITY = "googleStartSensitivity"

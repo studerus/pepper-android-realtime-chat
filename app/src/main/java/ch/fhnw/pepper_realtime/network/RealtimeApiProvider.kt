@@ -126,7 +126,7 @@ enum class RealtimeApiProvider(
 
         /**
          * Returns true for OpenAI Realtime GA models that use the newer session schema.
-         * Examples: gpt-realtime, gpt-realtime-mini, gpt-realtime-1.5, and their snapshots.
+         * Examples: gpt-realtime, gpt-realtime-mini, gpt-realtime-1.5, gpt-realtime-2, and their snapshots.
          */
         fun isOpenAiGaRealtimeModel(model: String?): Boolean {
             if (model.isNullOrBlank()) return false
@@ -142,6 +142,24 @@ enum class RealtimeApiProvider(
             if (model.isNullOrBlank()) return false
             val normalized = model.trim().lowercase()
             return normalized.contains("gemini-3")
+        }
+
+        /**
+         * Returns true for OpenAI Realtime models that support configurable reasoning effort
+         * (currently the GPT-5-class gpt-realtime-2 family with reasoning levels:
+         * minimal, low, medium, high, xhigh).
+         *
+         * Older GA models (gpt-realtime, gpt-realtime-mini, gpt-realtime-1.5) do not expose
+         * a reasoning effort knob and must not receive this field.
+         */
+        fun isOpenAiReasoningModel(model: String?): Boolean {
+            if (model.isNullOrBlank()) return false
+            val normalized = model.trim().lowercase()
+            // Matches gpt-realtime-2 and any future snapshots like gpt-realtime-2-2026-xx-xx.
+            // Word-boundary check on "-2" so it doesn't accidentally match e.g. "gpt-realtime-2024-xx".
+            return normalized.startsWith("gpt-realtime-2") &&
+                (normalized.length == "gpt-realtime-2".length ||
+                    normalized.getOrNull("gpt-realtime-2".length) == '-')
         }
     }
 }

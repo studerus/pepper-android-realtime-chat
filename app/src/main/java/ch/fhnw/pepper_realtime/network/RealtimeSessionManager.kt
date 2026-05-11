@@ -1040,6 +1040,18 @@ class RealtimeSessionManager @Inject constructor() {
             audio.put("input", input)
             sessionConfig.put("audio", audio)
             // Note: temperature not supported in GA API
+
+            // Reasoning effort - only set for reasoning-capable Realtime models
+            // (e.g. gpt-realtime-2 with minimal/low/medium/high/xhigh effort levels).
+            // Plain GA models (gpt-realtime, gpt-realtime-mini, gpt-realtime-1.5) must
+            // not receive this field to avoid an "unknown parameter" rejection.
+            if (RealtimeApiProvider.isOpenAiReasoningModel(model)) {
+                val effort = settings.openAiReasoningEffort
+                sessionConfig.put("reasoning", JSONObject().apply {
+                    put("effort", effort)
+                })
+                Log.i(TAG, "Reasoning effort enabled for $model: $effort")
+            }
         } else {
             // Legacy preview models (Beta API) - use legacy parameters with server VAD
             sessionConfig.put("voice", voice)

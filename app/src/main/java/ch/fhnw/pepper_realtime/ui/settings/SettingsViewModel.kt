@@ -60,6 +60,7 @@ class SettingsViewModel @Inject constructor(
             idleTimeout = settingsRepository.idleTimeout,
             eagerness = settingsRepository.eagerness,
             noiseReduction = settingsRepository.noiseReduction,
+            openAiReasoningEffort = settingsRepository.openAiReasoningEffort,
             // Google Live API Settings
             googleStartSensitivity = settingsRepository.googleStartSensitivity,
             googleEndSensitivity = settingsRepository.googleEndSensitivity,
@@ -276,6 +277,15 @@ class SettingsViewModel @Inject constructor(
             settingsRepository.noiseReduction = reduction
             _settingsState.update { it.copy(noiseReduction = reduction) }
             triggerRealtimeSettingChange()
+        }
+    }
+
+    fun setOpenAiReasoningEffort(effort: String) {
+        if (effort != settingsRepository.openAiReasoningEffort) {
+            settingsRepository.openAiReasoningEffort = effort
+            _settingsState.update { it.copy(openAiReasoningEffort = effort) }
+            // Reasoning effort is part of the session config; a full restart applies it cleanly.
+            if (isBatchMode) pendingRestart = true else _restartSessionEvent.value = true
         }
     }
     
