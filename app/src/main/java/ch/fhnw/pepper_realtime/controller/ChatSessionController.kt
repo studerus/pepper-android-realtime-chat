@@ -329,7 +329,8 @@ class ChatSessionController @Inject constructor(
                     }
                 }
                 // Add OpenAI-Beta header only for legacy preview models.
-                // GA models (e.g., gpt-realtime, gpt-realtime-mini, gpt-realtime-1.5, gpt-realtime-2) must not send this header.
+                // GA models (e.g., gpt-realtime, gpt-realtime-mini, gpt-realtime-1.5, gpt-realtime-2,
+                // gpt-realtime-2.1, gpt-realtime-2.1-mini) must not send this header.
                 if (
                     provider == RealtimeApiProvider.OPENAI_DIRECT &&
                     !RealtimeApiProvider.isOpenAiGaRealtimeModel(selectedModel)

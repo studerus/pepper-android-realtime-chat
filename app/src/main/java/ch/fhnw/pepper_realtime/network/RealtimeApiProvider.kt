@@ -126,7 +126,8 @@ enum class RealtimeApiProvider(
 
         /**
          * Returns true for OpenAI Realtime GA models that use the newer session schema.
-         * Examples: gpt-realtime, gpt-realtime-mini, gpt-realtime-1.5, gpt-realtime-2, and their snapshots.
+         * Examples: gpt-realtime, gpt-realtime-mini, gpt-realtime-1.5, gpt-realtime-2,
+         * gpt-realtime-2.1, gpt-realtime-2.1-mini, and their snapshots.
          */
         fun isOpenAiGaRealtimeModel(model: String?): Boolean {
             if (model.isNullOrBlank()) return false
@@ -146,7 +147,7 @@ enum class RealtimeApiProvider(
 
         /**
          * Returns true for OpenAI Realtime models that support configurable reasoning effort
-         * (currently the GPT-5-class gpt-realtime-2 family with reasoning levels:
+         * (GPT-5-class gpt-realtime-2 / gpt-realtime-2.1 families with reasoning levels:
          * minimal, low, medium, high, xhigh).
          *
          * Older GA models (gpt-realtime, gpt-realtime-mini, gpt-realtime-1.5) do not expose
@@ -155,11 +156,17 @@ enum class RealtimeApiProvider(
         fun isOpenAiReasoningModel(model: String?): Boolean {
             if (model.isNullOrBlank()) return false
             val normalized = model.trim().lowercase()
-            // Matches gpt-realtime-2 and any future snapshots like gpt-realtime-2-2026-xx-xx.
-            // Word-boundary check on "-2" so it doesn't accidentally match e.g. "gpt-realtime-2024-xx".
-            return normalized.startsWith("gpt-realtime-2") &&
-                (normalized.length == "gpt-realtime-2".length ||
-                    normalized.getOrNull("gpt-realtime-2".length) == '-')
+            return OPENAI_REASONING_MODEL_FAMILIES.any { matchesOpenAiModelFamily(normalized, it) }
+        }
+
+        private val OPENAI_REASONING_MODEL_FAMILIES = listOf(
+            "gpt-realtime-2.1-mini",
+            "gpt-realtime-2.1",
+            "gpt-realtime-2",
+        )
+
+        private fun matchesOpenAiModelFamily(normalized: String, familyPrefix: String): Boolean {
+            return normalized == familyPrefix || normalized.startsWith("$familyPrefix-")
         }
     }
 }

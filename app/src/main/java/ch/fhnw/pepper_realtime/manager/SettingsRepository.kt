@@ -198,7 +198,7 @@ class SettingsRepository @Inject constructor(
         get() = settings.getString(KEY_EAGERNESS, "auto") ?: "auto"
         set(value) = settings.edit().putString(KEY_EAGERNESS, value).apply()
 
-    // Reasoning effort for OpenAI reasoning-capable Realtime models (e.g. gpt-realtime-2).
+    // Reasoning effort for OpenAI reasoning-capable Realtime models (e.g. gpt-realtime-2 / 2.1).
     // Options: minimal, low, medium, high, xhigh. Default "low" matches OpenAI's recommendation
     // for balancing latency and reasoning depth in voice agents.
     var openAiReasoningEffort: String

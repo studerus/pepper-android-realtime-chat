@@ -489,7 +489,7 @@ class VisionService(context: Context) {
             val model = activity.getModel()
             Log.d(TAG, "Current model for vision decision: $model")
             // OpenAI Realtime GA models with built-in vision
-            // (gpt-realtime, gpt-realtime-mini, gpt-realtime-1.5, gpt-realtime-2, future snapshots).
+            // (gpt-realtime, gpt-realtime-mini, gpt-realtime-1.5, gpt-realtime-2, gpt-realtime-2.1, future snapshots).
             // Excludes legacy preview models (gpt-4o-realtime-preview,
             // gpt-4o-mini-realtime-preview) which do not support image input
             // and therefore must use the Groq vision fallback.

@@ -1042,7 +1042,7 @@ class RealtimeSessionManager @Inject constructor() {
             // Note: temperature not supported in GA API
 
             // Reasoning effort - only set for reasoning-capable Realtime models
-            // (e.g. gpt-realtime-2 with minimal/low/medium/high/xhigh effort levels).
+            // (e.g. gpt-realtime-2 / 2.1 with minimal/low/medium/high/xhigh effort levels).
             // Plain GA models (gpt-realtime, gpt-realtime-mini, gpt-realtime-1.5) must
             // not receive this field to avoid an "unknown parameter" rejection.
             if (RealtimeApiProvider.isOpenAiReasoningModel(model)) {
