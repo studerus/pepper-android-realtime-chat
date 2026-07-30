@@ -155,7 +155,7 @@ A multimodal AI system for the Pepper robot powered by advanced speech-to-speech
 - **Real-time Voice Chat** - Natural conversations powered by speech-to-speech (S2S) AI models:
   - **OpenAI** - gpt-realtime-2.1, gpt-realtime-2.1-mini, gpt-realtime-2 (GPT-5-class reasoning models with configurable effort levels), gpt-realtime-1.5, gpt-realtime, gpt-realtime-mini, gpt-4o-realtime-preview, gpt-4o-mini-realtime-preview
   - **Azure OpenAI** - Same models with network-level isolation and customer-managed encryption for enterprise compliance
-  - **x.ai** - `grok-voice-think-fast-1.0` (default) and `grok-voice-fast-1.0` Voice Agent API with native web/X search
+  - **x.ai** - `grok-voice-think-fast-2.0` (default), `grok-voice-think-fast-1.0`, and `grok-voice-fast-1.0` Voice Agent API with native web/X search
   - **Google** - Gemini Live API with native audio model and 30 voices
 - **Audio Input Modes** - Two optimized modes for voice capture:
   - **Direct Audio** - Low-latency streaming with native voice activity detection
@@ -491,7 +491,7 @@ This allows the Android app to automatically start the face recognition server v
    ```
 
 **Unique Features:**
-- **Model Selection**: Defaults to `grok-voice-think-fast-1.0`; `grok-voice-fast-1.0` remains selectable in settings
+- **Model Selection**: Defaults to `grok-voice-think-fast-2.0`; `grok-voice-think-fast-1.0` and `grok-voice-fast-1.0` remain selectable in settings
 - **Explicit Realtime Model URL**: Uses `wss://api.x.ai/v1/realtime?model=<selected-model>`
 - **Native Web Search**: Built-in web search without Tavily API (configurable in settings)
 - **Native X Search**: Search posts on X/Twitter in real-time (configurable in settings)
@@ -653,7 +653,7 @@ You can switch between different AI providers in the settings:
 
 - **OpenAI Direct** (Realtime API): Supports all eight models (`gpt-realtime-2.1`, `gpt-realtime-2.1-mini`, `gpt-realtime-2`, `gpt-realtime-1.5`, `gpt-realtime`, `gpt-realtime-mini`, `gpt-4o-realtime-preview`, `gpt-4o-mini-realtime-preview`) directly from OpenAI with 10 voices. The reasoning models (`gpt-realtime-2.1`, `gpt-realtime-2.1-mini`, `gpt-realtime-2`) additionally expose a **Reasoning Effort** setting (`minimal`/`low`/`medium`/`high`/`xhigh`) to trade off latency vs. reasoning depth.
 - **Azure OpenAI** (Realtime API): Supports all eight models with your Azure deployment, network-level isolation, and customer-managed encryption for enterprise compliance
-- **x.ai Grok** (Grok Voice Agent API): `grok-voice-think-fast-1.0` by default, with `grok-voice-fast-1.0` also selectable; native web/X search capabilities, configurable server VAD, and 5 voices (`eve`, `ara`, `rex`, `sal`, `leo`)
+- **x.ai Grok** (Grok Voice Agent API): `grok-voice-think-fast-2.0` by default, with `grok-voice-think-fast-1.0` and `grok-voice-fast-1.0` also selectable; native web/X search capabilities, configurable server VAD, and 5 voices (`eve`, `ara`, `rex`, `sal`, `leo`)
 - **Google Gemini** (Live API): Native audio model with end-to-end speech, configurable VAD, thinking budget, and 30 voices
 
 **Note**: Changing the API provider automatically updates available models and voices. Model/voice changes restart the session automatically.
@@ -1454,7 +1454,7 @@ Robot: "Happy Birthday! 🎂"
 ```
 
 **Key Flow Characteristics:**
-- **Model Flexibility**: Supports OpenAI Realtime models, Google Gemini Live models, and x.ai `grok-voice-think-fast-1.0` / `grok-voice-fast-1.0`
+- **Model Flexibility**: Supports OpenAI Realtime models, Google Gemini Live models, and x.ai `grok-voice-think-fast-2.0` / `grok-voice-think-fast-1.0` / `grok-voice-fast-1.0`
 - **Dual Audio Input**: Realtime API (simple) or Azure Speech (dialect quality)
 - **Server-side VAD**: Realtime API handles turn detection automatically
 - **Conditional Tool Calls**: AI decides when tools are needed (not every response uses tools)
@@ -1678,7 +1678,7 @@ app/src/
 - Check your OpenAI, Azure OpenAI, x.ai, or Google API key and endpoint
 - Verify internet connectivity
 - For Azure: Ensure the deployment name matches your Azure setup
-- For x.ai: Ensure `XAI_API_KEY` is set and the selected model is `grok-voice-think-fast-1.0` or `grok-voice-fast-1.0`
+- For x.ai: Ensure `XAI_API_KEY` is set and the selected model is `grok-voice-think-fast-2.0`, `grok-voice-think-fast-1.0`, or `grok-voice-fast-1.0`
 
 #### "Vision analysis not available"
 - Vision works automatically with `gpt-realtime-2.1`, `gpt-realtime-2.1-mini`, `gpt-realtime-2`, `gpt-realtime-1.5`, `gpt-realtime`, and `gpt-realtime-mini` models (built-in)
@@ -1777,7 +1777,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🙏 Acknowledgments
 
 - **OpenAI** - Realtime API
-- **x.ai** - Grok Voice Agent API (`grok-voice-think-fast-1.0`, `grok-voice-fast-1.0`)
+- **x.ai** - Grok Voice Agent API (`grok-voice-think-fast-2.0`, `grok-voice-think-fast-1.0`, `grok-voice-fast-1.0`)
 - **SoftBank Robotics** - Pepper robot platform
 - **Microsoft** - Azure Speech and OpenAI services
 - **Groq** - Alternative vision analysis provider

@@ -2,7 +2,9 @@ package ch.fhnw.pepper_realtime.network
 
 import android.util.Log
 
-const val XAI_THINK_FAST_MODEL = "grok-voice-think-fast-1.0"
+const val XAI_THINK_FAST_2_MODEL = "grok-voice-think-fast-2.0"
+const val XAI_THINK_FAST_1_MODEL = "grok-voice-think-fast-1.0"
+const val XAI_THINK_FAST_MODEL = XAI_THINK_FAST_2_MODEL
 const val XAI_FAST_MODEL = "grok-voice-fast-1.0"
 const val XAI_LEGACY_MODEL_LABEL = "Grok Voice Agent"
 

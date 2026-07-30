@@ -15,7 +15,8 @@ import ch.fhnw.pepper_realtime.manager.ApiKeyManager
 import ch.fhnw.pepper_realtime.manager.SettingsRepository
 import ch.fhnw.pepper_realtime.network.RealtimeApiProvider
 import ch.fhnw.pepper_realtime.network.XAI_FAST_MODEL
-import ch.fhnw.pepper_realtime.network.XAI_THINK_FAST_MODEL
+import ch.fhnw.pepper_realtime.network.XAI_THINK_FAST_1_MODEL
+import ch.fhnw.pepper_realtime.network.XAI_THINK_FAST_2_MODEL
 import ch.fhnw.pepper_realtime.tools.ToolRegistry
 import ch.fhnw.pepper_realtime.ui.compose.ChatTheme
 import ch.fhnw.pepper_realtime.ui.settings.SettingsViewModel
@@ -67,7 +68,8 @@ fun SettingsScreen(
         "gpt-4o-mini-realtime-preview"
     )
     val xaiModels = listOf(
-        XAI_THINK_FAST_MODEL,
+        XAI_THINK_FAST_2_MODEL,
+        XAI_THINK_FAST_1_MODEL,
         XAI_FAST_MODEL
     )
     // Google Live API requires models/ prefix for BidiGenerateContent
