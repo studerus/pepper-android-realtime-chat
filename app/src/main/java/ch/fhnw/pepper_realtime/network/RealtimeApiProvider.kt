@@ -4,7 +4,8 @@ import android.util.Log
 
 const val XAI_THINK_FAST_2_MODEL = "grok-voice-think-fast-2.0"
 const val XAI_THINK_FAST_1_MODEL = "grok-voice-think-fast-1.0"
-const val XAI_THINK_FAST_MODEL = XAI_THINK_FAST_2_MODEL
+const val XAI_VOICE_3_MODEL = "grok-voice-3.0"
+const val XAI_DEFAULT_MODEL = XAI_VOICE_3_MODEL
 const val XAI_FAST_MODEL = "grok-voice-fast-1.0"
 const val XAI_LEGACY_MODEL_LABEL = "Grok Voice Agent"
 const val GEMINI_38_LIVE_MODEL = "models/gemini-3.8-live"
@@ -19,7 +20,7 @@ enum class RealtimeApiProvider(
 ) {
     AZURE_OPENAI("Azure OpenAI", "gpt-4o-realtime-preview"),
     OPENAI_DIRECT("OpenAI Direct", "gpt-realtime-1.5"),
-    XAI("x.ai Grok", XAI_THINK_FAST_MODEL),
+    XAI("x.ai Grok", XAI_DEFAULT_MODEL),
     // Google Live API requires models/ prefix for BidiGenerateContent
     GOOGLE_GEMINI("Google Gemini", GEMINI_38_LIVE_MODEL);
 
@@ -36,7 +37,7 @@ enum class RealtimeApiProvider(
     fun getWebSocketUrl(azureEndpoint: String?, model: String?, googleApiKey: String? = null): String {
         val requestedModel = if (!model.isNullOrBlank()) model.trim() else modelName
         val actualModel = if (this == XAI && requestedModel == XAI_LEGACY_MODEL_LABEL) {
-            XAI_THINK_FAST_MODEL
+            XAI_DEFAULT_MODEL
         } else {
             requestedModel
         }

@@ -8,7 +8,7 @@ import ch.fhnw.pepper_realtime.R
 import ch.fhnw.pepper_realtime.network.RealtimeApiProvider
 import ch.fhnw.pepper_realtime.network.GEMINI_38_LIVE_MODEL
 import ch.fhnw.pepper_realtime.network.XAI_LEGACY_MODEL_LABEL
-import ch.fhnw.pepper_realtime.network.XAI_THINK_FAST_MODEL
+import ch.fhnw.pepper_realtime.network.XAI_DEFAULT_MODEL
 import ch.fhnw.pepper_realtime.tools.ToolRegistry
 import ch.fhnw.pepper_realtime.ui.settings.LanguageOption
 import javax.inject.Inject
@@ -38,7 +38,7 @@ class SettingsRepository @Inject constructor(
     var model: String
         get() {
             val defaultModel = when (apiProviderEnum) {
-                RealtimeApiProvider.XAI -> XAI_THINK_FAST_MODEL
+                RealtimeApiProvider.XAI -> XAI_DEFAULT_MODEL
                 RealtimeApiProvider.GOOGLE_GEMINI -> GEMINI_38_LIVE_MODEL
                 else -> context.getString(R.string.openai_default_model)
             }
@@ -47,7 +47,7 @@ class SettingsRepository @Inject constructor(
                 ?: settings.getString(KEY_MODEL, defaultModel)
                 ?: defaultModel
             return if (apiProviderEnum == RealtimeApiProvider.XAI && savedModel == XAI_LEGACY_MODEL_LABEL) {
-                XAI_THINK_FAST_MODEL
+                XAI_DEFAULT_MODEL
             } else {
                 savedModel
             }

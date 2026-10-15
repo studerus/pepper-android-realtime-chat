@@ -16,6 +16,7 @@ import ch.fhnw.pepper_realtime.manager.SettingsRepository
 import ch.fhnw.pepper_realtime.network.RealtimeApiProvider
 import ch.fhnw.pepper_realtime.network.GEMINI_38_LIVE_MODEL
 import ch.fhnw.pepper_realtime.network.XAI_FAST_MODEL
+import ch.fhnw.pepper_realtime.network.XAI_VOICE_3_MODEL
 import ch.fhnw.pepper_realtime.network.XAI_THINK_FAST_1_MODEL
 import ch.fhnw.pepper_realtime.network.XAI_THINK_FAST_2_MODEL
 import ch.fhnw.pepper_realtime.tools.ToolRegistry
@@ -70,6 +71,7 @@ fun SettingsScreen(
         "gpt-4o-mini-realtime-preview"
     )
     val xaiModels = listOf(
+        XAI_VOICE_3_MODEL,
         XAI_THINK_FAST_2_MODEL,
         XAI_THINK_FAST_1_MODEL,
         XAI_FAST_MODEL
