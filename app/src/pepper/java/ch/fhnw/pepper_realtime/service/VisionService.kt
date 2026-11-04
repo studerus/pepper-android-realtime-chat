@@ -12,6 +12,7 @@ import com.aldebaran.qi.sdk.`object`.image.TimestampedImageHandle
 import com.aldebaran.qi.sdk.builder.TakePictureBuilder
 import ch.fhnw.pepper_realtime.network.HttpClientManager
 import ch.fhnw.pepper_realtime.network.RealtimeApiProvider
+import ch.fhnw.pepper_realtime.tools.vision.VisionLookTarget
 import kotlinx.coroutines.*
 import ch.fhnw.pepper_realtime.ui.ChatActivity
 import okhttp3.MediaType.Companion.toMediaType
@@ -74,7 +75,7 @@ class VisionService(context: Context) {
         this.takePictureAction = TakePictureBuilder.with(qiContext).buildAsync()
     }
 
-    fun startAnalyze(prompt: String?, groqApiKey: String?, callback: Callback) {
+    fun startAnalyze(prompt: String?, groqApiKey: String?, callback: Callback, lookAt: VisionLookTarget? = null) {
         if (working) {
             callback.onError("Vision analysis already in progress")
             return
@@ -89,10 +90,10 @@ class VisionService(context: Context) {
             return
         }
 
-        takePictureAndAnalyze(prompt ?: "", groqApiKey ?: "", callback)
+        takePictureAndAnalyze(prompt ?: "", groqApiKey ?: "", callback, lookAt)
     }
 
-    private fun takePictureAndAnalyze(prompt: String, apiKey: String, callback: Callback) {
+    private fun takePictureAndAnalyze(prompt: String, apiKey: String, callback: Callback, lookAt: VisionLookTarget?) {
         val action = takePictureAction
         if (action == null) {
             working = false
@@ -100,19 +101,19 @@ class VisionService(context: Context) {
             return
         }
 
-        Log.i(TAG, "Taking picture with robot head camera...")
+        Log.i(TAG, "Preparing robot head camera; look_at=$lookAt")
 
         // Execute on IO dispatcher to avoid blocking QiSDK MainEventLoop
         serviceScope.launch {
             try {
-                action.andThenCompose { takePicture -> takePicture.async().run() }
-                    .andThenConsume { timestampedImageHandle ->
+                val timestampedImageHandle = DirectedVisionCapture.capture(qiContext!!, action, lookAt)
+                run {
                         try {
                             val bitmap = convertToBitmap(timestampedImageHandle)
                             if (bitmap == null) {
                                 working = false
                                 callback.onError("Failed to convert robot camera image")
-                                return@andThenConsume
+                                return@run
                             }
 
                             // Optimize bitmap for API upload (smaller size, lower quality)
@@ -369,6 +370,7 @@ class VisionService(context: Context) {
      * Called when app goes to background
      */
     fun pause() {
+        serviceScope.coroutineContext.cancelChildren()
         if (working) {
             Log.i(TAG, "Vision analysis interrupted by pause")
             working = false

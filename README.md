@@ -101,7 +101,7 @@ A multimodal AI system for the Pepper robot powered by advanced speech-to-speech
     <td width="33%" valign="top">
       <img src="screenshots/vision-analysis.png" alt="Vision Analysis - Ceiling Detection" width="100%">
       <strong>Vision Analysis - Step 1</strong><br>
-      Robot looks at ceiling using look_at_position and captures image
+      Robot aligns its head and captures an image using analyze_vision with look_at
     </td>
     <td width="33%" valign="top">
       <img src="screenshots/vision-analysis2.png" alt="Vision Analysis - Detailed Description" width="100%">
@@ -760,24 +760,28 @@ The app supports **two speech recognition modes**, configurable in **Settings �
 ### Multilingual Support
 
 #### AI Response Languages
-- **Universal Language Support** - The Realtime API can respond in any language, including regional dialects
-- **Instant Language Switching** - The AI can switch languages mid-conversation when requested by the user or specified in the system prompt
-- **Contextual Language Use** - AI automatically adapts to the user's preferred language based on conversation context
+- **Preferred Conversation Language** - A separate dropdown in Settings controls the model's starting conversation language. **English is the default**, including existing installations without a saved preference.
+- **Available preferences** - No preference, English, Deutsch, Schweizerdeutsch, Français, Italiano, Español, Português, Nederlands, Polski, Türkçe, العربية, हिन्दी, 中文 (Mandarin), 日本語, 한국어. The list sets a preference, not a limit on languages the user may speak.
+- **Automatic switching** - The prompt instructs Pepper to switch when the user clearly speaks another language or explicitly requests one, and then retain that conversation language. No explicit switch request is necessary.
+- **Stable clarification** - Unclear speech, misunderstandings, low-confidence transcripts, isolated foreign words, and English tool results must not trigger a language switch. Pepper is instructed to ask for clarification in the established language, or the preferred language if none is established.
+- **No preference** - Infer the conversation language from the user's first clearly understood utterance, not from the language of the system prompt.
+- **Provider-independent prompt** - The app appends these rules to the outgoing system instructions for OpenAI, Azure OpenAI, x.ai, and Google Gemini without modifying the editable/saved system prompt. Changing the preference restarts the session when Settings closes; the app itself does not need to restart.
+- **Model-dependent behavior** - Language coverage, dialect quality (including Swiss German), and adherence to these prompt instructions vary by model; this is not a hard language lock.
 
 #### Speech Recognition Languages
 
-The app supports **30+ languages** in both audio input modes:
+Recognition settings are separate from **Preferred Conversation Language**:
 
 **Direct Audio Mode:**
-- Language setting affects the **input audio transcription** (Whisper-based) that appears in chat
-- Does NOT affect what the model understands (model processes audio directly with automatic language detection)
-- Transcription quality improves when correct language is configured
+- OpenAI/Azure OpenAI have a separate **Transcription Language (ISO-639-1)** setting for displayed input transcripts, not the model's response language.
+- The model receives audio directly; the Azure **Speech Language** dropdown does not apply to this mode.
+- The new conversation preference does not set an API-level audio language restriction or change transcription settings.
 
 **Azure Speech Mode:**
-- Language setting is **critical** - directly affects what text is sent to the model
+- **Speech Language**, shown under Azure Speech Settings, controls only Azure STT and directly affects what text is sent to the model.
 - Must match the spoken language for accurate recognition
 
-**Supported languages** (both modes):
+**Recognition language examples** (availability depends on the recognition service):
 
 - **German variants**: de-DE (Germany), de-AT (Austria), de-CH (Switzerland)
 - **English variants**: en-US, en-GB, en-AU, en-CA
@@ -791,15 +795,15 @@ The app supports **30+ languages** in both audio input modes:
 - **Other languages**: ru-RU (Russian), ar-AE/ar-SA (Arabic)
 
 #### Language Configuration
-- **Settings Control** - Recognition language can be changed in app settings
-- **Live Switching** - Language changes take effect immediately during active sessions
-- **No App Restart** - System reconfigures automatically
+- **Settings Control** - Configure Azure STT with **Speech Language**, OpenAI transcription with **Transcription Language**, and model replies with **Preferred Conversation Language**.
+- **Applying changes** - Changes are applied when Settings closes. Conversation preference changes start a new session; Azure STT language changes reconfigure the recognizer.
+- **No App Restart** - These changes do not require restarting the application.
 
 #### Important Language Considerations
 
 **Direct Audio Mode:**
 - ✅ Model understands speech via automatic language detection (no configuration required)
-- ⚙️ Language setting improves displayed **transcript quality** (Whisper-based)
+- ⚙️ OpenAI's separate Transcription Language setting can improve displayed transcript quality.
 - 💡 Recommendation: Configure correct language for better transcripts, but not strictly necessary
 
 **Azure Speech Mode:**
@@ -809,15 +813,15 @@ The app supports **30+ languages** in both audio input modes:
 - 💡 Recommendation: Always change language setting before switching spoken languages
 
 **AI Response Language:**
-- ✅ AI can respond in any language regardless of input mode or language setting
+- The conversation preference guides model replies independently of the STT/transcription configuration. Actual language and dialect support depends on the model.
 
 #### Usage Examples
 ```bash
-# System prompt in English, but AI can respond in other languages when requested
-User (English): "Please respond in German from now on"
-AI (German): "Gerne! Ab jetzt spreche ich auf Deutsch mit dir."
+# Direct Audio: preference English, user clearly speaks German
+User (German): "Was siehst du links von dir?"
+AI (German): "Ich schaue kurz nach links."
 
-# User must change recognition language in settings to speak German
+# Azure Speech mode: change Speech Language to German for accurate recognition
 User: (Changes settings to de-DE, then speaks German)
 "Erzähl mir einen Witz"
 AI: "Gerne! Hier ist ein Witz für dich..."
@@ -1207,7 +1211,7 @@ When Pepper's movement is blocked, the AI automatically analyzes what's in the w
 ```bash
 User: "Move forward 2 meters"
 Robot: "Something is blocking my path. Let me see what it is..."
-# AI automatically: look_at_position → analyze_vision → return gaze
+# AI uses analyze_vision with look_at to align the head and capture the image
 Robot: "I can see a chair blocking my path. Could you remove it?"
 ```
 
@@ -1215,6 +1219,18 @@ Robot: "I can see a chair blocking my path. Could you remove it?"
 - **🎯 Automatic Activation** - Triggers when movement fails due to obstacles
 - **📍 Smart Analysis** - Looks forward and captures obstacle image automatically  
 - **🔄 No Manual Commands** - User doesn't need to ask "what do you see?"
+
+### Directional Vision
+
+On Pepper, `analyze_vision` accepts an optional `look_at` object with numeric `x`, `y`, `z` coordinates in meters relative to the robot base. Positive Y is Pepper's left, negative Y is Pepper's right; Z is height above ground. For example:
+
+```json
+{"prompt": "Describe what is on your left.", "look_at": {"x": 0, "y": 1, "z": 1.2}}
+```
+
+This performs head-only alignment and capture as one operation. It waits for the target to remain within 8 degrees of the gaze axis for 300 ms (alignment timeout: 10 seconds), holds the gaze until the camera returns an image (capture timeout: 5 seconds), and then releases it. Failed or interrupted alignment returns an error rather than knowingly capturing the wrong direction. Without `look_at`, it captures the current view. Camera captures are serialized; independent robot movement tools should not be invoked alongside directional vision.
+
+Use `look_at_position` only for independent gaze actions, not as a prerequisite to `analyze_vision`. Standalone devices do not advertise `look_at` and reject it if supplied. Existing customized system prompts should be updated to use this single-call flow; installing an update does not overwrite them. The `DirectedVisionCapture` log tag records alignment, capture start, and image receipt.
 
 <a id="interactive-entertainment"></a>
 ## 🎮 Interactive Entertainment

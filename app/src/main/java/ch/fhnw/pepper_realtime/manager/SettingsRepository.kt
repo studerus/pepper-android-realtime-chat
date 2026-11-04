@@ -35,6 +35,10 @@ class SettingsRepository @Inject constructor(
         get() = settings.getString(KEY_SYSTEM_PROMPT, defaultSystemPrompt) ?: defaultSystemPrompt
         set(value) = settings.edit().putString(KEY_SYSTEM_PROMPT, value).apply()
 
+    var preferredConversationLanguage: String
+        get() = ConversationLanguage.fromCode(settings.getString(KEY_CONVERSATION_LANGUAGE, null)).code
+        set(value) = settings.edit().putString(KEY_CONVERSATION_LANGUAGE, ConversationLanguage.fromCode(value).code).apply()
+
     var model: String
         get() {
             val defaultModel = when (apiProviderEnum) {
@@ -282,6 +286,7 @@ class SettingsRepository @Inject constructor(
     companion object {
         private const val PREFS_NAME = "PepperDialogPrefs"
         private const val KEY_SYSTEM_PROMPT = "systemPrompt"
+        private const val KEY_CONVERSATION_LANGUAGE = "preferredConversationLanguage"
         private const val KEY_MODEL = "model"
         private const val KEY_VOICE = "voice"
         private const val KEY_SPEED = "speed"

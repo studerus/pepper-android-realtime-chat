@@ -4,11 +4,10 @@ import android.util.Log
 import com.aldebaran.qi.Future
 import com.aldebaran.qi.sdk.QiContext
 import com.aldebaran.qi.sdk.builder.LookAtBuilder
-import com.aldebaran.qi.sdk.builder.TransformBuilder
 import com.aldebaran.qi.sdk.`object`.actuation.LookAtMovementPolicy
-import com.aldebaran.qi.sdk.`object`.geometry.Vector3
 import ch.fhnw.pepper_realtime.tools.Tool
 import ch.fhnw.pepper_realtime.tools.ToolContext
+import ch.fhnw.pepper_realtime.service.DirectedVisionCapture
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.Locale
@@ -46,7 +45,7 @@ class LookAtPositionTool : Tool {
                     "X: forward(+)/backward(-), Y: left(+)/right(-), Z: up(+)/down(-). " +
                     "Robot base is at ground level (Z=0). Typical values: ground Z=0, eye-level Z=1.2, ceiling Z=2.5+. " +
                     "Returns success immediately when gaze is aligned, then automatically returns to normal after the specified duration. " +
-                    "Perfect for combining with vision analysis - look first, then analyze what you see.")
+                    "For directional photos use analyze_vision with its look_at argument instead; do not call these two tools together.")
             put("parameters", JSONObject().apply {
                 put("type", "object")
                 put("properties", JSONObject().apply {
@@ -115,23 +114,11 @@ class LookAtPositionTool : Tool {
         return try {
             // Get QiSDK services
             val qiContext = context.qiContext as QiContext
-            val actuation = qiContext.actuation
-            val mapping = qiContext.mapping
-
-            // Get robot frame as base
-            val robotFrame = actuation.robotFrame()
-
-            // Create 3D transform to target position
-            val translation = Vector3(x, y, z)
-            val transform = TransformBuilder.create().fromTranslation(translation)
-
-            // Create target frame
-            val targetFrame = mapping.makeFreeFrame()
-            targetFrame.update(robotFrame, transform, 0L)
+            val targetFrame = DirectedVisionCapture.targetFrame(qiContext, x, y, z)
 
             // Create LookAt action with movement policy
             val lookAt = LookAtBuilder.with(qiContext)
-                .withFrame(targetFrame.frame())
+                .withFrame(targetFrame)
                 .build()
 
             // Set movement policy based on parameter

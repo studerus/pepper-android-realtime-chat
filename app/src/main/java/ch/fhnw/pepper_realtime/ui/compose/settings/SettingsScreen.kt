@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ch.fhnw.pepper_realtime.manager.ApiKeyManager
+import ch.fhnw.pepper_realtime.manager.ConversationLanguage
 import ch.fhnw.pepper_realtime.manager.SettingsRepository
 import ch.fhnw.pepper_realtime.network.RealtimeApiProvider
 import ch.fhnw.pepper_realtime.network.GEMINI_38_LIVE_MODEL
@@ -219,6 +220,17 @@ fun SettingsScreen(
                 valueDisplay = "${settings.volume}%"
             )
             
+            SettingsDropdown(
+                label = "Preferred Conversation Language",
+                options = ConversationLanguage.entries.map { it.displayName },
+                selectedOption = ConversationLanguage
+                    .fromCode(settings.preferredConversationLanguage).displayName,
+                onOptionSelected = { name ->
+                    ConversationLanguage.entries
+                        .find { it.displayName == name }?.let { viewModel.setPreferredConversationLanguage(it.code) }
+                }
+            )
+
             // System Prompt
             ExpandableSettingsCard(title = "System Prompt") {
                 OutlinedTextField(

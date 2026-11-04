@@ -2,6 +2,8 @@ package ch.fhnw.pepper_realtime.network
 
 import ch.fhnw.pepper_realtime.manager.MemoryGameManager
 import ch.fhnw.pepper_realtime.manager.SettingsRepository
+import ch.fhnw.pepper_realtime.tools.ToolContext
+import ch.fhnw.pepper_realtime.tools.ToolRegistry
 import okhttp3.WebSocket
 import org.json.JSONArray
 import org.json.JSONObject
@@ -22,6 +24,7 @@ class GeminiLiveSessionTest {
     fun setUp() {
         whenever(settings.model).thenReturn(GEMINI_38_LIVE_MODEL)
         whenever(settings.systemPrompt).thenReturn("")
+        whenever(settings.preferredConversationLanguage).thenReturn("en")
         whenever(settings.enabledTools).thenReturn(emptySet())
         whenever(socket.send(any<String>())).thenAnswer {
             messages.add(JSONObject(it.getArgument<String>(0)))
@@ -30,6 +33,36 @@ class GeminiLiveSessionTest {
         setField("settingsRepository", settings)
         setField("webSocket", socket)
         setField("connectionState", RealtimeSessionManager.ConnectionState.CONNECTED)
+    }
+
+    @Test
+    fun `Gemini setup includes conversation preference without changing saved prompt`() {
+        whenever(settings.systemPrompt).thenReturn("Custom role")
+        whenever(settings.preferredConversationLanguage).thenReturn("gsw")
+        val prompt = setupPayload().getJSONObject("systemInstruction")
+            .getJSONArray("parts").getJSONObject(0).getString("text")
+        assertTrue(prompt.startsWith("Custom role\n\n"))
+        assertTrue(prompt.contains("Preferred conversation language: Swiss German"))
+        assertEquals("Custom role", settings.systemPrompt)
+    }
+
+    @Test
+    fun `OpenAI Azure and xai session instructions include conversation preference`() {
+        val registry = mock<ToolRegistry>()
+        whenever(registry.buildToolsDefinitionForAzure(any(), any())).thenReturn(JSONArray())
+        setField("toolRegistry", registry)
+        setField("toolContext", mock<ToolContext>())
+        whenever(settings.voice).thenReturn("ara")
+        whenever(settings.model).thenReturn("gpt-realtime")
+        whenever(settings.preferredConversationLanguage).thenReturn("fr")
+        val method = RealtimeSessionManager::class.java
+            .getDeclaredMethod("createSessionUpdatePayload", String::class.java).apply { isAccessible = true }
+        for (provider in listOf(RealtimeApiProvider.OPENAI_DIRECT, RealtimeApiProvider.AZURE_OPENAI, RealtimeApiProvider.XAI)) {
+            whenever(settings.apiProviderEnum).thenReturn(provider)
+            val payload = method.invoke(session, "test") as JSONObject
+            assertTrue(payload.getJSONObject("session").getString("instructions")
+                .contains("Preferred conversation language: French."))
+        }
     }
 
     @Test

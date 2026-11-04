@@ -2,6 +2,7 @@ package ch.fhnw.pepper_realtime.network
 
 import android.util.Log
 import ch.fhnw.pepper_realtime.manager.ApiKeyManager
+import ch.fhnw.pepper_realtime.manager.ConversationLanguage
 import ch.fhnw.pepper_realtime.manager.SettingsRepository
 import ch.fhnw.pepper_realtime.tools.ToolContext
 import ch.fhnw.pepper_realtime.tools.ToolRegistry
@@ -639,7 +640,8 @@ class RealtimeSessionManager @Inject constructor() {
         }
 
         // System instruction
-        val systemPrompt = settings.systemPrompt
+        val systemPrompt = ConversationLanguage.composePrompt(
+            settings.systemPrompt, settings.preferredConversationLanguage)
         if (systemPrompt.isNotEmpty()) {
             setup.put("systemInstruction", JSONObject().apply {
                 put("parts", JSONArray().put(JSONObject().apply {
@@ -901,7 +903,8 @@ class RealtimeSessionManager @Inject constructor() {
         val speed = settings.speed
         val model = settings.model
         val temperature = settings.temperature
-        val systemPrompt = settings.systemPrompt
+        val systemPrompt = ConversationLanguage.composePrompt(
+            settings.systemPrompt, settings.preferredConversationLanguage)
         val enabledTools = settings.enabledTools
 
         Log.i(TAG, "$contextLog - Model: $model, Enabled tools: $enabledTools")

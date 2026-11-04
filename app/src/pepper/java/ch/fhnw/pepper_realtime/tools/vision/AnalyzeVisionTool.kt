@@ -31,6 +31,7 @@ class AnalyzeVisionTool : Tool {
             put("parameters", JSONObject().apply {
                 put("type", "object")
                 put("properties", JSONObject().apply {
+                    put("look_at", VisionLookTarget.schema())
                     put("prompt", JSONObject()
                         .put("type", "string")
                         .put("description",
@@ -42,6 +43,9 @@ class AnalyzeVisionTool : Tool {
 
     override fun execute(args: JSONObject, context: ToolContext): String {
         val prompt = args.optString("prompt", "")
+        val lookAt = try { VisionLookTarget.parse(args) } catch (e: IllegalArgumentException) {
+            return JSONObject().put("error", e.message).toString()
+        }
 
         // Vision analysis now works with gpt-realtime (built-in) or Groq (optional)
         // No longer require API key check as it's handled by VisionService internally
@@ -118,12 +122,13 @@ class AnalyzeVisionTool : Tool {
                     // Inform about photo capture via async update
                     context.sendAsyncUpdate("📷 Photo captured.", false)
                 }
-            })
+            }, lookAt)
 
             // Wait for vision analysis to complete (blocking call)
             try {
                 val finished = latch.await(30, TimeUnit.SECONDS)
                 if (!finished) {
+                    visionService.pause()
                     return JSONObject().put("error", "Vision analysis timed out").toString()
                 }
 
@@ -147,6 +152,7 @@ class AnalyzeVisionTool : Tool {
 
                 finalResult
             } catch (e: InterruptedException) {
+                visionService.pause()
                 Thread.currentThread().interrupt()
                 JSONObject().put("error", "Vision analysis interrupted").toString()
             }

@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import ch.fhnw.pepper_realtime.manager.SettingsRepository
+import ch.fhnw.pepper_realtime.manager.ConversationLanguage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -39,6 +40,7 @@ class SettingsViewModel @Inject constructor(
     private fun loadSettingsFromRepository(): SettingsState {
         return SettingsState(
             systemPrompt = settingsRepository.systemPrompt,
+            preferredConversationLanguage = settingsRepository.preferredConversationLanguage,
             model = settingsRepository.model,
             voice = settingsRepository.voice,
             speedProgress = settingsRepository.speedProgress,
@@ -113,6 +115,16 @@ class SettingsViewModel @Inject constructor(
             Log.d("SettingsViewModel", "setModel: $model (isBatchMode=$isBatchMode)")
             settingsRepository.model = model
             _settingsState.update { it.copy(model = model) }
+            if (isBatchMode) pendingRestart = true else _restartSessionEvent.value = true
+        }
+    }
+
+    fun setPreferredConversationLanguage(code: String) {
+        val language = ConversationLanguage.fromCode(code).code
+        if (language != settingsRepository.preferredConversationLanguage) {
+            settingsRepository.preferredConversationLanguage = language
+            _settingsState.update { it.copy(preferredConversationLanguage = language) }
+            // Gemini's system instructions are only applied during setup.
             if (isBatchMode) pendingRestart = true else _restartSessionEvent.value = true
         }
     }

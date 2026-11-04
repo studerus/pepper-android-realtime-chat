@@ -41,6 +41,9 @@ class AnalyzeVisionTool : Tool {
 
     override fun execute(args: JSONObject, context: ToolContext): String {
         val prompt = args.optString("prompt", "")
+        if (args.has("look_at")) {
+            return JSONObject().put("error", "Directed capture is only supported on Pepper. This device cannot turn its camera; ask the user to aim it and retry without look_at.").toString()
+        }
 
         Log.i("AnalyzeVisionTool[Standalone]", "Analyzing vision with Android camera, prompt: ${if (prompt.isEmpty()) "(default analysis)" else prompt}")
 

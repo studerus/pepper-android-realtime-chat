@@ -30,6 +30,7 @@ class SettingsViewModelTest {
     fun setUp() {
         // Setup all required repository properties for SettingsState initialization
         whenever(repository.systemPrompt).thenReturn("Test system prompt")
+        whenever(repository.preferredConversationLanguage).thenReturn("en")
         whenever(repository.model).thenReturn("gpt-4o-realtime-preview")
         whenever(repository.voice).thenReturn("alloy")
         whenever(repository.speedProgress).thenReturn(100)
@@ -81,6 +82,7 @@ class SettingsViewModelTest {
         assertEquals("alloy", state.voice)
         assertEquals(80, state.volume)
         assertEquals("en-US", state.language)
+        assertEquals("en", state.preferredConversationLanguage)
     }
 
     @Test
@@ -244,6 +246,30 @@ class SettingsViewModelTest {
     }
 
     // ========== Language Tests ==========
+
+    @Test
+    fun `conversation preference updates state and restarts session without restarting STT`() {
+        viewModel.setPreferredConversationLanguage("gsw")
+        verify(repository).preferredConversationLanguage = "gsw"
+        assertEquals("gsw", viewModel.settingsState.value.preferredConversationLanguage)
+        assertTrue(viewModel.restartSessionEvent.value)
+        assertFalse(viewModel.restartRecognizerEvent.value)
+    }
+
+    @Test
+    fun `conversation preference waits for settings commit to restart`() {
+        viewModel.beginEditing()
+        viewModel.setPreferredConversationLanguage("none")
+        assertFalse(viewModel.restartSessionEvent.value)
+        viewModel.commitChanges()
+        assertTrue(viewModel.restartSessionEvent.value)
+    }
+
+    @Test
+    fun `unchanged conversation preference does not restart`() {
+        viewModel.setPreferredConversationLanguage("en")
+        assertFalse(viewModel.restartSessionEvent.value)
+    }
 
     @Test
     fun `setLanguage updates repository`() {

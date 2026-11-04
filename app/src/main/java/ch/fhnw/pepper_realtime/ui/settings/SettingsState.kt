@@ -7,6 +7,7 @@ package ch.fhnw.pepper_realtime.ui.settings
 data class SettingsState(
     // Core Settings
     val systemPrompt: String = "",
+    val preferredConversationLanguage: String = "en",
     val model: String = "",
     val voice: String = "ash",
     val speedProgress: Int = 100,
