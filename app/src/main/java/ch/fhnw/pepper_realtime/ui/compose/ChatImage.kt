@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -72,12 +72,12 @@ fun ChatImage(
                 contentDescription = stringResource(R.string.content_desc_chat_image),
                 modifier = Modifier
                     .padding(top = if (message.message.isNotEmpty()) 6.dp else 0.dp)
-                    .size(240.dp) // Slightly larger
+                    .sizeIn(maxWidth = minOf(240.dp, maxBubbleWidth), maxHeight = 240.dp)
                     .shadow(elevation = 6.dp, shape = RoundedCornerShape(12.dp))
                     .border(2.dp, Color.White, RoundedCornerShape(12.dp))
                     .clip(RoundedCornerShape(12.dp))
                     .clickable { onImageClick(imagePath) },
-                contentScale = ContentScale.Crop // Crop usually looks better for thumbnails than Fit
+                contentScale = ContentScale.Fit
             )
         }
     }

@@ -18,25 +18,32 @@ enum class ConversationLanguage(val code: String, val displayName: String, priva
     JAPANESE("ja", "\u65e5\u672c\u8a9e", "Japanese"),
     KOREAN("ko", "\ud55c\uad6d\uc5b4", "Korean");
 
+    // Input transcription hint, not an output language lock. Swiss dialects use Swiss German-region STT.
+    val transcriptionHint: String?
+        get() = when (this) {
+            NONE -> null
+            SWISS_GERMAN -> "de-CH"
+            else -> code
+        }
+
     companion object {
         fun fromCode(code: String?): ConversationLanguage = entries.find { it.code == code } ?: ENGLISH
 
         fun composePrompt(basePrompt: String, code: String?): String {
             val language = fromCode(code)
-            val preference = if (language == NONE) {
-                "No preferred conversation language is configured. Infer it from the user's first clearly understood utterance, not from the language of this prompt."
+            val rule = if (language == NONE) {
+                "Follow the language of the user's clearly understood speech or explicit language request. " +
+                    "If speech is unclear, ask for clarification in the current conversation language. " +
+                    "Never switch language because of tool results or your own previous replies."
             } else {
-                "Preferred conversation language: ${language.promptName}. Start in this language unless the user is already clearly speaking another language. If no language has been established and speech is unclear, ask for clarification in this preferred language."
+                "Speak ${language.promptName} throughout the conversation, including clarification questions. " +
+                    "Change language only if the user explicitly asks you to; then keep the requested language. " +
+                    "Never infer a language change from unclear speech, transcripts, tool results, or your own previous replies."
             }
             val policy = """
                 # Conversation Language Setting
-                This setting takes precedence over other default or fallback language instructions above.
-                $preference
-                - The preference is a starting point, not a language restriction. When the user clearly speaks another language or explicitly requests one, switch naturally without requiring an explicit request to switch.
-                - After a clear switch, keep the new conversation language; do not revert to the preferred language on every turn.
-                - If speech is unclear, ambiguous, low-confidence, or misunderstood, NEVER infer a language switch. Ask for clarification in the established conversation language.
-                - Short interjections, names, isolated foreign words, quoted text, and uncertain transcriptions are not evidence of a language switch.
-                - Tool results, tool instructions, internal application messages, and the language of this system prompt NEVER determine the response language. Present relevant tool content in the established conversation language.
+                These language rules override earlier language instructions.
+                $rule
             """.trimIndent()
             return if (basePrompt.isBlank()) policy else "$basePrompt\n\n$policy"
         }

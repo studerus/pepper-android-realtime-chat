@@ -540,7 +540,7 @@ The default for new Google configurations is `gemini-3.8-live`. Existing saved m
 - **Automatic Voice Activity Detection**: Configurable start/end sensitivity, prefix padding, and silence duration
 - **Incremental Context Updates**: Gemini 3.8 Live receives silent updates via `clientContent` with `turnComplete=false`. In Memory, card reveals and mismatches update context without requesting speech; matching pairs and game completion request a response. Gemini 3.1 still skips silent text updates because its realtime text input always triggers a response.
 - **Vision Tool Responses**: On Gemini 3.1 and 3.8 Live, `analyze_vision` returns the captured image directly in `toolResponse.functionResponses[].parts[].inlineData`, alongside the matching tool call ID. No duplicate image frames or extra acknowledgment turn are needed. Older Gemini models retain the separate image-message path. See the [Live API tool response reference](https://ai.google.dev/api/live#bidigeneratecontenttoolresponse).
-- **Thinking Settings**: Gemini 3.1 offers a thinking level; older models offer a thinking budget. Gemini 3.8 Live has no configurable thinking level or budget.
+- **Thinking Settings**: Gemini 3.1 offers a thinking level; older models offer a thinking budget. Gemini 3.8 Live has no configurable thinking level or budget. Google provides configurable reasoning in the separate [Gemini 3.8 Live Extended Thinking model](https://aistudio.google.com/docs/live-api/thinking), which this app does not currently support.
 - **Show Thinking**: Display available AI thinking traces for the older models
 - **Google Search Grounding**: Real-time web search for improved accuracy and reduced hallucinations
 - **Proactive Audio**: Allows Gemini to proactively decide not to respond when content is not relevant (not supported by Gemini 3.1)
@@ -760,11 +760,11 @@ The app supports **two speech recognition modes**, configurable in **Settings �
 ### Multilingual Support
 
 #### AI Response Languages
-- **Preferred Conversation Language** - A separate dropdown in Settings controls the model's starting conversation language. **English is the default**, including existing installations without a saved preference.
+- **Preferred Conversation Language** - A separate dropdown in Settings controls the model's conversation language. **English is the default**, including existing installations without a saved preference.
 - **Available preferences** - No preference, English, Deutsch, Schweizerdeutsch, Français, Italiano, Español, Português, Nederlands, Polski, Türkçe, العربية, हिन्दी, 中文 (Mandarin), 日本語, 한국어. The list sets a preference, not a limit on languages the user may speak.
-- **Automatic switching** - The prompt instructs Pepper to switch when the user clearly speaks another language or explicitly requests one, and then retain that conversation language. No explicit switch request is necessary.
-- **Stable clarification** - Unclear speech, misunderstandings, low-confidence transcripts, isolated foreign words, and English tool results must not trigger a language switch. Pepper is instructed to ask for clarification in the established language, or the preferred language if none is established.
-- **No preference** - Infer the conversation language from the user's first clearly understood utterance, not from the language of the system prompt.
+- **Selected language** - Pepper is instructed to keep the selected language, including clarification questions, even when the user speaks another language. Only an explicit request changes the conversation language; Pepper then keeps the requested language for the conversation. This does not overwrite the saved preference for future sessions.
+- **No preference** - Pepper follows the user's clearly understood speech or explicit language request automatically. Unclear speech should trigger clarification in the current language, not a switch.
+- **Short language rules** - Both modes use a concise appended instruction. Transcripts, tool results, and the model's own previous replies must not be used to infer a language change. No fixed output-language API restriction is imposed, so explicit requests can still be honored.
 - **Provider-independent prompt** - The app appends these rules to the outgoing system instructions for OpenAI, Azure OpenAI, x.ai, and Google Gemini without modifying the editable/saved system prompt. Changing the preference restarts the session when Settings closes; the app itself does not need to restart.
 - **Model-dependent behavior** - Language coverage, dialect quality (including Swiss German), and adherence to these prompt instructions vary by model; this is not a hard language lock.
 
@@ -775,7 +775,7 @@ Recognition settings are separate from **Preferred Conversation Language**:
 **Direct Audio Mode:**
 - OpenAI/Azure OpenAI have a separate **Transcription Language (ISO-639-1)** setting for displayed input transcripts, not the model's response language.
 - The model receives audio directly; the Azure **Speech Language** dropdown does not apply to this mode.
-- The new conversation preference does not set an API-level audio language restriction or change transcription settings.
+- For **Gemini 3.8 Live**, the conversation preference also supplies an input transcription `languageCodes` hint (Swiss German uses `de-CH`). **No preference** leaves automatic detection unchanged; older Gemini models receive no hint. This documented [ASR hint](https://aistudio.google.com/api-reference/live#AudioTranscriptionConfig) can assist transcription but does not enforce response language or prove that the model understood the audio correctly. Output transcription remains unhinted, so an unintended output-language switch is not deliberately masked. No output `languageCode` restriction is sent, and the separate Azure STT/OpenAI transcription settings remain unchanged.
 
 **Azure Speech Mode:**
 - **Speech Language**, shown under Azure Speech Settings, controls only Azure STT and directly affects what text is sent to the model.
@@ -817,7 +817,7 @@ Recognition settings are separate from **Preferred Conversation Language**:
 
 #### Usage Examples
 ```bash
-# Direct Audio: preference English, user clearly speaks German
+# Direct Audio: No preference, user clearly speaks German
 User (German): "Was siehst du links von dir?"
 AI (German): "Ich schaue kurz nach links."
 
@@ -896,7 +896,7 @@ The chat interface is built with **Jetpack Compose**, providing a modern declara
 - **Rule Reference** - Shows rule name and event type for easy identification
 
 ### Vision Photos
-- **Thumbnail View** - Compact preview images in chat flow
+- **Thumbnail View** - Compact preview images in chat flow preserve the original aspect ratio and show the full image without cropping
 - **Tap to Expand** - Full-screen overlay with high resolution
 - **Auto Cleanup** - Photos managed automatically per session
 
@@ -1228,9 +1228,13 @@ On Pepper, `analyze_vision` accepts an optional `look_at` object with numeric `x
 {"prompt": "Describe what is on your left.", "look_at": {"x": 0, "y": 1, "z": 1.2}}
 ```
 
-This performs head-only alignment and capture as one operation. It waits for the target to remain within 8 degrees of the gaze axis for 300 ms (alignment timeout: 10 seconds), holds the gaze until the camera returns an image (capture timeout: 5 seconds), and then releases it. Failed or interrupted alignment returns an error rather than knowingly capturing the wrong direction. Without `look_at`, it captures the current view. Camera captures are serialized; independent robot movement tools should not be invoked alongside directional vision.
+This performs head-only alignment and capture as one operation. After the SDK confirms that LookAt has started, the app samples the target bearing every 100 ms. As soon as a sample places the target within 8 degrees of the gaze axis, capture starts without an additional settling delay. LookAt keeps tracking the target throughout capture; this fast path does not assume that the camera's response latency delays the actual exposure. Image sharpness during the end of a turn should be verified on the robot.
 
-Use `look_at_position` only for independent gaze actions, not as a prerequisite to `analyze_vision`. Standalone devices do not advertise `look_at` and reject it if supplied. Existing customized system prompts should be updated to use this single-call flow; installing an update does not overwrite them. The `DirectedVisionCapture` log tag records alignment, capture start, and image receipt.
+For off-center targets, capture still requires at least three samples and 250 ms of stable bearing (within 0.6 degrees of a fixed window anchor), with the target inside a conservative inner viewing region: +/-22 degrees horizontally and +/-16 degrees vertically. This gaze-based estimate leaves margin within the head camera's nominal field of view; it is not a calibrated pixel projection and does not guarantee that an object is unobstructed. Passing through this off-center region during a turn is not enough to trigger a photo.
+
+For off-center targets the app waits for observed movement or a 1.5-second startup grace period. If the head remains stable for 800 ms outside the viewing region after that grace period, the tool returns a specific head/viewing-limit error without taking a misleading photo. Nearby floor points (including a point one meter ahead) may be physically outside the head-only view; Pepper should explain this and suggest a farther point, not automatically move its base. The overall alignment deadline remains 10 seconds for missing or continuously changing pose data. Gaze is held until the camera returns an image (capture timeout: 5 seconds) and released on success, error, or cancellation. Without `look_at`, the current view is captured. Camera captures are serialized; independent robot movement tools should not be invoked alongside directional vision.
+
+Use `look_at_position` only for independent gaze actions, not as a prerequisite to `analyze_vision`. Standalone devices do not advertise `look_at` and reject it if supplied. Existing customized system prompts should be updated to use this single-call flow; installing an update does not overwrite them. The `DirectedVisionCapture` log tag records movement start, target angles and readiness decisions, capture start, and image receipt. See the manufacturer's [gaze-frame definition](https://qisdk.softbankrobotics.com/sdk/doc/javadoc/qisdk/com.aldebaran.qi.sdk.object.actuation/-actuation/gaze-frame.html) and [head joint limits](https://doc.aldebaran.com/2-5/family/pepper_technical/joints_pep.html).
 
 <a id="interactive-entertainment"></a>
 ## 🎮 Interactive Entertainment

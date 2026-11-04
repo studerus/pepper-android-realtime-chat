@@ -3,6 +3,7 @@ package ch.fhnw.pepper_realtime.service
 import android.os.SystemClock
 import android.util.Log
 import ch.fhnw.pepper_realtime.tools.vision.VisionLookTarget
+import ch.fhnw.pepper_realtime.tools.vision.VisionCaptureReadiness
 import com.aldebaran.qi.Future
 import com.aldebaran.qi.sdk.QiContext
 import com.aldebaran.qi.sdk.builder.LookAtBuilder
@@ -14,12 +15,17 @@ import com.aldebaran.qi.sdk.`object`.geometry.Vector3
 import com.aldebaran.qi.sdk.`object`.camera.TakePicture
 import com.aldebaran.qi.sdk.`object`.image.TimestampedImageHandle
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
+import java.util.Locale
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+
+internal class VisionAlignmentException(message: String) : IllegalStateException(message)
 
 internal object DirectedVisionCapture {
     private val captureMutex = Mutex()
@@ -35,25 +41,32 @@ internal object DirectedVisionCapture {
         try {
             val action = withTimeout(5000) { camera.awaitResult() }
             if (target != null) {
-                withTimeout(10000) {
+                val readiness = VisionCaptureReadiness()
+                val ready = withTimeoutOrNull(10000) {
                     val frame = targetFrame(context, target.x, target.y, target.z)
                     val look: LookAt = LookAtBuilder.with(context).withFrame(frame).buildAsync().awaitResult()
                     look.policy = LookAtMovementPolicy.HEAD_ONLY
-                    gaze = look.async().run()
-                    val gazeFrame = context.actuation.gazeFrame()
-                    var alignedSince: Long? = null
-                    while (true) {
-                        check(gaze?.isDone != true) { "Head movement ended before capture" }
-                        val translation = frame.async().computeTransform(gazeFrame).awaitResult().transform.translation
-                        val now = SystemClock.elapsedRealtime()
-                        if (VisionLookTarget.isAligned(translation.x, translation.y, translation.z)) {
-                            val since = alignedSince ?: now.also { alignedSince = it }
-                            if (now - since >= 300) break
-                        } else alignedSince = null
-                        delay(100)
+                    val started = CompletableDeferred<Unit>()
+                    val listener = LookAt.OnStartedListener { started.complete(Unit) }
+                    look.addOnStartedListener(listener)
+                    try {
+                        gaze = look.async().run()
+                        gaze!!.thenConsume { completed ->
+                            if (!started.isCompleted) started.completeExceptionally(
+                                VisionAlignmentException("Head movement ended before starting: " +
+                                    if (completed.hasError()) completed.error?.message else "cancelled or stopped"))
+                        }
+                        started.await()
+                        Log.i("DirectedVisionCapture", "Head movement started for $target t_ms=${SystemClock.elapsedRealtime()}")
+                        waitForCaptureReady(context, frame, gaze!!, readiness)
+                    } finally {
+                        look.async().removeOnStartedListener(listener)
                     }
-                    Log.i("DirectedVisionCapture", "Gaze aligned with $target t_ms=${SystemClock.elapsedRealtime()}")
+                    true
                 }
+                if (ready != true) throw VisionAlignmentException(
+                    "Head alignment timed out; no photo was taken. ${bearingDescription(readiness)}. " +
+                        "The head did not settle or its position could not be verified. Ask for another viewing direction.")
             }
             check(gaze?.isDone != true) { "Head movement interrupted before capture" }
             Log.i("DirectedVisionCapture", "Capture started t_ms=${SystemClock.elapsedRealtime()}")
@@ -64,6 +77,36 @@ internal object DirectedVisionCapture {
         } finally {
             gaze?.requestCancellation()
         }
+    }
+
+    private suspend fun waitForCaptureReady(context: QiContext, frame: Frame, gaze: Future<Void>, readiness: VisionCaptureReadiness) {
+        val gazeFrame = context.actuation.gazeFrame()
+        var lastLogAt = 0L
+        while (true) {
+            check(!gaze.isDone) { "Head movement ended before capture; no photo was taken" }
+            val translation = frame.async().computeTransform(gazeFrame).awaitResult().transform.translation
+            val now = SystemClock.elapsedRealtime()
+            val decision = readiness.observe(now, translation.x, translation.y, translation.z)
+            if (now - lastLogAt >= 300 || decision != VisionCaptureReadiness.Decision.WAIT) {
+                Log.i("DirectedVisionCapture", "Gaze check: ${bearingDescription(readiness)} decision=$decision t_ms=$now")
+                lastLogAt = now
+            }
+            when (decision) {
+                VisionCaptureReadiness.Decision.CAPTURE -> return
+                VisionCaptureReadiness.Decision.OUTSIDE_VIEW -> throw VisionAlignmentException(
+                    "The head has stopped, but the requested point is outside the conservative camera viewing region. " +
+                        "${bearingDescription(readiness)}. No photo was taken; this is not a camera failure. " +
+                        "Explain the head-only viewing limit. For a nearby floor point, suggest a point farther away; " +
+                        "do not claim to have seen the requested point or move the robot automatically.")
+                VisionCaptureReadiness.Decision.WAIT -> delay(100)
+            }
+        }
+    }
+
+    private fun bearingDescription(readiness: VisionCaptureReadiness): String {
+        val bearing = readiness.lastBearing ?: return "Target bearing unavailable"
+        return String.format(Locale.US, "Target offset: horizontal=%.1f deg, vertical=%.1f deg, in_front=%s",
+            bearing.horizontalDegrees, bearing.verticalDegrees, bearing.inFront)
     }
 
     private suspend fun <T> Future<T>.awaitResult(): T = suspendCancellableCoroutine { continuation ->

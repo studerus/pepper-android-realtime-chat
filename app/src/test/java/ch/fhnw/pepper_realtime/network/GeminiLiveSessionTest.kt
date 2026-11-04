@@ -36,13 +36,36 @@ class GeminiLiveSessionTest {
     }
 
     @Test
+    fun `3_8 input transcription uses preference as hint without restricting output language`() {
+        for ((code, hint) in listOf("gsw" to "de-CH", "de" to "de", "en" to "en", "es" to "es")) {
+            whenever(settings.preferredConversationLanguage).thenReturn(code)
+            val setup = setupPayload()
+            assertEquals(listOf(hint), setup.getJSONObject("inputAudioTranscription").getJSONArray("languageCodes").toList())
+            assertEquals(0, setup.getJSONObject("outputAudioTranscription").length())
+            assertFalse(setup.getJSONObject("generationConfig").getJSONObject("speechConfig").has("languageCode"))
+        }
+    }
+
+    @Test
+    fun `no preference and older Gemini models retain automatic transcription language detection`() {
+        whenever(settings.preferredConversationLanguage).thenReturn("none")
+        assertEquals(0, setupPayload().getJSONObject("inputAudioTranscription").length())
+        whenever(settings.preferredConversationLanguage).thenReturn("gsw")
+        for (model in listOf("models/gemini-3.1-flash-live-preview", "models/gemini-2.5-flash-native-audio-preview-12-2025")) {
+            whenever(settings.model).thenReturn(model)
+            assertEquals(0, setupPayload().getJSONObject("inputAudioTranscription").length())
+        }
+    }
+
+    @Test
     fun `Gemini setup includes conversation preference without changing saved prompt`() {
         whenever(settings.systemPrompt).thenReturn("Custom role")
         whenever(settings.preferredConversationLanguage).thenReturn("gsw")
         val prompt = setupPayload().getJSONObject("systemInstruction")
             .getJSONArray("parts").getJSONObject(0).getString("text")
         assertTrue(prompt.startsWith("Custom role\n\n"))
-        assertTrue(prompt.contains("Preferred conversation language: Swiss German"))
+        assertTrue(prompt.contains("Speak Swiss German"))
+        assertTrue(prompt.contains("Change language only if the user explicitly asks you to"))
         assertEquals("Custom role", settings.systemPrompt)
     }
 
@@ -61,7 +84,7 @@ class GeminiLiveSessionTest {
             whenever(settings.apiProviderEnum).thenReturn(provider)
             val payload = method.invoke(session, "test") as JSONObject
             assertTrue(payload.getJSONObject("session").getString("instructions")
-                .contains("Preferred conversation language: French."))
+                .contains("Speak French throughout the conversation"))
         }
     }
 

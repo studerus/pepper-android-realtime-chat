@@ -588,9 +588,14 @@ class RealtimeSessionManager @Inject constructor() {
         }
         setup.put("generationConfig", generationConfig)
 
-        // Enable transcriptions (empty object = subscribe to events)
-        // Note: inputAudioConfig/outputAudioConfig rejected by v1alpha API, skipping
-        setup.put("inputAudioTranscription", JSONObject())   // User speech -> text
+        // Gemini 3.8 supports language hints for ASR without locking the spoken response language.
+        val inputTranscription = JSONObject()
+        if (RealtimeApiProvider.isGemini38LiveModel(settings.model)) {
+            ConversationLanguage.fromCode(settings.preferredConversationLanguage).transcriptionHint?.let { hint ->
+                inputTranscription.put("languageCodes", JSONArray().put(hint))
+            }
+        }
+        setup.put("inputAudioTranscription", inputTranscription)
         setup.put("outputAudioTranscription", JSONObject())  // Model speech -> text
 
         // Realtime input config (VAD) - using settings from UI

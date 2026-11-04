@@ -190,9 +190,10 @@ class VisionService(context: Context) {
                         }
                     }
             } catch (e: Exception) {
-                Log.e(TAG, "Robot camera capture failed", e)
+                val stage = if (e is VisionAlignmentException) "Head alignment failed" else "Robot camera capture failed"
+                Log.e(TAG, stage, e)
                 working = false
-                callback.onError("Robot camera capture failed: ${e.message}")
+                callback.onError("$stage: ${e.message}")
             }
         }
     }
