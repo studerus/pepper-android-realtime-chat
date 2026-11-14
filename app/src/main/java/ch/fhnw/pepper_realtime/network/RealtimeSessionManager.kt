@@ -149,6 +149,7 @@ class RealtimeSessionManager @Inject constructor() {
             return
         }
 
+        val connectionListener = listener
         val myToken = ++connectionToken
         connectionState = ConnectionState.CONNECTING
         Log.d(TAG, "Connection state: CONNECTING")
@@ -175,17 +176,17 @@ class RealtimeSessionManager @Inject constructor() {
                 webSocket = ws
                 connectionState = ConnectionState.CONNECTED
                 Log.d(TAG, "Connection state: CONNECTED")
-                listener?.onOpen(response) ?: Log.w(TAG, "WARNING: onOpen called but listener is null!")
+                connectionListener?.onOpen(response) ?: Log.w(TAG, "WARNING: onOpen called but listener is null!")
             }
 
             override fun onMessage(ws: WebSocket, text: String) {
                 if (myToken != connectionToken) return
-                listener?.onTextMessage(text)
+                connectionListener?.onTextMessage(text)
             }
 
             override fun onMessage(ws: WebSocket, bytes: ByteString) {
                 if (myToken != connectionToken) return
-                listener?.onBinaryMessage(bytes)
+                connectionListener?.onBinaryMessage(bytes)
             }
 
             override fun onClosing(ws: WebSocket, code: Int, reason: String) {
@@ -199,7 +200,7 @@ class RealtimeSessionManager @Inject constructor() {
                 }
                 connectionState = ConnectionState.CLOSING
                 Log.d(TAG, "Connection state: CLOSING (code=$code, reason=$reason)")
-                listener?.onClosing(code, reason)
+                connectionListener?.onClosing(code, reason)
                 ws.close(1000, null)
             }
 
@@ -207,7 +208,7 @@ class RealtimeSessionManager @Inject constructor() {
                 if (myToken != connectionToken) return
                 connectionState = ConnectionState.DISCONNECTED
                 Log.d(TAG, "Connection state: DISCONNECTED (code=$code, reason=$reason)")
-                listener?.onClosed(code, reason)
+                connectionListener?.onClosed(code, reason)
                 if (webSocket == ws) webSocket = null
             }
 
@@ -216,7 +217,7 @@ class RealtimeSessionManager @Inject constructor() {
                 connectionState = ConnectionState.DISCONNECTED
                 Log.e(TAG, "WebSocket failure: ${t.message}", t)
                 Log.d(TAG, "Connection state: DISCONNECTED (failure)")
-                listener?.onFailure(t, response) ?: Log.w(TAG, "WARNING: onFailure called but listener is null!")
+                connectionListener?.onFailure(t, response) ?: Log.w(TAG, "WARNING: onFailure called but listener is null!")
                 if (webSocket == ws) webSocket = null
             }
         }

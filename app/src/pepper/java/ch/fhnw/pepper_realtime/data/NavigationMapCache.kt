@@ -42,6 +42,7 @@ class NavigationMapCache(
         private const val TAG = "NavigationMapCache"
     }
 
+    @Volatile private var workGeneration = 0L
     private val isMapBeingBuilt = AtomicBoolean(false)
     @Volatile private var inFlightMapLoadPromise: Promise<Boolean>? = null
 
@@ -68,6 +69,7 @@ class NavigationMapCache(
         }
     }
 
+    @Synchronized
     fun ensureMapLoadedIfNeeded(
         qiContext: QiContext?,
         appContext: Context?,
@@ -92,11 +94,15 @@ class NavigationMapCache(
             return promise.future
         }
 
+        val generation = workGeneration
         inFlightMapLoadPromise = promise
+        promise.setOnCancel { synchronized(this) { if (inFlightMapLoadPromise === promise) cancelPendingWork() } }
         criticalSectionListener.onEnter(qiContext)
 
         val stopFuture = localizationStopper?.stop()
-        val startLoading = Runnable { loadMapInternal(qiContext, appContext, onMapLoaded) }
+        val startLoading = Runnable {
+            if (generation == workGeneration) loadMapInternal(qiContext, appContext, onMapLoaded, generation)
+        }
 
         if (stopFuture == null) {
             startLoading.run()
@@ -124,8 +130,12 @@ class NavigationMapCache(
             return
         }
 
+        val generation = workGeneration
         cacheScope.launch {
+            if (generation != workGeneration) return@launch
             val success = cacheMapGraphics(newMap)
+            ensureActive()
+            if (generation != workGeneration) return@launch
             if (success) {
                 cachedMap.set(newMap)
                 mapLoadedFlag = true
@@ -140,6 +150,16 @@ class NavigationMapCache(
         }
     }
 
+    @Synchronized
+    fun cancelPendingWork() {
+        workGeneration++
+        cacheScope.coroutineContext.cancelChildren()
+        val pending = inFlightMapLoadPromise
+        inFlightMapLoadPromise = null
+        isMapBeingBuilt.set(false)
+        pending?.setValue(false)
+    }
+
     fun reset() {
         recycleBitmap()
         cachedMapGfx.set(null)
@@ -147,14 +167,15 @@ class NavigationMapCache(
         mapLoadedFlag = false
     }
 
-    private fun loadMapInternal(qiContext: QiContext, appContext: Context, onMapLoaded: Runnable?) {
+    private fun loadMapInternal(qiContext: QiContext, appContext: Context, onMapLoaded: Runnable?, generation: Long) {
+        if (generation != workGeneration) return
         reset()
 
         cacheScope.launch {
             val mapData = loadMapFileToString(appContext)
             if (mapData == null) {
                 Log.e(TAG, "Map data could not be loaded from file.")
-                finishLoad(false, null)
+                finishLoad(false, null, generation)
                 return@launch
             }
 
@@ -164,7 +185,11 @@ class NavigationMapCache(
                     .withMapString(mapData)
                     .build()
                 
+                ensureActive()
+                if (generation != workGeneration) return@launch
                 val success = cacheMapGraphics(map)
+                ensureActive()
+                if (generation != workGeneration) return@launch
                 val mainThreadWork = if (success) {
                     cachedMap.set(map)
                     mapLoadedFlag = true
@@ -172,15 +197,17 @@ class NavigationMapCache(
                 } else {
                     null
                 }
-                finishLoad(success, mainThreadWork)
+                finishLoad(success, mainThreadWork, generation)
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to build ExplorationMap", e)
-                finishLoad(false, null)
+                finishLoad(false, null, generation)
             }
         }
     }
 
-    private fun finishLoad(success: Boolean, mainThreadWork: Runnable?) {
+    @Synchronized
+    private fun finishLoad(success: Boolean, mainThreadWork: Runnable?, generation: Long) {
+        if (generation != workGeneration) return
         val promise = inFlightMapLoadPromise
         inFlightMapLoadPromise = null
         isMapBeingBuilt.set(false)
@@ -194,6 +221,7 @@ class NavigationMapCache(
         }
 
         mainHandler.post {
+            if (generation != workGeneration) return@post
             mainThreadWork?.let {
                 try {
                     it.run()

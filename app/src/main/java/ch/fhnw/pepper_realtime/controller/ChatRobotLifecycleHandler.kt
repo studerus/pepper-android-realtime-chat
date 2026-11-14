@@ -200,6 +200,7 @@ class ChatRobotLifecycleHandler(
     }
 
     override fun onRobotFocusLost() {
+        viewModel.disconnectWebSocketGracefully()
         synchronized(robotLifecycleLock) {
             Log.i(TAG, "handleRobotFocusLost: Acquired lifecycle lock")
 

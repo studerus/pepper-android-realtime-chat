@@ -19,6 +19,7 @@ interface ToolHost {
     fun updateNavigationStatus(mapStatus: String, localizationStatus: String)
     fun muteMicrophone()
     fun unmuteMicrophone()
+    fun resetMicrophoneMute()
     fun refreshChatMessages()
 }
 

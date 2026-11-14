@@ -69,9 +69,9 @@ class PlayYouTubeVideoTool : Tool {
 
             // Show video player via manager on main thread
             if (context.hasUi()) {
-                val activity = context.activity
-                activity?.runOnUiThread {
-                    YouTubePlayerManager.showYouTubePlayerDialog(
+                val activity = context.activity ?: return JSONObject().put("error", "No UI available").toString()
+                context.toolHost.runOnUiThread {
+                    val player = YouTubePlayerManager.showYouTubePlayerDialog(
                         activity,
                         video,
                         object : YouTubePlayerManager.YouTubePlayerCallback {
@@ -99,6 +99,7 @@ class PlayYouTubeVideoTool : Tool {
                             }
                         }
                     )
+                    context.onCancel { activity.runOnUiThread { player?.closePlayer() } }
                 }
             }
 

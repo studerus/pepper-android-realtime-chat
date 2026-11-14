@@ -6,6 +6,7 @@ import ch.fhnw.pepper_realtime.tools.ApiKeyRequirement
 import ch.fhnw.pepper_realtime.tools.ApiKeyType
 import ch.fhnw.pepper_realtime.tools.Tool
 import ch.fhnw.pepper_realtime.tools.ToolContext
+import ch.fhnw.pepper_realtime.tools.withHttpCall
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -68,7 +69,7 @@ class SearchInternetTool : Tool {
             .build()
 
         return try {
-            client.newCall(request).execute().use { response ->
+            context.withHttpCall(client.newCall(request)) { response ->
                 if (!response.isSuccessful) {
                     return JSONObject().put("error", "Internet search failed: HTTP ${response.code}").toString()
                 }

@@ -7,6 +7,7 @@ import com.aldebaran.qi.sdk.builder.AnimationBuilder
 import ch.fhnw.pepper_realtime.R
 import ch.fhnw.pepper_realtime.tools.Tool
 import ch.fhnw.pepper_realtime.tools.ToolContext
+import ch.fhnw.pepper_realtime.tools.startRobotAction
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -82,15 +83,15 @@ class PlayAnimationTool : Tool {
             val qiContext = context.qiContext as QiContext
             
             // Start animation asynchronously (non-blocking)
-            AnimationBuilder.with(qiContext)
+            context.startRobotAction { AnimationBuilder.with(qiContext)
                 .withResources(resId)
-                .buildAsync()
+                .buildAsync() }
                 .andThenCompose { animation ->
-                    AnimateBuilder.with(qiContext)
+                    context.startRobotAction { AnimateBuilder.with(qiContext)
                         .withAnimation(animation)
                         .build()
                         .async()
-                        .run()
+                        .run() }
                 }
                 .thenConsume { future ->
                     if (future.isSuccess) {

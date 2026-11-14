@@ -43,18 +43,15 @@ object RobotSafetyGuard {
         }
 
         return try {
-            val power = qiContext.power
-            if (power != null) {
-                val flapSensor = power.chargingFlap
-                if (flapSensor != null) {
-                    val flapState = flapSensor.state
-                    if (flapState?.open == true) {
-                        Log.d(TAG, "Charging flap is open - movement blocked")
-                        return Result.flapOpen()
-                    }
+            val flapState = qiContext.power?.chargingFlap?.state
+            when (flapState?.open) {
+                false -> Result.ok()
+                true -> {
+                    Log.d(TAG, "Charging flap is open - movement blocked")
+                    Result.flapOpen()
                 }
+                null -> Result.unknown("Movement blocked: charging flap status is unavailable. Please check the robot and retry.")
             }
-            Result.ok()
         } catch (e: Exception) {
             Log.w(TAG, "Unable to check charging flap status", e)
             Result.unknown("Safety check failed: ${e.message}")

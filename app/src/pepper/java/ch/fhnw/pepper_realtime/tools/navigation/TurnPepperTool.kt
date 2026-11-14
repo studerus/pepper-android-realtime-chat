@@ -2,6 +2,8 @@ package ch.fhnw.pepper_realtime.tools.navigation
 
 import android.util.Log
 import com.aldebaran.qi.sdk.QiContext
+import ch.fhnw.pepper_realtime.robot.RobotSafetyGuard
+import ch.fhnw.pepper_realtime.robot.MotionValidation
 import ch.fhnw.pepper_realtime.tools.Tool
 import ch.fhnw.pepper_realtime.tools.ToolContext
 import org.json.JSONArray
@@ -42,9 +44,9 @@ class TurnPepperTool : Tool {
                         .put("maximum", 180))
                     put("speed", JSONObject()
                         .put("type", "number")
-                        .put("description", "Optional turning speed in rad/s (0.1-1.0)")
+                        .put("description", "Optional GoTo maximum speed in m/s (0.1-0.55)")
                         .put("minimum", 0.1)
-                        .put("maximum", 1.0)
+                        .put("maximum", 0.55)
                         .put("default", 0.5))
                 })
                 put("required", JSONArray().put("direction").put("degrees"))
@@ -54,25 +56,14 @@ class TurnPepperTool : Tool {
 
     override fun execute(args: JSONObject, context: ToolContext): String {
         val direction = args.optString("direction", "")
-        val degrees = args.optDouble("degrees", 0.0)
-        val speed = args.optDouble("speed", 0.5)
-
-        // Validate required parameters
-        if (direction.isEmpty()) {
-            return JSONObject().put("error", "Missing required parameter: direction").toString()
-        }
-        if (degrees <= 0) {
-            return JSONObject().put("error", "Missing or invalid parameter: degrees").toString()
-        }
-
-        // Validate direction
-        if (direction != "left" && direction != "right") {
-            return JSONObject().put("error", "Invalid direction. Use: left, right").toString()
-        }
-
-        // Validate degrees range
-        if (degrees < 15 || degrees > 180) {
-            return JSONObject().put("error", "Degrees must be between 15 and 180").toString()
+        val degrees: Double
+        val speed: Double
+        try {
+            degrees = MotionValidation.number(args, "degrees")
+            speed = MotionValidation.number(args, "speed", 0.5)
+            MotionValidation.turn(direction, degrees, speed)
+        } catch (e: IllegalArgumentException) {
+            return JSONObject().put("error", e.message).toString()
         }
 
         // Check if robot is ready
@@ -80,23 +71,23 @@ class TurnPepperTool : Tool {
             return JSONObject().put("error", "Robot not ready").toString()
         }
 
-        // Check if charging flap is open (prevents movement for safety)
-        if (isChargingFlapOpen(context)) {
-            return JSONObject().put("error", "Cannot turn while charging flap is open. Please close the charging flap first for safety.").toString()
+        val qiContext = context.qiContext as QiContext
+        val safety = RobotSafetyGuard.evaluateMovementSafety(qiContext)
+        if (!safety.isOk()) {
+            return JSONObject().put("error", safety.message).toString()
         }
 
         // Use NavigationServiceManager for coordinated turn with service management
         val navManager = context.navigationServiceManager
 
-        Log.i(TAG, "Starting synchronous turn: $direction $degrees degrees at $speed rad/s")
+        Log.i(TAG, "Starting synchronous turn: $direction $degrees degrees at max speed $speed m/s")
 
         // Create latch to wait for turn completion
         val latch = CountDownLatch(1)
         val finalResult = AtomicReference<String>()
 
         // Execute coordinated turn with service management; return result via Future
-        val qiContext = context.qiContext as QiContext
-        navManager.turnPepper(qiContext, direction, degrees, speed)
+        navManager.turnPepper(qiContext, direction, degrees, speed, context.operation)
             .thenConsume { f ->
                 val success = !f.hasError() && f.value?.success == true
                 val error = if (f.hasError()) {
@@ -139,29 +130,6 @@ class TurnPepperTool : Tool {
     }
 
 
-    /**
-     * Check if the charging flap is open, which prevents movement for safety reasons
-     */
-    private fun isChargingFlapOpen(context: ToolContext): Boolean {
-        return try {
-            val qiContext = context.qiContext as QiContext
-            val power = qiContext.power
-            val chargingFlap = power.chargingFlap
-
-            if (chargingFlap != null) {
-                val flapState = chargingFlap.state
-                val isOpen = flapState.open
-                Log.d(TAG, "Charging flap status: ${if (isOpen) "OPEN (movement blocked)" else "CLOSED (movement allowed)"}")
-                isOpen
-            } else {
-                Log.d(TAG, "No charging flap sensor available - assuming movement is allowed")
-                false // Assume closed if sensor not available
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "Could not check charging flap status: ${e.message}", e)
-            false // Allow movement if check fails to avoid false blocking
-        }
-    }
 
     /**
      * Translates technical QiSDK turn errors into user-friendly messages

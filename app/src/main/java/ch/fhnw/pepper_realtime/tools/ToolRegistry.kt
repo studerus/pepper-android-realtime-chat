@@ -202,6 +202,7 @@ class ToolRegistry {
      * Uses cached tool instance but always runs execute() fresh.
      */
     fun executeTool(toolName: String, args: JSONObject, context: ToolContext): String {
+        context.ensureActive()
         val tool = getOrCreateTool(toolName) ?: return try {
             JSONObject().put("error", "Unknown tool: $toolName").toString()
         } catch (e: Exception) {
@@ -210,6 +211,10 @@ class ToolRegistry {
 
         return try {
             tool.execute(args, context)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: InterruptedException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "Tool execution error: $toolName", e)
             try {

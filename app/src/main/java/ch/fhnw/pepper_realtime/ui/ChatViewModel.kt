@@ -333,7 +333,17 @@ class ChatViewModel @Inject constructor(
 
     // Drawing Game Methods - delegated to DrawingGameManager
     fun startDrawingGame(topic: String?): Boolean {
+        val owner = chatActivityOwners["drawing"]
+        sessionController?.let { controller ->
+            drawingGameManager.setImageSendCallback { base64, mime ->
+                var sent = false
+                if (owner != null) owner.runIfActive { sent = controller.sendUserImageToContext(base64, mime) }
+                else sent = controller.sendUserImageToContext(base64, mime)
+                sent
+            }
+        }
         return drawingGameManager.startGame(topic) {
+            if (owner?.isActive == false) return@startGame
             sendMessageToRealtimeAPI(
                 ch.fhnw.pepper_realtime.manager.ActivityCancellation.message("the drawing canvas"),
                 requestResponse = true, allowInterrupt = true
@@ -366,6 +376,26 @@ class ChatViewModel @Inject constructor(
      */
     fun dismissMelodyPlayer() {
         melodyManager.dismissMelodyPlayer()
+    }
+
+    private val chatActivityOwners = mutableMapOf<String, ch.fhnw.pepper_realtime.tools.OperationScope>()
+
+    fun ownChatActivity(kind: String, owner: ch.fhnw.pepper_realtime.tools.OperationScope, stop: () -> Unit) {
+        chatActivityOwners[kind] = owner
+        owner.onCancel {
+            viewModelScope.launch(kotlinx.coroutines.Dispatchers.Main.immediate) {
+                if (chatActivityOwners[kind] === owner) { chatActivityOwners.remove(kind); stop() }
+            }
+        }
+    }
+
+    fun stopChatActivities() {
+        chatActivityOwners.clear()
+        quizGameManager.dismissQuiz()
+        memoryGameManager.dismissGame()
+        ticTacToeGameManager.dismissGame()
+        drawingGameManager.dismissGame()
+        dismissMelodyPlayer()
     }
 
     /**
@@ -577,6 +607,15 @@ class ChatViewModel @Inject constructor(
                 }
             } else {
                 current
+            }
+        }
+    }
+
+    fun updateFunctionCallResult(messageId: String, result: String) {
+        _messageList.update { current ->
+            current.map { message ->
+                if (message.uuid == messageId && message.type == ChatMessage.Type.FUNCTION_CALL)
+                    message.copyWithFunctionResult(result) else message
             }
         }
     }

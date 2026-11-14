@@ -13,7 +13,7 @@ import ch.fhnw.pepper_realtime.service.PerceptionService
  * Stub implementation of NavigationServiceManager for standalone mode (no robot hardware).
  * Simulates navigation and mapping functionality.
  */
-class NavigationServiceManager(@Suppress("UNUSED_PARAMETER") movementController: MovementController?) {
+class NavigationServiceManager(private val movementController: MovementController?) {
 
     interface NavigationServiceListener {
         fun onNavigationPhaseChanged(phase: NavigationPhase)
@@ -31,6 +31,7 @@ class NavigationServiceManager(@Suppress("UNUSED_PARAMETER") movementController:
     }
 
     @Suppress("unused")
+    private val handler = Handler(Looper.getMainLooper())
     private var listener: NavigationServiceListener? = null
 
     // Lock to prevent parallel navigation process calls (simulated)
@@ -103,7 +104,7 @@ class NavigationServiceManager(@Suppress("UNUSED_PARAMETER") movementController:
     ): Any? {
         Log.i(TAG, "🤖 [SIMULATED] Ensure localization")
         onLocalized?.let {
-            Handler(Looper.getMainLooper()).postDelayed(it, 300)
+            handler.postDelayed(it, 300)
         }
         return null // Return null instead of Future<Boolean>
     }
@@ -171,7 +172,14 @@ class NavigationServiceManager(@Suppress("UNUSED_PARAMETER") movementController:
     /**
      * Shuts down the manager
      */
+    fun cancelAllActions() {
+        handler.removeCallbacksAndMessages(null)
+        movementController?.cancelCurrentMovement()
+        endNavigationProcess()
+    }
+
     fun shutdown() {
+        cancelAllActions()
         Log.i(TAG, "🤖 [SIMULATED] NavigationServiceManager shutdown")
     }
 }

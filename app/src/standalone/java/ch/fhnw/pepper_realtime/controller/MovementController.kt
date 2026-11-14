@@ -19,6 +19,9 @@ class MovementController {
         private const val TAG = "MovementController[STUB]"
     }
 
+    private val handler = Handler(Looper.getMainLooper())
+    private var generation = 0L
+    private var pendingListener: MovementListener? = null
     private var listener: MovementListener? = null
 
     fun setListener(listener: MovementListener?) {
@@ -34,10 +37,13 @@ class MovementController {
             distanceForward, distanceSideways, speed))
 
         listener?.let { l ->
+            cancelCurrentMovement()
+            val attempt = ++generation
+            pendingListener = l
             l.onMovementStarted()
             // Simulate successful movement after a short delay
-            Handler(Looper.getMainLooper()).postDelayed({
-                l.onMovementFinished(true, null)
+            handler.postDelayed({
+                if (attempt == generation) { pendingListener = null; l.onMovementFinished(true, null) }
             }, 500)
         }
     }
@@ -50,9 +56,12 @@ class MovementController {
         Log.i(TAG, "🤖 [SIMULATED] Turn - Direction: $direction, Angle: %.1f°, Speed: %.2f".format(degrees, speed))
 
         listener?.let { l ->
+            cancelCurrentMovement()
+            val attempt = ++generation
+            pendingListener = l
             l.onMovementStarted()
-            Handler(Looper.getMainLooper()).postDelayed({
-                l.onMovementFinished(true, null)
+            handler.postDelayed({
+                if (attempt == generation) { pendingListener = null; l.onMovementFinished(true, null) }
             }, 500)
         }
     }
@@ -65,9 +74,12 @@ class MovementController {
         Log.i(TAG, "🤖 [SIMULATED] Look at position - X: %.2f, Y: %.2f, Z: %.2f".format(x, y, z))
 
         listener?.let { l ->
+            cancelCurrentMovement()
+            val attempt = ++generation
+            pendingListener = l
             l.onMovementStarted()
-            Handler(Looper.getMainLooper()).postDelayed({
-                l.onMovementFinished(true, null)
+            handler.postDelayed({
+                if (attempt == generation) { pendingListener = null; l.onMovementFinished(true, null) }
             }, 300)
         }
     }
@@ -80,9 +92,12 @@ class MovementController {
         Log.i(TAG, "🤖 [SIMULATED] Navigate to location with speed: $speed m/s")
 
         listener?.let { l ->
+            cancelCurrentMovement()
+            val attempt = ++generation
+            pendingListener = l
             l.onMovementStarted()
-            Handler(Looper.getMainLooper()).postDelayed({
-                l.onMovementFinished(true, null)
+            handler.postDelayed({
+                if (attempt == generation) { pendingListener = null; l.onMovementFinished(true, null) }
             }, 1000)
         }
     }
@@ -92,13 +107,18 @@ class MovementController {
      */
     fun cancelCurrentMovement() {
         Log.i(TAG, "🤖 [SIMULATED] Cancel movement")
-        listener?.onMovementFinished(false, "Cancelled")
+        generation++
+        handler.removeCallbacksAndMessages(null)
+        val pending = pendingListener
+        pendingListener = null
+        pending?.onMovementFinished(false, "Cancelled")
     }
 
     /**
      * Shuts down the controller (no-op in stub)
      */
     fun shutdown() {
+        cancelCurrentMovement()
         Log.i(TAG, "🤖 [SIMULATED] Shutdown")
     }
 }

@@ -46,7 +46,8 @@ class MemoryGameTool : Tool {
         var started = false
         val latch = CountDownLatch(1)
         
-        activity.runOnUiThread {
+        context.toolHost.runOnUiThread {
+            context.operation?.let { owner -> activity.viewModel.ownChatActivity("memory", owner) { activity.viewModel.dismissMemoryGame() } }
             started = activity.viewModel.startMemoryGame(difficulty) { message, requestResponse ->
                 context.sendAsyncUpdate(message, requestResponse)
             }

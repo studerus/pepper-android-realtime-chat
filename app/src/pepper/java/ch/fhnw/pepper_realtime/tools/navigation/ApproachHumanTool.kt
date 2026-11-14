@@ -2,10 +2,12 @@ package ch.fhnw.pepper_realtime.tools.navigation
 
 import android.util.Log
 import com.aldebaran.qi.sdk.QiContext
+import ch.fhnw.pepper_realtime.robot.MotionValidation
 import com.aldebaran.qi.sdk.builder.ApproachHumanBuilder
 import ch.fhnw.pepper_realtime.robot.RobotSafetyGuard
 import ch.fhnw.pepper_realtime.tools.Tool
 import ch.fhnw.pepper_realtime.tools.ToolContext
+import ch.fhnw.pepper_realtime.tools.startRobotAction
 import org.json.JSONObject
 import java.util.Locale
 
@@ -44,12 +46,14 @@ class ApproachHumanTool : Tool {
 
     override fun execute(args: JSONObject, context: ToolContext): String {
         val humanId = if (args.has("human_id")) args.optInt("human_id") else null
-        var speed = args.optDouble("speed", 0.3)
-
-        // Validate speed
-        if (speed < 0.1 || speed > 0.55) {
-            speed = 0.3 // Use default speed if invalid
+        val speed: Double
+        try {
+            speed = MotionValidation.number(args, "speed", 0.3)
+            MotionValidation.speed(speed)
+        } catch (e: IllegalArgumentException) {
+            return JSONObject().put("error", e.message).toString()
         }
+
 
         // Check if robot is ready
         if (context.isQiContextNotReady()) {
@@ -116,13 +120,15 @@ class ApproachHumanTool : Tool {
             }
 
             // Execute approach asynchronously
-            val approachFuture = approachHuman.async().run()
+            val approachFuture = context.startRobotAction { approachHuman.async().run() }
 
             approachFuture.thenConsume { future ->
-                val success = !future.hasError()
+                approachHuman.removeAllOnHumanIsTemporarilyUnreachableListeners()
+                if (!context.isActive) return@thenConsume
+                val success = future.isSuccess
                 val error = if (future.hasError()) {
                     future.error?.message ?: "Unknown approach error"
-                } else null
+                } else if (future.isCancelled) "Approach cancelled" else null
 
                 Log.i("ApproachHumanTool", "Approach completed - success: $success, error: $error")
 

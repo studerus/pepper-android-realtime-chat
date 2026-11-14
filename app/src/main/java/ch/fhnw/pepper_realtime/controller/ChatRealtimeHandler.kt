@@ -20,7 +20,10 @@ import ch.fhnw.pepper_realtime.ui.ChatViewModel
 import ch.fhnw.pepper_realtime.network.RealtimeApiProvider
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.runInterruptible
+import ch.fhnw.pepper_realtime.tools.ChatWorkRegistry
+import ch.fhnw.pepper_realtime.tools.OperationScope
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -33,7 +36,9 @@ class ChatRealtimeHandler(
     private val toolRegistry: ToolRegistry,
     private var toolContext: ToolContext?,
     private val sessionManager: RealtimeSessionManager,
-    private val settingsRepository: ch.fhnw.pepper_realtime.manager.SettingsRepository
+    private val settingsRepository: ch.fhnw.pepper_realtime.manager.SettingsRepository,
+    private val workRegistry: ChatWorkRegistry,
+    private val postToMain: (() -> Unit) -> Unit = { action -> Handler(Looper.getMainLooper()).post { action() } }
 ) : RealtimeEventHandler.Listener {
 
     companion object {
@@ -42,8 +47,6 @@ class ChatRealtimeHandler(
 
     var sessionController: ChatSessionController? = null
 
-    // Track pending Google tool calls to cancel them if interrupted
-    private val pendingGoogleToolCalls = mutableSetOf<String>()
     
     // Google Live API: counter to generate unique turn IDs
     private var googleTurnCounter = 0
@@ -171,6 +174,7 @@ class ChatRealtimeHandler(
     }
 
     override fun onResponseDone(event: RealtimeEvents.ResponseDone) {
+        val session = workRegistry.current ?: return
         viewModel.setResponseGenerating(false) // API finished generating
         Log.i(TAG, "Full response received. Processing final output.")
         try {
@@ -199,7 +203,8 @@ class ChatRealtimeHandler(
                 
                 for (fc in functionCalls) {
                     val toolName = fc.name
-                    val callId = fc.callId
+                    val callId = fc.callId ?: continue
+                    val operation = session.beginCall(callId) ?: continue
                     val argsString = fc.arguments
 
                     // Convert to JSONObject for ToolRegistry compatibility
@@ -213,8 +218,8 @@ class ChatRealtimeHandler(
                     if (toolName in serverSideTools) {
                         Log.i(TAG, "Server-side tool '$toolName' - handled by API, no local execution needed")
                         // Update UI to show it's being handled server-side
-                        Handler(Looper.getMainLooper()).post {
-                            viewModel.updateLatestFunctionCallResult("{\"status\":\"Executed by server\"}")
+                        postToMain {
+                            operation.runIfActive { viewModel.updateFunctionCallResult(functionCall.uuid, "{\"status\":\"Executed by server\"}") }
                         }
                         // Do NOT send result back - server handles this
                         continue
@@ -231,28 +236,12 @@ class ChatRealtimeHandler(
 
                     viewModel.isExpectingFinalAnswerAfterToolCall = shouldRequestResponse
                     
-                    applicationScope.launch(ioDispatcher) {
-                        val toolResult: String = try {
-                            toolRegistry.executeTool(toolName.orEmpty(), args, toolContext!!)
-                                ?: "{\"error\":\"Tool returned no result.\"}"
-                        } catch (toolEx: Exception) {
-                            Log.e(TAG, "Tool execution crashed for $toolName", toolEx)
-                            try {
-                                JSONObject()
-                                    .put("error", "Tool execution failed: ${toolEx.message ?: "Unknown error"}")
-                                    .toString()
-                            } catch (_: Exception) {
-                                "{\"error\":\"Tool execution failed.\"}"
-                            }
+                    launchTool(operation, toolName.orEmpty(), args) { result ->
+                        session.completeCall(callId)
+                        postToMain {
+                            operation.runIfActive { viewModel.updateFunctionCallResult(functionCall.uuid, result) }
                         }
-
-                        val fResult = toolResult
-                        // Update UI on main thread to ensure RecyclerView updates even with overlays
-                        Handler(Looper.getMainLooper()).post {
-                            viewModel.updateLatestFunctionCallResult(fResult)
-                        }
-                        sessionController?.sendToolResult(callId ?: "", fResult, requestResponse = shouldRequestResponse)
-                            ?: Log.e(TAG, "SessionController is null, cannot send tool result")
+                        sessionController?.sendToolResult(callId, result, requestResponse = shouldRequestResponse)
                     }
                 }
             }
@@ -427,21 +416,21 @@ class ChatRealtimeHandler(
         viewModel.setAudioPlaying(false)
         
         // Clear pending tool calls on interrupt
-        pendingGoogleToolCalls.clear()
+        workRegistry.current?.cancelPendingCalls()
         
         // Clear the manual interrupt flag - server confirmed interruption
         viewModel.setIgnoreGoogleAudio(false)
     }
 
     override fun onGoogleToolCall(functionCalls: List<GoogleLiveEvents.FunctionCall>) {
+        val session = workRegistry.current ?: return
         Log.i(TAG, "Google: Processing ${functionCalls.size} tool call(s)")
         
         for (fc in functionCalls) {
             val toolName = fc.name ?: continue
             val callId = fc.id ?: continue
             
-            // Track pending tool call
-            pendingGoogleToolCalls.add(callId)
+            val operation = session.beginCall(callId) ?: continue
             
             // Convert args map to JSONObject (handling nested objects and arrays)
             val args = convertToJsonObject(fc.args ?: emptyMap())
@@ -464,28 +453,8 @@ class ChatRealtimeHandler(
 
             viewModel.isExpectingFinalAnswerAfterToolCall = !skipResponse
 
-            applicationScope.launch(ioDispatcher) {
-                val toolResult: String = try {
-                    toolRegistry.executeTool(toolName, args, toolContext!!)
-                        ?: "{\"error\":\"Tool returned no result.\"}"
-                } catch (toolEx: Exception) {
-                    Log.e(TAG, "Google tool execution crashed for $toolName", toolEx)
-                    try {
-                        JSONObject()
-                            .put("error", "Tool execution failed: ${toolEx.message ?: "Unknown error"}")
-                            .toString()
-                    } catch (_: Exception) {
-                        "{\"error\":\"Tool execution failed.\"}"
-                    }
-                }
-
-                // Check if this call was cancelled while executing
-                if (callId !in pendingGoogleToolCalls) {
-                    Log.w(TAG, "Google tool call $callId was cancelled, not sending result")
-                    return@launch
-                }
-                pendingGoogleToolCalls.remove(callId)
-
+            launchTool(operation, toolName, args) { toolResult ->
+                session.completeCall(callId)
                 // Keep image bytes out of the chat history; attach them only to the tool response.
                 val imageResult = if (toolName == "analyze_vision") {
                     try {
@@ -503,8 +472,8 @@ class ChatRealtimeHandler(
                 }?.toString() ?: toolResult
 
                 // Update UI on main thread
-                Handler(Looper.getMainLooper()).post {
-                    viewModel.updateLatestFunctionCallResult(responseResult)
+                postToMain {
+                    operation.runIfActive { viewModel.updateFunctionCallResult(functionCall.uuid, responseResult) }
                 }
 
                 // Send result back to Google
@@ -526,7 +495,25 @@ class ChatRealtimeHandler(
     override fun onGoogleToolCallCancellation(ids: List<String>) {
         Log.i(TAG, "Google: Tool call cancellation for ${ids.size} call(s)")
         ids.forEach { id ->
-            pendingGoogleToolCalls.remove(id)
+            workRegistry.current?.cancelCall(id)
+        }
+    }
+
+    private fun launchTool(operation: OperationScope, name: String, args: JSONObject, onResult: (String) -> Unit) {
+        val context = toolContext?.forOperation(operation) ?: return
+        operation.launchIn(applicationScope, ioDispatcher) {
+            try {
+                // execute() is synchronous: cancellation must also interrupt blocking waits/runBlocking.
+                val result = runInterruptible { toolRegistry.executeTool(name, args, context) }
+                operation.runIfActive { onResult(result) }
+            } catch (_: CancellationException) {
+                // A cancelled call has no result in this or any subsequent session.
+            } catch (error: Exception) {
+                Log.e(TAG, "Tool execution crashed for $name", error)
+                operation.runIfActive {
+                    onResult(JSONObject().put("error", "Tool execution failed: ${error.message}").toString())
+                }
+            }
         }
     }
 

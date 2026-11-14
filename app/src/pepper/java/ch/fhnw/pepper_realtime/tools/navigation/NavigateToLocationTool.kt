@@ -2,10 +2,12 @@ package ch.fhnw.pepper_realtime.tools.navigation
 
 import android.util.Log
 import com.aldebaran.qi.sdk.QiContext
+import ch.fhnw.pepper_realtime.robot.MotionValidation
 import ch.fhnw.pepper_realtime.data.SavedLocation
 import ch.fhnw.pepper_realtime.robot.RobotSafetyGuard
 import ch.fhnw.pepper_realtime.tools.Tool
 import ch.fhnw.pepper_realtime.tools.ToolContext
+import ch.fhnw.pepper_realtime.tools.startRobotAction
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
@@ -52,17 +54,19 @@ class NavigateToLocationTool : Tool {
 
     override fun execute(args: JSONObject, context: ToolContext): String {
         val locationName = args.optString("location_name", "")
-        val speed = args.optDouble("speed", 0.3)
+        val speed: Double
+        try {
+            speed = MotionValidation.number(args, "speed", 0.3)
+            MotionValidation.speed(speed)
+        } catch (e: IllegalArgumentException) {
+            return JSONObject().put("error", e.message).toString()
+        }
 
         // Validate location name
         if (locationName.trim().isEmpty()) {
             return JSONObject().put("error", "Location name is required").toString()
         }
 
-        // Validate speed
-        if (speed < 0.1 || speed > 0.55) {
-            return JSONObject().put("error", "Speed must be between 0.1 and 0.55 m/s").toString()
-        }
 
         // Check if robot is ready
         if (context.isQiContextNotReady()) {
@@ -82,7 +86,7 @@ class NavigateToLocationTool : Tool {
         val navManager = context.navigationServiceManager
 
         // --- LOCK CHECK: Prevent parallel navigation processes ---
-        if (!navManager.tryStartNavigationProcess()) {
+        if (!navManager.tryStartNavigationProcess(context.operation)) {
             Log.w(TAG, "Navigation rejected - another navigation process is already running")
             return JSONObject().apply {
                 put("status", "navigation_already_in_progress")
@@ -94,7 +98,7 @@ class NavigateToLocationTool : Tool {
             // Load the saved location
             val savedLocation = loadLocationFromStorage(context, locationName)
             if (savedLocation == null) {
-                navManager.endNavigationProcess()
+                navManager.endNavigationProcess(context.operation)
                 return JSONObject().put("error", "Location '$locationName' not found. Please save the location first.").toString()
             }
 
@@ -105,13 +109,16 @@ class NavigateToLocationTool : Tool {
             // --- ASYNCHRONOUS NAVIGATION FLOW ---
             // This part runs in the background. The initial return value is determined synchronously below.
             Log.i(TAG, "Step 1: Starting navigation preparation - ensuring map is loaded.")
-            navManager.ensureMapLoadedIfNeeded(qiContext, context.appContext) {
-                context.sendAsyncUpdate("[MAP LOADED] Pepper has loaded the map into memory and will now orient itself. DO NOT call navigate_to_location again - the process continues automatically.", true)
+            context.startRobotAction {
+                navManager.ensureMapLoadedIfNeeded(qiContext, context.appContext) {
+                    context.sendAsyncUpdate("[MAP LOADED] Pepper has loaded the map into memory and will now orient itself. DO NOT call navigate_to_location again - the process continues automatically.", true)
+                }
             }.thenConsume { mapReadyFuture ->
+                if (!context.isActive) return@thenConsume
                 try {
                     if (mapReadyFuture.hasError() || mapReadyFuture.value != true) {
                         Log.e(TAG, "Step 1 FAILED: Map could not be loaded.", mapReadyFuture.error)
-                        navManager.endNavigationProcess()
+                        navManager.endNavigationProcess(context.operation)
                         context.sendAsyncUpdate("[NAVIGATION ERROR] No usable map available. Please create a new map.", true)
                         return@thenConsume
                     }
@@ -134,7 +141,8 @@ class NavigateToLocationTool : Tool {
                                     )
                                 }
 
-                                val navFuture = navManager.navigateToLocation(qiContext, savedLocation, speed.toFloat())
+                                context.ensureActive()
+                                val navFuture = navManager.navigateToLocation(qiContext, savedLocation, speed.toFloat(), context.operation)
 
                                 navFuture.thenConsume { navResultFuture ->
                                     try {
@@ -157,7 +165,6 @@ class NavigateToLocationTool : Tool {
                                         } else {
                                             val friendlyError = translateNavigationError(error)
 
-                                            // Build the base error message
                                             val messageBuilder = StringBuilder()
                                             messageBuilder.append(
                                                 String.format(
@@ -184,28 +191,29 @@ class NavigateToLocationTool : Tool {
                                             message = messageBuilder.toString()
                                             Log.e(TAG, "Step 3 FAILED: Navigation to $locationName failed. Reason: $error")
                                         }
-                                        navManager.endNavigationProcess()
+                                        navManager.endNavigationProcess(context.operation)
                                         context.sendAsyncUpdate(message, true)
                                     } catch (e: Exception) {
                                         Log.e(TAG, "Error processing navigation result future.", e)
-                                        navManager.endNavigationProcess()
+                                        navManager.endNavigationProcess(context.operation)
                                     }
                                 }
                             } catch (e: Exception) {
                                 Log.e(TAG, "Step 3 FAILED: Error initiating navigation.", e)
-                                navManager.endNavigationProcess()
+                                navManager.endNavigationProcess(context.operation)
                                 context.sendAsyncUpdate("[NAVIGATION ERROR] Failed to start navigation: ${e.message}", true)
                             }
                         },
                         { // onFailed Callback
                             Log.e(TAG, "Step 2 FAILED: Localization failed. Navigation cancelled.")
-                            navManager.endNavigationProcess()
+                            navManager.endNavigationProcess(context.operation)
                             context.sendAsyncUpdate("[LOCALIZATION FAILED] Orientation failed. Navigation cannot start.", true)
-                        }
+                        },
+                        context.operation
                     )
                 } catch (e: Exception) {
                     Log.e(TAG, "Error in map loading callback chain.", e)
-                    navManager.endNavigationProcess()
+                    navManager.endNavigationProcess(context.operation)
                 }
             }
 
@@ -231,7 +239,7 @@ class NavigateToLocationTool : Tool {
 
         } catch (e: Exception) {
             Log.e(TAG, "Error navigating to location", e)
-            navManager.endNavigationProcess()
+            navManager.endNavigationProcess(context.operation)
             JSONObject().put("error", "Failed to navigate to location: ${e.message}").toString()
         }
     }

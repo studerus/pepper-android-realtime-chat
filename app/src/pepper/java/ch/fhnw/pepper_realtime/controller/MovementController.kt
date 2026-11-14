@@ -1,11 +1,16 @@
 package ch.fhnw.pepper_realtime.controller
 
 import android.util.Log
+import ch.fhnw.pepper_realtime.tools.OperationScope
+import java.io.Closeable
+import ch.fhnw.pepper_realtime.robot.MotionValidation
+import ch.fhnw.pepper_realtime.robot.RobotSafetyGuard
 import com.aldebaran.qi.Future
 import com.aldebaran.qi.sdk.QiContext
 import com.aldebaran.qi.sdk.builder.GoToBuilder
 import com.aldebaran.qi.sdk.builder.TransformBuilder
 import com.aldebaran.qi.sdk.`object`.actuation.OrientationPolicy
+import com.aldebaran.qi.sdk.`object`.actuation.GoTo
 import com.aldebaran.qi.sdk.`object`.geometry.Quaternion
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
@@ -14,7 +19,9 @@ import java.util.concurrent.TimeUnit
 import kotlin.math.cos
 import kotlin.math.sin
 
-class MovementController {
+class MovementController(
+    private val timeoutExecutor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor()
+) {
     
     interface MovementListener {
         fun onMovementStarted()
@@ -27,9 +34,16 @@ class MovementController {
     }
 
     private var listener: MovementListener? = null
-    private val timeoutExecutor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor()
-    private var currentMovement: Future<Void>? = null
-    private var currentTimeoutTask: ScheduledFuture<*>? = null
+    private val movementLock = Any()
+    private class Movement(val listener: MovementListener?, val owner: OperationScope?) {
+        var future: Future<Void>? = null
+        var timeout: ScheduledFuture<*>? = null
+        var action: GoTo? = null
+        var finished = false
+        var cancellation: Closeable? = null
+    }
+    private var currentMovement: Movement? = null
+    private var closed = false
 
     fun setListener(listener: MovementListener?) {
         this.listener = listener
@@ -42,80 +56,43 @@ class MovementController {
      * @param distanceSideways distance left (positive) or right (negative) in meters
      * @param speed optional speed in m/s (0.1-0.55), default 0.4
      */
-    fun movePepper(qiContext: QiContext?, distanceForward: Double, distanceSideways: Double, speed: Double) {
+    fun movePepper(qiContext: QiContext?, distanceForward: Double, distanceSideways: Double, speed: Double, owner: OperationScope? = null, callbacks: MovementListener? = listener) {
         if (qiContext == null) {
             Log.e(TAG, "QiContext is null - cannot move Pepper")
-            listener?.onMovementFinished(false, "Robot not ready")
+            callbacks?.onMovementFinished(false, "Robot not ready")
             return
         }
 
         try {
-            // Validate parameters
-            val validSpeed = if (speed < 0.1 || speed > 0.55) 0.4 else speed
+            MotionValidation.move(distanceForward, distanceSideways, speed)
+            if (!checkMovementSafety(qiContext, callbacks)) return
 
-            // Get Actuation and Mapping services
-            val actuation = qiContext.actuation
-            val mapping = qiContext.mapping
+            runMovement(owner, callbacks) {
+                // Get Actuation and Mapping services
+                val actuation = qiContext.actuation
+                val mapping = qiContext.mapping
 
-            // Get robot frame
-            val robotFrame = actuation.robotFrame()
+                // Get robot frame
+                val robotFrame = actuation.robotFrame()
 
-            // Create transform based on direction
-            val transform = TransformBuilder.create().from2DTranslation(distanceForward, distanceSideways)
+                // Create transform based on direction
+                val transform = TransformBuilder.create().from2DTranslation(distanceForward, distanceSideways)
 
-            // Create target frame
-            val targetFrame = mapping.makeFreeFrame()
-            targetFrame.update(robotFrame, transform, 0L)
+                // Create target frame
+                val targetFrame = mapping.makeFreeFrame()
+                targetFrame.update(robotFrame, transform, 0L)
 
-            // Create and execute GoTo action
-            val goTo = GoToBuilder.with(qiContext)
-                .withFrame(targetFrame.frame())
-                .withMaxSpeed(validSpeed.toFloat())
-                .withFinalOrientationPolicy(OrientationPolicy.ALIGN_X)
-                .build()
+                // Create and execute GoTo action
+                GoToBuilder.with(qiContext)
+                    .withFrame(targetFrame.frame())
+                    .withMaxSpeed(speed.toFloat())
+                    .withFinalOrientationPolicy(OrientationPolicy.ALIGN_X)
+                    .build()
 
-            // Add listeners
-            goTo.addOnStartedListener {
-                Log.i(TAG, "Movement started: forward=${distanceForward}m, sideways=${distanceSideways}m")
-                listener?.onMovementStarted()
-            }
-
-            // Execute movement
-            currentMovement = goTo.async().run()
-
-            // Set up timeout
-            timeoutExecutor.schedule({
-                currentMovement?.let { movement ->
-                    if (!movement.isDone) {
-                        Log.w(TAG, "Movement timeout after $MOVEMENT_TIMEOUT_SECONDS seconds - cancelling")
-                        movement.requestCancellation()
-                        listener?.onMovementFinished(false, "Movement timeout - the robot took too long to reach the destination, possibly due to obstacles")
-                    }
-                }
-            }, MOVEMENT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-
-            currentMovement?.thenConsume { future ->
-                goTo.removeAllOnStartedListeners()
-
-                when {
-                    future.isSuccess -> {
-                        Log.i(TAG, "Movement finished successfully")
-                        listener?.onMovementFinished(true, null)
-                    }
-                    future.isCancelled -> {
-                        Log.w(TAG, "Movement was cancelled (likely due to timeout)")
-                        // Don't call listener here - timeout handler already did
-                    }
-                    future.hasError() -> {
-                        val errorMsg = future.error?.message ?: "Unknown movement error"
-                        Log.e(TAG, "Movement failed: $errorMsg", future.error)
-                        listener?.onMovementFinished(false, errorMsg)
-                    }
-                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error creating movement", e)
-            listener?.onMovementFinished(false, e.message)
+            callbacks?.onMovementFinished(false, e.message)
         }
     }
 
@@ -124,85 +101,45 @@ class MovementController {
      * @param qiContext QiContext for accessing robot services
      * @param direction "left", "right"
      * @param degrees degrees to turn (15-180)
-     * @param speed optional angular speed in rad/s (0.1-1.0), default 0.5
+     * @param speed optional GoTo maximum speed in m/s (0.1-0.55), default 0.5
      */
-    fun turnPepper(qiContext: QiContext?, direction: String, degrees: Double, speed: Double) {
+    fun turnPepper(qiContext: QiContext?, direction: String, degrees: Double, speed: Double, owner: OperationScope? = null, callbacks: MovementListener? = listener) {
         if (qiContext == null) {
             Log.e(TAG, "QiContext is null - cannot turn Pepper")
-            listener?.onMovementFinished(false, "Robot not ready")
+            callbacks?.onMovementFinished(false, "Robot not ready")
             return
         }
 
         try {
-            // Validate parameters
-            if (degrees < 15 || degrees > 180) {
-                throw IllegalArgumentException("Degrees must be between 15 and 180")
-            }
-            val validSpeed = if (speed < 0.1 || speed > 1.0) 0.5 else speed
+            MotionValidation.turn(direction, degrees, speed)
+            if (!checkMovementSafety(qiContext, callbacks)) return
 
-            // Get Actuation and Mapping services
-            val actuation = qiContext.actuation
-            val mapping = qiContext.mapping
+            runMovement(owner, callbacks) {
+                // Get Actuation and Mapping services
+                val actuation = qiContext.actuation
+                val mapping = qiContext.mapping
 
-            // Get robot frame
-            val robotFrame = actuation.robotFrame()
+                // Get robot frame
+                val robotFrame = actuation.robotFrame()
 
-            // Create rotation transform
-            val transform = createRotationTransform(direction, degrees)
+                // Create rotation transform
+                val transform = createRotationTransform(direction, degrees)
 
-            // Create target frame
-            val targetFrame = mapping.makeFreeFrame()
-            targetFrame.update(robotFrame, transform, 0L)
+                // Create target frame
+                val targetFrame = mapping.makeFreeFrame()
+                targetFrame.update(robotFrame, transform, 0L)
 
-            // Create and execute GoTo action
-            val goTo = GoToBuilder.with(qiContext)
-                .withFrame(targetFrame.frame())
-                .withMaxSpeed(validSpeed.toFloat())
-                .withFinalOrientationPolicy(OrientationPolicy.ALIGN_X)
-                .build()
+                // Create and execute GoTo action
+                GoToBuilder.with(qiContext)
+                    .withFrame(targetFrame.frame())
+                    .withMaxSpeed(speed.toFloat())
+                    .withFinalOrientationPolicy(OrientationPolicy.ALIGN_X)
+                    .build()
 
-            // Add listeners
-            goTo.addOnStartedListener {
-                Log.i(TAG, "Turn started: $direction $degrees degrees")
-                listener?.onMovementStarted()
-            }
-
-            // Execute turn
-            currentMovement = goTo.async().run()
-
-            // Set up timeout
-            timeoutExecutor.schedule({
-                currentMovement?.let { movement ->
-                    if (!movement.isDone) {
-                        Log.w(TAG, "Turn timeout after $MOVEMENT_TIMEOUT_SECONDS seconds - cancelling")
-                        movement.requestCancellation()
-                        listener?.onMovementFinished(false, "Turn timeout - the robot took too long to complete the turn, possibly due to obstacles")
-                    }
-                }
-            }, MOVEMENT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-
-            currentMovement?.thenConsume { future ->
-                goTo.removeAllOnStartedListeners()
-
-                when {
-                    future.isSuccess -> {
-                        Log.i(TAG, "Turn finished successfully")
-                        listener?.onMovementFinished(true, null)
-                    }
-                    future.isCancelled -> {
-                        Log.w(TAG, "Turn was cancelled (likely due to timeout)")
-                        // Don't call listener here - timeout handler already did
-                    }
-                    future.hasError() -> {
-                        val errorMsg = future.error?.message ?: "Unknown turn error"
-                        Log.e(TAG, "Turn failed: $errorMsg", future.error)
-                        listener?.onMovementFinished(false, errorMsg)
-                    }
-                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error creating turn", e)
-            listener?.onMovementFinished(false, e.message)
+            callbacks?.onMovementFinished(false, e.message)
         }
     }
 
@@ -229,52 +166,46 @@ class MovementController {
     /**
      * Navigate to a saved location using GoTo
      */
-    fun navigateToLocation(qiContext: QiContext?, savedLocation: Any?, speed: Float) {
-        currentMovement?.let { movement ->
-            if (!movement.isDone) {
-                Log.w(TAG, "Cannot start navigation - another movement is in progress")
-                listener?.onMovementFinished(false, "Another movement is already in progress")
-                return
-            }
-        }
-
+    fun navigateToLocation(qiContext: QiContext?, savedLocation: Any?, speed: Float, owner: OperationScope? = null, callbacks: MovementListener? = listener) {
         if (qiContext == null || savedLocation == null) {
             Log.e(TAG, "QiContext or savedLocation is null")
-            listener?.onMovementFinished(false, "Invalid parameters")
+            callbacks?.onMovementFinished(false, "Invalid parameters")
             return
         }
 
         // Validate speed
-        if (speed < 0.1f || speed > 0.55f) {
+        if (!speed.isFinite() || speed !in 0.1f..0.55f) {
             Log.e(TAG, "Invalid navigation speed: $speed. Must be between 0.1 and 0.55 m/s")
-            listener?.onMovementFinished(false, "Invalid speed: $speed")
+            callbacks?.onMovementFinished(false, "Invalid speed: $speed")
             return
         }
 
         Log.d(TAG, "Starting navigation to saved location with speed: $speed m/s")
 
         try {
+            if (!checkMovementSafety(qiContext, callbacks)) return
+
             // Extract location data using reflection
             val translationField = savedLocation.javaClass.getDeclaredField("translation")
             translationField.isAccessible = true
             val translation = translationField.get(savedLocation) as? DoubleArray
 
-            if (translation == null || translation.size < 2) {
+            if (translation == null || translation.size < 2 || translation.any { !it.isFinite() }) {
                 Log.e(TAG, "Invalid translation data in saved location")
-                listener?.onMovementFinished(false, "Invalid location data - translation missing")
+                callbacks?.onMovementFinished(false, "Invalid location data - translation missing or not finite")
                 return
             }
 
-            // Create target transform from saved location data
-            val targetTransform = TransformBuilder.create().from2DTranslation(translation[0], translation[1])
+            runMovement(owner, callbacks) {
+                // Create target transform from saved location data
+                val targetTransform = TransformBuilder.create().from2DTranslation(translation[0], translation[1])
 
-            // Get map frame as reference
-            val mapFrame = try {
-                qiContext.mapping.mapFrame()
-            } catch (e: Exception) {
-                Log.e(TAG, "Map frame not available for navigation: ${e.message}")
-                listener?.onMovementFinished(false, "No map available for navigation. Please create a map first.")
-                return
+                // Get map frame as reference
+                val mapFrame = try {
+                    qiContext.mapping.mapFrame()
+                } catch (e: Exception) {
+                    Log.e(TAG, "Map frame not available for navigation: ${e.message}")
+                    throw IllegalStateException("No map available for navigation. Please create a map first.", e)
             }
 
             // Create a FreeFrame at the target location
@@ -282,70 +213,100 @@ class MovementController {
             targetFrame.update(mapFrame, targetTransform, 0L)
 
             // Create GoTo action
-            val goTo = GoToBuilder.with(qiContext)
+            GoToBuilder.with(qiContext)
                 .withFrame(targetFrame.frame())
                 .withMaxSpeed(speed)
                 .withFinalOrientationPolicy(OrientationPolicy.FREE_ORIENTATION)
                 .build()
 
-            // Set up timeout
-            currentTimeoutTask = timeoutExecutor.schedule({
-                currentMovement?.let { movement ->
-                    if (!movement.isDone) {
-                        Log.w(TAG, "Navigation timeout after $MOVEMENT_TIMEOUT_SECONDS seconds")
-                        movement.requestCancellation()
-                        listener?.onMovementFinished(false, "timeout")
-                    }
-                }
-            }, MOVEMENT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-
-            // Execute navigation
-            currentMovement = goTo.async().run()
-            listener?.onMovementStarted()
-
-            // Handle completion
-            currentMovement?.thenConsume { future ->
-                // Cancel timeout task
-                currentTimeoutTask?.let { task ->
-                    if (!task.isDone) {
-                        task.cancel(false)
-                    }
-                }
-
-                when {
-                    future.isSuccess -> {
-                        Log.d(TAG, "Navigation completed successfully")
-                        listener?.onMovementFinished(true, null)
-                    }
-                    future.isCancelled -> {
-                        Log.w(TAG, "Navigation was cancelled")
-                        listener?.onMovementFinished(false, "cancelled")
-                    }
-                    future.hasError() -> {
-                        val error = future.error?.message ?: "Unknown error"
-                        Log.e(TAG, "Navigation failed: $error")
-                        listener?.onMovementFinished(false, error)
-                    }
-                }
-
-                currentMovement = null
-                currentTimeoutTask = null
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error starting navigation", e)
-            listener?.onMovementFinished(false, "Navigation setup failed: ${e.message}")
+            callbacks?.onMovementFinished(false, "Navigation setup failed: ${e.message}")
         }
     }
 
-    /**
-     * Clean up resources when MovementController is no longer needed
-     */
-    @Suppress("unused")
-    fun shutdown() {
-        if (!timeoutExecutor.isShutdown) {
-            timeoutExecutor.shutdown()
-            Log.d(TAG, "MovementController executor shutdown")
+    private fun checkMovementSafety(qiContext: QiContext, callbacks: MovementListener?): Boolean {
+        val safety = RobotSafetyGuard.evaluateMovementSafety(qiContext)
+        if (safety.isOk()) return true
+        callbacks?.onMovementFinished(false, safety.message)
+        return false
+    }
+
+    /** Each completion/timeout holds its own action; an old callback cannot affect a successor. */
+    internal fun runMovement(owner: OperationScope? = null, callbacks: MovementListener? = listener, build: () -> GoTo) {
+        val movement = Movement(callbacks, owner)
+        synchronized(movementLock) {
+            if (closed || currentMovement != null) {
+                movement.listener?.onMovementFinished(false, if (closed) "Movement controller stopped" else "Another movement is already in progress")
+                return
+            }
+            currentMovement = movement
         }
+        val registration = owner?.onCancel { finish(movement, false, "Movement cancelled", cancel = true) }
+        synchronized(movementLock) {
+            if (movement.finished) { registration?.close(); return }
+            movement.cancellation = registration
+        }
+        try {
+            val action = build()
+            synchronized(movementLock) {
+                if (movement.finished) return // Cancellation while building: never run the action.
+                movement.action = action
+                action.addOnStartedListener {
+                    synchronized(movementLock) {
+                        if (!movement.finished) movement.listener?.onMovementStarted()
+                    }
+                }
+                val future = action.async().run()
+                movement.future = future
+                movement.timeout = timeoutExecutor.schedule({
+                    finish(movement, false, "Movement timeout", cancel = true)
+                }, MOVEMENT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                future.thenConsume { result ->
+                    when {
+                        result.isCancelled -> finish(movement, false, "Movement cancelled")
+                        result.hasError() -> finish(movement, false, result.error?.message ?: "Movement failed")
+                        else -> finish(movement, true, null)
+                    }
+                }
+            }
+        } catch (error: Exception) {
+            finish(movement, false, error.message ?: "Movement setup failed", cancel = true)
+        }
+    }
+
+    private fun finish(movement: Movement, success: Boolean, error: String?, cancel: Boolean = false) {
+        synchronized(movementLock) {
+            if (movement.finished) return
+            movement.finished = true
+            movement.timeout?.cancel(false)
+            movement.timeout = null
+            movement.cancellation?.close()
+            movement.cancellation = null
+            if (currentMovement === movement) currentMovement = null
+        }
+        try {
+            if (cancel) movement.future?.requestCancellation()
+        } finally {
+            try { movement.action?.removeAllOnStartedListeners() } catch (ignored: Exception) { }
+            movement.listener?.onMovementFinished(success, error)
+        }
+    }
+
+    fun cancelMovement(owner: OperationScope) {
+        val movement = synchronized(movementLock) { currentMovement?.takeIf { it.owner === owner } } ?: return
+        finish(movement, false, "Movement cancelled", cancel = true)
+    }
+
+    fun cancelCurrentMovement() {
+        val movement = synchronized(movementLock) { currentMovement } ?: return
+        finish(movement, false, "Movement cancelled", cancel = true)
+    }
+
+    fun shutdown() {
+        synchronized(movementLock) { closed = true }
+        cancelCurrentMovement()
+        timeoutExecutor.shutdownNow()
     }
 }
-

@@ -37,9 +37,9 @@ class TurnPepperTool : Tool {
                         .put("maximum", 180))
                     put("speed", JSONObject()
                         .put("type", "number")
-                        .put("description", "Optional turning speed in rad/s (0.1-1.0)")
+                        .put("description", "Optional GoTo maximum speed in m/s (0.1-0.55)")
                         .put("minimum", 0.1)
-                        .put("maximum", 1.0)
+                        .put("maximum", 0.55)
                         .put("default", 0.5))
                 })
                 put("required", JSONArray().put("direction").put("degrees"))
@@ -52,7 +52,7 @@ class TurnPepperTool : Tool {
         val degrees = args.optDouble("degrees", 0.0)
         val speed = args.optDouble("speed", 0.5)
 
-        Log.i(TAG, "🤖 [SIMULATED] Turn $direction by %.1f degrees at speed %.2f rad/s".format(degrees, speed))
+        Log.i(TAG, "🤖 [SIMULATED] Turn $direction by %.1f degrees at max speed %.2f m/s".format(degrees, speed))
 
         return JSONObject()
             .put("success", true)

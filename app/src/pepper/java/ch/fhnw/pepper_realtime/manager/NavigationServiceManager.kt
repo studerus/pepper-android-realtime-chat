@@ -5,6 +5,8 @@ import android.graphics.Bitmap
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import ch.fhnw.pepper_realtime.tools.OperationScope
+import java.io.Closeable
 import com.aldebaran.qi.Future
 import com.aldebaran.qi.Promise
 import com.aldebaran.qi.sdk.QiContext
@@ -55,15 +57,23 @@ class NavigationServiceManager(private val movementController: MovementControlle
 
     // Autonomous abilities management
     private var autonomousAbilitiesHolder: Holder? = null
+    private var autonomousHoldFuture: Future<Void>? = null
     @Volatile private var autonomousAbilitiesHeld = false
     @Volatile private var gesturesSuppressed = false
     private val mainHandler = Handler(Looper.getMainLooper())
     private val mapCache: NavigationMapCache
     private val localizationCoordinator: LocalizationCoordinator
 
-    @Volatile private var pendingMovementPromise: Promise<MovementResult>? = null
+    private class PendingMovement(val promise: Promise<MovementResult>) {
+        val owner = OperationScope()
+        var registration: Closeable? = null
+    }
+    private val movementLock = Any()
+    private var pendingMovement: PendingMovement? = null
+    private var movementGeneration = 0L
     
     // Lock to prevent parallel navigation process calls (includes map loading + localization + navigation)
+    private var navigationProcessOwner: OperationScope? = null
     @Volatile private var _isNavigationProcessActive = false
     val isNavigationProcessActive: Boolean get() = _isNavigationProcessActive
     
@@ -72,12 +82,15 @@ class NavigationServiceManager(private val movementController: MovementControlle
      * @return true if lock was acquired, false if another navigation is already in progress
      */
     @Synchronized
-    fun tryStartNavigationProcess(): Boolean {
+    fun tryStartNavigationProcess(owner: OperationScope? = null): Boolean {
+        if (owner?.isActive == false) return false
         if (_isNavigationProcessActive) {
             Log.w(TAG, "Navigation process lock denied - another navigation is already in progress")
             return false
         }
         _isNavigationProcessActive = true
+        navigationProcessOwner = owner
+        owner?.onCancel { endNavigationProcess(owner) }
         Log.i(TAG, "Navigation process lock acquired")
         return true
     }
@@ -86,35 +99,14 @@ class NavigationServiceManager(private val movementController: MovementControlle
      * Release the navigation process lock.
      */
     @Synchronized
-    fun endNavigationProcess() {
+    fun endNavigationProcess(owner: OperationScope? = null) {
+        if (owner != null && navigationProcessOwner !== owner) return
+        navigationProcessOwner = null
         _isNavigationProcessActive = false
         Log.i(TAG, "Navigation process lock released")
     }
 
     init {
-        movementController?.setListener(object : MovementController.MovementListener {
-            override fun onMovementStarted() {
-                Log.i(TAG, "Navigation movement started")
-                setNavigationPhase(NavigationPhase.NAVIGATION_MODE)
-            }
-
-            override fun onMovementFinished(success: Boolean, error: String?) {
-                Log.i(TAG, "Navigation movement finished - success: $success, error: $error")
-                // Always return to normal operation after movement
-                setNavigationPhase(NavigationPhase.NORMAL_OPERATION)
-                // Resolve any pending promise
-                val p = pendingMovementPromise
-                pendingMovementPromise = null
-                if (p != null) {
-                    try {
-                        p.setValue(MovementResult(success, error))
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Failed to resolve movement promise", e)
-                    }
-                }
-            }
-        })
-
         mapCache = NavigationMapCache(mainHandler, object : NavigationMapCache.CriticalSectionListener {
             override fun onEnter(qiContext: QiContext) {
                 beginCriticalMapLoad(qiContext)
@@ -330,7 +322,7 @@ class NavigationServiceManager(private val movementController: MovementControlle
      * Ensure robot is localized (requires a loaded map). Non-blocking.
      */
     @Suppress("UnusedReturnValue")
-    fun ensureLocalizationIfNeeded(qiContext: QiContext?, onLocalized: Runnable?, onFailed: Runnable?): Future<Boolean> {
+    fun ensureLocalizationIfNeeded(qiContext: QiContext?, onLocalized: Runnable?, onFailed: Runnable?, operation: OperationScope? = null): Future<Boolean> {
         val mapForLocalization = mapCache.getCachedMap()
         if (qiContext == null || mapForLocalization == null) {
             Log.w(TAG, "Cannot ensure localization: qiContext or cached map is null.")
@@ -338,7 +330,7 @@ class NavigationServiceManager(private val movementController: MovementControlle
             failed.setValue(false)
             return failed.future
         }
-        return localizationCoordinator.ensureLocalizationIfNeeded(qiContext, mapForLocalization, onLocalized, onFailed)
+        return localizationCoordinator.ensureLocalizationIfNeeded(qiContext, mapForLocalization, onLocalized, onFailed, operation)
     }
 
     /**
@@ -403,7 +395,7 @@ class NavigationServiceManager(private val movementController: MovementControlle
                 .withDegreesOfFreedom(DegreeOfFreedom.ROBOT_FRAME_ROTATION)
                 .build()
 
-            autonomousAbilitiesHolder?.async()?.hold()
+            autonomousHoldFuture = autonomousAbilitiesHolder?.async()?.hold()
             autonomousAbilitiesHeld = true
             Log.i(TAG, "Autonomous abilities held - robot will remain still during critical operations")
         } catch (e: Exception) {
@@ -418,6 +410,7 @@ class NavigationServiceManager(private val movementController: MovementControlle
         val promise = Promise<Void>()
         try {
             if (autonomousAbilitiesHolder != null) {
+                autonomousHoldFuture?.let { return it }
                 promise.setValue(null)
                 return promise.future
             }
@@ -429,13 +422,17 @@ class NavigationServiceManager(private val movementController: MovementControlle
                 promise.setError("QiContext is null")
                 return promise.future
             }
-            autonomousAbilitiesHolder = HolderBuilder.with(qiContext)
+            val holder = HolderBuilder.with(qiContext)
                 .withDegreesOfFreedom(DegreeOfFreedom.ROBOT_FRAME_ROTATION)
                 .build()
-            val fut = autonomousAbilitiesHolder?.async()?.hold()
-            fut?.thenConsume { res ->
-                if (res.hasError()) {
-                    Log.e(TAG, "Holding autonomous abilities failed", res.error)
+            autonomousAbilitiesHolder = holder
+            val fut = holder.async().hold()
+            autonomousHoldFuture = fut
+            promise.setOnCancel { fut.requestCancellation() }
+            fut.thenConsume { res ->
+                if (autonomousAbilitiesHolder !== holder) { promise.setError("Preparation cancelled"); return@thenConsume }
+                if (res.hasError() || res.isCancelled) {
+                    Log.e(TAG, "Holding autonomous abilities failed", if (res.hasError()) res.error else null)
                     autonomousAbilitiesHolder = null
                     autonomousAbilitiesHeld = false
                     promise.setError("Hold failed")
@@ -443,7 +440,7 @@ class NavigationServiceManager(private val movementController: MovementControlle
                     Log.i(TAG, "Autonomous abilities are now held (awaited)")
                     promise.setValue(null)
                 }
-            } ?: promise.setValue(null)
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Error ensuring autonomous abilities hold", e)
             autonomousAbilitiesHolder = null
@@ -464,142 +461,126 @@ class NavigationServiceManager(private val movementController: MovementControlle
         }
 
         try {
-            autonomousAbilitiesHolder?.async()?.release()
+            val holder = autonomousAbilitiesHolder
+            val holdFuture = autonomousHoldFuture
+            autonomousHoldFuture = null
             autonomousAbilitiesHolder = null
             autonomousAbilitiesHeld = false
+            try { if (holdFuture?.isDone == false) holdFuture.requestCancellation() } finally { holder?.async()?.release() }
             Log.i(TAG, "Autonomous abilities released - robot behavior restored to normal")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to release autonomous abilities", e)
         }
     }
 
-    /**
-     * Navigate to a location with full service coordination
-     */
-    fun navigateToLocation(qiContext: QiContext?, savedLocation: Any?, speed: Float): Future<MovementResult> {
-        if (movementController == null) {
-            Log.e(TAG, "Cannot navigate - MovementController is null")
-            val failed = Promise<MovementResult>()
-            failed.setValue(MovementResult(false, "Navigation service not available"))
-            return failed.future
+    fun navigateToLocation(qiContext: QiContext?, savedLocation: Any?, speed: Float,
+                           operation: OperationScope? = null): Future<MovementResult> {
+        if (!localizationCoordinator.isLocalizationReady) return failedMovement("Localization not ready")
+        return coordinatedMovement(qiContext, operation) { owner, callbacks ->
+            movementController!!.navigateToLocation(qiContext, savedLocation, speed, owner, callbacks)
         }
-        if (!localizationCoordinator.isLocalizationReady) {
-            Log.w(TAG, "Cannot navigate - localization is not ready")
-            val notReady = Promise<MovementResult>()
-            notReady.setValue(MovementResult(false, "Localization not ready"))
-            return notReady.future
-        }
-        if (pendingMovementPromise != null) {
-            Log.w(TAG, "Navigation requested while another movement is in progress")
-            val busy = Promise<MovementResult>()
-            busy.setValue(MovementResult(false, "Another movement is already in progress"))
-            return busy.future
-        }
-        Log.i(TAG, "Starting coordinated navigation to location")
-        mainHandler.post { setNavigationPhase(NavigationPhase.NAVIGATION_MODE) }
-        val p = Promise<MovementResult>()
-        pendingMovementPromise = p
-        
-        val holdFuture = qiContext?.let { ensureAutonomousAbilitiesHeld(it) }
-        if (holdFuture == null) {
-            movementController.navigateToLocation(qiContext, savedLocation, speed)
-        } else {
-            holdFuture.thenConsume { res ->
-                if (res.hasError()) {
-                    Log.e(TAG, "Cannot start navigation - autonomous abilities hold failed")
-                    mainHandler.post { setNavigationPhase(NavigationPhase.NORMAL_OPERATION) }
-                    try {
-                        p.setValue(MovementResult(false, "Failed to prepare robot for navigation"))
-                    } catch (ignored: Exception) {
-                    }
-                } else {
-                    movementController.navigateToLocation(qiContext, savedLocation, speed)
-                }
-            }
-        }
-        return p.future
     }
 
-    /**
-     * Move Pepper with service coordination
-     */
-    fun movePepper(qiContext: QiContext?, distanceForward: Double, distanceSideways: Double, speed: Double): Future<MovementResult> {
-        if (movementController == null) {
-            Log.e(TAG, "Cannot move - MovementController is null")
-            val failed = Promise<MovementResult>()
-            failed.setValue(MovementResult(false, "Navigation service not available"))
-            return failed.future
+    fun movePepper(qiContext: QiContext?, distanceForward: Double, distanceSideways: Double, speed: Double,
+                   operation: OperationScope? = null): Future<MovementResult> =
+        coordinatedMovement(qiContext, operation) { owner, callbacks ->
+            movementController!!.movePepper(qiContext, distanceForward, distanceSideways, speed, owner, callbacks)
         }
-        if (pendingMovementPromise != null) {
-            Log.w(TAG, "Move requested while another movement is in progress")
-            val busy = Promise<MovementResult>()
-            busy.setValue(MovementResult(false, "Another movement is already in progress"))
-            return busy.future
+
+    fun turnPepper(qiContext: QiContext?, direction: String, degrees: Double, speed: Double,
+                   operation: OperationScope? = null): Future<MovementResult> =
+        coordinatedMovement(qiContext, operation) { owner, callbacks ->
+            movementController!!.turnPepper(qiContext, direction, degrees, speed, owner, callbacks)
         }
-        Log.i(TAG, "Starting coordinated movement: forward=${distanceForward}m, sideways=${distanceSideways}m")
-        mainHandler.post { setNavigationPhase(NavigationPhase.NAVIGATION_MODE) }
-        val p = Promise<MovementResult>()
-        pendingMovementPromise = p
-        
-        val holdFuture = qiContext?.let { ensureAutonomousAbilitiesHeld(it) }
-        if (holdFuture == null) {
-            movementController.movePepper(qiContext, distanceForward, distanceSideways, speed)
-        } else {
-            holdFuture.thenConsume { res ->
-                if (res.hasError()) {
-                    Log.e(TAG, "Cannot start movement - autonomous abilities hold failed")
-                    mainHandler.post { setNavigationPhase(NavigationPhase.NORMAL_OPERATION) }
-                    try {
-                        p.setValue(MovementResult(false, "Failed to prepare robot for movement"))
-                    } catch (ignored: Exception) {
-                    }
+
+    private fun failedMovement(message: String): Future<MovementResult> = Promise<MovementResult>().apply {
+        setValue(MovementResult(false, message))
+    }.future
+
+    private fun coordinatedMovement(qiContext: QiContext?, operation: OperationScope?,
+                                    start: (OperationScope, MovementController.MovementListener) -> Unit): Future<MovementResult> {
+        if (movementController == null) return failedMovement("Navigation service not available")
+        if (operation?.isActive == false) return failedMovement("Movement cancelled")
+        val pending = PendingMovement(Promise())
+        synchronized(movementLock) {
+            if (pendingMovement != null) return failedMovement("Another movement is already in progress")
+            pendingMovement = pending
+            movementGeneration++
+        }
+        pending.owner.onCancel {
+            movementController.cancelMovement(pending.owner)
+            finishMovement(pending, false, "Movement cancelled")
+        }
+        pending.promise.setOnCancel { pending.owner.cancel() }
+        pending.registration = operation?.onCancel { pending.owner.cancel() }
+        if (!pending.owner.isActive) { pending.registration?.close(); return pending.promise.future }
+        postMovementPhase(pending, NavigationPhase.NAVIGATION_MODE)
+        val callbacks = object : MovementController.MovementListener {
+            override fun onMovementStarted() { postMovementPhase(pending, NavigationPhase.NAVIGATION_MODE) }
+            override fun onMovementFinished(success: Boolean, error: String?) { finishMovement(pending, success, error) }
+        }
+        try {
+            val (hold, cancelHold) = pending.owner.guard {
+                val hold = ensureAutonomousAbilitiesHeld(qiContext)
+                hold to pending.owner.onCancel { hold.requestCancellation() }
+            }
+            hold.thenConsume { result ->
+                cancelHold.close()
+                if (!pending.owner.isActive) return@thenConsume
+                if (result.hasError() || result.isCancelled) {
+                    finishMovement(pending, false, "Failed to prepare robot for movement")
                 } else {
-                    movementController.movePepper(qiContext, distanceForward, distanceSideways, speed)
+                    // The controller registers ownership before building/running the action.
+                    start(pending.owner, callbacks)
                 }
             }
+        } catch (error: Exception) {
+            finishMovement(pending, false, error.message ?: "Movement preparation failed")
         }
-        return p.future
+        return pending.promise.future
     }
 
-    /**
-     * Turn Pepper with service coordination
-     */
-    fun turnPepper(qiContext: QiContext?, direction: String, degrees: Double, speed: Double): Future<MovementResult> {
-        if (movementController == null) {
-            Log.e(TAG, "Cannot turn - MovementController is null")
-            val failed = Promise<MovementResult>()
-            failed.setValue(MovementResult(false, "Navigation service not available"))
-            return failed.future
-        }
-        if (pendingMovementPromise != null) {
-            Log.w(TAG, "Turn requested while another movement is in progress")
-            val busy = Promise<MovementResult>()
-            busy.setValue(MovementResult(false, "Another movement is already in progress"))
-            return busy.future
-        }
-        Log.i(TAG, "Starting coordinated turn: $direction $degrees degrees")
-        mainHandler.post { setNavigationPhase(NavigationPhase.NAVIGATION_MODE) }
-        val p = Promise<MovementResult>()
-        pendingMovementPromise = p
-        
-        val holdFuture = qiContext?.let { ensureAutonomousAbilitiesHeld(it) }
-        if (holdFuture == null) {
-            movementController.turnPepper(qiContext, direction, degrees, speed)
-        } else {
-            holdFuture.thenConsume { res ->
-                if (res.hasError()) {
-                    Log.e(TAG, "Cannot start turn - autonomous abilities hold failed")
-                    mainHandler.post { setNavigationPhase(NavigationPhase.NORMAL_OPERATION) }
-                    try {
-                        p.setValue(MovementResult(false, "Failed to prepare robot for turn"))
-                    } catch (ignored: Exception) {
-                    }
-                } else {
-                    movementController.turnPepper(qiContext, direction, degrees, speed)
-                }
+    private fun postMovementPhase(pending: PendingMovement, phase: NavigationPhase) {
+        mainHandler.post {
+            synchronized(movementLock) {
+                if (pendingMovement === pending && pending.owner.isActive) setNavigationPhase(phase)
             }
         }
-        return p.future
+    }
+
+    private fun finishMovement(pending: PendingMovement, success: Boolean, error: String?) {
+        val generation = synchronized(movementLock) {
+            if (pendingMovement !== pending) return
+            pendingMovement = null
+            releaseAutonomousAbilities()
+            ++movementGeneration
+        }
+        pending.registration?.close()
+        pending.owner.cancel()
+        mainHandler.post {
+            synchronized(movementLock) {
+                if (movementGeneration == generation) setNavigationPhase(NavigationPhase.NORMAL_OPERATION)
+            }
+        }
+        pending.promise.setValue(MovementResult(success, error))
+    }
+
+    fun cancelAllActions() {
+        val pending = synchronized(movementLock) { pendingMovement }
+        val cleanups: List<() -> Unit> = listOf(
+            { pending?.owner?.cancel(); Unit },
+            { movementController?.cancelCurrentMovement(); Unit },
+            { localizationCoordinator.reset() },
+            { mapCache.cancelPendingWork() },
+            { endNavigationProcess() },
+            { releaseAutonomousAbilities() }
+        )
+        cleanups.forEach { cleanup ->
+            try { cleanup() } catch (error: Exception) { Log.w(TAG, "Navigation cleanup failed", error) }
+        }
+        synchronized(movementLock) { movementGeneration++ }
+        mainHandler.removeCallbacksAndMessages(null)
+        setNavigationPhase(NavigationPhase.NORMAL_OPERATION)
     }
 
     /**
@@ -613,7 +594,7 @@ class NavigationServiceManager(private val movementController: MovementControlle
     fun shutdown() {
         Log.i(TAG, "NavigationServiceManager shutdown initiated")
 
-        releaseAutonomousAbilities()
+        cancelAllActions()
 
         if (currentPhase != NavigationPhase.NORMAL_OPERATION) {
             setNavigationPhase(NavigationPhase.NORMAL_OPERATION)

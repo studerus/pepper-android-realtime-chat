@@ -67,6 +67,8 @@ class AnalyzeVisionTool : Tool {
             val latch = CountDownLatch(1)
             val result = AtomicReference<String>()
 
+            context.onCancel { visionService.pause() }
+            context.ensureActive()
             visionService.startAnalyze(prompt, apiKey, object : VisionService.Callback {
                 override fun onResult(resultJson: String) {
                     try {

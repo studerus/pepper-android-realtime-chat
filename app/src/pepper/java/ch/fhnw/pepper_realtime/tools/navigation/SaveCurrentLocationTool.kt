@@ -2,7 +2,7 @@ package ch.fhnw.pepper_realtime.tools.navigation
 
 import android.util.Log
 import com.aldebaran.qi.sdk.QiContext
-import com.aldebaran.qi.sdk.builder.TransformBuilder
+import com.aldebaran.qi.sdk.`object`.actuation.LocalizationStatus
 import com.aldebaran.qi.sdk.`object`.geometry.Transform
 import ch.fhnw.pepper_realtime.tools.Tool
 import ch.fhnw.pepper_realtime.tools.ToolContext
@@ -64,21 +64,30 @@ class SaveCurrentLocationTool : Tool {
 
         return try {
             val qiContext = context.qiContext as QiContext
-            val currentTransform: Transform
-
-            // Get current robot position
-            // Note: Currently using standard precision - high-precision mapping detection
-            // from original ToolExecutor would need to be implemented here for full functionality
-            Log.i(TAG, "📍 Standard location save: Using current robot frame")
-            val robotFrame = qiContext.actuation.robotFrame()
-            currentTransform = try {
-                val mapFrame = qiContext.mapping.mapFrame()
-                robotFrame.computeTransform(mapFrame).transform
-            } catch (e: Exception) {
-                Log.w(TAG, "No map frame available, using identity transform: ${e.message}")
-                // Create identity transform if no map is available
-                TransformBuilder.create().fromXTranslation(0.0)
+            // LocalizeAndMap owns the map frame while a new map is being explored.
+            val mappingFuture = CreateEnvironmentMapTool.currentMappingFuture
+            val localized = if (mappingFuture != null && !mappingFuture.isDone) {
+                CreateEnvironmentMapTool.currentLocalizeAndMap?.status == LocalizationStatus.LOCALIZED
+            } else {
+                context.navigationServiceManager.isLocalizationReady()
             }
+            if (!localized) {
+                return JSONObject().put("error", "Location not saved: Pepper must be localized in a map first.").toString()
+            }
+
+            val robotFrame = qiContext.actuation.robotFrame()
+            val mapFrame = qiContext.mapping.mapFrame()
+            val currentTransform = robotFrame.computeTransform(mapFrame)?.transform
+                ?: throw IllegalStateException("Current position relative to the map is unavailable")
+            val translation = currentTransform.translation
+                ?: throw IllegalStateException("Map position is unavailable")
+            val rotation = currentTransform.rotation
+                ?: throw IllegalStateException("Map orientation is unavailable")
+            require(listOf(translation.x, translation.y, translation.z, rotation.x, rotation.y, rotation.z, rotation.w).all { it.isFinite() }) {
+                "Map position or orientation is not finite"
+            }
+            val rotationNorm = rotation.x * rotation.x + rotation.y * rotation.y + rotation.z * rotation.z + rotation.w * rotation.w
+            require(rotationNorm.isFinite() && rotationNorm > 0.0) { "Map orientation is invalid" }
 
             // Save location data
             val saved = saveLocationToStorage(context, locationName, description, currentTransform)
@@ -122,7 +131,7 @@ class SaveCurrentLocationTool : Tool {
         context: ToolContext,
         locationName: String,
         description: String,
-        transform: Transform?
+        transform: Transform
     ): Boolean {
         return try {
             val locationsDir = File(context.appContext.filesDir, "locations")
@@ -144,23 +153,17 @@ class SaveCurrentLocationTool : Tool {
                 put("description", description)
 
                 // Store transform data
-                if (transform != null) {
-                    put("translation", JSONArray().apply {
-                        put(transform.translation.x)
-                        put(transform.translation.y)
-                        put(transform.translation.z)
-                    })
-                    put("rotation", JSONArray().apply {
-                        put(transform.rotation.x)
-                        put(transform.rotation.y)
-                        put(transform.rotation.z)
-                        put(transform.rotation.w)
-                    })
-                } else {
-                    // Default values if transform is null
-                    put("translation", JSONArray().put(0).put(0).put(0))
-                    put("rotation", JSONArray().put(0).put(0).put(0).put(1))
-                }
+                put("translation", JSONArray().apply {
+                    put(transform.translation.x)
+                    put(transform.translation.y)
+                    put(transform.translation.z)
+                })
+                put("rotation", JSONArray().apply {
+                    put(transform.rotation.x)
+                    put(transform.rotation.y)
+                    put(transform.rotation.z)
+                    put(transform.rotation.w)
+                })
 
                 put("timestamp", System.currentTimeMillis())
                 put("high_precision", false) // Currently standard precision only

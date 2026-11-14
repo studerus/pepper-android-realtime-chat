@@ -3,6 +3,7 @@ package ch.fhnw.pepper_realtime.tools.navigation
 import android.util.Log
 import com.aldebaran.qi.Future
 import com.aldebaran.qi.sdk.QiContext
+import ch.fhnw.pepper_realtime.robot.MotionValidation
 import com.aldebaran.qi.sdk.`object`.actuation.Frame
 import com.aldebaran.qi.sdk.`object`.actuation.GoTo
 import com.aldebaran.qi.sdk.`object`.human.Human
@@ -11,6 +12,7 @@ import com.aldebaran.qi.sdk.builder.TransformBuilder
 import ch.fhnw.pepper_realtime.robot.RobotSafetyGuard
 import ch.fhnw.pepper_realtime.tools.Tool
 import ch.fhnw.pepper_realtime.tools.ToolContext
+import ch.fhnw.pepper_realtime.tools.startRobotAction
 import org.json.JSONObject
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
@@ -66,9 +68,9 @@ class FollowHumanTool : Tool {
          * Stop the active following action (thread-safe)
          * @return true if stopped successfully, false if not following
          */
-        fun stopFollowing(): Boolean {
+        fun stopFollowing(owner: ToolContext? = null): Boolean {
             synchronized(stateLock) {
-                if (!isFollowing) {
+                if (!isFollowing || (owner != null && activeContext !== owner)) {
                     return false
                 }
                 
@@ -118,12 +120,14 @@ class FollowHumanTool : Tool {
     }
 
     override fun execute(args: JSONObject, context: ToolContext): String {
-        var distance = args.optDouble("distance", 1.0)
-
-        // Validate distance
-        if (distance < 0.5 || distance > 3.0) {
-            distance = 1.0
+        val distance: Double
+        try {
+            distance = MotionValidation.number(args, "distance", 1.0)
+            MotionValidation.range("Distance (meters)", distance, 0.5, 3.0)
+        } catch (e: IllegalArgumentException) {
+            return JSONObject().put("error", e.message).toString()
         }
+
 
         // Check if robot is ready (before acquiring lock to fail fast)
         if (context.isQiContextNotReady()) {
@@ -179,9 +183,12 @@ class FollowHumanTool : Tool {
         }
 
         // Start the follow loop in a background thread (outside lock)
-        Thread {
-            followLoop(context, qiContext)
-        }.start()
+        lateinit var cancellation: java.io.Closeable
+        val worker = Thread {
+            try { followLoop(context, qiContext) } finally { cancellation.close() }
+        }
+        cancellation = context.onCancel { stopFollowing(context); worker.interrupt() }
+        worker.start()
 
         // Return immediate success
         return JSONObject().apply {
@@ -205,7 +212,7 @@ class FollowHumanTool : Tool {
         val maxConsecutiveFailures = 3
         
         try {
-            while (!shouldStop.get() && isCurrentlyFollowing()) {
+            while (context.isActive && !shouldStop.get() && isCurrentlyFollowing()) {
                 try {
                     // Find closest human
                     val humans = context.perceptionService.getDetectedHumans()
@@ -249,7 +256,7 @@ class FollowHumanTool : Tool {
 
                     // Execute synchronously within the loop
                     Log.d(TAG, "Starting GoTo iteration")
-                    val goToFuture = goTo.async().run()
+                    val goToFuture = context.startRobotAction { goTo.async().run() }
                     
                     synchronized(stateLock) {
                         activeGoToFuture = goToFuture

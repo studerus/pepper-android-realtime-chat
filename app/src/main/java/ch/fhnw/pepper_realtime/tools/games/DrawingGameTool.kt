@@ -44,7 +44,8 @@ class DrawingGameTool : Tool {
         var started = false
         val latch = CountDownLatch(1)
 
-        activity.runOnUiThread {
+        context.toolHost.runOnUiThread {
+            context.operation?.let { owner -> activity.viewModel.ownChatActivity("drawing", owner) { activity.viewModel.dismissDrawingGame() } }
             started = activity.viewModel.startDrawingGame(topic)
             latch.countDown()
         }

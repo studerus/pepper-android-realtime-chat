@@ -3,10 +3,13 @@ package ch.fhnw.pepper_realtime.tools.navigation
 import android.util.Log
 import com.aldebaran.qi.Future
 import com.aldebaran.qi.sdk.QiContext
+import ch.fhnw.pepper_realtime.robot.RobotSafetyGuard
+import ch.fhnw.pepper_realtime.robot.MotionValidation
 import com.aldebaran.qi.sdk.builder.LookAtBuilder
 import com.aldebaran.qi.sdk.`object`.actuation.LookAtMovementPolicy
 import ch.fhnw.pepper_realtime.tools.Tool
 import ch.fhnw.pepper_realtime.tools.ToolContext
+import ch.fhnw.pepper_realtime.tools.startRobotAction
 import ch.fhnw.pepper_realtime.service.DirectedVisionCapture
 import org.json.JSONArray
 import org.json.JSONObject
@@ -82,20 +85,19 @@ class LookAtPositionTool : Tool {
     }
 
     override fun execute(args: JSONObject, context: ToolContext): String {
-        val x = args.optDouble("x", 0.0)
-        val y = args.optDouble("y", 0.0)
-        val z = args.optDouble("z", 0.0)
+        val x: Double
+        val y: Double
+        val z: Double
         val movementPolicy = args.optString("movement_policy", "head_only")
-        val duration = args.optDouble("duration", 3.0) // Default 3 seconds
-
-        // Validate that at least one coordinate is non-zero
-        if (x == 0.0 && y == 0.0 && z == 0.0) {
-            return JSONObject().put("error", "Please provide non-zero coordinates for x, y, or z.").toString()
-        }
-
-        // Validate duration
-        if (duration < 1 || duration > 15) {
-            return JSONObject().put("error", "Duration must be between 1 and 15 seconds").toString()
+        val duration: Double
+        try {
+            x = MotionValidation.number(args, "x")
+            y = MotionValidation.number(args, "y")
+            z = MotionValidation.number(args, "z")
+            duration = MotionValidation.number(args, "duration", 3.0)
+            MotionValidation.look(x, y, z, movementPolicy, duration)
+        } catch (e: IllegalArgumentException) {
+            return JSONObject().put("error", e.message).toString()
         }
 
         // Check if robot is ready
@@ -103,9 +105,12 @@ class LookAtPositionTool : Tool {
             return JSONObject().put("error", "Robot not ready").toString()
         }
 
-        // Check if charging flap is open - only required for whole_body movement (HEAD_AND_BASE)
-        if (movementPolicy == "whole_body" && isChargingFlapOpen(context)) {
-            return JSONObject().put("error", "Cannot perform whole body look action while charging flap is open. Please close the charging flap first for safety, or use 'head_only' movement policy.").toString()
+        // Head-only gaze does not move the base and remains available while charging.
+        if (movementPolicy == "whole_body") {
+            val safety = RobotSafetyGuard.evaluateMovementSafety(context.qiContext as QiContext)
+            if (!safety.isOk()) {
+                return JSONObject().put("error", safety.message).toString()
+            }
         }
 
         Log.i(TAG, String.format(Locale.US, "Starting LookAt: position(%.2f, %.2f, %.2f) with policy: %s, duration: %.1fs",
@@ -160,7 +165,7 @@ class LookAtPositionTool : Tool {
             }
 
             // Execute LookAt action asynchronously and store Future for cancellation
-            val lookAtFuture: Future<Void> = lookAt.async().run()
+            val lookAtFuture: Future<Void> = context.startRobotAction { lookAt.async().run() }
             lookAtFuture.thenConsume { future ->
                 if (future.hasError()) {
                     Log.w(TAG, "LookAt action failed: ${future.error?.message}")
@@ -191,19 +196,25 @@ class LookAtPositionTool : Tool {
                 } catch (e: InterruptedException) {
                     Log.w(TAG, "Alignment wait interrupted", e)
                     Thread.currentThread().interrupt()
+                    throw e
                 }
                 
                 Log.i(TAG, "Head alignment complete - returning success")
 
                 // LookAt has started successfully and aligned, now schedule auto-cancel
-                val cancelTimer = Timer()
-                cancelTimer.schedule(object : TimerTask() {
+                context.ensureActive()
+                val cancelTimer = Timer("LookAt cancellation", true)
+                val timerRegistration = context.onCancel { cancelTimer.cancel() }
+                context.guard { cancelTimer.schedule(object : TimerTask() {
                     override fun run() {
                         Log.i(TAG, String.format(Locale.US, "Auto-cancelling LookAt after %.1f seconds", duration))
-                        lookAtFuture.requestCancellation()
-                        cancelTimer.cancel() // Clean up timer
+                        try { lookAtFuture.requestCancellation() } finally {
+                            timerRegistration.close()
+                            cancelTimer.cancel()
+                        }
                     }
-                }, (duration * 1000).toLong()) // Convert to milliseconds
+                }, (duration * 1000).toLong()) }
+                lookAtFuture.thenConsume { cancelTimer.cancel(); timerRegistration.close() }
 
                 finalResult.get()
             } else {
@@ -248,29 +259,6 @@ class LookAtPositionTool : Tool {
         return waitTime
     }
 
-    /**
-     * Check if the charging flap is open, which prevents movement for safety reasons
-     */
-    private fun isChargingFlapOpen(context: ToolContext): Boolean {
-        return try {
-            val qiContext = context.qiContext as QiContext
-            val power = qiContext.power
-            val chargingFlap = power.chargingFlap
-
-            if (chargingFlap != null) {
-                val flapState = chargingFlap.state
-                val isOpen = flapState.open
-                Log.d(TAG, "Charging flap status: ${if (isOpen) "OPEN (action blocked)" else "CLOSED (action allowed)"}")
-                isOpen
-            } else {
-                Log.d(TAG, "No charging flap sensor available - assuming action is allowed")
-                false // Assume closed if sensor not available
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "Could not check charging flap status: ${e.message}", e)
-            false // Allow action if check fails to avoid false blocking
-        }
-    }
 
     /**
      * Translates technical QiSDK LookAt errors into user-friendly messages

@@ -58,7 +58,8 @@ class FinishEnvironmentMapTool : Tool {
         )
 
         // Implement mapping finalization on background I/O coroutine
-        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+        val worker = CoroutineScope(Dispatchers.IO).launch {
+            context.ensureActive()
             try {
                 // 1) Get current mapping action and its future
                 val lam = CreateEnvironmentMapTool.currentLocalizeAndMap
@@ -72,6 +73,7 @@ class FinishEnvironmentMapTool : Tool {
 
                 // 2) Attach the map dumping and saving logic to the future of the mapping action
                 mappingFuture.thenConsume { _ ->
+                    if (!context.isActive) return@thenConsume
                     // This block executes AFTER the mapping action has terminated (either normally or via cancellation)
                     try {
                         Log.i(TAG, "Mapping action has terminated. Proceeding to dump and save the map.")
@@ -86,6 +88,7 @@ class FinishEnvironmentMapTool : Tool {
                         // Force garbage collection before heavy serialization
                         System.gc()
                         var serialized: String? = explorationMap.serialize()
+                        context.ensureActive()
                         val mapsDir = File(context.appContext.filesDir, "maps")
                         if (!mapsDir.exists()) {
                             mapsDir.mkdirs()
@@ -94,7 +97,7 @@ class FinishEnvironmentMapTool : Tool {
                         if (mapFile.exists()) {
                             Log.w(TAG, "Map '$ACTIVE_MAP_NAME' already exists and will be overwritten: ${mapFile.absolutePath}")
                         }
-                        FileOutputStream(mapFile).use { fos ->
+                        context.guard { FileOutputStream(mapFile).use { fos ->
                             var data: ByteArray? = serialized!!.toByteArray(StandardCharsets.UTF_8)
                             fos.write(data)
                             fos.flush()
@@ -106,14 +109,16 @@ class FinishEnvironmentMapTool : Tool {
                             @Suppress("UNUSED_VALUE")
                             data = null
                             System.gc()
-                        }
+                        } }
 
                         // 2c) Cache the new map, update UI, and start new localization via manager
                         val navManager = context.navigationServiceManager
                         Log.i(TAG, "Caching map directly via NavigationServiceManager and preparing UI/localization.")
 
                         // Cache with callback to ensure proper sequencing
+                        context.ensureActive()
                         navManager.cacheNewMap(explorationMap) {
+                            if (!context.isActive) return@cacheNewMap
                             try {
                                 // Update UI on main thread
                                 if (context.hasUi()) {
@@ -159,7 +164,8 @@ class FinishEnvironmentMapTool : Tool {
                                         } catch (e: Exception) {
                                             Log.e(TAG, "Post-localization failure handling failed", e)
                                         }
-                                    }
+                                    },
+                                    context.operation
                                 )
                             } catch (e: Exception) {
                                 Log.e(TAG, "Post-cache actions failed", e)
@@ -203,6 +209,9 @@ class FinishEnvironmentMapTool : Tool {
                 }
             }
         }
+
+        val cancellation = context.onCancel { worker.cancel() }
+        worker.invokeOnCompletion { cancellation.close() }
 
         // Return immediately to keep WebSocket responsive
         return JSONObject().apply {

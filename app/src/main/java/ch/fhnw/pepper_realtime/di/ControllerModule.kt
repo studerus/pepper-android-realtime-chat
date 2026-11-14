@@ -70,13 +70,14 @@ object ControllerModule {
         @ApplicationScope applicationScope: CoroutineScope,
         toolRegistry: ToolRegistry,
         sessionManager: RealtimeSessionManager,
-        settingsRepository: SettingsRepository
+        settingsRepository: SettingsRepository,
+        workRegistry: ch.fhnw.pepper_realtime.tools.ChatWorkRegistry
     ): RealtimeEventHandler {
         // ToolContext is set later
         val handler = ChatRealtimeHandler(
             viewModel, audioPlayer, turnManager,
             ioDispatcher, applicationScope, toolRegistry, null,
-            sessionManager, settingsRepository
+            sessionManager, settingsRepository, workRegistry
         )
         return RealtimeEventHandler(handler)
     }

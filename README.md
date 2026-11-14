@@ -1136,6 +1136,10 @@ Robot: "I have started mapping. I have cleared 3 existing locations (printer, ki
 
 **Note**: Creating a new map automatically deletes all existing saved locations since they become invalid with the new coordinate system.
 
+Base movement requires a confirmed closed charging flap. Missing sensor data or a failed safety check blocks movement. Motion tools reject malformed, non-finite and out-of-range parameters. Relative moves allow -4 to +4 metres per axis; GoTo maximum speed, including turns, is 0.1 to 0.55 m/s. Head-only gaze remains available while charging.
+
+Chat actions belong to the session that started them. New Chat, disconnect, backgrounding and robot focus loss cancel pending tool work and its registered robot actions, timers, requests and activities. A provider cancellation stops the affected call. Late results from an old session are discarded, and each result updates its own function-call card. Movement timeouts belong to one action and cannot cancel a later movement.
+
 #### 2. Guide Pepper Through the Room
 ```bash
 User: "Move forward 2 meters"
@@ -1147,11 +1151,13 @@ User: "Move forward 1 meter"
 #### 3. Save Important Locations
 ```bash
 User: "Save this location as entry"
-Robot: "Saved location 'entry' with high precision during mapping"
+Robot: "Saved location 'entry' relative to the current map"
 
 User: "Save this location as kitchen" 
-Robot: "Saved location 'kitchen' with high precision during mapping"
+Robot: "Saved location 'kitchen' relative to the current map"
 ```
+
+Saving requires confirmed localization in an existing map or an active mapping session with status `LOCALIZED`. If the map position cannot be read or is invalid, saving returns an error and preserves any existing location; it does not substitute the map origin.
 
 #### 4. Finish Mapping
 ```bash
@@ -1167,7 +1173,7 @@ User: "Go to the entry"
 Robot: "Navigating to entry... I have arrived at the entry."
 
 User: "Navigate to kitchen"
-Robot: "Navigating to kitchen (high-precision location)..."
+Robot: "Navigating to kitchen..."
 ```
 
 ### Smart Location Recognition

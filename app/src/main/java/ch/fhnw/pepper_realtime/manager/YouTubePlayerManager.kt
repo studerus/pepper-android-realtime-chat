@@ -33,15 +33,15 @@ object YouTubePlayerManager {
         context: Context,
         video: YouTubeSearchService.YouTubeVideo?,
         callback: YouTubePlayerCallback
-    ) {
+    ): YouTubePlayerDialog? {
         if (callback.isActivityFinishing()) {
             Log.w(TAG, "Not showing YouTube player because activity is finishing.")
-            return
+            return null
         }
 
         if (video == null) {
             Log.e(TAG, "Cannot show YouTube player - video is null")
-            return
+            return null
         }
 
         Log.i(TAG, "Opening YouTube player for: ${video.title}")
@@ -61,5 +61,6 @@ object YouTubePlayerManager {
         youtubePlayer.playVideo(video)
 
         Log.i(TAG, "YouTube player dialog created for: ${video.title}")
+        return youtubePlayer
     }
 }

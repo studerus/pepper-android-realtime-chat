@@ -1,0 +1,692 @@
+PROJECT AUDIT — 14 November 2026
+Repository: C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime
+Reviewed revision: 578e6b027eda71475bef181cb010f2be21be01cc (master)
+
+IMPLEMENTATION FOLLOW-UP — 14 November 2026
+The first change set addresses F04, F05 and F06 in the working tree:
+- Saving requires confirmed localization and a valid map-relative transform; failed reads
+  no longer replace an existing location with an identity transform.
+- Motion arguments are checked at runtime for numeric type, finite values and permitted
+  ranges. Move/turn/navigation also validate at the controller boundary.
+- Charging-flap checks use RobotSafetyGuard and reject unavailable or failed sensor reads.
+  Whole-body gaze is checked; head-only gaze remains available while charging.
+Turn speed documentation and schemas now use GoTo maximum speed in m/s (0.1–0.55).
+Follow-up validation: 244 Pepper tests (23 suites) and 221 standalone tests (19 suites),
+all passing with no errors or skips. Both debug APKs built successfully.
+Lint passed for both variants with 0 errors; warning/hint counts remain at the audit baseline
+(Pepper: 71 warnings + 2 hints; standalone: 94 warnings + 2 hints). git diff --check passed.
+Physical robot/device validation remains outstanding.
+The second change set addresses F07, F08, F09 and F10:
+- Session/call owners cancel synchronous tool jobs and registered asynchronous resources.
+  New Chat, disconnect, backgrounding, connection loss and robot focus loss end their work.
+- Provider cancellation stops the affected call. Old connection events, delayed sends and
+  queued UI results cannot enter a new session; results target their original function card.
+- Move/turn/navigation timers own their action and complete it exactly once. Preparation
+  failures and cancellation release movement/navigation state, including localization waits.
+- Mapping, following, approach, gaze, animations, vision analysis, HTTP requests and game/media
+  activities register cancellation. Cleanup continues even if an individual stop request fails.
+Regression validation: 271 Pepper tests (30 suites) and 236 standalone tests (23 suites),
+all passing with no errors or skips. Both debug APKs built successfully. Coverage includes
+old connection events and tool results after reconnect, queued UI work, pending restarts,
+per-action timers, navigation preparation failures, localization cancellation, HTTP cancellation
+and microphone cleanup after cancelled playback.
+Final combined Gradle run passed tests, APK builds and lint for both variants. Lint reports
+0 errors (Pepper: 72 warnings + 2 hints; standalone: 95 warnings + 2 hints). The additional
+shared warning is the now-unused error_not_connected string after stale sends became no-ops.
+git diff --check passed.
+Physical robot/device checks remain outstanding: cancel during localization and movement,
+run movement B past movement A's former timeout, and end/restart a chat during a long tool.
+
+The findings and line references below describe the reviewed base revision, before these changes.
+The audit validation below likewise records the original review, not the follow-up builds.
+
+RESULT
+57 findings: 7 high-priority (P1), 47 correctness/reliability/compatibility findings (P2),
+and 3 lower-priority behavior/documentation findings (P3).
+12 additional cleanup and consolidation recommendations follow the findings.
+
+This is a repository-wide code review, not proof that every possible defect has been found.
+Scope: shared Android code, Pepper and standalone implementations, Python perception/camera
+components, tests, resources/configuration, build/deployment scripts and documentation.
+Generated build outputs and third-party binary internals were not treated as project source.
+
+Evidence labels:
+- REPRODUCED: a focused local test exercised the actual Python function/class with controlled
+  dependencies. Seven defects reproduced. These are tests proving current failures.
+- MEASURED: reported by the tools run during this audit.
+- Other findings: traced in source. Robot motion, camera/audio behavior and concurrent-runtime
+  effects have not been validated on physical hardware.
+P1 means fix first because of access-control, physical-action or cross-session consequences;
+it does not mean a successful exploit or hardware accident was observed.
+
+VALIDATION
+- testStandaloneDebugUnitTest: 221 tests, 19 suites, 0 failures/errors/skips.
+- testPepperDebugUnitTest: 221 tests, 19 suites, 0 failures/errors/skips.
+  The Pepper task was explicitly rerun after the combined check.
+- lintStandaloneDebug and lintPepperDebug: successful, no errors.
+  Standalone: 94 warnings + 2 hints. Pepper: 71 warnings + 2 hints.
+  Warnings include 55 UseKtx suggestions per variant, unused resources, and duplicate
+  reports of the same unaligned Azure Speech native library.
+- Python: all 9 scripts syntax-compiled; 7 focused defect reproductions passed.
+- No robot actions, deployment, paid API integration tests, or Android device/instrumentation
+  tests were performed. Python dependency compatibility on Pepper still needs device testing.
+- Production source/configuration was not changed.
+
+Gradle invocation used the README's Windows JVM socket workaround:
+  $env:JAVA_TOOL_OPTIONS='-Djdk.net.unixdomain.tmpdir=C:/nonexistent-codex-socket-dir'
+  .\gradlew.bat testStandaloneDebugUnitTest testPepperDebugUnitTest lintStandaloneDebug lintPepperDebug --offline --no-daemon --console=plain
+  .\gradlew.bat testPepperDebugUnitTest --rerun --offline --no-daemon --console=plain
+  python build/audit_repros.py
+
+The nonexistent temporary socket directory is intentional: it forces the documented TCP
+fallback. The earlier environment-specific loopback failure is not counted as a project bug.
+
+Detailed local reports:
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/build/reports/tests/testStandaloneDebugUnitTest/index.html
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/build/reports/tests/testPepperDebugUnitTest/index.html
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/build/reports/lint-results-standaloneDebug.html
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/build/reports/lint-results-pepperDebug.html
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/build/audit_repros.py
+
+PRIORITIZED FINDINGS
+
+F01 [P1] SSH accepts any server identity
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/service/LocalFaceRecognitionService.kt:510
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/service/LocalFaceRecognitionService.kt:650
+Both SSH paths install PromiscuousVerifier before authenticating with the robot password. A peer
+impersonating the configured robot can receive that password. Pin/provision the robot host key and reject
+unexpected changes.
+
+F02 [P1] Face and perception APIs have no authentication
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/scripts/face_recognition_server.py:1083
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/scripts/face_recognition_server.py:1178
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/scripts/face_recognition_server.py:1291
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/scripts/perception_websocket.py:277
+HTTP port 5000 and WebSocket port 5002 bind all interfaces. Reachable peers can read named faces/photos and
+tracking data, register/delete identities, and change settings. No application authentication is enforced.
+Restrict exposure and authenticate requests; use a protected transport or tunnel across untrusted links. The
+camera daemon itself correctly binds loopback.
+
+F03 [P1] YouTube WebView permits unrelated origins and grants all permissions
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/ui/YouTubePlayerDialog.kt:153
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/ui/YouTubePlayerDialog.kt:191
+The navigation check accepts any URL containing youtube.com, youtu.be, or googlevideo.com, including
+https://example.invalid/?youtube.com. The permission callback then grants every requested resource without
+checking origin or resource type. If an untrusted page is reached, it can request camera/microphone access
+already granted to the app. Parse and allowlist HTTPS hostnames; deny unneeded media-capture permissions.
+Android explicitly cautions against granting the whole resource array. Reference:
+https://developer.android.com/reference/android/webkit/PermissionRequest
+
+F04 [P1] Saving an unlocalized position records a fake destination
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/pepper/java/ch/fhnw/pepper_realtime/tools/navigation/SaveCurrentLocationTool.kt:74
+If mapFrame/computeTransform fails, the tool substitutes the identity transform, persists it, and reports
+that navigation is available. The saved destination is the map origin rather than the robot's location.
+Require a valid localized transform and return an error on failure.
+
+F05 [P1] Movement distance limits exist only in the tool schema
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/pepper/java/ch/fhnw/pepper_realtime/tools/navigation/MovePepperTool.kt:31
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/pepper/java/ch/fhnw/pepper_realtime/tools/navigation/MovePepperTool.kt:55
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/pepper/java/ch/fhnw/pepper_realtime/controller/MovementController.kt:64
+The advertised -4 to +4 metre bounds are not checked at execution. Any nonzero distance can reach GoTo;
+schema hints are not a runtime boundary. Validate finite coordinates, allowed distance and speed before
+constructing robot actions. Apply equivalent validation to all motion entry points.
+
+F06 [P1] Several motion safety checks allow movement when sensing fails
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/pepper/java/ch/fhnw/pepper_realtime/tools/navigation/TurnPepperTool.kt:145
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/pepper/java/ch/fhnw/pepper_realtime/tools/navigation/CreateEnvironmentMapTool.kt:193
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/pepper/java/ch/fhnw/pepper_realtime/tools/navigation/LookAtPositionTool.kt:254
+These copies of the charging-flap check return false (movement allowed) when the sensor is absent or throws.
+That contradicts RobotSafetyGuard's handling of unknown safety state. Route the tools through one
+fail-closed guard and return a useful sensor error. This is an application-level gap; it does not establish
+that QiSDK's independent safety protections can be bypassed.
+
+F07 [P1] Tool work outlives the chat that authorized it
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/controller/ChatRealtimeHandler.kt:234
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/controller/ChatRealtimeHandler.kt:467
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/controller/ChatRealtimeHandler.kt:526
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/controller/ChatSessionController.kt:206
+Tool jobs run in applicationScope, retain the mutable ToolContext/activity, and have no captured session
+generation. New Chat disconnects/reconnects without cancelling these jobs. Old completions can update a new
+chat or send old call IDs through the new session. Google tool cancellation removes an ID but does not stop
+execution. Track jobs by session/call ID, cancel their underlying operations, and reject stale completions.
+
+F08 [P2] An old movement timeout can cancel a later movement
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/pepper/java/ch/fhnw/pepper_realtime/controller/MovementController.kt:87
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/pepper/java/ch/fhnw/pepper_realtime/controller/MovementController.kt:174
+Move/turn timers read the mutable currentMovement when they fire and are not cancelled when their own action
+completes. If action A finishes early and B starts, A's timer can cancel B and report a false timeout.
+Capture the action/future per timer, cancel timers on every terminal path, and deliver each result exactly
+once.
+
+F09 [P2] Navigation remains permanently busy after preparation failure
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/pepper/java/ch/fhnw/pepper_realtime/manager/NavigationServiceManager.kt:500
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/pepper/java/ch/fhnw/pepper_realtime/manager/NavigationServiceManager.kt:541
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/pepper/java/ch/fhnw/pepper_realtime/manager/NavigationServiceManager.kt:583
+An autonomous-abilities hold error completes the local promise but never clears pendingMovementPromise.
+Subsequent move/turn/navigate calls return 'Another movement is already in progress'. Shutdown also leaves
+that field intact. Centralize completion/cleanup for success, error, cancellation and shutdown.
+
+F10 [P2] Cancellation leaves navigation promises and coordination unresolved
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/pepper/java/ch/fhnw/pepper_realtime/controller/MovementController.kt:105
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/pepper/java/ch/fhnw/pepper_realtime/controller/MovementController.kt:192
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/pepper/java/ch/fhnw/pepper_realtime/manager/LocalizationCoordinator.kt:121
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/pepper/java/ch/fhnw/pepper_realtime/tools/navigation/NavigateToLocationTool.kt:85
+Movement cancellation assumes a timeout already notified the listener; cancellation from another cause
+therefore has no terminal result. Localization's completion handler has no cancelled branch, so cancellation
+before localization does not resolve its promise/callback. Callers can retain navigation process locks and
+wait indefinitely. Resolve cancellation explicitly and release locks in finally-style cleanup.
+
+F11 [P2] Failed remapping destroys old locations and can leave services suspended
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/pepper/java/ch/fhnw/pepper_realtime/tools/navigation/CreateEnvironmentMapTool.kt:104
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/pepper/java/ch/fhnw/pepper_realtime/tools/navigation/CreateEnvironmentMapTool.kt:173
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/pepper/java/ch/fhnw/pepper_realtime/tools/navigation/FinishEnvironmentMapTool.kt:97
+Locations are erased immediately after starting the asynchronous map action, while its later failure only
+logs. The old map file can remain with its usable locations already lost, and normal service mode is not
+restored. Final save also overwrites the map directly. Stage a new map/location set, restore service state
+on all outcomes, and atomically replace the previous set only after successful finalization.
+
+F12 [P2] Finishing a nonexistent map leaves localization mode enabled
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/pepper/java/ch/fhnw/pepper_realtime/tools/navigation/FinishEnvironmentMapTool.kt:48
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/pepper/java/ch/fhnw/pepper_realtime/tools/navigation/FinishEnvironmentMapTool.kt:67
+The tool enters localization mode before checking for an active mapping action. The no-active-map branch
+returns from the coroutine without restoring normal operation, leaving suppressed services/gestures.
+Validate first or restore the previous phase in a guaranteed cleanup path.
+
+F13 [P2] Failed New Chat reconnects suppress their own error callback
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/controller/ChatSessionController.kt:208
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/controller/ChatSessionController.kt:455
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/controller/ChatSessionController.kt:492
+startNewSession sets isRestarting=true and relies on its connection callbacks to clear it.
+failConnectionPromise refuses to call onError while that flag is true. A network/setup failure during the
+new connection therefore leaves the restart state stuck and suppresses its error UI. Distinguish the
+deliberately closed old connection from a failed new attempt using connection IDs.
+
+F14 [P2] Session setup is declared successful before the server accepts it
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/network/RealtimeSessionManager.kt:833
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/controller/ChatSessionController.kt:399
+For non-Google providers, successful WebSocket.send immediately completes configuration. That only confirms
+enqueueing; a rejected session.update arrives later after initialization has already proceeded. Wait for
+session.updated, match errors to the pending configuration, and enforce a setup timeout. OpenAI documents
+the acknowledgment here: https://developers.openai.com/api/reference/resources/realtime/client-events
+
+F15 [P2] Gemini prompt/tool edits are saved but ignored by the live session
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/ui/settings/SettingsViewModel.kt:105
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/ui/settings/SettingsViewModel.kt:205
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/network/RealtimeSessionManager.kt:874
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/tools/ToolRegistry.kt:204
+Prompt and enabled-tool setters request an update, but updateSession returns without doing anything for
+Google. The model retains its old configuration until reconnect. executeTool also does not enforce the
+enabled set, so a disabled tool still advertised to that session can execute. Restart Google sessions when
+required and enforce tool availability locally on execution.
+
+F16 [P2] Concurrent tool results attach to the wrong chat cards
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/ui/ChatViewModel.kt:568
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/controller/ChatRealtimeHandler.kt:252
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/controller/ChatRealtimeHandler.kt:507
+updateLatestFunctionCallResult updates the last unanswered card, while tool jobs run concurrently. If A then
+B are displayed and A finishes first, A's output is attached to B. Store call IDs in ChatMessage and update
+the matching card instead of searching by recency.
+
+F17 [P2] Parallel tool completions each start a separate follow-up response
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/controller/ChatRealtimeHandler.kt:200
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/controller/ChatSessionController.kt:154
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/controller/ChatSessionController.kt:178
+Each non-Google tool completion independently sends response.create, even when several calls belong to one
+model response. An early tool can start the answer before the others finish; later results can request
+another answer during the active one. The single isExpectingFinalAnswerAfterToolCall flag is also
+overwritten per tool. Track outstanding calls per response, deliver all outputs, and schedule one follow-up.
+
+F18 [P2] Append-and-respond can interrupt despite allowInterrupt=false
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/controller/ChatSessionController.kt:95
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/controller/ChatSessionController.kt:112
+The response-generating branch unconditionally calls interruptSpeech, ignoring allowInterrupt. Event rules
+using APPEND_AND_RESPOND can therefore cancel an ongoing answer. For Google, the triggering text is sent
+before this cancellation decision, adding a race with the new response. Queue noninterrupting events and
+decide cancellation before sending input.
+
+F19 [P2] Audio end-of-stream drops buffered samples and may never start short replies
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/manager/AudioPlayer.kt:188
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/manager/AudioPlayer.kt:205
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/manager/AudioPlayer.kt:392
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/manager/AudioPlayer.kt:454
+markResponseDone clears the carry buffer even though the playback loop later tries to flush it, discarding
+pending samples (up to a partial 40 ms frame). Playback also requires 60 ms of queued audio, and
+end-of-stream does not force a start below that threshold. Preserve/flush the tail and allow any nonempty
+completed response to play.
+
+F20 [P2] Audio capture can die while still reporting that it is running
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/manager/RealtimeAudioInputManager.kt:97
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/manager/RealtimeAudioInputManager.kt:201
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/manager/RealtimeAudioInputManager.kt:238
+Fatal read errors break the capture loop without clearing the capturing flag or releasing/notifying the
+recorder. start then sees the old flag and skips recovery. Put recorder teardown, state reset and error
+notification in a finally block and make restarting explicit.
+
+F21 [P2] Azure Speech start failures leave isRunning set
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/manager/SpeechRecognizerManager.kt:159
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/manager/SpeechRecognizerManager.kt:173
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/manager/SpeechRecognizerManager.kt:240
+isRunning is set before startContinuousRecognitionAsync().get(). If starting and any lazy retry fail,
+handleStartFailure reports an error without resetting the state; later start calls return as if recognition
+were active. Reset all readiness/running flags on failure and test retry behavior.
+
+F22 [P2] First-run permissions race with capture initialization
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/manager/PermissionManager.kt:33
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/ui/ChatActivity.kt:327
+Microphone and camera permission requests are issued back to back, while normal startup continues.
+Permission-granted callbacks only log; they do not resume a capture initialization that already failed while
+the prompt was open. Request permissions together or sequentially, gate dependent startup, and restart the
+relevant operation after permission is granted. A real device is needed to verify each OS-specific prompt
+flow.
+
+F23 [P2] Video capture is not scoped to the active provider or foreground session
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/controller/ChatLifecycleController.kt:41
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/controller/ChatSessionController.kt:206
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/ui/ChatActivity.kt:349
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/network/RealtimeSessionManager.kt:375
+Video shutdown is wired to activity destruction, but not onStop or session/provider changes. Existing frame
+loops can keep capturing after the app leaves the foreground or Gemini is replaced by another provider.
+sendGoogleMediaFrame has no provider guard, so it can send Gemini-shaped data into the replacement
+connection. Stop capture on these transitions and bind frame delivery to a session generation/provider.
+
+F24 [P2] Every standalone photo analysis leaks a camera thread
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/standalone/java/ch/fhnw/pepper_realtime/tools/vision/AnalyzeVisionTool.kt:52
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/standalone/java/ch/fhnw/pepper_realtime/service/VisionService.kt:85
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/standalone/java/ch/fhnw/pepper_realtime/service/VisionService.kt:616
+Each analysis allocates a new VisionService and starts CameraBackground. The tool never calls shutdown,
+including on timeout. Closing the camera does not quit that thread, so repeated photos accumulate threads
+and retained service/activity state. Reuse a lifecycle-owned service or shut it down in a guaranteed
+completion/timeout path.
+
+F25 [P2] Standalone video cannot be cancelled while its camera is opening
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/standalone/java/ch/fhnw/pepper_realtime/controller/VideoInputControllerImpl.kt:94
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/standalone/java/ch/fhnw/pepper_realtime/controller/VideoInputControllerImpl.kt:106
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/standalone/java/ch/fhnw/pepper_realtime/controller/VideoInputControllerImpl.kt:225
+start creates a thread and opens asynchronously, but isStreaming remains false until onConfigured.
+stopStreaming returns immediately while false. Stop/shutdown during opening therefore fails to cancel
+pending work, late callbacks can start capture, and repeated starts can allocate additional threads. Model
+STARTING/STREAMING/STOPPING separately and reject callbacks from cancelled attempts.
+
+F26 [P2] Perception IDs and approach-human IDs use unrelated namespaces
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/pepper/java/ch/fhnw/pepper_realtime/service/PerceptionService.kt:250
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/pepper/java/ch/fhnw/pepper_realtime/service/PerceptionService.kt:353
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/pepper/java/ch/fhnw/pepper_realtime/tools/navigation/ApproachHumanTool.kt:84
+Public human IDs come from Python trackId; getHumanById searches QiSDK Human.hashCode(). An approach request
+using an observed track ID generally cannot resolve its target. Maintain an explicit association based on
+spatial observations or expose only supported targeting until one exists.
+
+F27 [P2] Disappearance events discard the person's known identity
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/pepper/java/ch/fhnw/pepper_realtime/service/PerceptionService.kt:408
+The event constructs a fresh HumanInfo containing only IDs. Its recognized name and last distance are lost,
+so name/distance conditions and goodbye templates receive empty/default data. Retain and pass the previous
+HumanInfo for disappeared tracks.
+
+F28 [P2] Sustained-gaze rules are not reevaluated as duration grows
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/pepper/java/ch/fhnw/pepper_realtime/service/PerceptionService.kt:439
+PERSON_LOOKING fires only on the false-to-true transition. During normal tracking, gazeDurationMs is near
+zero then; a rule requiring more than three seconds fails and receives no further looking event while gaze
+continues. Evaluate duration thresholds during updates with edge/cooldown control, or create an explicit
+duration event.
+
+F29 [P2] Numeric equality rules compare string formatting
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/service/EventRuleEngine.kt:169
+EQUALS and NOT_EQUALS compare strings while inequalities parse numbers. A distance of 2.0 does not equal a
+rule value of 2. Use field metadata to compare numeric fields numerically, with a deliberate tolerance where
+appropriate.
+
+F30 [P2] An invalid rule import can erase valid existing rules
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/data/RulePersistence.kt:85
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/data/RulePersistence.kt:156
+The parser catches and skips invalid entries, then replacement import saves the surviving list without
+validation. Importing [{}] yields an empty list and overwrites all existing rules. Parse/validate the whole
+import, report entry errors and duplicate IDs, and commit only a valid result.
+
+F31 [P2] Stale perception WebSocket callbacks can disconnect a new connection
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/service/PerceptionWebSocketClient.kt:178
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/service/PerceptionWebSocketClient.kt:190
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/service/PerceptionWebSocketClient.kt:223
+After disconnect followed by reconnect, a late callback from the old socket still calls handleDisconnect,
+cancels the current ping job, and can schedule another connection. Unlike the realtime manager, this client
+checks no socket identity/generation. Ignore callbacks from obsolete sockets.
+
+F32 [P2] Map bitmaps are recycled while Compose can still draw them
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/pepper/java/ch/fhnw/pepper_realtime/data/NavigationMapCache.kt:249
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/pepper/java/ch/fhnw/pepper_realtime/manager/NavigationServiceManager.kt:622
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/ui/compose/NavigationOverlay.kt:167
+The cache recycles the same Bitmap published into NavigationUiState. Cache reset/replacement can leave the
+overlay holding that recycled instance; it draws any non-null bitmap without checking ownership. Clear/swap
+UI state before disposal or use ownership that does not recycle images still referenced by the UI. Verify
+with the map overlay open during focus loss.
+
+F33 [P2] WebSocket face listing always loses a nonempty database
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/scripts/face_database.py:181
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/scripts/face_recognition_server.py:1009
+REPRODUCED. list_faces returns a name-to-count dictionary, but ws_list_faces iterates its string keys as if
+they were dictionaries. The resulting exception is swallowed and [] returned. Iterate .items() and test the
+wire format with populated data.
+
+F34 [P2] Camera HTTP fallback reads an obsolete binary protocol
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/scripts/camera_daemon.py:473
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/scripts/face_recognition_server.py:449
+REPRODUCED. The deployed writer emits PFR2 with a shorter header; the HTTP reader accepts only the old PFR1
+header, so fallback frames are rejected. Its old depth branch also references depth_bytes without defining
+it. Share/version the codec and test the actual producer against every consumer.
+
+F35 [P2] Shared-memory frame publication can produce mixed frames
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/scripts/camera_daemon.py:129
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/scripts/face_recognition_server.py:353
+The writer publishes the new header before copying its payload. The reader neither locks nor validates a
+sequence again after copying. It can observe the new timestamp/length with old or partially written RGB/JSON
+data. Use a sequence-checked publication protocol or double buffering and test concurrent readers/writers.
+
+F36 [P2] No-new-frame polling invokes the expensive fallback capture path
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/scripts/face_recognition_server.py:417
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/scripts/face_recognition_server.py:705
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/scripts/face_recognition_server.py:106
+NO_NEW_FRAME becomes None; update_tracking_once treats that as camera failure and creates a
+ThreadPoolExecutor plus subprocess capture/sensor work. Polling faster than the daemon therefore adds
+latency and competing camera activity instead of waiting. The referenced get_sensors.py is also absent.
+Preserve a distinct no-change outcome and skip the update; repair or remove the unavailable fallback.
+
+F37 [P2] Concurrent face operations share mutable inference engines
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/scripts/face_recognition_server.py:672
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/scripts/face_recognition_server.py:879
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/scripts/face_recognition_server.py:1021
+The tracking loop, HTTP handlers, WebSocket callbacks and recognition worker share global
+DETECTOR/RECOGNIZER objects. TRACKER_LOCK does not protect all users. setInputSize/detect/feature operations
+can interleave across images and resolutions. Serialize access to each inference engine or give workers
+independent instances. The race is visible in code; its frequency requires a concurrent runtime test.
+
+F38 [P2] Face database updates are neither serialized nor atomic
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/scripts/face_database.py:29
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/scripts/face_database.py:38
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/scripts/face_database.py:125
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/scripts/face_database.py:139
+HTTP and WebSocket operations can concurrently read-modify-write faces.pkl, while recognition reads it.
+Writers can lose another operation's update; truncation before pickle.dump permits readers or crashes to
+observe an incomplete file. Serialize complete transactions, write a temporary file and atomically replace
+it, and keep encoding/image operations consistent.
+
+F39 [P2] The default lost-track recovery buffer expires immediately
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/scripts/face_tracker.py:586
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/scripts/face_tracker.py:594
+REPRODUCED. Tracks enter lost_tracks after the 3000 ms track timeout, but are retained only while time since
+last_seen is below the default 2500 ms lost-buffer duration. They are removed in the same update. Timestamp
+entry into the lost buffer or define expiry as timeout plus recovery duration.
+
+F40 [P2] Several perception settings have no advertised effect
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/scripts/face_tracker.py:250
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/scripts/face_tracker.py:418
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/scripts/face_tracker.py:561
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/scripts/perception_websocket.py:65
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/scripts/recognize_face.py:30
+REPRODUCED for max_angle_distance and confirm_count=1. Matching uses constant MATCH_THRESHOLD rather than
+max_angle_distance (a 20-degree displacement was accepted with a 5-degree setting). A first detection is
+always pending even when confirm_count is 1. min_track_age_ms is exposed/stored but never applied. Implement
+the settings or remove the controls; promote the first detection immediately when configured. Detection is
+also initially filtered by the detector's fixed 0.8 score threshold, so lowering the later application
+threshold below 0.8 cannot recover those detections.
+
+F41 [P2] Different person names share and delete the same thumbnails
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/scripts/face_database.py:45
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/scripts/face_database.py:79
+REPRODUCED. Alice Smith and Alice_Smith normalize to the same filename prefix, as do other punctuation
+variants. Their photos collide, and deleting one name deletes the shared photos belonging to the other. Use
+stable unique identity IDs for storage; keep display names independent.
+
+F42 [P2] The JSON camera endpoint corrupts the cached binary frame
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/scripts/camera_daemon.py:411
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/scripts/camera_daemon.py:484
+REPRODUCED with the actual handler. /frame base64-encodes rgb['data'] in the dictionary returned from the
+shared cache. Other binary/shared-memory consumers can then see base64 text where raw bytes are expected
+until the next capture. Build a separate serialization object without mutating cached frame data.
+
+F43 [P2] Linux/macOS deployment still installs the retired dlib stack
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/deploy.sh:45
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/deploy.sh:65
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/deploy.sh:75
+The current Docker build produces OpenCV/ONNX assets, but deploy.sh tests dlib, copies only Python scripts,
+and omits the ONNX models and run_server.sh. A fresh installation using the documented shell route cannot
+start the current server. Bring both deployment implementations to the same manifest and self-test.
+
+F44 [P2] PowerShell build/deploy can report success after native command failure
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/build.ps1:14
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/deploy.ps1:31
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/deploy.ps1:109
+Most docker/ssh/scp commands do not check LASTEXITCODE. ErrorActionPreference=Stop alone does not reliably
+convert these native failures into terminating errors. A failed Docker build can be followed by an old
+image's extraction; failed copies can leave a mixed deployment. The self-test also prints ERROR for missing
+face modules without exiting nonzero. Check every native command and fail the self-test for missing required
+capabilities/models.
+
+F45 [P2] Starting a new memory game leaves old delayed jobs active
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/manager/MemoryGameManager.kt:67
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/manager/MemoryGameManager.kt:229
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/manager/MemoryGameManager.kt:261
+startGame replaces state without cancelling mismatchJob or autoCloseJob. A pending old mismatch mutates the
+new game's cards, or a completed game's auto-close dismisses a newly started game. Cancel all prior jobs and
+give asynchronous callbacks a game-generation check.
+
+F46 [P2] The AI can take consecutive tic-tac-toe turns
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/manager/TicTacToeGameManager.kt:124
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/tools/games/TicTacToeGame.kt:41
+makeAIMove validates visibility, game-over and the square, but not currentPlayer. The game model also
+accepts any valid-square move for either supplied player. Repeated AI tool calls therefore place consecutive
+O marks. Enforce turn ownership in the game model and return a useful error.
+
+F47 [P2] Malformed melody durations can crash playback and strand microphone state
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/manager/audio/ToneGenerator.kt:85
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/manager/audio/ToneGenerator.kt:111
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/manager/MelodyManager.kt:75
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/tools/entertainment/PlayMelodyTool.kt:90
+Durations are unbounded signed Longs. C4:-1 produces a negative sample-array length; huge values can
+overflow or exhaust memory. Allocation happens outside the try/finally, and MelodyManager has no terminal
+cleanup around playback. Failure can leave the UI playing and its completion callback/unmute uncalled; the
+tool timeout does not restore it. Validate notes/durations/total size and always finish/reset in finally.
+
+F48 [P2] Short valid Azure Speech regions are ignored
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/manager/ApiKeyManager.kt:38
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/manager/ApiKeyManager.kt:100
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/manager/ApiKeyManager.kt:147
+AZURE_SPEECH_REGION uses the API-key validator requiring more than ten characters. BuildConfig values such
+as eastus and westeurope are rejected and the preferences/default region is silently used, potentially
+sending a valid key to the wrong region. Read non-secret configuration with field-specific validation.
+
+F49 [P2] Clearing the idle-timeout field does not disable it
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/ui/compose/settings/SettingsScreen.kt:52
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/ui/compose/settings/SettingsScreen.kt:548
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/ui/settings/SettingsViewModel.kt:270
+The UI says to leave the field empty to disable timeout, but toIntOrNull()?.let ignores blank input. The
+previous persisted timeout remains active and can reappear on reopening settings. Accept nullable timeout
+values, persist clearing, and clear the corresponding server configuration or reconnect.
+
+F50 [P2] Vision availability ignores the selected provider and configured fallback
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/manager/ApiKeyManager.kt:68
+isVisionAnalysisAvailable always returns true because one model has native vision. The application also
+allows models/providers that require the Groq fallback; without its key, the tool is still presented as
+available and fails later. Derive capability from the selected model/provider, required credentials, and
+device permission.
+
+F51 [P2] Cancelled HTTP requests can leak response bodies
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/network/HttpClientManager.kt:153
+If onResponse arrives after cancellation, its response is discarded without close(). There is also a
+cancellation race between the isActive check and delivery to the caller. Close abandoned responses and use
+cancellable resource-delivery handling to release a response that cannot be consumed.
+
+F52 [P2] Azure Speech's bundled native library lacks 16 KB alignment
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/build.gradle:115
+MEASURED by fresh lint in both variants: client-sdk:1.38.0 supplies an unaligned
+arm64-v8a/libMicrosoft.CognitiveServices.Speech.core.so. This is a concrete standalone-device compatibility
+concern on 16 KB Android environments, not a Pepper Android 6 issue. Upgrade to a verified compatible SDK
+and test a 16 KB emulator/device. Reference: https://developer.android.com/guide/practices/page-sizes
+
+F53 [P2] CI permits lint failures and does not validate the Python deployment
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/.github/workflows/android-ci.yml:80
+Lint runs only for standalone and is explicitly continue-on-error. Both Android unit suites run, but there
+are no Python protocol/tracker/database tests or deployment manifest checks. A green workflow can therefore
+miss the reproduced defects and real lint failures. Make actionable lint checks mandatory for both flavors
+and add focused cross-component regression tests.
+
+F54 [P2] README privacy and data-clearing instructions do not match behavior
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/README.md:598
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/README.md:606
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/README.md:608
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/manager/EventRulesManager.kt:98
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/controller/ChatSessionController.kt:215
+Recognized names can be interpolated into event-rule messages and sent to the selected AI provider, so 'face
+data ... never sent to external services' is too broad. Removing GROQ_API_KEY does not disable native
+vision. New Chat clears messages/session images, not saved maps or face records. Replace these claims with
+actual data flows and deletion controls, and remove unsupported blanket legal-compliance claims.
+
+F55 [P3] Weather lookup redirects every location containing 'baden' to Switzerland
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/tools/information/GetWeatherTool.kt:70
+Wiesbaden and Baden-Baden match the special case and receive coordinates for Baden, CH. Restrict the alias
+to an exact normalized place/country match or use geocoding.
+
+F56 [P3] Advertised flat melody notes are not supported
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/tools/entertainment/PlayMelodyTool.kt:30
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/manager/audio/ToneGenerator.kt:84
+The tool advertises Bb4, but uppercase conversion yields BB4, which is absent from the frequency table.
+Unknown notes are skipped; fallback only strips '#'. Parse accidentals or remove unsupported notation from
+the schema.
+
+F57 [P3] Navigation and optional-perception documentation describes absent behavior
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/README.md:440
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/README.md:1150
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/pepper/java/ch/fhnw/pepper_realtime/tools/navigation/SaveCurrentLocationTool.kt:93
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/pepper/java/ch/fhnw/pepper_realtime/service/PerceptionService.kt:247
+The navigation example promises high-precision saves while the tool explicitly returns high_precision=false.
+The optional face-server description promises unknown-person perception without that server, but the
+streamed perception list depends on the Python service; QiSDK helpers used for approach/follow do not
+populate that list. Document the actual fallback and supported precision.
+
+CLEANUP AND CONSOLIDATION
+These are recommendations, not all immediate runtime defects. Confirm any external/manual
+consumer before deleting a helper or public configuration field.
+
+D01 Unused second camera daemon implementation
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/camera_daemon.py:1
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/scripts/camera_daemon.py:1
+The root-level copy is an older implementation; the actual build/deploy routes use scripts/camera_daemon.py.
+Remove or explicitly archive it to avoid fixes landing in the wrong copy.
+
+D02 Obsolete partial deployment helper
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/watch-people.ps1:19
+The -Deploy list still names missing get_sensors.py and omits camera_daemon.py, perception_websocket.py and
+run_server.sh. It can leave incompatible script versions on the robot. Reuse one deployment manifest or
+remove this duplicate deployment route.
+
+D03 Unused Google request DTO hierarchy
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/network/GoogleLiveEvents.kt:196
+Setup/input/client-content/tool-response DTOs in the second half of this file have no callers;
+RealtimeSessionManager constructs JSON manually. Keep the used response DTOs. Either make the request DTOs
+the tested serializer or remove the duplicate schema representation.
+
+D04 Unused direct UI dependencies and resources
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/build.gradle:123
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/build.gradle:126
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/build.gradle:138
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/res/values/strings.xml:14
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/res/values/strings.xml:82
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/res/values/themes.xml:17
+No source/resource use was found for direct ConstraintLayout, RecyclerView or Compose runtime-livedata
+dependencies. Lint also identifies status_listening_partial, content_desc_face and QuizDialog as unused in
+both flavors. Remove after dependency/resource verification and rerun builds; do not remove transitive
+requirements blindly.
+
+D05 Pepper-only animation assets shipped in standalone
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/res/raw/applause_01.qianim:1
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/build.gradle:1
+All 23 qianim assets reside in main/res/raw; standalone lint reports them unused. Their source files total
+482,680 bytes (compressed APK savings will differ). Move robot-only assets to pepper/res/raw. Check whether
+robot/robotsdk.xml should also be flavor-specific.
+
+D06 Dormant state, threads and legacy depth helpers
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/pepper/java/ch/fhnw/pepper_realtime/service/PerceptionService.kt:72
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/pepper/java/ch/fhnw/pepper_realtime/service/PerceptionService.kt:478
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/manager/SettingsRepository.kt:243
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/service/LocalFaceRecognitionService.kt:44
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/scripts/camera_daemon.py:374
+PerceptionMonitoringThread/monitoringHandler is created but no work is posted to it; previousDistances is
+assigned but not read. googleAffectiveDialog is loaded/persisted without a live payload/UI implementation.
+CHECK_SERVER_CMD and fetch_frame_threaded have no callers. Remove these or implement an actual consumer.
+Consolidate remaining disabled depth-era fields with the protocol cleanup.
+
+D07 Conflicting singleton ownership
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/network/HttpClientManager.kt:28
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/network/HttpClientManager.kt:38
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/network/HttpClientManager.kt:108
+HttpClientManager is both a Hilt singleton and a manual global singleton; constructors overwrite the global
+instance. It is possible for early manual access and later DI construction to own separate client pools.
+Choose DI ownership and inject it consistently into tools, or provide one explicit compatibility bridge.
+
+D08 Tracked transient output and stale build configuration
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/pepper_build_log.txt:1
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/gradle.properties:23
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/.github/workflows/android-ci.yml:23
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/.github/workflows/android-ci.yml:28
+Remove generated pepper_build_log.txt from source control and ignore future copies. The unsupported
+compileSdk suppression still refers to AGP 8.5 although the project now uses 8.13. Review/remove it. CI also
+configures Gradle caching through setup-java and a second overlapping actions/cache step; consolidate the
+caches.
+
+D09 Misleading face metric and constant signature component
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/scripts/face_recognition_server.py:633
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/scripts/face_recognition_server.py:905
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/scripts/face_tracker.py:84
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/tools/pepper-face-recognition/scripts/face_tracker.py:99
+Recognizer match(..., 1) selects OpenCV FR_NORM_L2, although comments/settings describe cosine distance.
+Correct the name and calibrate the threshold/confidence accordingly. FaceSignature's eye_dist/(eye_dist*2.5)
+is always 0.4 for nondegenerate inputs, so that component contributes no discrimination. Replace it with an
+independent measurement or remove it. [OpenCV FaceRecognizerSF
+API](https://docs.opencv.org/4.12.0/da/d09/classcv_1_1FaceRecognizerSF.html)
+
+D10 API/SSH secrets remain embedded in distributed APKs
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/build.gradle:28
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/README.md:585
+This is already acknowledged in the README rather than a new discovery. BuildConfig contains configured
+service keys and the robot SSH password; release minification is disabled and would not make secrets safe
+anyway. For deployments beyond a trusted development setup, use scoped/short-lived credentials or a service
+boundary and provision robot access separately. No secret values are reproduced in this report.
+
+D11 Duplicated coordination logic is amplifying existing bugs
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/pepper/java/ch/fhnw/pepper_realtime/tools/navigation/TurnPepperTool.kt:145
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/pepper/java/ch/fhnw/pepper_realtime/tools/navigation/CreateEnvironmentMapTool.kt:193
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/pepper/java/ch/fhnw/pepper_realtime/tools/navigation/LookAtPositionTool.kt:254
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/controller/ChatRealtimeHandler.kt:234
+After fixing behavior, consolidate motion safety, session/call cancellation, and camera lifecycle ownership.
+Application-scope jobs, raw threads, ad hoc coroutines and blocking latches currently implement competing
+lifetimes. Keep necessary Pepper/standalone flavor boundaries; extract only genuinely common behavior and
+test the boundaries that have failed.
+
+D12 Google tool logging describes SILENT scheduling that is never sent
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/controller/ChatRealtimeHandler.kt:462
+  C:/Users/ma1183500/Documents/FePsy/Cursor/pepper_android_realtime/app/src/main/java/ch/fhnw/pepper_realtime/controller/ChatRealtimeHandler.kt:511
+The announced-tool path logs 'using SILENT scheduling' and then omits the tool response altogether. These
+are different behaviors, including for an error result. Decide the intended contract, handle failures
+explicitly, and correct the log. This audit does not claim that every fire-and-forget Google tool requires a
+response; protocol support depends on the selected model.
+
+RECOMMENDED REPAIR ORDER
+1. Close the SSH, face API and WebView trust gaps; enforce safe motion inputs and guards.
+2. Fix per-action/per-session lifetimes, navigation terminal paths and transactional map saves.
+3. Add protocol/database/tracker regression tests and repair the seven reproduced Python defects.
+4. Repair session setup/settings, audio/camera lifecycle and event-rule behavior.
+5. Align deployment scripts and make CI catch these failures; then remove verified dead code.
+
+Regression scenarios should cover old/new connection callbacks, A/B movement timers, failed
+ability holds, cancellation before localization, New Chat during a long tool, multiple tool
+results arriving out of order, permission grant after startup, very short/end-of-stream audio,
+camera cancellation while opening, rule import failure, and concurrent face registrations.
+
+INTERPRETATION NOTES
+- The documented half-duplex microphone behavior while Pepper speaks is intentional and is
+  not classified as a bug here.
+- Lint's TrustAllX509TrustManager warning points inside a BouncyCastle dependency. This review
+  did not establish a reachable app TLS-bypass path, so it is not reported as such. The explicit
+  SSH PromiscuousVerifier use is separately established in F01.
+- OldTargetApi and GradleDependency notices alone are not proof of broken behavior. Pepper's
+  Android 6 constraints must be considered before blanket SDK/dependency upgrades.
+- Passing mocked/state-focused tests does not cover real camera/audio/robot action lifetimes.
+- No claim is made that current provider/model availability, every external API contract, or
+  all hardware/firmware combinations have been exhaustively integration-tested.

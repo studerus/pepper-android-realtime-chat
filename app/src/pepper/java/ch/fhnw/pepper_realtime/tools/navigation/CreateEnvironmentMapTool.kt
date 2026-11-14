@@ -3,10 +3,12 @@ package ch.fhnw.pepper_realtime.tools.navigation
 import android.util.Log
 import com.aldebaran.qi.Future
 import com.aldebaran.qi.sdk.QiContext
+import ch.fhnw.pepper_realtime.robot.RobotSafetyGuard
 import com.aldebaran.qi.sdk.builder.LocalizeAndMapBuilder
 import com.aldebaran.qi.sdk.`object`.actuation.LocalizeAndMap
 import ch.fhnw.pepper_realtime.tools.Tool
 import ch.fhnw.pepper_realtime.tools.ToolContext
+import ch.fhnw.pepper_realtime.tools.startRobotAction
 import org.json.JSONObject
 import java.io.File
 
@@ -18,6 +20,7 @@ class CreateEnvironmentMapTool : Tool {
 
     companion object {
         private const val TAG = "CreateEnvironmentMapTool"
+        private val mappingLock = Any()
         private const val ACTIVE_MAP_NAME = "default_map"
 
         // Static reference to current mapping operation for tool coordination
@@ -32,7 +35,7 @@ class CreateEnvironmentMapTool : Tool {
         /**
          * Stop current mapping operation
          */
-        fun stopCurrentMapping() {
+        fun stopCurrentMapping() = synchronized(mappingLock) {
             currentMappingFuture?.let { future ->
                 if (!future.isDone) {
                     try {
@@ -68,9 +71,9 @@ class CreateEnvironmentMapTool : Tool {
             return JSONObject().put("error", "Robot not ready").toString()
         }
 
-        // Check if charging flap is open (mapping requires movement)
-        if (isChargingFlapOpen(context)) {
-            return JSONObject().put("error", "Cannot create map while charging flap is open. Mapping requires robot movement. Please close the charging flap first.").toString()
+        val safety = RobotSafetyGuard.evaluateMovementSafety(context.qiContext as QiContext)
+        if (!safety.isOk()) {
+            return JSONObject().put("error", safety.message).toString()
         }
 
         Log.i(TAG, "Starting environment mapping prerequisite checks for: $ACTIVE_MAP_NAME")
@@ -80,6 +83,7 @@ class CreateEnvironmentMapTool : Tool {
 
         // Asynchronously stop any current localization first
         navManager.stopCurrentLocalization().thenConsume { future ->
+            if (!context.isActive) return@thenConsume
             if (future.hasError()) {
                 Log.w(TAG, "Stopping previous localization failed, but proceeding anyway.", future.error)
             } else {
@@ -101,7 +105,7 @@ class CreateEnvironmentMapTool : Tool {
 
                 // Clear all existing locations when starting a new map
                 // New map = new coordinate system = old locations become invalid
-                clearAllLocations(context)
+                context.guard { clearAllLocations(context) }
 
             } catch (e: Exception) {
                 Log.e(TAG, "Error starting manual mapping", e)
@@ -130,14 +134,20 @@ class CreateEnvironmentMapTool : Tool {
                 return false
             }
 
-            // Stop any existing mapping
-            stopCurrentMapping()
+            val safety = RobotSafetyGuard.evaluateMovementSafety(qiContext)
+            if (!safety.isOk()) {
+                context.sendAsyncUpdate("[MAPPING ERROR] ${safety.message}", true)
+                return false
+            }
 
-            Log.i(TAG, "Building LocalizeAndMap action...")
-            currentLocalizeAndMap = LocalizeAndMapBuilder.with(qiContext).build()
+            val mappingAction = LocalizeAndMapBuilder.with(qiContext).build()
+            context.guard { synchronized(mappingLock) {
+            stopCurrentMapping()
+            currentLocalizeAndMap = mappingAction
 
             // Add status listener for localization feedback
             currentLocalizeAndMap?.addOnStatusChangedListener { status ->
+                if (!context.isActive) return@addOnStatusChangedListener
                 Log.i(TAG, "LocalizeAndMap status changed: $status")
                 when (status) {
                     com.aldebaran.qi.sdk.`object`.actuation.LocalizationStatus.NOT_STARTED -> {
@@ -167,10 +177,22 @@ class CreateEnvironmentMapTool : Tool {
             }
 
             Log.i(TAG, "Starting LocalizeAndMap with scanning animation...")
-            currentMappingFuture = currentLocalizeAndMap?.async()?.run()
+            val ownedFuture = context.startRobotAction { mappingAction.async().run() }
+            currentMappingFuture = ownedFuture
+            val ownership = context.onCancel {
+                synchronized(mappingLock) {
+                    if (currentMappingFuture === ownedFuture) {
+                        currentMappingFuture = null
+                        currentLocalizeAndMap = null
+                    }
+                }
+            }
 
             // Handle completion/errors asynchronously
-            currentMappingFuture?.thenConsume { future ->
+            ownedFuture.thenConsume { future ->
+                ownership.close()
+                mappingAction.removeAllOnStatusChangedListeners()
+                if (!context.isActive) return@thenConsume
                 if (future.hasError()) {
                     Log.e(TAG, "LocalizeAndMap failed", future.error)
                 } else {
@@ -180,6 +202,7 @@ class CreateEnvironmentMapTool : Tool {
 
             Log.i(TAG, "LocalizeAndMap started - robot should perform scanning animation")
             true
+            } }
 
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start LocalizeAndMap", e)
@@ -187,29 +210,6 @@ class CreateEnvironmentMapTool : Tool {
         }
     }
 
-    /**
-     * Check if the charging flap is open, which prevents movement for safety reasons
-     */
-    private fun isChargingFlapOpen(context: ToolContext): Boolean {
-        return try {
-            val qiContext = context.qiContext as QiContext
-            val power = qiContext.power
-            val chargingFlap = power.chargingFlap
-
-            if (chargingFlap != null) {
-                val flapState = chargingFlap.state
-                val isOpen = flapState.open
-                Log.d(TAG, "Charging flap status: ${if (isOpen) "OPEN (movement blocked)" else "CLOSED (movement allowed)"}")
-                isOpen
-            } else {
-                Log.d(TAG, "No charging flap sensor available - assuming movement is allowed")
-                false // Assume closed if sensor not available
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "Could not check charging flap status: ${e.message}", e)
-            false // Allow movement if check fails to avoid false blocking
-        }
-    }
 
     /**
      * Clear all existing locations since they become invalid with a new map

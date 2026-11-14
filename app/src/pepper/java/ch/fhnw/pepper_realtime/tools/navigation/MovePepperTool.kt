@@ -2,6 +2,7 @@ package ch.fhnw.pepper_realtime.tools.navigation
 
 import android.util.Log
 import com.aldebaran.qi.sdk.QiContext
+import ch.fhnw.pepper_realtime.robot.MotionValidation
 import ch.fhnw.pepper_realtime.robot.RobotSafetyGuard
 import ch.fhnw.pepper_realtime.tools.Tool
 import ch.fhnw.pepper_realtime.tools.ToolContext
@@ -52,13 +53,16 @@ class MovePepperTool : Tool {
     }
 
     override fun execute(args: JSONObject, context: ToolContext): String {
-        val distanceForward = args.optDouble("distance_forward", 0.0)
-        val distanceSideways = args.optDouble("distance_sideways", 0.0)
-        val speed = args.optDouble("speed", 0.4)
-
-        // Validate that at least one movement is requested
-        if (distanceForward == 0.0 && distanceSideways == 0.0) {
-            return JSONObject().put("error", "Please provide a non-zero distance for 'distance_forward' or 'distance_sideways'.").toString()
+        val distanceForward: Double
+        val distanceSideways: Double
+        val speed: Double
+        try {
+            distanceForward = MotionValidation.number(args, "distance_forward", 0.0)
+            distanceSideways = MotionValidation.number(args, "distance_sideways", 0.0)
+            speed = MotionValidation.number(args, "speed", 0.4)
+            MotionValidation.move(distanceForward, distanceSideways, speed)
+        } catch (e: IllegalArgumentException) {
+            return JSONObject().put("error", e.message).toString()
         }
 
         // Check if robot is ready
@@ -79,7 +83,7 @@ class MovePepperTool : Tool {
         val navManager = context.navigationServiceManager
 
         // Execute movement using manager with tool-level callback (does not override manager listener)
-        navManager.movePepper(qiContext, distanceForward, distanceSideways, speed)
+        navManager.movePepper(qiContext, distanceForward, distanceSideways, speed, context.operation)
             .thenConsume { f ->
                 val success = !f.hasError() && f.value?.success == true
                 val error = if (f.hasError()) {

@@ -1,6 +1,12 @@
 package ch.fhnw.pepper_realtime.controller
 
 import android.util.Log
+import android.os.Handler
+import android.os.Looper
+import ch.fhnw.pepper_realtime.tools.ChatWorkRegistry
+import ch.fhnw.pepper_realtime.tools.OperationScope
+import ch.fhnw.pepper_realtime.manager.NavigationServiceManager
+import kotlinx.coroutines.CancellationException
 import ch.fhnw.pepper_realtime.R
 import ch.fhnw.pepper_realtime.di.ApplicationScope
 import ch.fhnw.pepper_realtime.di.IoDispatcher
@@ -39,7 +45,9 @@ class ChatSessionController @Inject constructor(
     private val interruptController: ChatInterruptController,
     private val audioPlayer: AudioPlayer,
     private val eventHandler: RealtimeEventHandler,
-    private val sessionImageManager: SessionImageManager
+    private val sessionImageManager: SessionImageManager,
+    private val workRegistry: ChatWorkRegistry,
+    private val navigationServiceManager: NavigationServiceManager
 ) : RealtimeMessageSender {
 
     companion object {
@@ -49,7 +57,9 @@ class ChatSessionController @Inject constructor(
     // @Volatile ensures visibility across threads (connectWebSocket runs on different thread than WebSocket callbacks)
     @Volatile
     private var connectionCallback: WebSocketConnectionCallback? = null
-    private var isRestarting = false // Flag to suppress side effects during restart
+    private val mainHandler = Handler(Looper.getMainLooper())
+    @Volatile private var restartOperation: OperationScope? = null
+    @Volatile private var isRestarting = false // Flag to suppress side effects during restart
 
     init {
         setupSessionManagerListeners()
@@ -57,96 +67,61 @@ class ChatSessionController @Inject constructor(
     }
 
     override fun sendMessageToRealtimeAPI(text: String, requestResponse: Boolean, allowInterrupt: Boolean) {
-        if (!sessionManager.isConnected) {
-            Log.e(TAG, "WebSocket is not connected.")
-            if (requestResponse) {
-                viewModel.addMessage(
-                    ChatMessage(
-                        viewModel.getApplication<android.app.Application>().getString(R.string.error_not_connected),
-                        ChatMessage.Sender.ROBOT
-                    )
-                )
-            }
-            return
-        }
+        val owner = workRegistry.current?.lifetime ?: return
+        sendScopedMessage(text, requestResponse, allowInterrupt, owner)
+    }
 
-        if (allowInterrupt && requestResponse && turnManager?.state == TurnManager.State.SPEAKING) {
-            // Simple explicit interrupt via controller if playing
-            if (viewModel.isAudioPlaying.value == true || audioPlayer.isPlaying()) {
-                interruptController.interruptSpeech()
-            }
-        }
-
-        // Capture for use in lambda
-        val shouldRequestResponse = requestResponse
-        val isGoogle = settingsRepository.apiProviderEnum.isGoogleProvider()
-
-        applicationScope.launch(ioDispatcher) {
+    override fun sendScopedMessage(text: String, requestResponse: Boolean, allowInterrupt: Boolean, operation: OperationScope) {
+        val session = workRegistry.current ?: return
+        operation.launchIn(applicationScope, ioDispatcher) {
             try {
-                // Set THINKING state inside the network task to ensure it only happens
-                // when the task actually runs
-                if (shouldRequestResponse) {
-                    turnManager?.setState(TurnManager.State.THINKING)
-                }
-
-                // For Google: use clientContent with turnComplete parameter
-                // For OpenAI: use conversation.item.create (response.create is sent separately below)
-                val sentItem = if (isGoogle) {
-                    sessionManager.sendGoogleTextMessage(text, triggerResponse = requestResponse)
-                } else {
-                    sessionManager.sendUserTextMessage(text)
-                }
-                
-                if (!sentItem) {
-                    Log.e(TAG, "Failed to send message - WebSocket connection broken")
-                    viewModel.addMessage(
-                        ChatMessage(
-                            viewModel.getApplication<android.app.Application>().getString(R.string.error_connection_lost_message),
-                            ChatMessage.Sender.ROBOT
-                        )
-                    )
-                    turnManager?.setState(TurnManager.State.LISTENING)
-                    return@launch
-                }
-
-                if (requestResponse) {
-                    if (viewModel.isResponseGenerating.value == true) {
+                var waitForInterrupt = false
+                val isGoogle = settingsRepository.apiProviderEnum.isGoogleProvider()
+                val sent = operation.guard { session.lifetime.guard sessionGuard@{
+                    if (!sessionManager.isConnected) return@sessionGuard false
+                    if (allowInterrupt && requestResponse && turnManager?.state == TurnManager.State.SPEAKING &&
+                        (viewModel.isAudioPlaying.value == true || audioPlayer.isPlaying())) interruptController.interruptSpeech()
+                    if (requestResponse) turnManager?.setState(TurnManager.State.THINKING)
+                    val sentItem = if (isGoogle) sessionManager.sendGoogleTextMessage(text, triggerResponse = requestResponse)
+                        else sessionManager.sendUserTextMessage(text)
+                    if (sentItem && requestResponse && viewModel.isResponseGenerating.value == true) {
                         interruptController.interruptSpeech()
-                        delay(50)
-                    } else if (viewModel.isAudioPlaying.value == true && allowInterrupt) {
+                        waitForInterrupt = true
+                    } else if (sentItem && requestResponse && viewModel.isAudioPlaying.value == true && allowInterrupt) {
                         audioPlayer.interruptNow()
                         viewModel.setAudioPlaying(false)
                     }
-
-                    viewModel.setResponseGenerating(true)
-                    
-                    // Google doesn't need explicit response.create - text input triggers response
-                    if (!isGoogle) {
-                        val sentResponse = sessionManager.requestResponse()
-                        if (!sentResponse) {
+                    if (!sentItem) {
+                        viewModel.addMessage(ChatMessage(viewModel.getApplication<android.app.Application>()
+                            .getString(R.string.error_connection_lost_message), ChatMessage.Sender.ROBOT))
+                        turnManager?.setState(TurnManager.State.LISTENING)
+                    }
+                    sentItem
+                } }
+                if (!sent) return@launchIn
+                if (waitForInterrupt) delay(50)
+                operation.runIfActive { session.lifetime.runIfActive {
+                    if (requestResponse) {
+                        viewModel.setResponseGenerating(true)
+                        if (!isGoogle && !sessionManager.requestResponse()) {
                             viewModel.setResponseGenerating(false)
-                            Log.e(TAG, "Failed to send response request")
-                            viewModel.addMessage(
-                                ChatMessage(
-                                    viewModel.getApplication<android.app.Application>().getString(R.string.error_connection_lost_response),
-                                    ChatMessage.Sender.ROBOT
-                                )
-                            )
+                            viewModel.addMessage(ChatMessage(viewModel.getApplication<android.app.Application>()
+                                .getString(R.string.error_connection_lost_response), ChatMessage.Sender.ROBOT))
                         }
                     }
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Exception in sendMessageToRealtimeAPI", e)
-                if (shouldRequestResponse) {
-                    viewModel.setResponseGenerating(false)
-                    viewModel.addMessage(
-                        ChatMessage(
-                            viewModel.getApplication<android.app.Application>().getString(R.string.error_processing_message),
-                            ChatMessage.Sender.ROBOT
-                        )
-                    )
-                    turnManager?.setState(TurnManager.State.LISTENING)
-                }
+                } }
+            } catch (_: CancellationException) {
+                // Disconnection/restart invalidates both queued sends and delayed response requests.
+            } catch (error: Exception) {
+                operation.runIfActive { session.lifetime.runIfActive {
+                    Log.e(TAG, "Exception sending chat message", error)
+                    if (requestResponse) {
+                        viewModel.setResponseGenerating(false)
+                        viewModel.addMessage(ChatMessage(viewModel.getApplication<android.app.Application>()
+                            .getString(R.string.error_processing_message), ChatMessage.Sender.ROBOT))
+                        turnManager?.setState(TurnManager.State.LISTENING)
+                    }
+                } }
             }
         }
     }
@@ -205,6 +180,9 @@ class ChatSessionController @Inject constructor(
 
     fun startNewSession() {
         Log.i(TAG, "Starting new session...")
+        disconnectWebSocketGracefully()
+        val restart = OperationScope()
+        restartOperation = restart
         isRestarting = true
         if (audioInputController.isMuted) {
             audioInputController.resetMuteState()
@@ -214,7 +192,7 @@ class ChatSessionController @Inject constructor(
         viewModel.setStatusText(viewModel.getApplication<android.app.Application>().getString(R.string.status_starting_new_session))
         viewModel.clearMessages()
 
-        applicationScope.launch(ioDispatcher) {
+        restart.launchIn(applicationScope, ioDispatcher) {
             // Delete images in background
             launch { sessionImageManager.deleteAllImages() }
             
@@ -234,11 +212,12 @@ class ChatSessionController @Inject constructor(
             viewModel.lastChatBubbleResponseId = null
             viewModel.isExpectingFinalAnswerAfterToolCall = false
 
-            disconnectWebSocketGracefully()
             delay(500)
+            restart.ensureActive()
 
             connectWebSocket(object : WebSocketConnectionCallback {
                 override fun onSuccess() {
+                    if (!restart.isActive) return
                     isRestarting = false
                     Log.i(TAG, "New session started successfully.")
                     if (!settingsRepository.isUsingRealtimeAudioInput) {
@@ -246,7 +225,7 @@ class ChatSessionController @Inject constructor(
                         Log.i(TAG, "Azure Speech mode - starting STT warmup...")
                         viewModel.setWarmingUp(true)
                         audioInputController.startWarmup()
-                        applicationScope.launch(ioDispatcher) {
+                        restart.launchIn(applicationScope, ioDispatcher) {
                             try {
                                 audioInputController.setupSpeechRecognizer()
                                 // Don't set LISTENING state here - it will be set by
@@ -269,6 +248,7 @@ class ChatSessionController @Inject constructor(
                 }
 
                 override fun onError(error: Throwable) {
+                    if (!restart.isActive) return
                     isRestarting = false
                     if (error.message?.contains("WebSocket closed before session was updated") == true) {
                         Log.w(TAG, "Harmless race condition during new session start")
@@ -285,16 +265,21 @@ class ChatSessionController @Inject constructor(
                         )
                     }
                 }
-            })
+            }, restart)
         }
     }
 
-    fun connectWebSocket(callback: WebSocketConnectionCallback?) {
+    @Synchronized
+    fun connectWebSocket(callback: WebSocketConnectionCallback?, attempt: OperationScope? = null) {
+        if (attempt?.isActive == false) return
         if (sessionManager.isConnected) {
             callback?.onSuccess()
             return
         }
 
+        val session = workRegistry.begin()
+        setupSessionManagerListeners(session)
+        clearChatActivities(session)
         this.connectionCallback = callback
 
         try {
@@ -344,16 +329,21 @@ class ChatSessionController @Inject constructor(
 
         } catch (e: Exception) {
             Log.e(TAG, "Error generating WebSocket connection parameters", e)
+            workRegistry.end()
             callback?.onError(e)
         }
     }
 
+    @Synchronized
     fun disconnectWebSocket() {
+        stopChatWork()
         Log.i(TAG, "Disconnecting WebSocket...")
         sessionManager.close(1000, "User initiated disconnect")
     }
 
+    @Synchronized
     fun disconnectWebSocketGracefully() {
+        stopChatWork()
         Log.i(TAG, "Gracefully disconnecting WebSocket...")
         this.connectionCallback = null
 
@@ -395,31 +385,54 @@ class ChatSessionController @Inject constructor(
         }
     }
 
-    private fun setupSessionManagerListeners() {
+    @Synchronized
+    fun stopChatWork() {
+        restartOperation?.cancel()
+        restartOperation = null
+        workRegistry.end()
+        try { navigationServiceManager.cancelAllActions() } catch (error: Exception) { Log.w(TAG, "Navigation cleanup failed", error) }
+        try { gestureController.stopNow() } catch (error: Exception) { Log.w(TAG, "Gesture cleanup failed", error) }
+        clearChatActivities(null)
+    }
+
+    private fun clearChatActivities(expected: ChatWorkRegistry.Session?) {
+        val clear = Runnable {
+            if (workRegistry.current === expected) viewModel.stopChatActivities()
+        }
+        if (Looper.myLooper() == Looper.getMainLooper()) clear.run() else mainHandler.post(clear)
+    }
+
+    private fun inSession(session: ChatWorkRegistry.Session?, action: () -> Unit) = synchronized(this) {
+        if (session != null && workRegistry.current === session && session.lifetime.isActive) action()
+    }
+
+    private fun setupSessionManagerListeners(session: ChatWorkRegistry.Session? = null) {
         sessionManager.setSessionConfigCallback { success, error ->
-            if (success) {
-                Log.i(TAG, "Session configured successfully - completing connection promise")
-                completeConnectionPromise()
-            } else {
-                Log.e(TAG, "Session configuration failed: $error")
-                failConnectionPromise("Session config failed: $error")
+            inSession(session) {
+                if (success) {
+                    Log.i(TAG, "Session configured successfully - completing connection promise")
+                    completeConnectionPromise()
+                } else {
+                    Log.e(TAG, "Session configuration failed: $error")
+                    failConnectionPromise("Session config failed: $error")
+                }
             }
         }
         sessionManager.listener = object : RealtimeSessionManager.Listener {
             override fun onOpen(response: Response) {
                 Log.i(TAG, "WebSocket onOpen() - configuring initial session")
-                sessionManager.configureInitialSession()
+                inSession(session) { sessionManager.configureInitialSession() }
             }
 
             override fun onTextMessage(text: String) {
-                eventHandler.handle(text)
+                inSession(session) { eventHandler.handle(text) }
             }
 
             override fun onBinaryMessage(bytes: ByteString) {
                 // Google Live API sends binary messages - decode as text JSON
                 val text = bytes.utf8()
                 if (text.startsWith("{") || text.startsWith("[")) {
-                    eventHandler.handle(text)
+                    inSession(session) { eventHandler.handle(text) }
                 }
             }
 
@@ -429,17 +442,19 @@ class ChatSessionController @Inject constructor(
 
             override fun onClosed(code: Int, reason: String) {
                 Log.d(TAG, "WebSocket closed: $code $reason")
-                handleConnectionLost(reason, code)
+                inSession(session) { handleConnectionLost(reason, code) }
             }
 
             override fun onFailure(t: Throwable, response: Response?) {
                 Log.e(TAG, "WebSocket Failure: ${t.message}")
-                handleConnectionLost(t.message ?: "Unknown error", null)
+                inSession(session) { handleConnectionLost(t.message ?: "Unknown error", null) }
             }
         }
     }
 
+    @Synchronized
     private fun handleConnectionLost(reason: String, code: Int?) {
+        stopChatWork()
         // Stop audio input to prevent endless loop of failed sends
         audioInputController.cleanupForRestart()
         
@@ -489,6 +504,7 @@ class ChatSessionController @Inject constructor(
         })
     }
 
+    @Synchronized
     fun failConnectionPromise(message: String) {
         // Only fail if we're not in the middle of restarting (to prevent old connection's onClosed from clearing new callback)
         if (!isRestarting) {
@@ -497,6 +513,7 @@ class ChatSessionController @Inject constructor(
         }
     }
 
+    @Synchronized
     fun completeConnectionPromise() {
         connectionCallback?.onSuccess()
         connectionCallback = null

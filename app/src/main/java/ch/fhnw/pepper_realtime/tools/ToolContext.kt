@@ -30,7 +30,8 @@ class ToolContext(
     private val _touchSensorManager: TouchSensorManager,
     private val _gestureController: GestureController,
     private val _locationProvider: LocationProvider,
-    private val _messageSender: RealtimeMessageSender?
+    private val _messageSender: RealtimeMessageSender?,
+    val operation: OperationScope? = null
 ) {
     /**
      * QiContext for Pepper robot operations
@@ -69,7 +70,7 @@ class ToolContext(
         get() = _toolHost.getActivity()
     
     val qiContext: Any?
-        get() = _qiContext
+        get() { ensureActive(); return _qiContext }
     
     val messageSender: RealtimeMessageSender?
         get() = _messageSender
@@ -77,7 +78,46 @@ class ToolContext(
     /**
      * Check if QiContext is not ready
      */
-    fun isQiContextNotReady(): Boolean = _qiContext == null
+    fun isQiContextNotReady(): Boolean { ensureActive(); return _qiContext == null }
+
+    val isActive: Boolean get() = operation?.isActive != false
+
+    fun ensureActive() { operation?.ensureActive() }
+
+    fun onCancel(action: () -> Unit): java.io.Closeable =
+        operation?.onCancel(action) ?: java.io.Closeable { }
+
+    fun <T> guard(action: () -> T): T = if (operation != null) operation.guard(action) else action()
+
+    fun runIfActive(action: () -> Unit) {
+        if (operation != null) operation.runIfActive(action) else action()
+    }
+
+    fun forOperation(owner: OperationScope): ToolContext {
+        val ownsMute = java.util.concurrent.atomic.AtomicBoolean(false)
+        owner.onCancel {
+            if (ownsMute.getAndSet(false)) _toolHost.resetMicrophoneMute()
+        }
+        val host = object : ToolHost by _toolHost {
+            override fun runOnUiThread(action: Runnable) {
+                _toolHost.runOnUiThread { owner.runIfActive { action.run() } }
+            }
+            override fun getActivity(): Activity? = if (owner.isActive) _toolHost.getActivity() else null
+            override fun isFinishing(): Boolean = !owner.isActive || _toolHost.isFinishing()
+            override fun handleServiceStateChange(mode: String) { owner.runIfActive { _toolHost.handleServiceStateChange(mode) } }
+            override fun addImageMessage(imagePath: String) { owner.runIfActive { _toolHost.addImageMessage(imagePath) } }
+            override fun updateMapPreview() { owner.runIfActive { _toolHost.updateMapPreview() } }
+            override fun updateNavigationStatus(mapStatus: String, localizationStatus: String) {
+                owner.runIfActive { _toolHost.updateNavigationStatus(mapStatus, localizationStatus) }
+            }
+            override fun muteMicrophone() { owner.runIfActive { ownsMute.set(true); _toolHost.muteMicrophone() } }
+            override fun unmuteMicrophone() { owner.runIfActive { ownsMute.set(false); _toolHost.unmuteMicrophone() } }
+            override fun refreshChatMessages() { owner.runIfActive { _toolHost.refreshChatMessages() } }
+        }
+        return ToolContext(host, null, _apiKeyManager, _movementController, _navigationServiceManager,
+            _perceptionService, _touchSensorManager, _gestureController, _locationProvider, _messageSender, owner)
+            .also { it.updateQiContext(_qiContext) }
+    }
 
     /**
      * Check if UI is available
@@ -98,7 +138,8 @@ class ToolContext(
      * @param requestResponse Whether to request a response from AI
      */
     fun sendAsyncUpdate(message: String, requestResponse: Boolean) {
-        _messageSender?.sendMessageToRealtimeAPI(message, requestResponse, true)
+        if (operation == null) _messageSender?.sendMessageToRealtimeAPI(message, requestResponse, true)
+        else _messageSender?.sendScopedMessage(message, requestResponse, true, operation)
     }
 
     /**

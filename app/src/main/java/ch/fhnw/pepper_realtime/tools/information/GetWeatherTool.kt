@@ -5,6 +5,7 @@ import ch.fhnw.pepper_realtime.tools.ApiKeyRequirement
 import ch.fhnw.pepper_realtime.tools.ApiKeyType
 import ch.fhnw.pepper_realtime.tools.Tool
 import ch.fhnw.pepper_realtime.tools.ToolContext
+import ch.fhnw.pepper_realtime.tools.withHttpCall
 import okhttp3.Request
 import org.json.JSONArray
 import org.json.JSONObject
@@ -88,7 +89,7 @@ class GetWeatherTool : Tool {
         try {
             val currentUrl = "https://api.openweathermap.org/data/2.5/weather?$locationQueryParam&appid=$apiKey&units=$units&lang=$lang"
             val currentReq = Request.Builder().url(currentUrl).build()
-            client.newCall(currentReq).execute().use { r ->
+            context.withHttpCall(client.newCall(currentReq)) { r ->
                 val responseBody = r.body
                 if (responseBody == null) {
                     currentError = "Failed to fetch current weather: Empty response body"
@@ -110,7 +111,7 @@ class GetWeatherTool : Tool {
         try {
             val forecastUrl = "https://api.openweathermap.org/data/2.5/forecast?$locationQueryParam&appid=$apiKey&units=$units&lang=$lang"
             val forecastReq = Request.Builder().url(forecastUrl).build()
-            client.newCall(forecastReq).execute().use { r ->
+            context.withHttpCall(client.newCall(forecastReq)) { r ->
                 val responseBody = r.body
                 if (responseBody == null) {
                     forecastError = "Failed to fetch forecast: Empty response body"

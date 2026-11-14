@@ -363,6 +363,7 @@ class ChatActivity : AppCompatActivity(), ToolHost {
     }
 
     private fun shutdown() {
+        chatDeps.sessionController.stopChatWork()
         chatDeps.audioInputController.shutdown()
         videoInputController.shutdown()
 
@@ -450,6 +451,10 @@ class ChatActivity : AppCompatActivity(), ToolHost {
 
     override fun unmuteMicrophone() {
         unmute()
+    }
+
+    override fun resetMicrophoneMute() {
+        chatDeps.audioInputController.resetMuteState()
     }
 
     override fun handleServiceStateChange(mode: String) {

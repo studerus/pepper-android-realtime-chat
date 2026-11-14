@@ -42,7 +42,8 @@ class TicTacToeStartTool : Tool {
         var success = false
         val latch = CountDownLatch(1)
         
-        activity.runOnUiThread {
+        context.toolHost.runOnUiThread {
+            context.operation?.let { owner -> activity.viewModel.ownChatActivity("tic_tac_toe", owner) { activity.viewModel.dismissTicTacToeGame() } }
             success = activity.viewModel.startTicTacToeGame { message, requestResponse ->
                 Log.i("TicTacToeStartTool", "TicTacToe game update: $message")
                 context.sendAsyncUpdate(message, requestResponse)

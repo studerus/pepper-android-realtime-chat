@@ -5,5 +5,10 @@ package ch.fhnw.pepper_realtime.tools.interfaces
  */
 interface RealtimeMessageSender {
     fun sendMessageToRealtimeAPI(text: String, requestResponse: Boolean, allowInterrupt: Boolean)
+
+    fun sendScopedMessage(text: String, requestResponse: Boolean, allowInterrupt: Boolean,
+                          operation: ch.fhnw.pepper_realtime.tools.OperationScope) {
+        operation.runIfActive { sendMessageToRealtimeAPI(text, requestResponse, allowInterrupt) }
+    }
 }
 

@@ -66,7 +66,8 @@ class PlayMelodyTool : Tool {
         val wasCancelled = AtomicBoolean(false)
         var started = false
 
-        activity.runOnUiThread {
+        context.toolHost.runOnUiThread {
+            context.operation?.let { owner -> activity.viewModel.ownChatActivity("melody", owner) { activity.viewModel.dismissMelodyPlayer() } }
             started = activity.viewModel.startMelodyPlayer(melody) { cancelled ->
                 // This callback is called when melody finishes or is dismissed
                 wasCancelled.set(cancelled)
