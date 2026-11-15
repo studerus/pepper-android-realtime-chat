@@ -1073,6 +1073,8 @@ Filter rules with additional conditions on these fields:
 | **Append and Respond** | Adds context without interruption, triggers AI response |
 | **Silent Context Update** | Adds information to context without triggering a response |
 
+**Append and Respond** preserves speech already being played. For OpenAI-compatible connections, context is sent immediately and a new response is requested as soon as server-side generation is free (`response.done`), without waiting for the previous audio to finish playing. For Google, response-triggering text is held until the current turn completes. Pending requests are cancelled when their chat ends or their originating action is cancelled.
+
 ### Template Placeholders
 Templates support dynamic placeholders that are automatically replaced with real-time data:
 

@@ -385,6 +385,7 @@ class ChatRealtimeHandler(
     }
 
     override fun onGoogleModelTurnStarted() {
+        viewModel.setResponseGenerating(true)
         // First modelTurn received - Google has started responding
         // Increment turn counter for new response ID
         googleTurnCounter++

@@ -26,6 +26,9 @@ import dagger.hilt.android.scopes.ActivityScoped
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import okhttp3.Response
@@ -61,6 +64,7 @@ class ChatSessionController @Inject constructor(
         var timeout: Job? = null
     }
     private var connectionAttempt: ConnectionAttempt? = null
+    private val messageResponseMutex = Mutex()
     private val mainHandler = Handler(Looper.getMainLooper())
     @Volatile private var restartOperation: OperationScope? = null
     @Volatile private var isRestarting = false // Flag to suppress side effects during restart
@@ -77,57 +81,101 @@ class ChatSessionController @Inject constructor(
 
     override fun sendScopedMessage(text: String, requestResponse: Boolean, allowInterrupt: Boolean, operation: OperationScope) {
         val session = workRegistry.current ?: return
-        operation.launchIn(applicationScope, ioDispatcher) {
+        val job = operation.launchIn(applicationScope, ioDispatcher) {
             try {
-                var waitForInterrupt = false
-                val isGoogle = settingsRepository.apiProviderEnum.isGoogleProvider()
-                val sent = operation.guard { session.lifetime.guard sessionGuard@{
-                    if (!sessionManager.isConnected) return@sessionGuard false
-                    if (allowInterrupt && requestResponse && turnManager?.state == TurnManager.State.SPEAKING &&
-                        (viewModel.isAudioPlaying.value == true || audioPlayer.isPlaying())) interruptController.interruptSpeech()
-                    if (requestResponse) turnManager?.setState(TurnManager.State.THINKING)
-                    val sentItem = if (isGoogle) sessionManager.sendGoogleTextMessage(text, triggerResponse = requestResponse)
-                        else sessionManager.sendUserTextMessage(text)
-                    if (sentItem && requestResponse && viewModel.isResponseGenerating.value == true) {
-                        interruptController.interruptSpeech()
-                        waitForInterrupt = true
-                    } else if (sentItem && requestResponse && viewModel.isAudioPlaying.value == true && allowInterrupt) {
-                        audioPlayer.interruptNow()
-                        viewModel.setAudioPlaying(false)
+                if (allowInterrupt && requestResponse) {
+                    // Keep waiting events out of the short cancel-to-request transition.
+                    messageResponseMutex.withLock {
+                        sendMessage(text, requestResponse, allowInterrupt, session, operation)
                     }
-                    if (!sentItem) {
-                        viewModel.addMessage(ChatMessage(viewModel.getApplication<android.app.Application>()
-                            .getString(R.string.error_connection_lost_message), ChatMessage.Sender.ROBOT))
-                        turnManager?.setState(TurnManager.State.LISTENING)
-                    }
-                    sentItem
-                } }
-                if (!sent) return@launchIn
-                if (waitForInterrupt) delay(50)
-                operation.runIfActive { session.lifetime.runIfActive {
-                    if (requestResponse) {
-                        viewModel.setResponseGenerating(true)
-                        if (!isGoogle && !sessionManager.requestResponse()) {
-                            viewModel.setResponseGenerating(false)
-                            viewModel.addMessage(ChatMessage(viewModel.getApplication<android.app.Application>()
-                                .getString(R.string.error_connection_lost_response), ChatMessage.Sender.ROBOT))
-                        }
-                    }
-                } }
+                } else sendMessage(text, requestResponse, allowInterrupt, session, operation)
             } catch (_: CancellationException) {
                 // Disconnection/restart invalidates both queued sends and delayed response requests.
             } catch (error: Exception) {
                 operation.runIfActive { session.lifetime.runIfActive {
                     Log.e(TAG, "Exception sending chat message", error)
-                    if (requestResponse) {
-                        viewModel.setResponseGenerating(false)
-                        viewModel.addMessage(ChatMessage(viewModel.getApplication<android.app.Application>()
-                            .getString(R.string.error_processing_message), ChatMessage.Sender.ROBOT))
-                        turnManager?.setState(TurnManager.State.LISTENING)
-                    }
+                    if (requestResponse) reportMessageFailure(R.string.error_processing_message)
                 } }
             }
         }
+        // Also cancel waits whose operation was supplied independently of the chat lifetime.
+        val cancellation = session.lifetime.onCancel { job.cancel() }
+        job.invokeOnCompletion { cancellation.close() }
+    }
+
+    private suspend fun sendMessage(text: String, requestResponse: Boolean, allowInterrupt: Boolean,
+                                    session: ChatWorkRegistry.Session, operation: OperationScope) {
+        var waitForInterrupt = false
+        val isGoogle = settingsRepository.apiProviderEnum.isGoogleProvider()
+        val sent = inActiveOperation(session, operation) {
+            if (!sessionManager.isConnected) return@inActiveOperation false
+            // Decide cancellation before sending anything that can start the next response.
+            if (allowInterrupt && requestResponse) {
+                waitForInterrupt = viewModel.isResponseGenerating.value
+                if (waitForInterrupt || isAudioPlaying()) interruptController.interruptSpeech()
+            }
+            // Google text also triggers generation, so send it only when requesting the response.
+            if (isGoogle && requestResponse) return@inActiveOperation true
+            val sentItem = if (isGoogle) sessionManager.sendGoogleTextMessage(text, triggerResponse = false)
+                else sessionManager.sendUserTextMessage(text)
+            if (!sentItem) reportMessageFailure(R.string.error_connection_lost_message)
+            sentItem
+        }
+        if (!sent || !requestResponse) return
+        if (waitForInterrupt) delay(50)
+        if (allowInterrupt) {
+            inActiveOperation(session, operation) { startMessageResponse(text, isGoogle) }
+            return
+        }
+        while (true) {
+            // response.done frees generation; queued audio may still be playing at this point.
+            viewModel.isResponseGenerating.first { !it }
+            val handled = messageResponseMutex.withLock {
+                inActiveOperation(session, operation) {
+                    // Another message may have obtained the slot while this coroutine was waiting.
+                    if (viewModel.isResponseGenerating.value) return@inActiveOperation false
+                    startMessageResponse(text, isGoogle)
+                    true
+                }
+            }
+            if (handled) return
+        }
+    }
+
+    private fun <T> inActiveOperation(session: ChatWorkRegistry.Session, operation: OperationScope, action: () -> T): T =
+        synchronized(this) {
+            operation.guard { session.lifetime.guard {
+                if (workRegistry.current !== session) throw CancellationException("Chat session replaced")
+                action()
+            } }
+        }
+
+    private fun isAudioPlaying() = viewModel.isAudioPlaying.value || audioPlayer.isPlaying()
+
+    private fun startMessageResponse(text: String, isGoogle: Boolean) {
+        if (!sessionManager.isConnected) {
+            reportMessageFailure(R.string.error_connection_lost_response)
+            return
+        }
+        viewModel.setResponseGenerating(true)
+        try {
+            // Preserve SPEAKING while the preceding response is still audible.
+            if (!isAudioPlaying()) turnManager?.setState(TurnManager.State.THINKING)
+            val sent = if (isGoogle) sessionManager.sendGoogleTextMessage(text, triggerResponse = true)
+                else sessionManager.requestResponse()
+            if (!sent) {
+                viewModel.setResponseGenerating(false)
+                reportMessageFailure(R.string.error_connection_lost_response)
+            }
+        } catch (error: Exception) {
+            viewModel.setResponseGenerating(false)
+            throw error
+        }
+    }
+
+    private fun reportMessageFailure(message: Int) {
+        viewModel.addMessage(ChatMessage(viewModel.getApplication<android.app.Application>().getString(message), ChatMessage.Sender.ROBOT))
+        if (!viewModel.isResponseGenerating.value && !isAudioPlaying()) turnManager?.setState(TurnManager.State.LISTENING)
     }
 
     fun sendToolResult(callId: String, result: String, toolName: String? = null, requestResponse: Boolean = true) {

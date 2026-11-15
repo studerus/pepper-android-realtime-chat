@@ -103,6 +103,25 @@ builds and lint for both variants. Lint reports 0 errors and unchanged warning/h
 Live microphone, Azure Speech and Pepper speaker checks remain outstanding, including retry after
 capture/start failure and interrupted or very short responses.
 
+The sixth change set addresses F18:
+- Noninterrupting messages preserve local audio playback. OpenAI-compatible text is added immediately;
+  the response request waits only while the server is still generating, then proceeds on response.done
+  even if the previous audio is still playing. Context-only messages do not wait or interrupt.
+- Google response-triggering text waits until the current turn completes. Incoming Google turns now
+  mark generation active. An allowed interruption occurs before sending the new text, not after it.
+- Waiting requests belong to their chat and originating operation. Cancellation, disconnect and chat
+  replacement discard them. A short send lock prevents waiting events from entering the cancel-to-request
+  transition; failed sends release the generation state without stopping existing playback.
+F17 tool-group coordination remains deferred; background actions do not gain a completion barrier.
+Regression validation: 15 new shared tests cover playback during a new response, waiting for response.done,
+context-only messages, allowed interruption ordering, Google turn completion, cancelled/stale waits,
+concurrent waiting messages and send failures. All 375 Pepper tests (39 suites) and 319 standalone tests
+(31 suites) pass with no failures, errors or skips. Both debug APKs built successfully. The combined Gradle
+validation passed tests, builds and lint. Lint reports 0 errors and unchanged warning/hint counts
+(Pepper: 72 warnings + 2 hints; standalone: 95 warnings + 2 hints). git diff --check passed.
+Live provider and Pepper playback checks remain outstanding: append an event during generation and during
+playback, then interrupt explicitly.
+
 The findings and line references below describe the reviewed base revision, before these changes.
 The audit validation below likewise records the original review, not the follow-up builds.
 
