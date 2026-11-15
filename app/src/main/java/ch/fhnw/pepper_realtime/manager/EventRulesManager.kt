@@ -4,6 +4,7 @@ import android.util.Log
 import ch.fhnw.pepper_realtime.data.EventRule
 import ch.fhnw.pepper_realtime.data.MatchedRule
 import ch.fhnw.pepper_realtime.data.RulePersistence
+import ch.fhnw.pepper_realtime.data.RuleImportResult
 import ch.fhnw.pepper_realtime.data.RuleActionType
 import ch.fhnw.pepper_realtime.service.EventRuleEngine
 import ch.fhnw.pepper_realtime.ui.EventRulesState
@@ -55,6 +56,7 @@ class EventRulesManager @Inject constructor(
     /**
      * Initialize the event rule engine with persisted rules.
      */
+    @Synchronized
     fun initialize() {
         val rules = rulePersistence.loadRules()
         eventRuleEngine.loadRules(rules)
@@ -134,24 +136,28 @@ class EventRulesManager @Inject constructor(
 
     // ==================== CRUD Operations ====================
 
+    @Synchronized
     fun addEventRule(rule: EventRule) {
         eventRuleEngine.addRule(rule)
         saveEventRules()
         _state.update { it.copy(rules = eventRuleEngine.getRules()) }
     }
 
+    @Synchronized
     fun updateEventRule(rule: EventRule) {
         eventRuleEngine.updateRule(rule)
         saveEventRules()
         _state.update { it.copy(rules = eventRuleEngine.getRules()) }
     }
 
+    @Synchronized
     fun deleteEventRule(ruleId: String) {
         eventRuleEngine.removeRule(ruleId)
         saveEventRules()
         _state.update { it.copy(rules = eventRuleEngine.getRules()) }
     }
 
+    @Synchronized
     fun toggleEventRuleEnabled(ruleId: String) {
         val rules = eventRuleEngine.getRules()
         val rule = rules.find { it.id == ruleId } ?: return
@@ -163,6 +169,7 @@ class EventRulesManager @Inject constructor(
         rulePersistence.saveRules(eventRuleEngine.getRules())
     }
 
+    @Synchronized
     fun resetEventRulesToDefaults() {
         rulePersistence.resetToDefaults()
         val rules = rulePersistence.loadRules()
@@ -177,14 +184,14 @@ class EventRulesManager @Inject constructor(
         return rulePersistence.exportToJson()
     }
 
-    fun importEventRules(json: String, merge: Boolean = false): Int {
-        val count = rulePersistence.importFromJson(json, merge)
-        if (count >= 0) {
-            val rules = rulePersistence.loadRules()
-            eventRuleEngine.loadRules(rules)
-            _state.update { it.copy(rules = rules) }
+    @Synchronized
+    fun importEventRules(json: String, merge: Boolean = false): RuleImportResult {
+        val result = rulePersistence.importFromJson(json, merge)
+        if (result is RuleImportResult.Success) {
+            eventRuleEngine.loadRules(result.rules)
+            _state.update { it.copy(rules = result.rules) }
         }
-        return count
+        return result
     }
 
     fun setEditingRule(rule: EventRule?) {

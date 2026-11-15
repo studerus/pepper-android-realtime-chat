@@ -23,6 +23,7 @@ import ch.fhnw.pepper_realtime.service.LocalFaceRecognitionService
 import ch.fhnw.pepper_realtime.service.PerceptionWebSocketClient
 import ch.fhnw.pepper_realtime.service.EventRuleEngine
 import ch.fhnw.pepper_realtime.data.RulePersistence
+import ch.fhnw.pepper_realtime.data.RuleImportResult
 import ch.fhnw.pepper_realtime.data.EventRule
 import ch.fhnw.pepper_realtime.data.MatchedRule
 import ch.fhnw.pepper_realtime.data.RuleActionType
@@ -30,6 +31,8 @@ import ch.fhnw.pepper_realtime.ui.compose.dashboard.FaceManagementState
 import ch.fhnw.pepper_realtime.ui.compose.dashboard.PerceptionSettingsState
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import ch.fhnw.pepper_realtime.network.WebSocketConnectionCallback
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -661,6 +664,8 @@ class ChatViewModel @Inject constructor(
     fun toggleEventRuleEnabled(ruleId: String) = eventRulesManager.toggleEventRuleEnabled(ruleId)
     fun resetEventRulesToDefaults() = eventRulesManager.resetEventRulesToDefaults()
     fun exportEventRules(): String = eventRulesManager.exportEventRules()
-    fun importEventRules(json: String, merge: Boolean = false): Int = eventRulesManager.importEventRules(json, merge)
+    suspend fun importEventRules(json: String, merge: Boolean = false): RuleImportResult = withContext(Dispatchers.IO) {
+        eventRulesManager.importEventRules(json, merge)
+    }
     fun setEditingRule(rule: EventRule?) = eventRulesManager.setEditingRule(rule)
 }

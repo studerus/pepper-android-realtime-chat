@@ -6,6 +6,7 @@ import ch.fhnw.pepper_realtime.data.PersonEventType
 import ch.fhnw.pepper_realtime.data.RuleActionType
 import ch.fhnw.pepper_realtime.data.RuleCondition
 import ch.fhnw.pepper_realtime.data.RulePersistence
+import ch.fhnw.pepper_realtime.data.RuleImportResult
 import ch.fhnw.pepper_realtime.service.EventRuleEngine
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -21,6 +22,7 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import org.mockito.kotlin.clearInvocations
 
 /**
  * Unit tests for EventRulesManager.
@@ -221,30 +223,37 @@ class EventRulesManagerTest {
     fun `importEventRules loads and updates state`() {
         // Arrange
         val json = """[{"id":"test"}]"""
-        whenever(mockRulePersistence.importFromJson(json, false)).thenReturn(1)
-        whenever(mockRulePersistence.loadRules()).thenReturn(listOf(testRule))
-        whenever(mockEventRuleEngine.getRules()).thenReturn(listOf(testRule))
+        val imported = RuleImportResult.Success(listOf(testRule), 1)
+        whenever(mockRulePersistence.importFromJson(json, false)).thenReturn(imported)
 
         // Act
-        val count = manager.importEventRules(json)
+        val result = manager.importEventRules(json)
 
         // Assert
-        assertEquals(1, count)
+        assertEquals(imported, result)
         verify(mockRulePersistence).importFromJson(json, false)
         verify(mockEventRuleEngine).loadRules(listOf(testRule))
+        assertEquals(listOf(testRule), manager.state.value.rules)
+        verify(mockRulePersistence, never()).loadRules()
     }
 
     @Test
-    fun `importEventRules returns negative on error`() {
+    fun `failed import reports the cause and preserves active rules and UI state`() {
         // Arrange
-        whenever(mockRulePersistence.importFromJson(any(), any())).thenReturn(-1)
+        whenever(mockRulePersistence.loadRules()).thenReturn(listOf(testRule))
+        manager.initialize()
+        clearInvocations(mockEventRuleEngine, mockRulePersistence)
+        val failure = RuleImportResult.Failure("Rule 1.name: expected text.")
+        whenever(mockRulePersistence.importFromJson(any(), any())).thenReturn(failure)
 
         // Act
-        val count = manager.importEventRules("invalid json")
+        val result = manager.importEventRules("invalid json")
 
         // Assert
-        assertEquals(-1, count)
+        assertEquals(failure, result)
         verify(mockEventRuleEngine, never()).loadRules(any())
+        verify(mockRulePersistence, never()).loadRules()
+        assertEquals(listOf(testRule), manager.state.value.rules)
     }
 
     // ==================== Reset Tests ====================

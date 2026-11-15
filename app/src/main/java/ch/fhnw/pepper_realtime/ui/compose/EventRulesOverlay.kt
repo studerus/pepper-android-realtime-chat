@@ -36,6 +36,8 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import ch.fhnw.pepper_realtime.data.*
 import ch.fhnw.pepper_realtime.ui.EventRulesState
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 
 private object RulesColors {
     val Background = Color(0xFFF9FAFB)
@@ -63,9 +65,10 @@ fun EventRulesOverlay(
     onResetDefaults: () -> Unit,
     onSetEditingRule: (EventRule?) -> Unit,
     onExport: () -> String,
-    onImport: (String) -> Int
+    onImport: suspend (String) -> RuleImportResult
 ) {
     val clipboardManager = LocalClipboardManager.current
+    val importScope = rememberCoroutineScope()
     
     var showAddDialog by remember { mutableStateOf(false) }
     var ruleToDelete by remember { mutableStateOf<EventRule?>(null) }
@@ -75,6 +78,7 @@ fun EventRulesOverlay(
     var exportedJson by remember { mutableStateOf("") }
     var importJson by remember { mutableStateOf("") }
     var importResult by remember { mutableStateOf<String?>(null) }
+    var isImporting by remember { mutableStateOf(false) }
 
     if (state.isVisible) {
         Box(
@@ -381,7 +385,7 @@ fun EventRulesOverlay(
         // Import dialog
         if (showImportDialog) {
             AlertDialog(
-                onDismissRequest = { showImportDialog = false },
+                onDismissRequest = { if (!isImporting) showImportDialog = false },
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
@@ -412,6 +416,7 @@ fun EventRulesOverlay(
                             minLines = 6,
                             maxLines = 10,
                             modifier = Modifier.fillMaxWidth(),
+                            enabled = !isImporting,
                             textStyle = LocalTextStyle.current.copy(fontSize = 11.sp)
                         )
                         
@@ -423,7 +428,8 @@ fun EventRulesOverlay(
                                     importResult = null
                                 }
                             },
-                            modifier = Modifier.padding(top = 4.dp)
+                            modifier = Modifier.padding(top = 4.dp),
+                            enabled = !isImporting
                         ) {
                             Icon(
                                 Icons.Default.ContentCopy,
@@ -448,26 +454,32 @@ fun EventRulesOverlay(
                 confirmButton = {
                     Button(
                         onClick = {
-                            try {
-                                val count = onImport(importJson)
-                                if (count > 0) {
-                                    importResult = "✓ Successfully imported $count rule(s)"
-                                    // Close after short delay
-                                    showImportDialog = false
-                                } else {
-                                    importResult = "✗ No rules found in JSON"
+                            isImporting = true
+                            importScope.launch {
+                                try {
+                                    when (val result = onImport(importJson)) {
+                                        is RuleImportResult.Success -> {
+                                            importResult = "✓ Successfully imported ${result.importedCount} rule(s)"
+                                            showImportDialog = false
+                                        }
+                                        is RuleImportResult.Failure -> importResult = "✗ ${result.message}"
+                                    }
+                                } catch (cancelled: CancellationException) {
+                                    throw cancelled
+                                } catch (_: Exception) {
+                                    importResult = "✗ Could not complete the import. Please retry."
+                                } finally {
+                                    isImporting = false
                                 }
-                            } catch (e: Exception) {
-                                importResult = "✗ Invalid JSON format"
                             }
                         },
-                        enabled = importJson.isNotBlank()
+                        enabled = importJson.isNotBlank() && !isImporting
                     ) {
-                        Text("Import")
+                        Text(if (isImporting) "Importing…" else "Import")
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showImportDialog = false }) {
+                    TextButton(onClick = { showImportDialog = false }, enabled = !isImporting) {
                         Text("Cancel")
                     }
                 }

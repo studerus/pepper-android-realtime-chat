@@ -122,6 +122,28 @@ validation passed tests, builds and lint. Lint reports 0 errors and unchanged wa
 Live provider and Pepper playback checks remain outstanding: append an event during generation and during
 playback, then interrupt explicitly.
 
+The seventh change set addresses F30:
+- Imports validate the entire nonempty JSON array, required fields/types, enums, conditions, cooldowns,
+  duplicate IDs/JSON members and unknown fields before any write. Errors identify the rule/field, and
+  invalid entries can no longer be silently skipped into a partial or empty replacement.
+- Merge preserves existing IDs, reports actual added/skipped counts and refuses to discard corrupt
+  existing entries. Import and other rule mutations are serialized to avoid lost concurrent changes.
+- Import persistence checks commit() and restores the raw preference snapshot after a failed write,
+  including Android's in-memory changes. Active engine/UI rules are replaced only after success.
+  Rules and initialization state are saved together; first-load defaults cannot overwrite prior imports.
+- The import dialog displays validation/storage errors and disables repeated submission while saving.
+  Import work runs on the IO dispatcher; the existing SharedPreferences/JSON format remains compatible.
+Regression validation: 26 new shared tests cover invalid/mixed/empty imports, duplicate IDs/JSON members,
+field types and conditions, valid round trips, merge counts/conflicts, first-load initialization,
+failed writes with in-memory rollback, active engine/UI preservation and concurrent merges. Existing
+manager tests now verify detailed errors and state retention. All 401 Pepper tests (40 suites) and
+345 standalone tests (32 suites) pass with no failures, errors or skips. Both debug APKs built successfully.
+The combined Gradle validation passed tests, builds and lint. Lint reports 0 errors and unchanged
+warning/hint counts (Pepper: 72 warnings + 2 hints; standalone: 95 warnings + 2 hints).
+Physical-device import-dialog and real storage-failure checks remain outstanding.
+SharedPreferences behavior reference:
+  https://developer.android.com/reference/android/content/SharedPreferences.Editor
+
 The findings and line references below describe the reviewed base revision, before these changes.
 The audit validation below likewise records the original review, not the follow-up builds.
 

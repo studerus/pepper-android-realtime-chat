@@ -34,7 +34,7 @@ class EventRuleEngine @Inject constructor() {
         fun getCurrentState(): String
     }
 
-    private var rules: List<EventRule> = emptyList()
+    @Volatile private var rules: List<EventRule> = emptyList()
     private val lastTriggerTimes = mutableMapOf<String, Long>() // ruleId -> lastTriggerTime
     private var listener: RuleMatchListener? = null
     private var robotStateProvider: RobotStateProvider? = null

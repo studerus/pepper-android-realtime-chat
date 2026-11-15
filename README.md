@@ -1111,6 +1111,8 @@ Templates support dynamic placeholders that are automatically replaced with real
 - **Live Feedback** - See triggered events as expandable cards in the chat interface
 - **Cooldown Protection** - Prevents the same rule from firing too frequently
 
+Rule imports are validated as a complete, nonempty JSON array before replacing any existing rules. Invalid entries, duplicate IDs, unknown fields and invalid condition values reject the entire import with a rule/field-specific error. Existing rules stay active until saving succeeds. Empty imports cannot clear the rule list; rules can still be deleted explicitly in the editor. Merge mode preserves existing IDs and counts only newly added rules.
+
 ### Chat Integration
 When rules are triggered, they appear in the chat history as expandable event cards showing:
 - Rule name and event type

@@ -32,12 +32,12 @@ class RulePersistence @Inject constructor(
      * Load rules from SharedPreferences.
      * Returns default rules on first launch.
      */
+    @Synchronized
     fun loadRules(): List<EventRule> {
         // Check if this is first launch
-        if (!prefs.getBoolean(KEY_INITIALIZED, false)) {
+        if (!prefs.getBoolean(KEY_INITIALIZED, false) && !prefs.contains(KEY_RULES)) {
             Log.i(TAG, "First launch - saving default rules")
             saveRules(EventRule.defaultRules)
-            prefs.edit().putBoolean(KEY_INITIALIZED, true).apply()
             return EventRule.defaultRules
         }
 
@@ -58,10 +58,11 @@ class RulePersistence @Inject constructor(
     /**
      * Save rules to SharedPreferences.
      */
+    @Synchronized
     fun saveRules(rules: List<EventRule>) {
         try {
             val json = rulesToJson(rules)
-            prefs.edit().putString(KEY_RULES, json).apply()
+            prefs.edit().putString(KEY_RULES, json).putBoolean(KEY_INITIALIZED, true).apply()
             Log.i(TAG, "Saved ${rules.size} rules")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to save rules", e)
@@ -80,33 +81,53 @@ class RulePersistence @Inject constructor(
      * Import rules from a JSON string.
      * @param json The JSON string to import
      * @param merge If true, merges with existing rules; if false, replaces all rules
-     * @return Number of rules imported, or -1 on error
+     * @return Committed rules and actual added/skipped counts, or an actionable failure.
      */
-    fun importFromJson(json: String, merge: Boolean = false): Int {
+    @Synchronized
+    fun importFromJson(json: String, merge: Boolean = false): RuleImportResult {
         return try {
-            val importedRules = parseRulesFromJson(json)
-            
-            val finalRules = if (merge) {
-                val existingRules = loadRules()
-                val existingIds = existingRules.map { it.id }.toSet()
-                // Add imported rules that don't have conflicting IDs
-                existingRules + importedRules.filter { it.id !in existingIds }
-            } else {
-                importedRules
-            }
-            
-            saveRules(finalRules)
-            Log.i(TAG, "Imported ${importedRules.size} rules (merge=$merge)")
-            importedRules.size
+            val imported = RuleImport.parse(json)
+            // Read without first-launch writes or best-effort parsing that could silently discard old rules.
+            val existing = if (!merge) emptyList() else if (prefs.contains(KEY_RULES)) {
+                try { RuleImport.parse(prefs.getString(KEY_RULES, null) ?: error("Missing stored rules"), allowEmpty = true) }
+                catch (error: Exception) { throw IllegalArgumentException("Existing rules cannot be merged: ${error.message}", error) }
+            } else if (!prefs.getBoolean(KEY_INITIALIZED, false)) EventRule.defaultRules else emptyList()
+            val existingIds = existing.map { it.id }.toSet()
+            val added = imported.filter { it.id !in existingIds }
+            val result = RuleImportResult.Success(existing + added, added.size, imported.size - added.size)
+            if (merge && added.isEmpty()) return result
+            val serialized = rulesToJson(result.rules)
+            if (commitImport(serialized)) result
+            else RuleImportResult.Failure("Could not save the imported rules. The previous rules remain active; please retry.")
+        } catch (error: IllegalArgumentException) {
+            RuleImportResult.Failure(error.message ?: "Invalid rule import.")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to import rules from JSON", e)
-            -1
+            RuleImportResult.Failure("Could not import rules. Existing rules were kept.")
         }
+    }
+
+    private fun commitImport(json: String): Boolean {
+        val previousJson = prefs.getString(KEY_RULES, null)
+        val hadInitialized = prefs.contains(KEY_INITIALIZED)
+        val previousInitialized = prefs.getBoolean(KEY_INITIALIZED, false)
+        try {
+            if (prefs.edit().putString(KEY_RULES, json).putBoolean(KEY_INITIALIZED, true).commit()) return true
+        } catch (error: Exception) { Log.e(TAG, "Rule import write failed", error) }
+        // commit() also changes in-memory preferences when its disk write fails. Restore the raw snapshot.
+        try {
+            val restore = prefs.edit()
+            if (previousJson == null) restore.remove(KEY_RULES) else restore.putString(KEY_RULES, previousJson)
+            if (hadInitialized) restore.putBoolean(KEY_INITIALIZED, previousInitialized) else restore.remove(KEY_INITIALIZED)
+            if (!restore.commit()) Log.e(TAG, "Could not persist the restored rule snapshot")
+        } catch (error: Exception) { Log.e(TAG, "Could not restore rule preferences", error) }
+        return false
     }
 
     /**
      * Reset to default rules.
      */
+    @Synchronized
     fun resetToDefaults() {
         saveRules(EventRule.defaultRules)
         Log.i(TAG, "Reset to default rules")
