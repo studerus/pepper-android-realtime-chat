@@ -37,6 +37,28 @@ git diff --check passed.
 Physical robot/device checks remain outstanding: cancel during localization and movement,
 run movement B past movement A's former timeout, and end/restart a chat during a long tool.
 
+IMPLEMENTATION FOLLOW-UP — 15 November 2026
+The third change set addresses F13 and F14:
+- Failed New Chat attempts now deliver their error after cleanup and reset the restart state.
+  Network/setup failures, remote closes and synchronous preparation errors permit a fresh retry.
+- WebSocket-open and server-confirmed session readiness are separate states. Application traffic
+  starts only after session.updated (OpenAI/Azure/x.ai) or setupComplete (Gemini).
+- One connection attempt owns its callbacks and a 20-second connection/setup deadline. Concurrent
+  callers share the attempt; completion is delivered once and stale callbacks/timeouts are ignored.
+- Initial session.update has a client event ID for matching setup errors. Non-Google configuration
+  updates requested while setup is pending are deferred until its acknowledgement.
+Protocol references checked on 15 November 2026:
+  https://developers.openai.com/api/reference/resources/realtime/server-events
+  https://docs.x.ai/developers/model-capabilities/audio/speech-to-speech
+  https://ai.google.dev/api/live
+Regression validation: 17 new shared tests cover server acknowledgement, matching setup errors,
+send failures, timeouts, concurrent callers, retry after failure, explicit cancellation and stale events.
+All 288 Pepper tests (32 suites) and 253 standalone tests (25 suites) pass with no errors or skips.
+Both debug APKs built successfully.
+Lint passed for both variants with 0 errors and unchanged warning/hint counts
+(Pepper: 72 warnings + 2 hints; standalone: 95 warnings + 2 hints). git diff --check passed.
+Live provider and Pepper/device validation remains outstanding.
+
 The findings and line references below describe the reviewed base revision, before these changes.
 The audit validation below likewise records the original review, not the follow-up builds.
 

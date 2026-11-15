@@ -14,10 +14,12 @@ import org.json.JSONArray
 import org.json.JSONObject
 import javax.inject.Inject
 import javax.inject.Singleton
+import java.util.UUID
 import kotlin.math.min
 
 @Singleton
-class RealtimeSessionManager @Inject constructor() {
+class RealtimeSessionManager internal constructor(private val socketFactory: WebSocket.Factory) {
+    @Inject constructor() : this(HttpClientManager.getInstance().getWebSocketClient())
 
     /**
      * Represents the current state of the WebSocket connection.
@@ -26,7 +28,8 @@ class RealtimeSessionManager @Inject constructor() {
     enum class ConnectionState {
         DISCONNECTED,  // No connection
         CONNECTING,    // connect() called, waiting for onOpen
-        CONNECTED,     // Session active
+        CONFIGURING,   // Socket open, waiting for the server to accept the initial setup
+        CONNECTED,     // Server-confirmed session, ready for application traffic
         CLOSING        // close() called, waiting for onClosed
     }
 
@@ -64,11 +67,19 @@ class RealtimeSessionManager @Inject constructor() {
     // Reusable StringBuilder for audio chunk payloads - reduces allocations from ~10/sec to 0
     private val audioPayloadBuilder = StringBuilder(ESTIMATED_AUDIO_PAYLOAD_SIZE)
 
-    // Use optimized shared WebSocket client for better performance
-    private val client = HttpClientManager.getInstance().getWebSocketClient()
+    private val connectionLock = Any()
     private var webSocket: WebSocket? = null
     var listener: Listener? = null
     private var sessionConfigCallback: SessionConfigCallback? = null
+    private var connectionConfigCallback: SessionConfigCallback? = null
+    private data class PendingSetup(
+        val token: Long,
+        val google: Boolean,
+        val eventId: String,
+        val callback: SessionConfigCallback?
+    )
+    private var pendingSetup: PendingSetup? = null
+    private var updateAfterSetup = false
 
     // Connection state tracking - volatile for thread-safe access from callbacks
     @Volatile
@@ -110,9 +121,57 @@ class RealtimeSessionManager @Inject constructor() {
      * Called by event handler when Google Live API sends setupComplete.
      * This confirms the session is ready for communication.
      */
-    fun onGoogleSetupComplete() {
-        Log.i(TAG, "Google setupComplete received - session is ready")
-        sessionConfigCallback?.onSessionConfigured(true, null)
+    fun onGoogleSetupComplete() = acknowledgeSetup(google = true)
+
+    fun onSessionUpdated() = acknowledgeSetup(google = false)
+
+    private fun acknowledgeSetup(google: Boolean) {
+        val pending = synchronized(connectionLock) {
+            pendingSetup?.takeIf { it.google == google }
+        } ?: return
+        finishSetup(pending, null)
+    }
+
+    /** Only an error for the initial setup may fail that setup. Some providers omit event_id. */
+    fun onSessionError(error: RealtimeEvents.ErrorEvent): Boolean {
+        val pending = synchronized(connectionLock) {
+            val setup = pendingSetup ?: return false
+            val eventId = error.error?.eventId
+            if (!eventId.isNullOrEmpty() && eventId != setup.eventId) return false
+            setup
+        }
+        return finishSetup(pending, error.error?.message ?: "Session setup rejected")
+    }
+
+    private fun finishSetup(pending: PendingSetup, error: String?): Boolean {
+        var failedSocket: WebSocket? = null
+        synchronized(connectionLock) {
+            if (pendingSetup !== pending || pending.token != connectionToken) return false
+            pendingSetup = null
+            if (error == null) {
+                connectionState = ConnectionState.CONNECTED
+                if (updateAfterSetup) {
+                    updateAfterSetup = false
+                    updateSession()
+                }
+            } else {
+                failedSocket = detachConnection()
+            }
+        }
+        try { failedSocket?.cancel() } finally {
+            pending.callback?.onSessionConfigured(error == null, error)
+        }
+        return true
+    }
+
+    /** Called under connectionLock; callbacks and socket cleanup run outside the lock. */
+    private fun detachConnection(): WebSocket? {
+        connectionToken++
+        connectionState = ConnectionState.DISCONNECTED
+        pendingSetup = null
+        connectionConfigCallback = null
+        updateAfterSetup = false
+        return webSocket.also { webSocket = null }
     }
 
     /**
@@ -144,38 +203,37 @@ class RealtimeSessionManager @Inject constructor() {
         get() = connectionState
 
     fun connect(url: String, headers: Map<String, String>?) {
-        if (connectionState == ConnectionState.CONNECTING || connectionState == ConnectionState.CONNECTED) {
-            Log.w(TAG, "connect() called but already in state: $connectionState")
-            return
-        }
-
-        val connectionListener = listener
-        val myToken = ++connectionToken
-        connectionState = ConnectionState.CONNECTING
-        Log.d(TAG, "Connection state: CONNECTING")
-        Log.i(TAG, "Connecting WebSocket (token=$myToken, url=${redactUrlForLogs(url)})")
-
         val builder = okhttp3.Request.Builder().url(url)
         headers?.forEach { (key, value) ->
             builder.addHeader(key, value)
         }
         val request = builder.build()
+        val connectionListener: Listener?
+        val myToken: Long
+        synchronized(connectionLock) {
+            if (connectionState != ConnectionState.DISCONNECTED) return
+            connectionListener = listener
+            connectionConfigCallback = sessionConfigCallback
+            myToken = ++connectionToken
+            connectionState = ConnectionState.CONNECTING
+        }
+        Log.i(TAG, "Connecting WebSocket (token=$myToken, url=${redactUrlForLogs(url)})")
 
         val wsListener = object : WebSocketListener() {
             override fun onOpen(ws: WebSocket, response: Response) {
-                if (myToken != connectionToken) {
-                    Log.w(TAG, "Ignoring onOpen for stale WebSocket (token=$myToken, current=$connectionToken)")
-                    try {
-                        ws.close(1000, "Stale connection")
-                    } catch (_: Exception) {
-                        // Ignore
+                val accepted = synchronized(connectionLock) {
+                    if (myToken != connectionToken || connectionState != ConnectionState.CONNECTING) false
+                    else {
+                        webSocket = ws
+                        connectionState = ConnectionState.CONFIGURING
+                        true
                     }
+                }
+                if (!accepted) {
+                    ws.cancel()
                     return
                 }
                 Log.i(TAG, "WebSocket onOpen: ${response.message} Code: ${response.code}")
-                webSocket = ws
-                connectionState = ConnectionState.CONNECTED
-                Log.d(TAG, "Connection state: CONNECTED")
                 connectionListener?.onOpen(response) ?: Log.w(TAG, "WARNING: onOpen called but listener is null!")
             }
 
@@ -190,39 +248,46 @@ class RealtimeSessionManager @Inject constructor() {
             }
 
             override fun onClosing(ws: WebSocket, code: Int, reason: String) {
-                if (myToken != connectionToken) {
-                    try {
-                        ws.close(1000, null)
-                    } catch (_: Exception) {
-                        // Ignore
-                    }
-                    return
+                synchronized(connectionLock) {
+                    if (myToken != connectionToken) return
+                    connectionState = ConnectionState.CLOSING
                 }
-                connectionState = ConnectionState.CLOSING
                 Log.d(TAG, "Connection state: CLOSING (code=$code, reason=$reason)")
                 connectionListener?.onClosing(code, reason)
                 ws.close(1000, null)
             }
 
             override fun onClosed(ws: WebSocket, code: Int, reason: String) {
-                if (myToken != connectionToken) return
-                connectionState = ConnectionState.DISCONNECTED
+                synchronized(connectionLock) {
+                    if (myToken != connectionToken) return
+                    detachConnection()
+                }
                 Log.d(TAG, "Connection state: DISCONNECTED (code=$code, reason=$reason)")
                 connectionListener?.onClosed(code, reason)
-                if (webSocket == ws) webSocket = null
             }
 
             override fun onFailure(ws: WebSocket, t: Throwable, response: Response?) {
-                if (myToken != connectionToken) return
-                connectionState = ConnectionState.DISCONNECTED
+                synchronized(connectionLock) {
+                    if (myToken != connectionToken) return
+                    detachConnection()
+                }
                 Log.e(TAG, "WebSocket failure: ${t.message}", t)
                 Log.d(TAG, "Connection state: DISCONNECTED (failure)")
                 connectionListener?.onFailure(t, response) ?: Log.w(TAG, "WARNING: onFailure called but listener is null!")
-                if (webSocket == ws) webSocket = null
             }
         }
-        // Capture the WebSocket immediately so a subsequent close() during CONNECTING can cancel it.
-        webSocket = client.newWebSocket(request, wsListener)
+        try {
+            val socket = socketFactory.newWebSocket(request, wsListener)
+            val stale = synchronized(connectionLock) {
+                if (myToken != connectionToken) true else { webSocket = socket; false }
+            }
+            if (stale) socket.cancel()
+        } catch (error: Exception) {
+            synchronized(connectionLock) {
+                if (myToken == connectionToken) detachConnection()
+            }
+            throw error
+        }
     }
 
     fun sendUserTextMessage(text: String): Boolean {
@@ -743,7 +808,7 @@ class RealtimeSessionManager @Inject constructor() {
         return toolsArray
     }
 
-    fun send(text: String): Boolean {
+    fun send(text: String): Boolean = synchronized(connectionLock) {
         // Check connection state first for better diagnostics
         if (connectionState != ConnectionState.CONNECTED) {
             Log.w(TAG, "Cannot send - connection state: $connectionState")
@@ -774,19 +839,8 @@ class RealtimeSessionManager @Inject constructor() {
         get() = webSocket?.queueSize() ?: 0L
 
     fun close(code: Int, reason: String?) {
-        if (connectionState == ConnectionState.DISCONNECTED) {
-            Log.d(TAG, "close() called but already disconnected")
-            return
-        }
-
-        // Invalidate any in-flight callbacks from previous sockets immediately.
-        val prevToken = connectionToken
-        connectionToken++
-        Log.i(TAG, "Closing WebSocket (token=$prevToken -> ${connectionToken}, code=$code, reason=${reason ?: ""})")
-        connectionState = ConnectionState.CLOSING
-        Log.d(TAG, "Connection state: CLOSING (explicit close, code=$code)")
-
-        val ws = webSocket
+        // Invalidate even an already-failed socket before another attempt starts.
+        val ws = synchronized(connectionLock) { detachConnection() }
         try {
             // Attempt a graceful close first...
             ws?.close(code, reason)
@@ -801,9 +855,6 @@ class RealtimeSessionManager @Inject constructor() {
             // Ignore
         }
 
-        // Note: callbacks might still arrive; connectionToken guards against stale events.
-        webSocket = null
-        connectionState = ConnectionState.DISCONNECTED
     }
 
     /**
@@ -811,45 +862,32 @@ class RealtimeSessionManager @Inject constructor() {
      * This should be called when WebSocket connection is established
      */
     fun configureInitialSession() {
-        if (!isConnected) {
-            Log.w(TAG, "Session config SKIPPED - connection state: $connectionState")
-            sessionConfigCallback?.onSessionConfigured(false, "Not connected (state: $connectionState)")
-            return
-        }
-
-        if (settingsRepository == null || toolRegistry == null || toolContext == null) {
-            Log.w(TAG, "Session config SKIPPED - missing dependencies")
-            sessionConfigCallback?.onSessionConfigured(false, "Missing dependencies")
-            return
-        }
-
-        try {
-            // Use different payload format for Google vs OpenAI/x.ai
-            val isGoogle = settingsRepository!!.apiProviderEnum.isGoogleProvider()
-            val payload = if (isGoogle) {
-                createGoogleSetupPayload()
+        var pending: PendingSetup? = null
+        val error = synchronized(connectionLock) {
+            if (pendingSetup != null || isConnected) return
+            if (connectionState != ConnectionState.CONFIGURING) {
+                "Not connected (state: $connectionState)"
             } else {
-                createSessionUpdatePayload("Initial session")
-            }
-            val sent = send(payload.toString())
-
-            if (sent) {
-                // For Google, we must wait for setupComplete event before session is ready
-                // For OpenAI/Azure/x.ai, the session.update response confirms it
-                if (!isGoogle) {
-                    sessionConfigCallback?.onSessionConfigured(true, null)
-                } else {
-                    Log.d(TAG, "Google setup sent - waiting for setupComplete event")
+                val google = settingsRepository?.apiProviderEnum?.isGoogleProvider() == true
+                val setup = PendingSetup(connectionToken, google, "setup_${UUID.randomUUID()}", connectionConfigCallback)
+                pending = setup
+                pendingSetup = setup
+                try {
+                    check(settingsRepository != null && toolRegistry != null && toolContext != null) { "Missing dependencies" }
+                    val payload = if (google) createGoogleSetupPayload() else {
+                        createSessionUpdatePayload("Initial session").put("event_id", setup.eventId)
+                    }
+                    // Only setup may be sent before the server acknowledges it.
+                    if (webSocket?.send(payload.toString()) == true) null else "Failed to send initial session config"
+                } catch (error: Exception) {
+                    "Error creating initial session config: ${error.message}"
                 }
-            } else {
-                val error = "Failed to send initial session config"
-                Log.e(TAG, error)
-                sessionConfigCallback?.onSessionConfigured(false, error)
             }
-        } catch (e: Exception) {
-            val error = "Error creating initial session config: ${e.message}"
-            Log.e(TAG, error, e)
-            sessionConfigCallback?.onSessionConfigured(false, error)
+        }
+        if (error != null) {
+            val setup = pending
+            if (setup != null) finishSetup(setup, error)
+            else sessionConfigCallback?.onSessionConfigured(false, error)
         }
     }
 
@@ -860,7 +898,11 @@ class RealtimeSessionManager @Inject constructor() {
      * Note: Google Live API does not support mid-session updates.
      * For Google, settings changes require reconnecting.
      */
-    fun updateSession() {
+    fun updateSession(): Unit = synchronized(connectionLock) {
+        if (connectionState == ConnectionState.CONFIGURING && settingsRepository?.apiProviderEnum?.isGoogleProvider() == false) {
+            updateAfterSetup = true
+            return
+        }
         if (!isConnected) {
             Log.w(TAG, "Session update SKIPPED - connection state: $connectionState")
             return

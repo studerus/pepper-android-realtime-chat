@@ -1140,6 +1140,8 @@ Base movement requires a confirmed closed charging flap. Missing sensor data or 
 
 Chat actions belong to the session that started them. New Chat, disconnect, backgrounding and robot focus loss cancel pending tool work and its registered robot actions, timers, requests and activities. A provider cancellation stops the affected call. Late results from an old session are discarded, and each result updates its own function-call card. Movement timeouts belong to one action and cannot cancel a later movement.
 
+Chat startup waits for the server to accept the initial configuration (`session.updated` for OpenAI/Azure/x.ai, `setupComplete` for Gemini). Audio and chat messages are not sent before confirmation. Connection and setup have a combined 20-second timeout. Rejected setup, network failure or timeout clears the pending attempt and its audio/chat state so New Chat can be tried again. Concurrent connection requests share one attempt; deliberate disconnects cancel it silently, and old callbacks cannot complete a replacement connection.
+
 #### 2. Guide Pepper Through the Room
 ```bash
 User: "Move forward 2 meters"

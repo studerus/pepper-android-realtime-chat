@@ -188,6 +188,9 @@ object RealtimeEvents {
     }
 
     class Error {
+        @SerializedName("event_id")
+        var eventId: String? = null
+
         @SerializedName("type")
         var type: String? = null
 

@@ -56,13 +56,7 @@ class ChatRealtimeHandler(
     }
 
     override fun onSessionUpdated(event: RealtimeEvents.SessionUpdated) {
-        Log.i(TAG, "Session configured successfully - completing connection promise.")
-
-        if (viewModel.isWarmingUp.value != true) {
-            // Status update removed to prevent "Ready" state flickering before "Listening"
-        }
-        sessionController?.completeConnectionPromise()
-            ?: Log.i(TAG, "SessionController null, cannot complete promise explicitly")
+        sessionManager.onSessionUpdated()
     }
 
     override fun onAudioTranscriptDelta(delta: String?, responseId: String?) {
@@ -294,6 +288,8 @@ class ChatRealtimeHandler(
             return
         }
 
+        if (sessionManager.onSessionError(error)) return
+
         Log.e(TAG, "WebSocket Error Received - Code: $code, Message: $msg")
 
         viewModel.addMessage(
@@ -304,8 +300,6 @@ class ChatRealtimeHandler(
         )
         viewModel.setStatusText(viewModel.getApplication<android.app.Application>().getString(R.string.error_generic, code))
 
-        sessionController?.failConnectionPromise("Server returned an error during setup: $msg")
-            ?: Log.e(TAG, "SessionController null, cannot fail promise explicitly")
     }
 
     override fun onUserSpeechStarted(itemId: String?) {

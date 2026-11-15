@@ -26,6 +26,7 @@ import dagger.hilt.android.scopes.ActivityScoped
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import okhttp3.Response
 import okio.ByteString
@@ -52,11 +53,14 @@ class ChatSessionController @Inject constructor(
 
     companion object {
         private const val TAG = "ChatSessionController"
+        internal const val CONNECTION_TIMEOUT_MS = 20_000L
     }
 
-    // @Volatile ensures visibility across threads (connectWebSocket runs on different thread than WebSocket callbacks)
-    @Volatile
-    private var connectionCallback: WebSocketConnectionCallback? = null
+    private class ConnectionAttempt(val session: ChatWorkRegistry.Session) {
+        val callbacks = mutableListOf<WebSocketConnectionCallback>()
+        var timeout: Job? = null
+    }
+    private var connectionAttempt: ConnectionAttempt? = null
     private val mainHandler = Handler(Looper.getMainLooper())
     @Volatile private var restartOperation: OperationScope? = null
     @Volatile private var isRestarting = false // Flag to suppress side effects during restart
@@ -178,6 +182,7 @@ class ChatSessionController @Inject constructor(
         }
     }
 
+    @Synchronized
     fun startNewSession() {
         Log.i(TAG, "Starting new session...")
         disconnectWebSocketGracefully()
@@ -193,80 +198,89 @@ class ChatSessionController @Inject constructor(
         viewModel.clearMessages()
 
         restart.launchIn(applicationScope, ioDispatcher) {
-            // Delete images in background
-            launch { sessionImageManager.deleteAllImages() }
-            
-            audioInputController.cleanupForRestart()
-            gestureController.stopNow()
-            
-            // Stop and clear any ongoing audio playback immediately
-            audioPlayer.interruptNow()
-            
-            turnManager?.setState(TurnManager.State.IDLE)
+            try {
+                // Delete images in background
+                launch {
+                    try { sessionImageManager.deleteAllImages() }
+                    catch (error: Exception) { Log.w(TAG, "Could not delete previous session images", error) }
+                }
 
-            // Reset flags via ViewModel
-            viewModel.setResponseGenerating(false)
-            viewModel.setAudioPlaying(false)
-            viewModel.currentResponseId = null
-            viewModel.cancelledResponseId = null
-            viewModel.lastChatBubbleResponseId = null
-            viewModel.isExpectingFinalAnswerAfterToolCall = false
+                audioInputController.cleanupForRestart()
+                gestureController.stopNow()
 
-            delay(500)
-            restart.ensureActive()
+                // Stop and clear any ongoing audio playback immediately
+                audioPlayer.interruptNow()
 
-            connectWebSocket(object : WebSocketConnectionCallback {
-                override fun onSuccess() {
-                    if (!restart.isActive) return
-                    isRestarting = false
-                    Log.i(TAG, "New session started successfully.")
-                    if (!settingsRepository.isUsingRealtimeAudioInput) {
-                        // Azure Speech Mode - perform warmup like initial startup
-                        Log.i(TAG, "Azure Speech mode - starting STT warmup...")
-                        viewModel.setWarmingUp(true)
-                        audioInputController.startWarmup()
-                        restart.launchIn(applicationScope, ioDispatcher) {
-                            try {
-                                audioInputController.setupSpeechRecognizer()
-                                // Don't set LISTENING state here - it will be set by
-                                // ChatSpeechListener.onStarted() after warmup completes
-                            } catch (e: Exception) {
-                                Log.e(TAG, "Failed to setup Azure Speech after session restart", e)
-                                viewModel.setWarmingUp(false)
-                                viewModel.setStatusText(
-                                    viewModel.getApplication<android.app.Application>().getString(R.string.status_recognizer_not_ready)
-                                )
+                turnManager?.setState(TurnManager.State.IDLE)
+
+                // Reset flags via ViewModel
+                viewModel.setResponseGenerating(false)
+                viewModel.setAudioPlaying(false)
+                viewModel.currentResponseId = null
+                viewModel.cancelledResponseId = null
+                viewModel.lastChatBubbleResponseId = null
+                viewModel.isExpectingFinalAnswerAfterToolCall = false
+
+                delay(500)
+                restart.ensureActive()
+
+                connectWebSocket(object : WebSocketConnectionCallback {
+                    override fun onSuccess() {
+                        if (!restart.isActive) return
+                        isRestarting = false
+                        Log.i(TAG, "New session started successfully.")
+                        if (!settingsRepository.isUsingRealtimeAudioInput) {
+                            // Azure Speech Mode - perform warmup like initial startup
+                            Log.i(TAG, "Azure Speech mode - starting STT warmup...")
+                            viewModel.setWarmingUp(true)
+                            audioInputController.startWarmup()
+                            restart.launchIn(applicationScope, ioDispatcher) {
+                                try {
+                                    audioInputController.setupSpeechRecognizer()
+                                    // Don't set LISTENING state here - it will be set by
+                                    // ChatSpeechListener.onStarted() after warmup completes
+                                } catch (e: Exception) {
+                                    Log.e(TAG, "Failed to setup Azure Speech after session restart", e)
+                                    viewModel.setWarmingUp(false)
+                                    viewModel.setStatusText(
+                                        viewModel.getApplication<android.app.Application>().getString(R.string.status_recognizer_not_ready)
+                                    )
+                                }
                             }
-                        }
-                    } else {
-                        // Realtime API Mode - set LISTENING state and update status text
-                        turnManager?.setState(TurnManager.State.LISTENING)
-                        viewModel.setStatusText(
-                            viewModel.getApplication<android.app.Application>().getString(R.string.status_listening)
-                        )
-                    }
-                }
-
-                override fun onError(error: Throwable) {
-                    if (!restart.isActive) return
-                    isRestarting = false
-                    if (error.message?.contains("WebSocket closed before session was updated") == true) {
-                        Log.w(TAG, "Harmless race condition during new session start")
-                    } else {
-                        Log.e(TAG, "Failed to start new session", error)
-                        viewModel.addMessage(
-                            ChatMessage(
-                                viewModel.getApplication<android.app.Application>().getString(R.string.new_session_error),
-                                ChatMessage.Sender.ROBOT
+                        } else {
+                            // Realtime API Mode - set LISTENING state and update status text
+                            turnManager?.setState(TurnManager.State.LISTENING)
+                            viewModel.setStatusText(
+                                viewModel.getApplication<android.app.Application>().getString(R.string.status_listening)
                             )
-                        )
-                        viewModel.setStatusText(
-                            viewModel.getApplication<android.app.Application>().getString(R.string.error_connection_failed_short)
-                        )
+                        }
+                    }
+
+                    override fun onError(error: Throwable) {
+                        // The attempt was already invalidated and cleaned up before delivery.
+                        reportRestartFailure(error)
+                    }
+                }, restart)
+            } catch (_: CancellationException) {
+                // A newer restart or an explicit disconnect owns the UI now.
+            } catch (error: Exception) {
+                synchronized(this@ChatSessionController) {
+                    if (restartOperation === restart && restart.isActive) {
+                        stopChatWork()
+                        sessionManager.close(1000, "Restart preparation failed")
+                        cleanupAfterDisconnect()
+                        reportRestartFailure(error)
                     }
                 }
-            }, restart)
+            }
         }
+    }
+
+    private fun reportRestartFailure(error: Throwable) {
+        Log.e(TAG, "Failed to start new session", error)
+        viewModel.addMessage(ChatMessage(
+            viewModel.getApplication<android.app.Application>().getString(R.string.new_session_error), ChatMessage.Sender.ROBOT))
+        viewModel.setStatusText(viewModel.getApplication<android.app.Application>().getString(R.string.error_connection_failed_short))
     }
 
     @Synchronized
@@ -276,11 +290,24 @@ class ChatSessionController @Inject constructor(
             callback?.onSuccess()
             return
         }
+        connectionAttempt?.let { pending ->
+            // Multiple lifecycle callers share the same handshake and completion.
+            if (callback != null) pending.callbacks.add(callback)
+            return
+        }
 
         val session = workRegistry.begin()
+        val pending = ConnectionAttempt(session)
+        if (callback != null) pending.callbacks.add(callback)
+        connectionAttempt = pending
         setupSessionManagerListeners(session)
         clearChatActivities(session)
-        this.connectionCallback = callback
+        pending.timeout = session.lifetime.launchIn(applicationScope, ioDispatcher) {
+            delay(CONNECTION_TIMEOUT_MS)
+            inSession(session) {
+                if (connectionAttempt === pending) failConnectionPromise("Timed out waiting for session setup")
+            }
+        }
 
         try {
             val provider = settingsRepository.apiProviderEnum
@@ -329,8 +356,7 @@ class ChatSessionController @Inject constructor(
 
         } catch (e: Exception) {
             Log.e(TAG, "Error generating WebSocket connection parameters", e)
-            workRegistry.end()
-            callback?.onError(e)
+            failConnectionPromise("Could not connect: ${e.message}")
         }
     }
 
@@ -345,7 +371,6 @@ class ChatSessionController @Inject constructor(
     fun disconnectWebSocketGracefully() {
         stopChatWork()
         Log.i(TAG, "Gracefully disconnecting WebSocket...")
-        this.connectionCallback = null
 
         val isGenerating = viewModel.isResponseGenerating.value == true
         val isPlaying = viewModel.isAudioPlaying.value == true
@@ -387,8 +412,11 @@ class ChatSessionController @Inject constructor(
 
     @Synchronized
     fun stopChatWork() {
+        connectionAttempt?.timeout?.cancel()
+        connectionAttempt = null
         restartOperation?.cancel()
         restartOperation = null
+        isRestarting = false
         workRegistry.end()
         try { navigationServiceManager.cancelAllActions() } catch (error: Exception) { Log.w(TAG, "Navigation cleanup failed", error) }
         try { gestureController.stopNow() } catch (error: Exception) { Log.w(TAG, "Gesture cleanup failed", error) }
@@ -438,6 +466,7 @@ class ChatSessionController @Inject constructor(
 
             override fun onClosing(code: Int, reason: String) {
                 Log.d(TAG, "WebSocket closing: $code $reason")
+                inSession(session) { handleConnectionLost(reason, code) }
             }
 
             override fun onClosed(code: Int, reason: String) {
@@ -454,46 +483,51 @@ class ChatSessionController @Inject constructor(
 
     @Synchronized
     private fun handleConnectionLost(reason: String, code: Int?) {
+        if (connectionAttempt != null) {
+            failConnectionPromise("Connection lost during setup: $reason")
+            return
+        }
         stopChatWork()
+        sessionManager.close(1000, "Connection lost")
+        cleanupAfterDisconnect()
+
+        if (code != 1000) reportConnectionLost(reason, code)
+    }
+
+    private fun cleanupAfterDisconnect() {
         // Stop audio input to prevent endless loop of failed sends
-        audioInputController.cleanupForRestart()
-        
-        // Stop any ongoing playback
-        audioPlayer.interruptNow()
+        try { audioInputController.cleanupForRestart() } catch (error: Exception) { Log.w(TAG, "Audio input cleanup failed", error) }
+        try { audioPlayer.interruptNow() } catch (error: Exception) { Log.w(TAG, "Audio playback cleanup failed", error) }
         viewModel.setAudioPlaying(false)
         viewModel.setResponseGenerating(false)
-        
-        // Set turn manager to IDLE
+        viewModel.setWarmingUp(false)
         turnManager?.setState(TurnManager.State.IDLE)
-        
-        // Show error message for unexpected disconnects (not during restart or explicit close)
-        if (!isRestarting && code != 1000) {
-            val errorMsg = if (code == 1007) {
-                // Protocol error - likely invalid message format
-                viewModel.getApplication<android.app.Application>().getString(R.string.error_connection_protocol, reason)
-            } else {
-                viewModel.getApplication<android.app.Application>().getString(R.string.error_connection_lost)
-            }
-            viewModel.addMessage(ChatMessage(errorMsg, ChatMessage.Sender.ROBOT))
-            viewModel.setStatusText(
-                viewModel.getApplication<android.app.Application>().getString(R.string.error_disconnected)
-            )
+    }
+
+    private fun reportConnectionLost(reason: String, code: Int?) {
+        val errorMsg = if (code == 1007) {
+            // Protocol error - likely invalid message format
+            viewModel.getApplication<android.app.Application>().getString(R.string.error_connection_protocol, reason)
+        } else {
+            viewModel.getApplication<android.app.Application>().getString(R.string.error_connection_lost)
         }
-        
-        failConnectionPromise("Connection lost: $reason")
+        viewModel.addMessage(ChatMessage(errorMsg, ChatMessage.Sender.ROBOT))
+        viewModel.setStatusText(
+            viewModel.getApplication<android.app.Application>().getString(R.string.error_disconnected)
+        )
     }
 
     private fun setupAudioPlayerListener() {
         audioPlayer.setListener(object : AudioPlayer.Listener {
             override fun onPlaybackStarted() {
-                if (!isRestarting) {
+                if (!isRestarting && sessionManager.isConnected) {
                     turnManager?.setState(TurnManager.State.SPEAKING)
                 }
             }
 
             override fun onPlaybackFinished() {
                 viewModel.setAudioPlaying(false)
-                if (turnManager != null && !isRestarting) {
+                if (turnManager != null && !isRestarting && sessionManager.isConnected) {
                     if (!viewModel.isExpectingFinalAnswerAfterToolCall && viewModel.isResponseGenerating.value != true) {
                         turnManager.setState(TurnManager.State.LISTENING)
                     } else {
@@ -505,17 +539,28 @@ class ChatSessionController @Inject constructor(
     }
 
     @Synchronized
-    fun failConnectionPromise(message: String) {
-        // Only fail if we're not in the middle of restarting (to prevent old connection's onClosed from clearing new callback)
-        if (!isRestarting) {
-            connectionCallback?.onError(Exception(message))
-            connectionCallback = null
+    private fun failConnectionPromise(message: String) {
+        val pending = connectionAttempt ?: return
+        val callbacks = pending.callbacks.toList()
+        stopChatWork()
+        sessionManager.close(1000, "Session setup failed")
+        cleanupAfterDisconnect()
+        if (callbacks.isEmpty()) reportConnectionLost(message, null)
+        callbacks.forEach { callback ->
+            try { callback.onError(Exception(message)) }
+            catch (error: Exception) { Log.w(TAG, "Connection failure callback failed", error) }
         }
     }
 
     @Synchronized
-    fun completeConnectionPromise() {
-        connectionCallback?.onSuccess()
-        connectionCallback = null
+    private fun completeConnectionPromise() {
+        val pending = connectionAttempt ?: return
+        connectionAttempt = null
+        pending.timeout?.cancel()
+        isRestarting = false
+        pending.callbacks.forEach { callback ->
+            try { callback.onSuccess() }
+            catch (error: Exception) { Log.w(TAG, "Connection success callback failed", error) }
+        }
     }
 }
