@@ -6,6 +6,7 @@ import ch.fhnw.pepper_realtime.controller.GestureController
 import ch.fhnw.pepper_realtime.controller.MovementController
 import ch.fhnw.pepper_realtime.controller.RobotFocusManager
 import ch.fhnw.pepper_realtime.data.LocationProvider
+import ch.fhnw.pepper_realtime.data.NavigationStore
 import ch.fhnw.pepper_realtime.manager.ApiKeyManager
 import ch.fhnw.pepper_realtime.manager.NavigationServiceManager
 import ch.fhnw.pepper_realtime.manager.TouchSensorManager
@@ -65,6 +66,9 @@ class ToolContext(
     
     val appContext: Context
         get() = _toolHost.getAppContext()
+
+    val navigationStore: NavigationStore
+        get() = NavigationStore.forDirectory(appContext.filesDir)
     
     val activity: Activity?
         get() = _toolHost.getActivity()

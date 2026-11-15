@@ -2,15 +2,12 @@ package ch.fhnw.pepper_realtime.tools.navigation
 
 import android.util.Log
 import com.aldebaran.qi.sdk.QiContext
-import com.aldebaran.qi.sdk.`object`.actuation.LocalizationStatus
+import ch.fhnw.pepper_realtime.data.NavigationStore
 import com.aldebaran.qi.sdk.`object`.geometry.Transform
 import ch.fhnw.pepper_realtime.tools.Tool
 import ch.fhnw.pepper_realtime.tools.ToolContext
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.File
-import java.io.FileOutputStream
-import java.nio.charset.StandardCharsets
 import java.util.Locale
 
 /**
@@ -64,10 +61,12 @@ class SaveCurrentLocationTool : Tool {
 
         return try {
             val qiContext = context.qiContext as QiContext
+            val store = context.navigationStore
+            val snapshot = store.writable()
             // LocalizeAndMap owns the map frame while a new map is being explored.
-            val mappingFuture = CreateEnvironmentMapTool.currentMappingFuture
-            val localized = if (mappingFuture != null && !mappingFuture.isDone) {
-                CreateEnvironmentMapTool.currentLocalizeAndMap?.status == LocalizationStatus.LOCALIZED
+            val mapping = store.isMapping()
+            val localized = if (mapping) {
+                context.navigationServiceManager.mappingCoordinator.isLocalized
             } else {
                 context.navigationServiceManager.isLocalizationReady()
             }
@@ -90,7 +89,7 @@ class SaveCurrentLocationTool : Tool {
             require(rotationNorm.isFinite() && rotationNorm > 0.0) { "Map orientation is invalid" }
 
             // Save location data
-            val saved = saveLocationToStorage(context, locationName, description, currentTransform)
+            val saved = saveLocationToStorage(context, snapshot, locationName, description, currentTransform)
 
             if (saved) {
                 // IMPORTANT: Refresh the location provider to update the cache
@@ -105,7 +104,7 @@ class SaveCurrentLocationTool : Tool {
                     }
 
                     val precisionNote = "" // Currently standard precision only
-                    put("message", String.format(
+                    put("message", if (mapping) "Location '$locationName' is saved in the map draft. Finish the map to make it available for navigation." else String.format(
                         Locale.US,
                         "Location '%s' has been successfully saved%s%s. Navigation to this location is now available.",
                         locationName, if (description.isEmpty()) "" else " ($description)", precisionNote
@@ -129,24 +128,12 @@ class SaveCurrentLocationTool : Tool {
      */
     private fun saveLocationToStorage(
         context: ToolContext,
+        snapshot: NavigationStore.Snapshot,
         locationName: String,
         description: String,
         transform: Transform
     ): Boolean {
         return try {
-            val locationsDir = File(context.appContext.filesDir, "locations")
-            if (!locationsDir.exists()) {
-                val created = locationsDir.mkdirs()
-                if (!created) Log.w(TAG, "Failed to create locations directory: ${locationsDir.absolutePath}")
-            }
-
-            val locationFile = File(locationsDir, "$locationName.loc")
-
-            // Check if location already exists and log warning
-            if (locationFile.exists()) {
-                Log.w(TAG, "Location '$locationName' already exists and will be overwritten")
-            }
-
             // Save as JSON for easier debugging and cross-platform compatibility
             val locationData = JSONObject().apply {
                 put("name", locationName)
@@ -169,10 +156,9 @@ class SaveCurrentLocationTool : Tool {
                 put("high_precision", false) // Currently standard precision only
             }
 
-            FileOutputStream(locationFile).use { fos ->
-                fos.write(locationData.toString().toByteArray(StandardCharsets.UTF_8))
-                Log.d(TAG, "Location saved to: ${locationFile.absolutePath}")
-            }
+            val save = { context.navigationStore.writeLocation(snapshot, locationName, locationData.toString()) }
+            val operation = context.operation
+            if (operation != null) operation.guard(save) else save()
             true
         } catch (e: Exception) {
             Log.e(TAG, "Failed to save location", e)

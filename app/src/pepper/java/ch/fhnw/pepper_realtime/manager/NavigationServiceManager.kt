@@ -63,6 +63,45 @@ class NavigationServiceManager(private val movementController: MovementControlle
     private val mainHandler = Handler(Looper.getMainLooper())
     private val mapCache: NavigationMapCache
     private val localizationCoordinator: LocalizationCoordinator
+    val mappingCoordinator = MappingCoordinator(this)
+    @Volatile private var mappingOwner: OperationScope? = null
+    private var mappingCancellation: Closeable? = null
+    private var mappingFinalizing = false // Guarded by movementLock.
+
+    @Synchronized
+    fun beginMapping(owner: OperationScope): Boolean {
+        if (!owner.isActive || synchronized(movementLock) { pendingMovement != null } || !tryStartNavigationProcess(owner)) return false
+        mappingOwner = owner
+        setNavigationPhase(NavigationPhase.LOCALIZATION_MODE)
+        val registration = owner.onCancel { endMapping(owner) }
+        if (mappingOwner === owner) mappingCancellation = registration else registration.close()
+        return mappingOwner === owner
+    }
+
+    @Synchronized
+    fun prepareMappingFinish(owner: OperationScope) {
+        check(mappingOwner === owner && owner.isActive) { "Mapping is no longer active" }
+        val pending = synchronized(movementLock) { mappingFinalizing = true; pendingMovement }
+        pending?.owner?.cancel()
+        movementController?.cancelCurrentMovement()
+        setNavigationPhase(NavigationPhase.LOCALIZATION_MODE)
+    }
+
+    @Synchronized
+    fun endMapping(owner: OperationScope) {
+        if (mappingOwner !== owner) return
+        mappingOwner = null
+        mappingCancellation?.close()
+        mappingCancellation = null
+        synchronized(movementLock) { mappingFinalizing = false }
+        try { mapCache.cancelPendingWork() }
+        finally {
+            endNavigationProcess(owner)
+            setNavigationPhase(NavigationPhase.NORMAL_OPERATION)
+        }
+    }
+
+    fun invalidateMapCache() { mapCache.cancelPendingWork(); mapCache.reset() }
 
     private class PendingMovement(val promise: Promise<MovementResult>) {
         val owner = OperationScope()
@@ -202,7 +241,9 @@ class NavigationServiceManager(private val movementController: MovementControlle
     /**
      * Set navigation phase and coordinate all services accordingly
      */
-    private fun setNavigationPhase(phase: NavigationPhase) {
+    private fun setNavigationPhase(requestedPhase: NavigationPhase) {
+        val phase = if (mappingOwner != null && requestedPhase == NavigationPhase.NORMAL_OPERATION)
+            NavigationPhase.LOCALIZATION_MODE else requestedPhase
         if (currentPhase == phase) {
             Log.d(TAG, "Already in phase: $phase")
             return
@@ -364,8 +405,8 @@ class NavigationServiceManager(private val movementController: MovementControlle
     /**
      * Directly caches a new ExplorationMap and its graphical representation.
      */
-    fun cacheNewMap(newMap: ExplorationMap?, onCached: Runnable? = null) {
-        mapCache.cacheNewMap(newMap, onCached)
+    fun cacheNewMap(newMap: ExplorationMap?, onCached: Runnable? = null, onFailed: Runnable? = null) {
+        mapCache.cacheNewMap(newMap, onCached, onFailed)
     }
 
     /**
@@ -503,6 +544,7 @@ class NavigationServiceManager(private val movementController: MovementControlle
         if (operation?.isActive == false) return failedMovement("Movement cancelled")
         val pending = PendingMovement(Promise())
         synchronized(movementLock) {
+            if (mappingFinalizing) return failedMovement("Please wait until map finalization has finished")
             if (pendingMovement != null) return failedMovement("Another movement is already in progress")
             pendingMovement = pending
             movementGeneration++
@@ -568,6 +610,7 @@ class NavigationServiceManager(private val movementController: MovementControlle
     fun cancelAllActions() {
         val pending = synchronized(movementLock) { pendingMovement }
         val cleanups: List<() -> Unit> = listOf(
+            { mappingOwner?.cancel(); Unit },
             { pending?.owner?.cancel(); Unit },
             { movementController?.cancelCurrentMovement(); Unit },
             { localizationCoordinator.reset() },

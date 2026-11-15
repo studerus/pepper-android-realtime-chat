@@ -14,7 +14,6 @@ import com.aldebaran.qi.sdk.`object`.actuation.MapTopGraphicalRepresentation
 import kotlinx.coroutines.*
 import java.io.BufferedInputStream
 import java.io.ByteArrayOutputStream
-import java.io.File
 import java.io.FileInputStream
 import java.util.Arrays
 import java.util.concurrent.atomic.AtomicBoolean
@@ -60,8 +59,7 @@ class NavigationMapCache(
 
     fun isMapSavedOnDisk(appContext: Context): Boolean {
         return try {
-            val mapsDir = File(appContext.filesDir, "maps")
-            val mapFile = File(mapsDir, "default_map.map")
+            val mapFile = NavigationStore.forDirectory(appContext.filesDir).active().map
             mapFile.exists() && mapFile.length() > 0
         } catch (t: Throwable) {
             Log.w(TAG, "Failed checking map on disk", t)
@@ -124,21 +122,18 @@ class NavigationMapCache(
 
     fun getCachedMap(): ExplorationMap? = cachedMap.get()
 
-    fun cacheNewMap(newMap: ExplorationMap?, onCached: Runnable? = null) {
+    fun cacheNewMap(newMap: ExplorationMap?, onCached: Runnable? = null, onFailed: Runnable? = null) {
         if (newMap == null) {
             Log.w(TAG, "Attempted to cache a null map.")
+            onFailed?.run()
             return
         }
 
         val generation = workGeneration
         cacheScope.launch {
             if (generation != workGeneration) return@launch
-            val success = cacheMapGraphics(newMap)
-            ensureActive()
-            if (generation != workGeneration) return@launch
-            if (success) {
-                cachedMap.set(newMap)
-                mapLoadedFlag = true
+            val graphics = prepareMapGraphics(newMap)
+            if (installMap(newMap, graphics, generation)) {
                 onCached?.let {
                     try {
                         it.run()
@@ -146,7 +141,7 @@ class NavigationMapCache(
                         Log.e(TAG, "Callback after caching failed", e)
                     }
                 }
-            }
+            } else if (generation == workGeneration) onFailed?.run()
         }
     }
 
@@ -187,16 +182,9 @@ class NavigationMapCache(
                 
                 ensureActive()
                 if (generation != workGeneration) return@launch
-                val success = cacheMapGraphics(map)
-                ensureActive()
-                if (generation != workGeneration) return@launch
-                val mainThreadWork = if (success) {
-                    cachedMap.set(map)
-                    mapLoadedFlag = true
-                    onMapLoaded
-                } else {
-                    null
-                }
+                val graphics = prepareMapGraphics(map)
+                val success = installMap(map, graphics, generation)
+                val mainThreadWork = if (success) onMapLoaded else null
                 finishLoad(success, mainThreadWork, generation)
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to build ExplorationMap", e)
@@ -233,11 +221,25 @@ class NavigationMapCache(
         }
     }
 
-    private fun cacheMapGraphics(map: ExplorationMap): Boolean {
-        return try {
-            recycleBitmap()
-            cachedMapGfx.set(null)
+    private data class PreparedGraphics(val bitmap: Bitmap, val representation: MapTopGraphicalRepresentation)
 
+    @Synchronized
+    private fun installMap(map: ExplorationMap, graphics: PreparedGraphics?, generation: Long): Boolean {
+        if (graphics == null) return false
+        if (generation != workGeneration) {
+            graphics.bitmap.recycle()
+            return false
+        }
+        recycleBitmap()
+        cachedMapBitmap.set(graphics.bitmap)
+        cachedMapGfx.set(graphics.representation)
+        cachedMap.set(map)
+        mapLoadedFlag = true
+        return true
+    }
+
+    private fun prepareMapGraphics(map: ExplorationMap): PreparedGraphics? {
+        return try {
             Log.i(TAG, "Extracting graphical representation from ExplorationMap")
             val mapGfx = map.topGraphicalRepresentation
             val encodedImage = mapGfx.image
@@ -255,22 +257,18 @@ class NavigationMapCache(
             val bitmap = BitmapFactory.decodeByteArray(bitmapBytes, 0, bitmapBytes.size, options)
             if (bitmap == null) {
                 Log.e(TAG, "Bitmap decoding returned null")
-                return false
+                return null
             }
 
-            cachedMapBitmap.set(bitmap)
-            cachedMapGfx.set(mapGfx)
             trimTemporaryBytes(bitmapBytes)
             Log.i(TAG, "Successfully decoded and cached map bitmap (${bitmap.width}x${bitmap.height})")
-            true
+            PreparedGraphics(bitmap, mapGfx)
         } catch (oom: OutOfMemoryError) {
             Log.e(TAG, "Out of memory while decoding map bitmap", oom)
-            recycleBitmap()
-            false
+            null
         } catch (e: Exception) {
             Log.e(TAG, "Failed to extract graphical representation from map", e)
-            recycleBitmap()
-            false
+            null
         }
     }
 
@@ -289,8 +287,7 @@ class NavigationMapCache(
 
     private fun loadMapFileToString(appContext: Context): String? {
         return try {
-            val mapsDir = File(appContext.filesDir, "maps")
-            val mapFile = File(mapsDir, "default_map.map")
+            val mapFile = NavigationStore.forDirectory(appContext.filesDir).active().map
             if (!mapFile.exists() || mapFile.length() <= 0) {
                 Log.w(TAG, "No map file on disk: ${mapFile.absolutePath}")
                 return null

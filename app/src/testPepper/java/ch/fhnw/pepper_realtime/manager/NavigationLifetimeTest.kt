@@ -70,4 +70,42 @@ class NavigationLifetimeTest {
         b.cancel()
         assertFalse(manager.isNavigationProcessActive)
     }
+
+    @Test fun `mapping holds service mode until its owner ends`() {
+        val owner = OperationScope()
+        assertTrue(manager.beginMapping(owner))
+        assertTrue(manager.areGesturesSuppressed())
+        manager.handleServiceStateChange("resumeNormalOperation")
+        assertTrue(manager.areGesturesSuppressed())
+        owner.cancel()
+        assertFalse(manager.areGesturesSuppressed())
+        assertFalse(manager.isNavigationProcessActive)
+    }
+
+    @Test fun `old mapping cleanup cannot release a newer map session`() {
+        val first = OperationScope(); val next = OperationScope()
+        assertTrue(manager.beginMapping(first))
+        first.cancel()
+        assertTrue(manager.beginMapping(next))
+        manager.endMapping(first)
+        assertTrue(manager.areGesturesSuppressed())
+        assertTrue(manager.isNavigationProcessActive)
+        next.cancel()
+        assertFalse(manager.areGesturesSuppressed())
+    }
+
+    @Test fun `map finalization cancels guidance and rejects new movement until cleanup`() {
+        val owner = OperationScope()
+        assertTrue(manager.beginMapping(owner))
+        manager.movePepper(qi, 1.0, 0.0, 0.4)
+        manager.prepareMappingFinish(owner)
+        assertEquals(1, completions.size)
+        manager.movePepper(qi, 2.0, 0.0, 0.4)
+        assertEquals(1, completions.size)
+        completions[0].consume(preparation)
+        verify(movement, never()).movePepper(anyOrNull(), any(), any(), any(), anyOrNull(), anyOrNull())
+        owner.cancel()
+        manager.movePepper(qi, 3.0, 0.0, 0.4)
+        assertEquals(2, completions.size)
+    }
 }

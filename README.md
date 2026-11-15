@@ -1131,10 +1131,10 @@ Pepper responds to physical touch on various sensors. When touched, the AI recei
 #### 1. Create Environment Map
 ```bash
 User: "Create a map of this room"
-Robot: "I have started mapping. I have cleared 3 existing locations (printer, kitchen, entrance) since they would be invalid with the new map coordinate system. Guide me through the room..."
+Robot: "I am preparing a new map draft. Your previous map and locations remain saved. Wait until I am ready, then guide me through the room."
 ```
 
-**Note**: Creating a new map automatically deletes all existing saved locations since they become invalid with the new coordinate system.
+Creating a new map keeps the previous map and its locations intact. Locations saved during mapping belong to the new draft, even when they reuse an existing name. Finishing the map saves the map and its matching locations together; old locations are not copied into the new coordinate system. Cancelling the chat or failing before this save discards the draft and keeps the previous set available.
 
 Base movement requires a confirmed closed charging flap. Missing sensor data or a failed safety check blocks movement. Motion tools reject malformed, non-finite and out-of-range parameters. Relative moves allow -4 to +4 metres per axis; GoTo maximum speed, including turns, is 0.1 to 0.55 m/s. Head-only gaze remains available while charging.
 
@@ -1161,13 +1161,20 @@ Robot: "Saved location 'kitchen' relative to the current map"
 
 Saving requires confirmed localization in an existing map or an active mapping session with status `LOCALIZED`. If the map position cannot be read or is invalid, saving returns an error and preserves any existing location; it does not substitute the map origin.
 
+During mapping, saved locations remain in the draft until finalization succeeds. Saving locations and starting new guidance movements are blocked during finalization. Navigation to saved locations becomes available after mapping has ended.
+
 #### 4. Finish Mapping
 ```bash
 User: "Finish the map"
-Robot: "Map completed and saved successfully. Ready for navigation!"
+Robot: "The new map and its locations have been saved together. I will now orient myself."
+Robot: "I am localized and ready for navigation."
 ```
 
 **⚠️ Important**: Pepper should be at the **same position** where mapping was started when finishing the map. This ensures accurate localization.
+
+Finishing without an active map returns an error without pausing services. Preparation has a 30-second deadline, and finalization plus orientation has a 90-second deadline. Failure or cancellation releases the mapping service mode. If orientation fails after saving, the new map and its locations remain saved and navigation can retry localization later.
+
+Storage uses separate navigation sets and an atomic manifest switch. Existing legacy files remain readable; the last committed set and one previous set are retained, along with the legacy files. Abandoned drafts are removed when a later mapping starts. Individual location updates also use temporary files and atomic replacement to preserve an existing destination on write failure.
 
 #### 5. Navigate to Saved Locations
 ```bash
@@ -1195,7 +1202,7 @@ Robot: "Navigating to door..."
 - **📍 Persistent Storage**: Locations survive app restarts within the same map
 - **⚡ Dynamic Updates**: AI knows new locations immediately
 - **🛡️ Error Prevention**: No "location not found" errors
-- **🗑️ Auto-Cleanup**: New maps automatically clear old locations to prevent confusion
+- **🛡️ Protected Remapping**: The active map and locations change together only after a successful save
 
 ### Localization Best Practices
 **⚠️ Critical for Successful Localization:**
@@ -1785,7 +1792,7 @@ app/src/
 - For best results, save important locations during the mapping process
 
 **"My saved locations disappeared"**
-- Creating a new map automatically deletes all existing locations
+- Starting a new map preserves the current locations; only a successful map save activates the draft's destinations
 - This prevents navigation errors caused by incompatible coordinate systems
 - Each map creates its own coordinate system, making old locations invalid
 - Simply re-save your important locations after creating the new map

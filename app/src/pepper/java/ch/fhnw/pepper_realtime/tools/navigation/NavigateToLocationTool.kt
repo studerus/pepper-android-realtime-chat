@@ -11,7 +11,6 @@ import ch.fhnw.pepper_realtime.tools.startRobotAction
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
-import java.io.File
 import java.io.FileInputStream
 import java.io.InputStreamReader
 import java.nio.charset.StandardCharsets
@@ -84,6 +83,9 @@ class NavigateToLocationTool : Tool {
 
         // Get dependencies
         val navManager = context.navigationServiceManager
+        if (context.navigationStore.isMapping()) {
+            return JSONObject().put("error", "Finish or cancel the current map before navigating to saved locations.").toString()
+        }
 
         // --- LOCK CHECK: Prevent parallel navigation processes ---
         if (!navManager.tryStartNavigationProcess(context.operation)) {
@@ -250,8 +252,8 @@ class NavigateToLocationTool : Tool {
      */
     private fun loadLocationFromStorage(context: ToolContext, locationName: String): SavedLocation? {
         return try {
-            val locationsDir = File(context.appContext.filesDir, "locations")
-            val locationFile = File(locationsDir, "$locationName.loc")
+            val store = context.navigationStore
+            val locationFile = store.locationFile(store.active(), locationName)
 
             if (!locationFile.exists()) {
                 Log.w(TAG, "Location file not found: ${locationFile.absolutePath}")

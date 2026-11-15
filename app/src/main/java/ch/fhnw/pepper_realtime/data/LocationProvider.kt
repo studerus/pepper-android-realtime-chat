@@ -40,10 +40,12 @@ class LocationProvider @Inject constructor() {
             }
 
             try {
-                val locationsDir = File(context.filesDir, "locations")
+                val store = NavigationStore.forDirectory(context.filesDir)
+                val snapshot = store.visible()
+                val locationsDir = snapshot.locations
                 if (!locationsDir.exists() || !locationsDir.isDirectory) {
                     Log.d(TAG, "Locations directory does not exist.")
-                    synchronized(this) {
+                    store.ifVisible(snapshot) {
                         cachedLocations = locations
                     }
                     return@Thread
@@ -55,7 +57,7 @@ class LocationProvider @Inject constructor() {
                 }
 
                 locations.sortWith { l1, l2 -> l1.name.compareTo(l2.name, ignoreCase = true) }
-                synchronized(this) {
+                store.ifVisible(snapshot) {
                     cachedLocations = locations
                 }
                 Log.i(TAG, "Refreshed and found ${cachedLocations.size} locations.")

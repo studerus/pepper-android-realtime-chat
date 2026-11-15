@@ -59,6 +59,28 @@ Lint passed for both variants with 0 errors and unchanged warning/hint counts
 (Pepper: 72 warnings + 2 hints; standalone: 95 warnings + 2 hints). git diff --check passed.
 Live provider and Pepper/device validation remains outstanding.
 
+The fourth change set addresses F11 and F12:
+- Mapping creates an isolated draft. Existing map/locations, including destinations with the
+  same names, remain untouched until the complete new pair is published by atomic manifest rename.
+- Map and location writes use synced temporary files and checked atomic replacement. Legacy
+  storage remains readable and retained; generation cleanup keeps the current and previous sets.
+- Mapping preparation, finalization, cache preparation and orientation share cancellation ownership
+  and cleanup. Errors, cancellation and deadlines release the mapping service mode. Delayed callbacks
+  cannot publish a cancelled draft or resume an older run. Failed old actions permit a fresh attempt.
+- Finishing without an active mapping action returns before any service mode change. Finalization
+  freezes destination saves and guidance movement. Navigation never reads draft destinations.
+- A successful save is reported separately from orientation. Orientation failure retains the newly
+  committed map/location pair and allows localization to be retried later.
+Regression validation: 33 new tests cover atomic publication, legacy compatibility, retained backups,
+failed writes, cancelled serialization, frozen/stale position saves, repeated cancellation/restart,
+SDK failures, cache failure, deadlines and service-mode ownership. The targeted run passed all 49 tests.
+The full suite passes all 321 Pepper tests (34 suites) and 265 standalone tests (26 suites), with
+no failures, errors or skips. Both debug APKs built successfully. Lint passes with 0 errors and
+unchanged warning/hint counts (Pepper: 72 warnings + 2 hints; standalone: 95 warnings + 2 hints).
+The combined Gradle validation and git diff --check passed.
+Physical Pepper validation remains outstanding: cancel while mapping/finalizing, finish without an
+active map, and verify navigation to the newly saved destinations after orientation completes.
+
 The findings and line references below describe the reviewed base revision, before these changes.
 The audit validation below likewise records the original review, not the follow-up builds.
 
