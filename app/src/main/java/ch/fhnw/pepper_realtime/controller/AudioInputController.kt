@@ -16,6 +16,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import java.util.concurrent.atomic.AtomicLong
 
 @ActivityScoped
 class AudioInputController @Inject constructor(
@@ -32,6 +33,7 @@ class AudioInputController @Inject constructor(
     // State
     private var sttManager: SpeechRecognizerManager? = null
     private var realtimeAudioInput: RealtimeAudioInputManager? = null
+    private val inputRequest = AtomicLong()
     var isMuted: Boolean = false
         private set
     var isSttRunning: Boolean = false
@@ -80,6 +82,7 @@ class AudioInputController @Inject constructor(
     }
 
     fun startContinuousRecognition() {
+        val request = inputRequest.incrementAndGet()
         if (settingsRepository.isUsingRealtimeAudioInput) {
             // MUTUAL EXCLUSION: Stop Azure STT if it's running before starting Realtime API
             if (sttManager != null) {
@@ -99,11 +102,19 @@ class AudioInputController @Inject constructor(
             if (realtimeAudioInput == null) {
                 realtimeAudioInput = RealtimeAudioInputManager(sessionManager).apply {
                     this.isGoogleProvider = isGoogle
+                    onCaptureError = { message ->
+                        if (realtimeAudioInput === this && !isMuted && sessionManager.isConnected) {
+                            Log.e(TAG, message)
+                            viewModel.setStatusText(getString(R.string.error_audio_capture_failed))
+                        }
+                    }
                 }
                 Log.i(TAG, "Created RealtimeAudioInputManager (${if (isGoogle) "Google 16kHz" else "OpenAI 24kHz"})")
             }
+            val input = realtimeAudioInput!!
             applicationScope.launch(ioDispatcher) {
-                val started = realtimeAudioInput!!.start()
+                if (inputRequest.get() != request || realtimeAudioInput !== input || isMuted || !sessionManager.isConnected) return@launch
+                val started = input.start()
                 if (started) {
                     Log.i(TAG, "Realtime API audio capture started (${if (isGoogle) "Google 16kHz" else "OpenAI 24kHz"})")
                 } else {
@@ -121,8 +132,9 @@ class AudioInputController @Inject constructor(
         }
 
         // MUTUAL EXCLUSION: Stop Realtime API audio if it's running before starting Azure STT
-        if (realtimeAudioInput?.isCapturing == true) {
-            applicationScope.launch(ioDispatcher) { realtimeAudioInput?.stop() }
+        val previousInput = realtimeAudioInput
+        if (previousInput != null) {
+            applicationScope.launch(ioDispatcher) { previousInput.stop() }
             Log.i(TAG, "Stopped Realtime API audio to prevent interference with Azure STT")
         }
 
@@ -131,14 +143,19 @@ class AudioInputController @Inject constructor(
             viewModel.setStatusText(getString(R.string.status_recognizer_not_ready))
             return
         }
-        applicationScope.launch(ioDispatcher) { sttManager?.start() }
+        val speech = sttManager
+        applicationScope.launch(ioDispatcher) {
+            if (inputRequest.get() == request && sttManager === speech && !isMuted) speech?.start()
+        }
     }
 
     fun stopContinuousRecognition() {
+        inputRequest.incrementAndGet()
         if (settingsRepository.isUsingRealtimeAudioInput) {
-            if (realtimeAudioInput?.isCapturing == true) {
+            val input = realtimeAudioInput
+            if (input != null) {
                 applicationScope.launch(ioDispatcher) {
-                    realtimeAudioInput?.stop()
+                    input.stop()
                     Log.i(TAG, "Realtime API audio capture stopped")
                 }
             }
@@ -148,6 +165,7 @@ class AudioInputController @Inject constructor(
     }
 
     fun shutdown() {
+        inputRequest.incrementAndGet()
         sttManager?.shutdown()
         sttManager = null
         realtimeAudioInput?.stop()
@@ -155,12 +173,13 @@ class AudioInputController @Inject constructor(
     }
 
     fun cleanupForRestart() {
-        if (realtimeAudioInput?.isCapturing == true) {
-            realtimeAudioInput?.stop()
+        inputRequest.incrementAndGet()
+        realtimeAudioInput?.let {
+            it.stop()
             Log.i(TAG, "Stopped Realtime audio capture")
         }
-        if (sttManager != null && isSttRunning) {
-            applicationScope.launch(ioDispatcher) { sttManager?.stop() }
+        sttManager?.let { speech ->
+            applicationScope.launch(ioDispatcher) { speech.stop() }
             Log.i(TAG, "Stopped Azure Speech recognizer")
         }
     }

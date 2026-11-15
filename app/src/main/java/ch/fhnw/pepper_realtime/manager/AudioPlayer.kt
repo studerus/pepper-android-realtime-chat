@@ -41,7 +41,12 @@ private const val MAX_BUFFERED_AUDIO_MS = 30000
  * - Reduced memory allocations and copying
  * - LockSupport.parkNanos() for precise timing instead of Thread.sleep()
  */
-class AudioPlayer {
+class AudioPlayer internal constructor(
+    private val trackFactory: (() -> AudioTrack)? = null,
+    private val launchPlayback: (Runnable) -> Thread = { work ->
+        Thread(work, "optimized-audio-player").apply { priority = Thread.NORM_PRIORITY + 2; start() }
+    }
+) {
 
     interface Listener {
         fun onPlaybackStarted()
@@ -52,6 +57,7 @@ class AudioPlayer {
     // Larger queue to absorb bursty streams (e.g., Google Live API) without dropping chunks.
     // Note: This does not add *constant* latency, but may increase latency only if we fall behind.
     private val audioBuffer = ArrayBlockingQueue<ByteArray>(350)
+    private val playbackLock = Any()
 
     // Atomic flags for lock-free operations
     private val _isPlaying = AtomicBoolean(false)
@@ -81,6 +87,8 @@ class AudioPlayer {
     // Track playback head position at response start to calculate relative position
     @Volatile
     private var responseStartFrames = 0
+    @Volatile private var responsePositionStartFrames = 0
+    private val responsePositionWrittenBase = AtomicLong(0)
     private var playThread: Thread? = null
 
     // Completion tracking for event-driven drain
@@ -111,7 +119,7 @@ class AudioPlayer {
     /**
      * Optimized chunk addition with memory pooling and contamination prevention
      */
-    fun addChunk(data: ByteArray?) {
+    fun addChunk(data: ByteArray?): Unit = synchronized(playbackLock) {
         if (data == null || data.isEmpty()) return
         playbackTiming.queued()?.let {
             Log.i("AudioTiming", "audio_queued t_ms=$it")
@@ -185,47 +193,46 @@ class AudioPlayer {
     /**
      * Optimized playback start with better buffering strategy
      */
-    fun startIfNeeded() {
+    fun startIfNeeded(): Unit = synchronized(playbackLock) {
         if (_isPlaying.get()) return
         if (!hasSufficientBuffer()) return
 
         if (_isPlaying.compareAndSet(false, true)) {
             shouldStop.set(false)
-            val callbackStarted = SystemClock.elapsedRealtime()
-            listener?.onPlaybackStarted()
-            Log.i("AudioTiming", "playback_callback_ms=${SystemClock.elapsedRealtime() - callbackStarted}")
-
-            val t = Thread({ optimizedPlayLoop() }, "optimized-audio-player")
-            t.priority = Thread.NORM_PRIORITY + 2 // Higher priority for audio
-            playThread = t
-            t.start()
+            try {
+                val callbackStarted = SystemClock.elapsedRealtime()
+                listener?.onPlaybackStarted()
+                Log.i("AudioTiming", "playback_callback_ms=${SystemClock.elapsedRealtime() - callbackStarted}")
+                playThread = launchPlayback(Runnable { optimizedPlayLoop() })
+            } catch (error: Exception) {
+                shouldStop.set(true)
+                cleanup()
+                Log.e(TAG, "Could not start playback", error)
+            }
         }
     }
 
-    fun markResponseDone() {
+    fun markResponseDone(): Unit = synchronized(playbackLock) {
         isResponseDone.set(true)
-        // Memory pool cleanup moved to final cleanup() to prevent
-        // contamination during overlapping responses
-        // Reset carry buffer to avoid cross-response merge (e.g., repeated syllables)
-        resetCarryBuffer()
-        // Reset drain timing to prevent stale logs
-        drainStartTime = 0
+        // The playback thread owns the tail. End-of-stream must drain it, not erase it.
+        startIfNeeded()
     }
 
     /**
-     * Called when a new response_id begins streaming. Prevents cross-response merging
-     * by clearing any partial-frame carry from the previous response.
+     * A new producer response may begin while the preceding audio is still being played.
+     * Keep the consumer's tail and counters until that playback has drained.
      */
-    fun onResponseBoundary() {
+    fun onResponseBoundary(): Unit = synchronized(playbackLock) {
+        isResponseDone.set(false)
+        val position = try { audioTrack?.playbackHeadPosition ?: 0 } catch (_: Exception) { 0 }
+        responsePositionStartFrames = position
+        responsePositionWrittenBase.set(totalFramesWritten.get())
+        if (_isPlaying.get()) return
         resetCarryBuffer()
         // Reset timing tracking for new response to prevent cumulative timing errors
         totalFramesWritten.set(0)
-        // Capture current playback position as baseline for this response
-        try {
-            responseStartFrames = audioTrack?.playbackHeadPosition ?: 0
-        } catch (e: Exception) {
-            responseStartFrames = 0 // Fallback if AudioTrack not ready
-        }
+        responsePositionWrittenBase.set(0)
+        responseStartFrames = position
         // Reset drain timing to prevent stale logs from previous response
         drainStartTime = 0
         playbackCompleted.set(false)
@@ -238,11 +245,11 @@ class AudioPlayer {
             // 1. Calculate position based on AudioTrack head
             // Handle potential int overflow/wrap-around correctly by subtraction first
             val currentFrames = track.playbackHeadPosition
-            val relativeFrames = maxOf(0, currentFrames - responseStartFrames)
+            val relativeFrames = maxOf(0, currentFrames - responsePositionStartFrames)
             val playedMs = Math.round(relativeFrames * 1000.0 / sampleRateHz).toInt()
 
             // 2. Calculate max possible duration based on written data
-            val writtenFrames = totalFramesWritten.get()
+            val writtenFrames = maxOf(0, totalFramesWritten.get() - responsePositionWrittenBase.get())
             val writtenMs = Math.round(writtenFrames * 1000.0 / sampleRateHz).toInt()
 
             // 3. Clamp result: we cannot have played more than we wrote
@@ -319,6 +326,11 @@ class AudioPlayer {
 
     private fun initializeAudioTrack() {
         try {
+            if (trackFactory != null) {
+                audioTrack = trackFactory.invoke()
+                setupPlaybackCompletionListener()
+                return
+            }
             val internalBufferMs = 100
             val channelConfig = AudioFormat.CHANNEL_OUT_MONO
             val audioFormat = AudioFormat.ENCODING_PCM_16BIT
@@ -355,6 +367,8 @@ class AudioPlayer {
             resetCarryBuffer()
             totalFramesWritten.set(0)
             responseStartFrames = 0
+            responsePositionStartFrames = 0
+            responsePositionWrittenBase.set(0)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to initialize AudioTrack", e)
         }
@@ -390,7 +404,7 @@ class AudioPlayer {
         // - Google: variable chunk sizes
         // Target: ~60ms of audio = 60 * 24 * 2 = 2880 bytes at 24kHz mono PCM16
         val minBufferBytes = 60 * sampleRateHz * bytesPerSample * channels / 1000
-        return queuedBytes.get() >= minBufferBytes
+        return queuedBytes.get() >= minBufferBytes || (isResponseDone.get() && !audioBuffer.isEmpty())
     }
 
     /**
@@ -402,7 +416,8 @@ class AudioPlayer {
         val track = audioTrack
         if (track == null || track.state != AudioTrack.STATE_INITIALIZED) {
             Log.i(TAG, "Reinitializing AudioTrack (was released or invalid)")
-            shouldStop.set(false)
+            try { track?.release() } catch (_: Exception) { }
+            audioTrack = null
             initializeAudioTrack()
         }
     }
@@ -411,19 +426,11 @@ class AudioPlayer {
      * Highly optimized playback loop with reduced allocations and better timing
      */
     private fun optimizedPlayLoop() {
-        Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO)
-
-        // Auto-reinitialize if needed
-        ensureAudioTrackReady()
-
-        val track = audioTrack
-        if (track == null || track.state != AudioTrack.STATE_INITIALIZED) {
-            Log.e(TAG, "AudioTrack not ready after reinitialization attempt.")
-            _isPlaying.set(false)
-            return
-        }
-
         try {
+            Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO)
+            ensureAudioTrackReady()
+            val track = audioTrack
+            check(track != null && track.state == AudioTrack.STATE_INITIALIZED) { "AudioTrack is not ready" }
             timingStartFrame = track.playbackHeadPosition
             timingProgressObserved = false
             val playStarted = SystemClock.elapsedRealtime()
@@ -439,9 +446,9 @@ class AudioPlayer {
                 val data = audioBuffer.poll() // O(1) operation
 
                 if (data != null) {
-                    processAudioChunk(data, frameBytes)
                     queuedBytes.addAndGet(-data.size)
-                    memoryPool.release(data) // Return to pool
+                    try { processAudioChunk(data, frameBytes) }
+                    finally { memoryPool.release(data) }
                 } else {
                     if (isResponseDone.get()) break
 
@@ -455,6 +462,9 @@ class AudioPlayer {
             drainAudioTrack()
 
         } catch (e: Exception) {
+            shouldStop.set(true)
+            try { audioTrack?.release() } catch (_: Exception) { }
+            audioTrack = null
             Log.e(TAG, "Optimized playback error", e)
         } finally {
             cleanup()
@@ -470,32 +480,36 @@ class AudioPlayer {
         val len = toWrite.size
         var offset = 0
 
-        val track = audioTrack ?: return
+        try {
+            while (len - offset >= frameBytes && !shouldStop.get()) {
+                writeFully(toWrite, offset, frameBytes)
+                offset += frameBytes
+            }
+            updateCarryBuffer(toWrite, offset, len)
+        } finally {
+            if (needsRelease) memoryPool.release(toWrite)
+        }
+    }
 
-        // Write in aligned frames for optimal performance
-        while (len - offset >= frameBytes && !shouldStop.get()) {
-            val written = track.write(toWrite, offset, frameBytes, AudioTrack.WRITE_BLOCKING)
-            if (written < 0) {
-                // Brief park for audio underflow recovery
-                LockSupport.parkNanos(2_000_000) // 2ms
+    private fun writeFully(data: ByteArray, start: Int, length: Int) {
+        val track = audioTrack ?: error("AudioTrack unavailable")
+        var offset = start
+        var stalledWrites = 0
+        while (offset < start + length && !shouldStop.get()) {
+            val written = track.write(data, offset, start + length - offset, AudioTrack.WRITE_BLOCKING)
+            check(written >= 0) { "AudioTrack write failed: $written" }
+            if (written == 0) {
+                check(++stalledWrites < 5) { "AudioTrack made no progress" }
+                LockSupport.parkNanos(2_000_000)
             } else {
-                if (written > 0) {
-                    playbackTiming.submitted()?.let {
-                        Log.i("AudioTiming", "first_write t_ms=${SystemClock.elapsedRealtime()} queued_to_write_ms=$it")
-                    }
-                    observePlaybackProgress(track)
-                }
+                stalledWrites = 0
                 offset += written
                 totalFramesWritten.addAndGet((written / (bytesPerSample * channels)).toLong())
+                playbackTiming.submitted()?.let {
+                    Log.i("AudioTiming", "first_write t_ms=${SystemClock.elapsedRealtime()} queued_to_write_ms=$it")
+                }
+                observePlaybackProgress(track)
             }
-        }
-
-        // Handle remaining bytes efficiently
-        updateCarryBuffer(toWrite, offset, len)
-
-        // Release combined buffer back to pool if it was created
-        if (needsRelease) {
-            memoryPool.release(toWrite)
         }
     }
 
@@ -539,10 +553,7 @@ class AudioPlayer {
         val carry = carryBuffer
         val track = audioTrack
         if (carryLen > 0 && carry != null && track != null && !shouldStop.get()) {
-            val written = track.write(carry, 0, carryLen, AudioTrack.WRITE_BLOCKING)
-            if (written > 0) {
-                totalFramesWritten.addAndGet((written / (bytesPerSample * channels)).toLong())
-            }
+            writeFully(carry, 0, carryLen)
             resetCarryBuffer()
         }
     }
@@ -575,6 +586,7 @@ class AudioPlayer {
             // Wait for completion callback with timeout
             val startWait = System.nanoTime()
             while (!playbackCompleted.get() && !shouldStop.get()) {
+                if (track != null && track.playbackHeadPosition.toLong() - responseStartFrames >= targetFrames) break
                 if (track != null) observePlaybackProgress(track)
                 LockSupport.parkNanos(2_000_000) // 2ms - just for timeout check
 
@@ -593,19 +605,21 @@ class AudioPlayer {
         }
     }
 
-    private fun cleanup() {
-        _isPlaying.set(false)
-        isResponseDone.set(false)
-
-        // Properly clean audio buffer and return to pool
-        cleanupAudioBuffer()
+    private fun cleanup(): Unit = synchronized(playbackLock) {
+        // A following response may have queued audio while the preceding one drained.
+        if (shouldStop.get()) cleanupAudioBuffer()
         resetCarryBuffer()
         totalFramesWritten.set(0)
+        responseStartFrames = 0
+        responsePositionStartFrames = 0
+        responsePositionWrittenBase.set(0)
 
         // Clean memory pool between responses
         memoryPool.cleanupBetweenResponses()
 
+        _isPlaying.set(false)
         listener?.onPlaybackFinished()
+        if (!shouldStop.get()) startIfNeeded()
     }
 
     private fun observePlaybackProgress(track: AudioTrack) {

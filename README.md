@@ -740,7 +740,14 @@ The app supports **two speech recognition modes**, configurable in **Settings â†
 - **Configurable Silence Timeout** - End-of-speech detection (default: 500ms, adjustable in settings)
 - **Requires** - `AZURE_SPEECH_KEY` in `local.properties`
 
+#### Audio Recovery and Playback
+
+Failed microphone reads stop and release the affected recorder, clear its running state, and report an audio error. A subsequent microphone start can retry. Azure Speech start failures also clear readiness and running state, including a failed first-launch retry; callbacks from a discarded recognizer are ignored. Stopping or restarting the chat cancels capture starts still waiting on the dispatcher.
+
+At the end of an audio response, playback flushes the remaining PCM samples. Short nonempty responses can start below the normal 60 ms buffering threshold. Partial device writes are completed, and failed or stalled writes end playback instead of keeping it busy indefinitely. An explicit interruption still discards pending audio.
+
 #### Switching Audio Modes
+
 1. Open app **Settings** (tap wrench icon ðŸ”§ in toolbar or swipe from right edge)
 2. Select **Audio Input** dropdown
 3. Choose preferred mode:

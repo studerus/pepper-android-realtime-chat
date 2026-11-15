@@ -81,6 +81,28 @@ The combined Gradle validation and git diff --check passed.
 Physical Pepper validation remains outstanding: cancel while mapping/finalizing, finish without an
 active map, and verify navigation to the newly saved destinations after orientation completes.
 
+The fifth change set addresses F19, F20 and F21:
+- Each direct-audio capture owns its recorder and format. Fatal/repeated read errors and failed starts
+  release resources, clear busy state and permit a retry; an old capture cannot release a newer recorder.
+  Runtime capture errors reach the UI, and queued starts are invalidated by stop/restart/shutdown.
+- Azure Speech uses one preparation/readiness path for initial setup and the first-launch retry.
+  Failed starts and SDK cancellation reset state, dispose the failed instance and allow a fresh attempt.
+  Old instance callbacks are ignored; readiness requires successful start plus connection/session events.
+  Native start/stop waits are bounded, and ordinary stop/start preserves the warm recognizer connection.
+- Playback preserves the end-of-stream tail, starts completed short replies below the prebuffer threshold,
+  completes partial device writes and terminates failed/stalled writes. Audio queued while the preceding
+  response drains survives cleanup, and playback initialization failure releases the busy state.
+  Failed playback devices are recreated on the next attempt; interruption position remains per response.
+Regression validation: 39 new shared tests cover capture cleanup/retry, stale capture and recognizer
+callbacks, failed initial/lazy Speech starts, readiness, queued starts cancelled by stop/restart/shutdown,
+short replies, retained PCM tails, partial/stalled writes, device recreation and interruption position.
+All 360 Pepper tests (38 suites) and 304 standalone tests (30 suites) pass with no failures, errors or
+skips. Both debug APKs built successfully. The resumed combined Gradle validation passed tests, APK
+builds and lint for both variants. Lint reports 0 errors and unchanged warning/hint counts
+(Pepper: 72 warnings + 2 hints; standalone: 95 warnings + 2 hints). git diff --check passed.
+Live microphone, Azure Speech and Pepper speaker checks remain outstanding, including retry after
+capture/start failure and interrupted or very short responses.
+
 The findings and line references below describe the reviewed base revision, before these changes.
 The audit validation below likewise records the original review, not the follow-up builds.
 

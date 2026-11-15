@@ -1,302 +1,175 @@
 package ch.fhnw.pepper_realtime.manager
 
+import android.Manifest
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
+import android.os.SystemClock
 import android.util.Base64
 import android.util.Log
-import android.os.SystemClock
+import androidx.annotation.RequiresPermission
 import ch.fhnw.pepper_realtime.network.RealtimeSessionManager
 import java.util.concurrent.atomic.AtomicBoolean
 
-/**
- * Manages audio input capture for Realtime API
- * Captures PCM16 mono audio and streams it via WebSocket
- * 
- * Sample rates:
- * - OpenAI/Azure/x.ai: 24kHz
- * - Google Gemini: 16kHz (for better performance on Pepper tablet)
- */
-class RealtimeAudioInputManager(
-    private val sessionManager: RealtimeSessionManager
+/** Each capture attempt owns its recorder, format and cleanup, including failed reads. */
+class RealtimeAudioInputManager internal constructor(
+    private val sessionManager: RealtimeSessionManager,
+    private val createRecorder: (Int, Int) -> AudioRecord = ::createAudioRecord,
+    private val launchCapture: (Runnable) -> Thread = { work ->
+        Thread(work, "realtime-audio-capture").apply { priority = Thread.NORM_PRIORITY + 1; start() }
+    }
 ) {
-    private var audioRecord: AudioRecord? = null
-    private var captureThread: Thread? = null
-    private val _isCapturing = AtomicBoolean(false)
+    private class Capture(val recorder: AudioRecord, val google: Boolean) {
+        val sampleRate = if (google) 16000 else 24000
+        val bufferBytes = sampleRate / 10 * 2
+        val active = AtomicBoolean(true)
+        val released = AtomicBoolean(false)
+        @Volatile var thread: Thread? = null
+    }
 
-    /**
-     * Set to true when using Google provider (uses 16kHz input - Google's native rate)
-     */
-    var isGoogleProvider: Boolean = false
-    
-    private val currentSampleRate: Int
-        get() = if (isGoogleProvider) GOOGLE_SAMPLE_RATE else OPENAI_SAMPLE_RATE
-    
-    private val currentBufferSizeBytes: Int
-        get() = if (isGoogleProvider) GOOGLE_BUFFER_SIZE_BYTES else OPENAI_BUFFER_SIZE_BYTES
+    private val lock = Any()
+    private var current: Capture? = null
+    @Volatile var isGoogleProvider = false
+    @Volatile var onCaptureError: ((String) -> Unit)? = null
+    val isCapturing: Boolean get() = synchronized(lock) { current?.active?.get() == true }
 
-    val isCapturing: Boolean
-        get() = _isCapturing.get()
-
-    /**
-     * Initialize AudioRecord with Realtime API format
-     */
-    private fun initializeAudioRecord(): Boolean {
+    fun start(): Boolean = synchronized(lock) {
+        if (current?.active?.get() == true) return true
+        if (!sessionManager.isConnected) return false
+        var recorder: AudioRecord? = null
+        var run: Capture? = null
         try {
-            val sampleRate = currentSampleRate
-            val bufferSize = currentBufferSizeBytes
-            
-            // Calculate minimum buffer size
-            val minBufferSize = AudioRecord.getMinBufferSize(
-                sampleRate,
-                CHANNEL_CONFIG,
-                AUDIO_FORMAT
-            )
-
-            if (minBufferSize == AudioRecord.ERROR || minBufferSize == AudioRecord.ERROR_BAD_VALUE) {
-                Log.e(TAG, "Invalid buffer size from AudioRecord.getMinBufferSize()")
-                return false
-            }
-
-            // Use larger of our preferred size or minimum required
-            val bufferSizeInBytes = maxOf(bufferSize, minBufferSize)
-
-            // Create AudioRecord instance
-            // VOICE_COMMUNICATION enables echo cancellation, noise suppression, and AGC
-            audioRecord = AudioRecord(
-                MediaRecorder.AudioSource.VOICE_COMMUNICATION,
-                sampleRate,
-                CHANNEL_CONFIG,
-                AUDIO_FORMAT,
-                bufferSizeInBytes
-            )
-
-            if (audioRecord?.state != AudioRecord.STATE_INITIALIZED) {
-                Log.e(TAG, "AudioRecord failed to initialize")
-                audioRecord = null
-                return false
-            }
-
-            Log.i(TAG, "AudioRecord initialized: ${sampleRate}Hz (${if (isGoogleProvider) "Google" else "OpenAI"}), buffer=$bufferSizeInBytes bytes")
-            return true
-
-        } catch (e: SecurityException) {
-            Log.e(TAG, "Missing RECORD_AUDIO permission", e)
-            return false
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to initialize AudioRecord", e)
-            return false
+            val google = isGoogleProvider
+            val rate = if (google) 16000 else 24000
+            recorder = createRecorder(rate, rate / 10 * 2)
+            check(recorder.state == AudioRecord.STATE_INITIALIZED) { "AudioRecord failed to initialize" }
+            recorder.startRecording()
+            check(recorder.recordingState == AudioRecord.RECORDSTATE_RECORDING) { "AudioRecord did not start recording" }
+            val capture = Capture(recorder, google)
+            run = capture
+            current = capture
+            capture.thread = launchCapture(Runnable { captureLoop(capture) })
+            true
+        } catch (error: Exception) {
+            current = null
+            run?.active?.set(false)
+            if (run != null) release(run) else recorder?.let(::closeRecorder)
+            Log.e(TAG, "Failed to start audio capture", error)
+            false
         }
     }
 
-    /**
-     * Start capturing and streaming audio
-     */
-    @Synchronized
-    fun start(): Boolean {
-        if (_isCapturing.get()) {
-            Log.w(TAG, "Audio capture already running")
-            return true
-        }
-
-        if (!sessionManager.isConnected) {
-            Log.e(TAG, "Cannot start audio capture - WebSocket not connected")
-            return false
-        }
-
-        // Initialize AudioRecord
-        if (!initializeAudioRecord()) {
-            return false
-        }
-
-        // Start recording
-        try {
-            audioRecord?.startRecording()
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to start recording", e)
-            cleanup()
-            return false
-        }
-
-        // Start capture thread
-        _isCapturing.set(true)
-        captureThread = Thread({ captureLoop() }, "realtime-audio-capture").apply {
-            priority = Thread.NORM_PRIORITY + 1 // Slightly elevated priority
-            start()
-        }
-
-        Log.i(TAG, "Audio capture started")
-        return true
-    }
-
-    /**
-     * Stop capturing audio
-     */
-    @Synchronized
     fun stop() {
-        if (!_isCapturing.get()) {
-            return
-        }
-
-        Log.i(TAG, "Stopping audio capture...")
-        _isCapturing.set(false)
-
-        // Wait for capture thread to finish
-        captureThread?.let { thread ->
-            try {
-                thread.join(1000) // Wait max 1 second
-            } catch (e: InterruptedException) {
-                Thread.currentThread().interrupt()
+        val run = synchronized(lock) {
+            val capture = current ?: return
+            capture.active.set(false)
+            // Stop before joining: a blocking read must be unblocked first.
+            release(capture)
+            current = null
+            if (capture.google && sessionManager.isConnected) {
+                try { sessionManager.sendGoogleAudioStreamEnd() }
+                catch (error: Exception) { Log.w(TAG, "Could not end audio stream", error) }
             }
+            capture
         }
-        captureThread = null
-
-        // For Google Live API: Send audioStreamEnd to flush buffered audio
-        // This signals to Google that the audio stream is paused/ended
-        if (isGoogleProvider && sessionManager.isConnected) {
-            sessionManager.sendGoogleAudioStreamEnd()
+        val thread = run.thread
+        if (thread != null && thread !== Thread.currentThread()) {
+            try { thread.join(1000) }
+            catch (_: InterruptedException) { Thread.currentThread().interrupt() }
         }
-
-        cleanup()
-        Log.i(TAG, "Audio capture stopped")
     }
 
-    /**
-     * Audio capture loop - runs in background thread
-     */
-    private fun captureLoop() {
-        val buffer = ByteArray(currentBufferSizeBytes)
-        var consecutiveErrors = 0
-        var reportAt = SystemClock.elapsedRealtime()
-        var maxReadMs = 0L
-        var maxSendMs = 0L
-        var capturedBytes = 0L
-
-        Log.d(TAG, "Capture loop started (${if (isGoogleProvider) "Google 16kHz" else "OpenAI 24kHz"})")
-
-        while (_isCapturing.get()) {
-            try {
-                // Read audio data
-                val readStarted = SystemClock.elapsedRealtime()
-                val bytesRead = audioRecord?.read(buffer, 0, buffer.size) ?: -1
-                maxReadMs = maxOf(maxReadMs, SystemClock.elapsedRealtime() - readStarted)
-
-                when {
-                    bytesRead > 0 -> {
-                        consecutiveErrors = 0 // Reset error counter on success
-                        // Send to Realtime API
-                        val sendStarted = SystemClock.elapsedRealtime()
-                        sendAudioChunk(buffer, bytesRead)
-                        maxSendMs = maxOf(maxSendMs, SystemClock.elapsedRealtime() - sendStarted)
-                        capturedBytes += bytesRead
-                        val now = SystemClock.elapsedRealtime()
-                        if (now - reportAt >= 5000) {
-                            Log.i("AudioTiming", "capture window_ms=${now - reportAt} captured_audio_ms=${capturedBytes * 1000 / (currentSampleRate * BYTES_PER_SAMPLE)} max_read_ms=$maxReadMs max_enqueue_ms=$maxSendMs outgoing_queue_bytes=${sessionManager.pendingSendBytes}")
-                            reportAt = now
-                            capturedBytes = 0
-                            maxReadMs = 0
-                            maxSendMs = 0
-                        }
-                    }
-                    bytesRead == AudioRecord.ERROR_INVALID_OPERATION -> {
-                        Log.e(TAG, "AudioRecord not properly initialized")
-                        break
-                    }
-                    bytesRead == AudioRecord.ERROR_BAD_VALUE -> {
-                        Log.e(TAG, "Invalid parameters in read operation")
-                        break
-                    }
-                    else -> {
-                        consecutiveErrors++
-                        Log.w(TAG, "AudioRecord read returned: $bytesRead (error count: $consecutiveErrors)")
-
-                        if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
-                            Log.e(TAG, "Too many consecutive errors, stopping capture")
-                            break
-                        }
-
-                        // Brief pause before retry
-                        try {
-                            Thread.sleep(50)
-                        } catch (e: InterruptedException) {
-                            Thread.currentThread().interrupt()
-                            break
-                        }
-                    }
-                }
-
-            } catch (e: Exception) {
-                Log.e(TAG, "Error in capture loop", e)
-                consecutiveErrors++
-
-                if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
-                    break
-                }
-            }
-        }
-
-        Log.d(TAG, "Capture loop ended")
-    }
-
-    /**
-     * Send audio chunk to Realtime API via WebSocket
-     */
-    private fun sendAudioChunk(buffer: ByteArray, bytesRead: Int) {
+    private fun captureLoop(run: Capture) {
+        var failure: String? = null
         try {
-            // Encode to Base64
-            val base64Audio = Base64.encodeToString(buffer, 0, bytesRead, Base64.NO_WRAP)
-
-            // Send via session manager (use Google-specific method for 16kHz format)
-            val sent = if (isGoogleProvider) {
-                sessionManager.sendGoogleAudioChunk(base64Audio)
-            } else {
-                sessionManager.sendAudioChunk(base64Audio)
+            val buffer = ByteArray(run.bufferBytes)
+            var errors = 0
+            var reportAt = SystemClock.elapsedRealtime()
+            var capturedBytes = 0L
+            var maxReadMs = 0L
+            var maxSendMs = 0L
+            while (run.active.get()) {
+                try {
+                    val started = SystemClock.elapsedRealtime()
+                    val bytesRead = run.recorder.read(buffer, 0, buffer.size)
+                    maxReadMs = maxOf(maxReadMs, SystemClock.elapsedRealtime() - started)
+                    if (!run.active.get()) break
+                    when {
+                        bytesRead > 0 -> {
+                            errors = 0
+                            val sendStarted = SystemClock.elapsedRealtime()
+                            synchronized(lock) {
+                                if (current === run && run.active.get()) sendAudioChunk(run, buffer, bytesRead)
+                            }
+                            maxSendMs = maxOf(maxSendMs, SystemClock.elapsedRealtime() - sendStarted)
+                            capturedBytes += bytesRead
+                            val now = SystemClock.elapsedRealtime()
+                            if (now - reportAt >= 5000) {
+                                Log.i("AudioTiming", "capture window_ms=${now - reportAt} captured_audio_ms=${capturedBytes * 1000 / (run.sampleRate * 2)} max_read_ms=$maxReadMs max_enqueue_ms=$maxSendMs outgoing_queue_bytes=${sessionManager.pendingSendBytes}")
+                                reportAt = now; capturedBytes = 0; maxReadMs = 0; maxSendMs = 0
+                            }
+                        }
+                        bytesRead == AudioRecord.ERROR_INVALID_OPERATION || bytesRead == AudioRecord.ERROR_BAD_VALUE ||
+                            bytesRead == AudioRecord.ERROR_DEAD_OBJECT -> {
+                            failure = "Microphone capture failed (AudioRecord error $bytesRead)"
+                            break
+                        }
+                        else -> {
+                            if (++errors >= 5) { failure = "Microphone capture repeatedly failed (error $bytesRead)"; break }
+                            Thread.sleep(50)
+                        }
+                    }
+                } catch (error: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    failure = "Microphone capture interrupted"
+                    break
+                } catch (error: Exception) {
+                    if (++errors >= 5) { failure = "Microphone capture failed: ${error.message}"; break }
+                    Log.w(TAG, "Audio read failed; retrying", error)
+                }
             }
-
-            if (!sent) {
-                Log.w(TAG, "Failed to send audio chunk ($bytesRead bytes)")
+        } finally {
+            synchronized(lock) {
+                val notify = current === run && run.active.get()
+                run.active.set(false)
+                release(run)
+                if (current === run) current = null
+                if (notify) {
+                    try { onCaptureError?.invoke(failure ?: "Microphone capture stopped unexpectedly") }
+                    catch (error: Exception) { Log.w(TAG, "Audio failure callback failed", error) }
+                }
             }
-
-        } catch (e: Exception) {
-            Log.e(TAG, "Error encoding/sending audio chunk", e)
         }
     }
 
-    /**
-     * Cleanup resources
-     */
-    private fun cleanup() {
-        audioRecord?.let { record ->
-            try {
-                if (record.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
-                    record.stop()
-                }
-                record.release()
-            } catch (e: Exception) {
-                Log.w(TAG, "Error during AudioRecord cleanup", e)
-            }
-        }
-        audioRecord = null
+    private fun sendAudioChunk(run: Capture, data: ByteArray, length: Int) {
+        val encoded = Base64.encodeToString(data, 0, length, Base64.NO_WRAP)
+        if (run.google) sessionManager.sendGoogleAudioChunk(encoded) else sessionManager.sendAudioChunk(encoded)
+    }
+
+    private fun release(run: Capture) {
+        if (run.released.compareAndSet(false, true)) closeRecorder(run.recorder)
     }
 
     companion object {
         private const val TAG = "RealtimeAudioInput"
 
-        // Audio format requirements (same for all providers)
-        private const val CHANNEL_CONFIG = AudioFormat.CHANNEL_IN_MONO
-        private const val AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT
-        private const val BYTES_PER_SAMPLE = 2 // 16-bit = 2 bytes
+        @RequiresPermission(Manifest.permission.RECORD_AUDIO)
+        private fun createAudioRecord(sampleRate: Int, preferredBuffer: Int): AudioRecord {
+            val minimum = AudioRecord.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
+            check(minimum > 0) { "Invalid AudioRecord buffer size: $minimum" }
+            return AudioRecord(MediaRecorder.AudioSource.VOICE_COMMUNICATION, sampleRate,
+                AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, maxOf(minimum, preferredBuffer))
+        }
 
-        // OpenAI/Azure/x.ai: 24kHz
-        private const val OPENAI_SAMPLE_RATE = 24000
-        private const val OPENAI_BUFFER_SIZE_SAMPLES = 2400 // ~100ms of audio
-        private const val OPENAI_BUFFER_SIZE_BYTES = OPENAI_BUFFER_SIZE_SAMPLES * BYTES_PER_SAMPLE
-
-        // Google Gemini: 16kHz (better performance on Pepper tablet)
-        private const val GOOGLE_SAMPLE_RATE = 16000
-        private const val GOOGLE_BUFFER_SIZE_SAMPLES = 1600 // ~100ms of audio
-        private const val GOOGLE_BUFFER_SIZE_BYTES = GOOGLE_BUFFER_SIZE_SAMPLES * BYTES_PER_SAMPLE
-
-        private const val MAX_CONSECUTIVE_ERRORS = 5
+        private fun closeRecorder(recorder: AudioRecord) {
+            try {
+                if (recorder.recordingState == AudioRecord.RECORDSTATE_RECORDING) recorder.stop()
+            } catch (error: Exception) { Log.w(TAG, "Could not stop recorder", error) }
+            finally {
+                try { recorder.release() }
+                catch (error: Exception) { Log.w(TAG, "Could not release recorder", error) }
+            }
+        }
     }
 }

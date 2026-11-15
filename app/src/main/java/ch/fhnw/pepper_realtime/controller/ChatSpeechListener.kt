@@ -52,6 +52,9 @@ class ChatSpeechListener(
 
     override fun onError(errorMessage: String?) {
         Log.e(TAG, "STT error: $errorMessage")
+        audioInputController?.setSttRunning(false)
+        viewModel.setWarmingUp(false)
+        viewModel.setPartialSpeechResult(null)
         viewModel.setStatusText(getString(R.string.error_generic, errorMessage ?: "Unknown error"))
     }
 
