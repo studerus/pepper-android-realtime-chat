@@ -650,6 +650,32 @@ def recognize_single_face(image, raw_face):
         return "Unknown", 0.0, 0
 
 
+class TrackingTiming:
+    def __init__(self, debug=False, clock=time.monotonic):
+        self.debug = debug
+        self.clock = clock
+        self.start = clock()
+        self.frames = 0
+        self.total_ms = 0
+
+    def record(self, total, frame, resize, detect, track, recog):
+        if self.debug:
+            print(f"[Timing] frame={frame:.0f}ms, resize={resize:.0f}ms, detect={detect:.0f}ms, "
+                  f"track={track:.0f}ms, recog={recog:.0f}ms, total={total}ms")
+        self.frames += 1
+        self.total_ms += total
+        now = self.clock()
+        elapsed = now - self.start
+        if elapsed >= 60:
+            print(f"[Timing] frames={self.frames}, fps={self.frames / elapsed:.1f}, "
+                  f"mean={self.total_ms / self.frames:.1f}ms")
+            self.start = now
+            self.frames = self.total_ms = 0
+
+
+TRACKING_TIMING = TrackingTiming(debug=os.environ.get('PEPPER_TRACKING_DEBUG') == '1')
+
+
 def update_tracking_once():
     """
     Single tracking update cycle:
@@ -803,8 +829,7 @@ def update_tracking_once():
         
         update_time = int((time.time() - start_time) * 1000)
         
-        # DEBUG: Always log timing with resize breakdown
-        print(f"[Timing] frame={t_frame:.0f}ms, resize={t_resize:.0f}ms, detect={t_detect:.0f}ms, track={t_track:.0f}ms, recog={t_recog:.0f}ms, total={update_time}ms")
+        TRACKING_TIMING.record(update_time, t_frame, t_resize, t_detect, t_track, t_recog)
         
         return TRACKER.to_dict(), update_time
 

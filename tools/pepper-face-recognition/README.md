@@ -440,6 +440,12 @@ ssh nao@<PEPPER_IP> "pkill -f face_recognition_server.py; pkill -f camera_daemon
 ssh nao@<PEPPER_IP> "cd /home/nao/face_data && nohup bash run_server.sh > server.log 2>&1 &"
 ```
 
+By default, the server logs at most one tracking timing summary per minute (processed
+frames, FPS and mean processing time). Errors are still logged immediately. For a
+short diagnostic run, replace `nohup bash run_server.sh` in the restart command with
+`PEPPER_TRACKING_DEBUG=1 nohup bash run_server.sh` to log timings for every frame.
+Restart normally afterwards to avoid unnecessary writes to Pepper's flash storage.
+
 ## Troubleshooting
 
 ### "cannot open shared object file"

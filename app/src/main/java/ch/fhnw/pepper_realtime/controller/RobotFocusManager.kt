@@ -23,7 +23,7 @@ class RobotFocusManager(private val activity: ChatActivity) {
 
     var isFocusAvailable: Boolean = false
         private set
-    var qiContext: Any? = null
+    @Volatile var qiContext: Any? = null
         private set
     private var listener: Listener? = null
     private var lastFocusRefusedReason: String? = null

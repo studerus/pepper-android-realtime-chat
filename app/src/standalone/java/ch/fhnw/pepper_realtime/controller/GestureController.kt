@@ -75,6 +75,8 @@ class GestureController {
      */
     fun isRunning(): Boolean = running
 
+    fun onRobotFocusLost() = stopNow()
+
     /**
      * Pause gesture controller (for background transitions)
      */

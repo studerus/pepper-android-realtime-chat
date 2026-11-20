@@ -200,6 +200,7 @@ class ChatRobotLifecycleHandler(
     }
 
     override fun onRobotFocusLost() {
+        activity.gestureController.onRobotFocusLost()
         viewModel.disconnectWebSocketGracefully()
         synchronized(robotLifecycleLock) {
             Log.i(TAG, "handleRobotFocusLost: Acquired lifecycle lock")
@@ -222,13 +223,6 @@ class ChatRobotLifecycleHandler(
             viewModel.resetDashboard()
             activity.touchSensorManager.shutdown()
             activity.navigationServiceManager.shutdown()
-
-            // Pause gestures but don't shutdown the executor
-            try {
-                activity.gestureController.stopNow()
-            } catch (e: Exception) {
-                Log.w(TAG, "Error stopping GestureController", e)
-            }
 
             activity.runOnUiThread {
                 viewModel.setStatusText(activity.getString(R.string.robot_focus_lost_message))

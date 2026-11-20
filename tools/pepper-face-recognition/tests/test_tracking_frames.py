@@ -12,6 +12,24 @@ from face_tracker import FaceTracker
 
 
 class TrackingFramesTest(unittest.TestCase):
+    def test_timing_is_aggregated_and_counters_reset(self):
+        timing = server.TrackingTiming(clock=Mock(side_effect=[0, 1, 59, 60, 121]))
+        with patch('builtins.print') as log:
+            for duration in (10, 30):
+                timing.record(duration, 1, 2, 3, 4, 5)
+            log.assert_not_called()
+            timing.record(20, 1, 2, 3, 4, 5)
+            log.assert_called_once_with('[Timing] frames=3, fps=0.1, mean=20.0ms')
+            timing.record(12, 1, 2, 3, 4, 5)
+            self.assertEqual('[Timing] frames=1, fps=0.0, mean=12.0ms', log.call_args[0][0])
+
+    def test_debug_keeps_per_frame_timings(self):
+        timing = server.TrackingTiming(debug=True)
+        with patch('builtins.print') as log:
+            timing.record(15, 1, 2, 3, 4, 5)
+            log.assert_called_once_with('[Timing] frame=1ms, resize=2ms, detect=3ms, '
+                                        'track=4ms, recog=5ms, total=15ms')
+
     def reader(self):
         with patch.object(server.SharedMemoryReader, 'setup'):
             reader = server.SharedMemoryReader()
