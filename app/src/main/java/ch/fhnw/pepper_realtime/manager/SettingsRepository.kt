@@ -124,7 +124,20 @@ class SettingsRepository @Inject constructor(
     var apiProvider: String
         get() = settings.getString(KEY_API_PROVIDER, RealtimeApiProvider.OPENAI_DIRECT.name)
             ?: RealtimeApiProvider.OPENAI_DIRECT.name
-        set(value) = settings.edit().putString(KEY_API_PROVIDER, value).apply()
+        set(value) {
+            val previous = apiProvider
+            if (value == previous) return
+            val edit = settings.edit()
+            // Legacy unscoped choices belong to the outgoing provider only.
+            for (key in listOf(KEY_MODEL, KEY_VOICE)) {
+                settings.getString(key, null)?.let { legacy ->
+                    val scoped = "${key}_${previous}"
+                    if (!settings.contains(scoped)) edit.putString(scoped, legacy)
+                    edit.remove(key)
+                }
+            }
+            edit.putString(KEY_API_PROVIDER, value).apply()
+        }
 
     val apiProviderEnum: RealtimeApiProvider
         get() = RealtimeApiProvider.fromString(apiProvider)
@@ -276,10 +289,16 @@ class SettingsRepository @Inject constructor(
 
     /**
      * Clear all saved settings so every property falls back to its default value.
-     * API keys are stored separately and are NOT affected.
+     * The preference file is shared with ApiKeyManager; remove only our own keys.
      */
     fun resetToDefaults() {
-        settings.edit().clear().apply()
+        val edit = settings.edit()
+        for (key in RESETTABLE_KEYS) edit.remove(key)
+        for (provider in RealtimeApiProvider.values()) {
+            edit.remove("${KEY_MODEL}_${provider.name}")
+            edit.remove("${KEY_VOICE}_${provider.name}")
+        }
+        edit.apply()
         Log.i("SettingsRepository", "All settings reset to defaults")
     }
 
@@ -327,6 +346,19 @@ class SettingsRepository @Inject constructor(
         private const val KEY_GOOGLE_CONTEXT_COMPRESSION = "googleContextCompression"
         private const val KEY_XAI_WEB_SEARCH = "xaiWebSearch"
         private const val KEY_XAI_X_SEARCH = "xaiXSearch"
+
+        private val RESETTABLE_KEYS = setOf(
+            KEY_SYSTEM_PROMPT, KEY_CONVERSATION_LANGUAGE, KEY_MODEL, KEY_VOICE, KEY_SPEED,
+            KEY_LANGUAGE, KEY_TEMPERATURE, KEY_VOLUME, KEY_SILENCE_TIMEOUT, KEY_ENABLED_TOOLS,
+            KEY_KNOWN_TOOLS, KEY_API_PROVIDER, KEY_CONFIDENCE_THRESHOLD, KEY_AUDIO_INPUT_MODE,
+            KEY_TRANSCRIPTION_MODEL, KEY_TRANSCRIPTION_LANGUAGE, KEY_TRANSCRIPTION_PROMPT,
+            KEY_TURN_DETECTION_TYPE, KEY_VAD_THRESHOLD, KEY_PREFIX_PADDING, KEY_SILENCE_DURATION,
+            KEY_IDLE_TIMEOUT, KEY_NOISE_REDUCTION, KEY_EAGERNESS, KEY_OPENAI_REASONING_EFFORT,
+            KEY_GOOGLE_START_SENSITIVITY, KEY_GOOGLE_END_SENSITIVITY, KEY_GOOGLE_PREFIX_PADDING_MS,
+            KEY_GOOGLE_SILENCE_DURATION_MS, KEY_GOOGLE_THINKING_BUDGET, KEY_GOOGLE_THINKING_LEVEL,
+            KEY_GOOGLE_AFFECTIVE_DIALOG, KEY_GOOGLE_PROACTIVE_AUDIO, KEY_GOOGLE_SHOW_THINKING,
+            KEY_GOOGLE_SEARCH_GROUNDING, KEY_GOOGLE_CONTEXT_COMPRESSION, KEY_XAI_WEB_SEARCH, KEY_XAI_X_SEARCH
+        )
 
         // Audio input mode constants
         const val MODE_REALTIME_API = "realtime_api"

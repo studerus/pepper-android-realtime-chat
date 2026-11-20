@@ -95,6 +95,25 @@ class SettingsViewModelTest {
     // ========== Model Change Tests ==========
 
     @Test
+    fun `Gemini prompt change needs fresh setup even without changing model`() {
+        whenever(repository.apiProviderEnum).thenReturn(RealtimeApiProvider.GOOGLE_GEMINI)
+        viewModel.setSystemPrompt("New instructions")
+        assertTrue(viewModel.restartSessionEvent.value)
+        assertFalse(viewModel.updateSessionEvent.value)
+    }
+
+    @Test
+    fun `Gemini tool changes restart only when the settings drawer commits`() {
+        whenever(repository.apiProviderEnum).thenReturn(RealtimeApiProvider.GOOGLE_GEMINI)
+        viewModel.beginEditing()
+        viewModel.setEnabledTools(setOf("analyze_vision"))
+        assertFalse(viewModel.restartSessionEvent.value)
+        viewModel.commitChanges()
+        assertTrue(viewModel.restartSessionEvent.value)
+        assertFalse(viewModel.updateSessionEvent.value)
+    }
+
+    @Test
     fun `setModel updates repository`() {
         viewModel.setModel("gpt-realtime")
         

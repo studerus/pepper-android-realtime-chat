@@ -11,6 +11,7 @@ import json
 import pickle
 import cv2
 import glob
+import re
 
 # Add custom packages path
 sys.path.insert(0, '/home/nao/python_packages')
@@ -49,19 +50,20 @@ def get_safe_filename(name):
 
 def get_face_image_count(name):
     """Get number of images for a person."""
-    safe_name = get_safe_filename(name)
-    pattern = os.path.join(IMAGES_DIR, f"{safe_name}_*.jpg")
-    return len(glob.glob(pattern))
+    return len(get_face_image_paths(name))
 
 
 def get_face_image_paths(name):
     """Get all image paths for a person, sorted by index."""
     safe_name = get_safe_filename(name)
     pattern = os.path.join(IMAGES_DIR, f"{safe_name}_*.jpg")
-    paths = glob.glob(pattern)
-    # Sort by index number
-    paths.sort(key=lambda p: int(os.path.basename(p).rsplit('_', 1)[1].replace('.jpg', '')))
-    return paths
+    filename = re.compile(re.escape(safe_name) + r"_(0|[1-9][0-9]*)\.jpg")
+    indexed = []
+    for path in glob.glob(pattern):
+        match = filename.fullmatch(os.path.basename(path))
+        if match:
+            indexed.append((int(match.group(1)), path))
+    return [path for _, path in sorted(indexed)]
 
 
 def save_face_image(name, image):
@@ -72,22 +74,32 @@ def save_face_image(name, image):
     # Find next available index
     index = get_face_image_count(name)
     path = os.path.join(IMAGES_DIR, f"{safe_name}_{index}.jpg")
+    while os.path.exists(path):
+        index += 1
+        path = os.path.join(IMAGES_DIR, f"{safe_name}_{index}.jpg")
     cv2.imwrite(path, image)
     return path
 
 
-def delete_all_face_images(name):
+def could_belong_to_other(path, other_names):
+    stem = os.path.splitext(os.path.basename(path))[0]
+    owner, _, index = stem.rpartition('_')
+    return stem in other_names or (re.fullmatch(r"0|[1-9][0-9]*", index) and owner in other_names)
+
+
+def delete_all_face_images(name, other_names):
     """Delete ALL images for a person (including legacy format)."""
     safe_name = get_safe_filename(name)
     
     # Delete new format: name_0.jpg, name_1.jpg, etc.
     for path in get_face_image_paths(name):
-        if os.path.exists(path):
+        if os.path.exists(path) and not could_belong_to_other(path, other_names):
             os.remove(path)
     
     # Delete legacy format: name.jpg (from old code)
     legacy_path = os.path.join(IMAGES_DIR, f"{safe_name}.jpg")
-    if os.path.exists(legacy_path):
+    # A numeric suffix may instead identify an indexed photo of another person.
+    if os.path.exists(legacy_path) and not could_belong_to_other(legacy_path, other_names):
         os.remove(legacy_path)
         print(f"[DB] Deleted legacy image: {legacy_path}")
 
@@ -149,7 +161,7 @@ def remove_face(name):
         del db['encodings'][i]
     
     save_database(db)
-    delete_all_face_images(name)
+    delete_all_face_images(name, {get_safe_filename(n) for n in db['names']})
     
     return len(indices_to_remove)
 
@@ -162,6 +174,12 @@ def remove_face_by_index(name, index):
     indices_for_name = [i for i, n in enumerate(db['names']) if n == name]
     
     if index < 0 or index >= len(indices_for_name):
+        return False
+
+    # Renumbering shared legacy filenames could overwrite another person's photo.
+    others = {get_safe_filename(n) for n in db['names'] if n != name}
+    paths = get_face_image_paths(name)
+    if any(could_belong_to_other(path, others) for path in paths):
         return False
     
     # Get the actual database index

@@ -258,30 +258,7 @@ fun SettingsScreen(
                     options = configuredProviders.map { it.getDisplayName() },
                     selectedOption = getProviderDisplayName(settings.apiProvider),
                     onOptionSelected = { displayName ->
-                        val enumName = getProviderEnumName(displayName)
-                        val isNewProviderXai = enumName == RealtimeApiProvider.XAI.name
-                        val isNewProviderGoogle = enumName == RealtimeApiProvider.GOOGLE_GEMINI.name
-                        viewModel.setApiProvider(enumName)
-                        
-                        // Auto-switch model if current model is not available for new provider
-                        val newModels = when {
-                            isNewProviderGoogle -> googleModels
-                            isNewProviderXai -> xaiModels
-                            else -> openAiModels
-                        }
-                        if (settings.model !in newModels) {
-                            viewModel.setModel(newModels.first())
-                        }
-                        
-                        // Auto-switch voice if current voice is not available for new provider
-                        val newVoices = when {
-                            isNewProviderGoogle -> googleVoices
-                            isNewProviderXai -> xaiVoices
-                            else -> openAiVoices
-                        }
-                        if (settings.voice !in newVoices.keys) {
-                            viewModel.setVoice(newVoices.keys.first())
-                        }
+                        viewModel.setApiProvider(getProviderEnumName(displayName))
                     }
                 )
             }

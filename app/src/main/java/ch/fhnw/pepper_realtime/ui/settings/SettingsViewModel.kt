@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import ch.fhnw.pepper_realtime.manager.SettingsRepository
 import ch.fhnw.pepper_realtime.manager.ConversationLanguage
+import ch.fhnw.pepper_realtime.network.RealtimeApiProvider
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -106,7 +107,7 @@ class SettingsViewModel @Inject constructor(
         if (prompt != settingsRepository.systemPrompt) {
             settingsRepository.systemPrompt = prompt
             _settingsState.update { it.copy(systemPrompt = prompt) }
-            if (isBatchMode) pendingUpdate = true else _updateSessionEvent.value = true
+            onPromptOrToolsChanged()
         }
     }
 
@@ -206,6 +207,14 @@ class SettingsViewModel @Inject constructor(
         if (tools != settingsRepository.enabledTools) {
             settingsRepository.enabledTools = tools
             _settingsState.update { it.copy(enabledTools = tools) }
+            onPromptOrToolsChanged()
+        }
+    }
+
+    private fun onPromptOrToolsChanged() {
+        if (settingsRepository.apiProviderEnum == RealtimeApiProvider.GOOGLE_GEMINI) {
+            triggerGoogleSettingChange()
+        } else {
             if (isBatchMode) pendingUpdate = true else _updateSessionEvent.value = true
         }
     }
