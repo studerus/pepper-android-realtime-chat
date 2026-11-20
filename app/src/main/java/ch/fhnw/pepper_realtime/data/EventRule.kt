@@ -13,7 +13,8 @@ enum class PersonEventType(val displayName: String, val description: String) {
     PERSON_LOOKING("Person Looking", "A person started looking at the robot"),
     PERSON_STOPPED_LOOKING("Person Stopped Looking", "A person stopped looking at the robot"),
     PERSON_APPROACHED_CLOSE("Person Approached Close", "A person came within 1.5 meters"),
-    PERSON_APPROACHED_INTERACTION("Person Approached Interaction", "A person came within 3 meters")
+    PERSON_APPROACHED_INTERACTION("Person Approached Interaction", "A person came within 3 meters"),
+    CONVERSATION_IDLE("Conversation idle", "No user input while listening with an open microphone")
 }
 
 /**
@@ -104,6 +105,14 @@ data class EventRule(
     val cooldownMs: Long = 5000L
 ) {
     companion object {
+        val idleReminder = EventRule(
+            id = "default-conversation-idle",
+            name = "Check in after a conversation pause",
+            eventType = PersonEventType.CONVERSATION_IDLE,
+            actionType = RuleActionType.APPEND_AND_RESPOND,
+            template = "In the current conversation language, briefly ask whether the user wants to continue.",
+            cooldownMs = 90_000L
+        )
         /**
          * Default rules that ship with the app.
          * 
@@ -132,7 +141,8 @@ data class EventRule(
                 actionType = RuleActionType.APPEND_AND_RESPOND,
                 template = "A new person has entered your field of view. They are {distance} away.",
                 cooldownMs = 10000L
-            )
+            ),
+            idleReminder
         )
     }
 }
@@ -142,7 +152,7 @@ data class EventRule(
  */
 data class PersonEvent(
     val type: PersonEventType,
-    val humanId: Int,
+    val humanId: Int? = null,
     val timestamp: Long = System.currentTimeMillis()
 )
 

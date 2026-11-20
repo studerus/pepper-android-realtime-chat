@@ -71,6 +71,16 @@ class RulePersistenceTest {
         return editor
     }
 
+    @Test fun `upgrade adds the idle reminder once without changing or restoring other rules`() {
+        persistence.installIdleDefaultOnUpgrade()
+        val upgraded = persistence.loadRules()
+        assertEquals(listOf("old", EventRule.idleReminder.id), upgraded.map { it.id })
+        assertEquals(EventRule.idleReminder, upgraded.last())
+        persistence.saveRules(upgraded.take(1))
+        RulePersistence(context).installIdleDefaultOnUpgrade()
+        assertEquals(upgraded.take(1), persistence.loadRules())
+    }
+
     private fun reject(json: String, merge: Boolean = false, cause: String? = null) {
         val oldMemory = memory.toMap()
         val oldDisk = disk.toMap()

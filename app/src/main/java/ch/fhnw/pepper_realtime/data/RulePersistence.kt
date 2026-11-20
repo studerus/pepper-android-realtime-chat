@@ -22,10 +22,29 @@ class RulePersistence @Inject constructor(
         private const val PREFS_NAME = "event_rules_prefs"
         private const val KEY_RULES = "rules_json"
         private const val KEY_INITIALIZED = "rules_initialized"
+        private const val KEY_IDLE_DEFAULT_INSTALLED = "idle_default_installed"
     }
 
     private val prefs by lazy {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    }
+
+    @Synchronized
+    fun installIdleDefaultOnUpgrade() {
+        if (prefs.getBoolean(KEY_IDLE_DEFAULT_INSTALLED, false)) return
+        val json = prefs.getString(KEY_RULES, null) ?: return
+        try {
+            val existing = RuleImport.parse(json, allowEmpty = true)
+            val edit = prefs.edit()
+            if (existing.isNotEmpty() && existing.none { it.id == EventRule.idleReminder.id || it.eventType == PersonEventType.CONVERSATION_IDLE }) {
+                val array = JSONArray(json)
+                array.put(JSONArray(rulesToJson(listOf(EventRule.idleReminder))).getJSONObject(0))
+                edit.putString(KEY_RULES, array.toString())
+            }
+            edit.putBoolean(KEY_IDLE_DEFAULT_INSTALLED, true).apply()
+        } catch (e: Exception) {
+            Log.w(TAG, "Leaving existing rules unchanged during idle reminder upgrade", e)
+        }
     }
 
     /**
@@ -62,7 +81,8 @@ class RulePersistence @Inject constructor(
     fun saveRules(rules: List<EventRule>) {
         try {
             val json = rulesToJson(rules)
-            prefs.edit().putString(KEY_RULES, json).putBoolean(KEY_INITIALIZED, true).apply()
+            prefs.edit().putString(KEY_RULES, json).putBoolean(KEY_INITIALIZED, true)
+                .putBoolean(KEY_IDLE_DEFAULT_INSTALLED, true).apply()
             Log.i(TAG, "Saved ${rules.size} rules")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to save rules", e)

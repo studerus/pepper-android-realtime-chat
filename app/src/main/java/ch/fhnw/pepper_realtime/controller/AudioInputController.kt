@@ -36,8 +36,10 @@ class AudioInputController @Inject constructor(
     private val inputRequest = AtomicLong()
     var isMuted: Boolean = false
         private set
-    var isSttRunning: Boolean = false
+    @Volatile var isSttRunning: Boolean = false
         private set
+    val isCapturing: Boolean
+        get() = if (settingsRepository.isUsingRealtimeAudioInput) realtimeAudioInput?.isCapturing == true else isSttRunning
     var sttWarmupStartTime: Long = 0L
         private set
 

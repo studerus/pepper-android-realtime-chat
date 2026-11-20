@@ -180,6 +180,50 @@ class ChatConnectionTest {
         verify(f.network, times(1)).resumeGoogleSession(any(), anyOrNull(), any())
     }
 
+    @Test fun `Gemini client inactivity close resumes but a different policy violation does not`() = runTest {
+        val f = Fixture(this)
+        whenever(f.settings.apiProviderEnum).thenReturn(RealtimeApiProvider.GOOGLE_GEMINI)
+        whenever(f.settings.model).thenReturn("models/gemini-3.1-flash-live-preview")
+        f.controller.connectWebSocket(null)
+        f.acknowledge()
+        f.controller.updateGoogleCheckpoint(GoogleLiveEvents.SessionResumptionUpdate("before-idle", true))
+        f.listeners.last().onClosing(1008, "Session closed due to client inactivity.")
+        advanceTimeBy(1000); runCurrent()
+        verify(f.network).resumeGoogleSession(any(), anyOrNull(), eq("before-idle"))
+        f.acknowledge()
+        f.controller.updateGoogleCheckpoint(GoogleLiveEvents.SessionResumptionUpdate("after-idle", true))
+        f.listeners.last().onClosing(1008, "Permission denied")
+        advanceUntilIdle()
+        verify(f.network, times(1)).resumeGoogleSession(any(), anyOrNull(), any())
+    }
+
+    @Test fun `consecutive idle closes resume the same quiet chat and deliver a touch during reconnect once`() = runTest {
+        val f = Fixture(this)
+        whenever(f.settings.apiProviderEnum).thenReturn(RealtimeApiProvider.GOOGLE_GEMINI)
+        whenever(f.settings.model).thenReturn("models/gemini-3.1-flash-live-preview")
+        whenever(f.viewModel.isResponseGenerating).thenReturn(kotlinx.coroutines.flow.MutableStateFlow(false))
+        whenever(f.viewModel.isAudioPlaying).thenReturn(kotlinx.coroutines.flow.MutableStateFlow(false))
+        whenever(f.network.sendGoogleTextMessage("touch", true)).thenReturn(true)
+        f.controller.connectWebSocket(null)
+        f.acknowledge()
+        val owner = f.registry.current
+        f.controller.updateGoogleCheckpoint(GoogleLiveEvents.SessionResumptionUpdate("saved", true))
+        fun idleClose() = f.listeners.last().onClosing(1008, "Session closed due to client inactivity.")
+        idleClose()
+        advanceTimeBy(1000); runCurrent(); f.acknowledge()
+        idleClose()
+        f.controller.sendMessageToRealtimeAPI("touch", true, true)
+        advanceTimeBy(1000); runCurrent()
+        verify(f.network, times(2)).resumeGoogleSession(any(), anyOrNull(), eq("saved"))
+        verify(f.network, never()).sendGoogleTextMessage("touch", true)
+        f.acknowledge(); runCurrent()
+        assertSame(owner, f.registry.current)
+        verify(f.network).sendGoogleTextMessage("touch", true)
+        whenever(f.network.hasSentConversationInput).thenReturn(true)
+        idleClose(); advanceUntilIdle()
+        verify(f.network, times(2)).resumeGoogleSession(any(), anyOrNull(), any())
+    }
+
     @Test fun `nonresumable Gemini update invalidates the old checkpoint`() = runTest {
         val f = Fixture(this)
         whenever(f.settings.apiProviderEnum).thenReturn(RealtimeApiProvider.GOOGLE_GEMINI)

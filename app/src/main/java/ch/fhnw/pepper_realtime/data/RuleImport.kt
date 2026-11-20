@@ -37,17 +37,20 @@ internal object RuleImport {
             require(ids.add(id)) { "$path: duplicate ID '$id'." }
             val conditions = if (!rule.has("conditions")) JSONArray() else
                 rule.opt("conditions") as? JSONArray ?: invalid("$path.conditions", "expected an array")
-            val cooldown = if (!rule.has("cooldownMs")) 5000L else {
+            val eventType = enumValue<PersonEventType>(string(rule, "eventType", path), "$path.eventType")
+            val idle = eventType == PersonEventType.CONVERSATION_IDLE
+            val cooldown = if (!rule.has("cooldownMs")) (if (idle) EventRule.idleReminder.cooldownMs else 5000L) else {
                 val value = rule.opt("cooldownMs") as? Number ?: invalid("$path.cooldownMs", "expected a nonnegative integer")
                 try { BigDecimal(value.toString()).longValueExact().also { require(it >= 0) } }
                 catch (_: Exception) { invalid("$path.cooldownMs", "expected a nonnegative integer within the supported range") }
             }
+            if (idle && cooldown < 1000L) invalid("$path.cooldownMs", "idle wait must be at least one second")
             EventRule(
                 id = id,
                 name = string(rule, "name", path),
                 enabled = if (!rule.has("enabled")) true else
                     rule.opt("enabled") as? Boolean ?: invalid("$path.enabled", "expected true or false"),
-                eventType = enumValue<PersonEventType>(string(rule, "eventType", path), "$path.eventType"),
+                eventType = eventType,
                 actionType = enumValue<RuleActionType>(string(rule, "actionType", path), "$path.actionType"),
                 template = string(rule, "template", path),
                 cooldownMs = cooldown,

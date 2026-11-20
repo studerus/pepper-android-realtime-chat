@@ -303,6 +303,7 @@ class ChatRealtimeHandler(
     }
 
     override fun onUserSpeechStarted(itemId: String?) {
+        viewModel.markUserSpeech(true)
         viewModel.setStatusText(viewModel.getApplication<android.app.Application>().getString(R.string.status_listening))
         Log.d(TAG, "User speech started (Realtime API): $itemId")
 
@@ -313,7 +314,7 @@ class ChatRealtimeHandler(
     }
 
     override fun onUserSpeechStopped(itemId: String?) {
-        // No action needed
+        viewModel.markUserSpeech(false)
     }
 
     override fun onAudioBufferCommitted(itemId: String?) {
@@ -326,6 +327,7 @@ class ChatRealtimeHandler(
 
     override fun onUserTranscriptCompleted(itemId: String?, transcript: String?) {
         if (!transcript.isNullOrEmpty()) {
+            viewModel.noteUserInput()
             // For Google Live API (itemId is null): append to last user message or create new
             if (itemId == null) {
                 val list = viewModel.messageList.value

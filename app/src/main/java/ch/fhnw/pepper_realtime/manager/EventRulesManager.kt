@@ -58,6 +58,7 @@ class EventRulesManager @Inject constructor(
      */
     @Synchronized
     fun initialize() {
+        rulePersistence.installIdleDefaultOnUpgrade()
         val rules = rulePersistence.loadRules()
         eventRuleEngine.loadRules(rules)
         _state.update { it.copy(rules = rules) }

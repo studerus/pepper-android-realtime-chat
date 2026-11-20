@@ -16,6 +16,13 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import android.os.SystemClock
+import ch.fhnw.pepper_realtime.controller.ConversationIdleTimer
+import ch.fhnw.pepper_realtime.data.PersonEventType
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import dagger.hilt.android.AndroidEntryPoint
 import ch.fhnw.pepper_realtime.R
 import ch.fhnw.pepper_realtime.controller.ChatRealtimeHandler
@@ -160,6 +167,22 @@ class ChatActivity : AppCompatActivity(), ToolHost {
         }
 
         // Collect StateFlows for ViewModel events
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.RESUMED) {
+                viewModel.eventRulesState.map { state ->
+                    state.rules.filter { it.enabled && it.eventType == PersonEventType.CONVERSATION_IDLE }
+                }.distinctUntilChanged().collectLatest { rules ->
+                    if (rules.isEmpty()) return@collectLatest
+                    val timer = ConversationIdleTimer()
+                    while (true) {
+                        timer.tick(SystemClock.elapsedRealtime(), canPromptWhileListening(), viewModel.lastUserInputMs) {
+                            viewModel.eventRuleEngine.evaluateIdle(it) != null
+                        }
+                        delay(1000)
+                    }
+                }
+            }
+        }
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 // Settings events
@@ -334,6 +357,15 @@ class ChatActivity : AppCompatActivity(), ToolHost {
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
     }
+
+    private fun canPromptWhileListening(): Boolean =
+        hasWindowFocus() && sessionManager.isConnected && turnManager.state == TurnManager.State.LISTENING &&
+            viewModel.userWantsMicOn.value && !viewModel.isMuted.value && audioInputController.isCapturing &&
+            !viewModel.userSpeechActive && !viewModel.isAudioPlaying.value && !viewModel.isResponseGenerating.value &&
+            !viewModel.quizState.value.isVisible && !viewModel.ticTacToeState.value.isVisible &&
+            !viewModel.memoryGameState.value.isVisible && !viewModel.drawingGameState.value.isVisible &&
+            !viewModel.melodyPlayerState.value.isVisible && !viewModel.dashboardState.value.isVisible &&
+            !viewModel.navigationState.value.isVisible && !viewModel.eventRulesState.value.isVisible
 
     override fun onStop() {
         super.onStop()

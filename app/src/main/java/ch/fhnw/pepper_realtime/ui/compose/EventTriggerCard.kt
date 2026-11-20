@@ -225,6 +225,7 @@ private fun getActionIcon(actionType: String?): String {
 
 private fun formatEventType(eventType: String?): String {
     return when (eventType) {
+        "CONVERSATION_IDLE" -> "Conversation idle"
         "PERSON_RECOGNIZED" -> "Person Recognized"
         "PERSON_APPEARED" -> "Person Appeared"
         "PERSON_DISAPPEARED" -> "Person Disappeared"
@@ -249,6 +250,7 @@ private fun generateEventSummary(message: ChatMessage): String {
     val personPart = message.eventPersonName?.let { "\"$it\"" } ?: "person"
     
     return when (message.eventType) {
+        "CONVERSATION_IDLE" -> "Conversation pause"
         "PERSON_RECOGNIZED" -> "Recognized $personPart"
         "PERSON_APPEARED" -> "New $personPart detected"
         "PERSON_DISAPPEARED" -> "$personPart left"

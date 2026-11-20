@@ -7,6 +7,7 @@ import ch.fhnw.pepper_realtime.tools.ChatWorkRegistry
 import ch.fhnw.pepper_realtime.tools.OperationScope
 import ch.fhnw.pepper_realtime.manager.NavigationServiceManager
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import ch.fhnw.pepper_realtime.R
 import ch.fhnw.pepper_realtime.di.ApplicationScope
 import ch.fhnw.pepper_realtime.di.IoDispatcher
@@ -65,16 +66,19 @@ class ChatSessionController @Inject constructor(
 
     private class ConnectionAttempt(val session: ChatWorkRegistry.Session, val resumeHandle: String? = null) {
         val callbacks = mutableListOf<WebSocketConnectionCallback>()
+        val resumeReady = resumeHandle?.let { CompletableDeferred<Boolean>() }
         var timeout: Job? = null
     }
     private var connectionAttempt: ConnectionAttempt? = null
     private var checkpointModel: String? = null
     private var checkpoint: String? = null
+    private var idleFallbackHandle: String? = null
     private var transportGeneration = 0L
 
     @Synchronized
     fun updateGoogleCheckpoint(update: GoogleLiveEvents.SessionResumptionUpdate) {
         if (checkpointModel != null) {
+            idleFallbackHandle = null
             checkpoint = update.newHandle?.takeIf { update.resumable == true && it.isNotBlank() }
         }
     }
@@ -97,6 +101,8 @@ class ChatSessionController @Inject constructor(
         val session = workRegistry.current ?: return
         val job = operation.launchIn(applicationScope, ioDispatcher) {
             try {
+                val resume = inActiveOperation(session, operation) { connectionAttempt?.resumeReady }
+                if (resume?.await() == false) return@launchIn
                 if (allowInterrupt && requestResponse) {
                     // Keep waiting events out of the short cancel-to-request transition.
                     messageResponseMutex.withLock {
@@ -460,6 +466,7 @@ class ChatSessionController @Inject constructor(
 
             val headersOrNull = if (headers.isEmpty()) null else headers
             checkpointModel = selectedModel.takeIf { provider.isGoogleProvider() && RealtimeApiProvider.isGemini31Model(it) }
+            idleFallbackHandle = pending.resumeHandle
             if (pending.resumeHandle != null) sessionManager.resumeGoogleSession(url, headersOrNull, pending.resumeHandle)
             else sessionManager.connect(url, headersOrNull)
 
@@ -522,6 +529,8 @@ class ChatSessionController @Inject constructor(
     @Synchronized
     fun stopChatWork() {
         checkpoint = null
+        idleFallbackHandle = null
+        connectionAttempt?.resumeReady?.complete(false)
         checkpointModel = null
         connectionAttempt?.timeout?.cancel()
         connectionAttempt = null
@@ -603,11 +612,15 @@ class ChatSessionController @Inject constructor(
             return
         }
         val session = workRegistry.current
-        val handle = checkpoint
+        val idleTimeout = code == 1008 && reason.trim().removeSuffix(".")
+            .equals("Session closed due to client inactivity", ignoreCase = true)
+        // Gemini may issue no new checkpoint on a completely quiet resumed socket.
+        val handle = checkpoint ?: idleFallbackHandle?.takeIf { idleTimeout && !sessionManager.hasSentConversationInput }
         if (session != null && handle != null && settingsRepository.apiProviderEnum.isGoogleProvider() &&
             settingsRepository.model == checkpointModel && !session.hasPendingCalls() &&
-            (code == null || code in setOf(1000, 1001, 1006, 1011, 1012, 1013))) {
-            checkpoint = null // One attempt per server checkpoint; never loop on a rejected handle.
+            (code == null || code in setOf(1000, 1001, 1006, 1011, 1012, 1013) || idleTimeout)) {
+            checkpoint = null
+            idleFallbackHandle = null
             sessionManager.close(1000, "Replacing Gemini transport")
             setupSessionManagerListeners(session)
             val pending = ConnectionAttempt(session, handle)
@@ -713,5 +726,6 @@ class ChatSessionController @Inject constructor(
             try { callback.onSuccess() }
             catch (error: Exception) { Log.w(TAG, "Connection success callback failed", error) }
         }
+        pending.resumeReady?.complete(true)
     }
 }

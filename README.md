@@ -1022,7 +1022,7 @@ Pepper Head (Python)              Pepper Tablet (Android)
 <a id="event-rules"></a>
 ## ⚡ Event-Based Rule System
 
-The application features a powerful event management system that allows you to define custom rules for automatically sending context updates to the AI model based on robot perception events.
+Event rules send context updates to the model in response to perception events or a pause in the conversation.
 
 ### How to Access
 - **Tap the lightning bolt icon** (⚡) in the top toolbar to open the Event Rules overlay
@@ -1051,6 +1051,13 @@ Rules are evaluated continuously based on perception events and trigger context 
 | `PERSON_STOPPED_LOOKING` | A person stopped looking at the robot |
 | `PERSON_APPROACHED_CLOSE` | A person came within 1.5 meters |
 | `PERSON_APPROACHED_INTERACTION` | A person came within 3 meters (interaction distance) |
+| `CONVERSATION_IDLE` | No user input for the rule's wait time while Pepper is listening with an open microphone |
+
+The enabled **Check in after a conversation pause** rule asks a brief follow-up in the
+conversation language after 90 seconds. It repeats after each further quiet interval.
+Muting, disconnecting, assistant speech, or opening a game, drawing board or YouTube
+player resets the countdown. Edit **Wait** or the message in Event Rules, or disable
+the reminder. It does not require face recognition or automatically end the session.
 
 ### Condition Fields
 Filter rules with additional conditions on these fields:
@@ -1756,6 +1763,8 @@ app/src/
 ### Common Issues
 
 #### Gemini 3.1 Live disconnects during a long conversation
+Muting stops microphone capture and idle reminders; it does not disable touch or perception rules. If Gemini repeatedly closes a quiet connection for inactivity without issuing a new checkpoint, the app can reconnect with the last accepted handle while the resumed connection has received no new client input. Chat events arriving during that handshake wait for setup. No synthetic audio is sent to keep the connection open.
+
 Context window compression (enabled by default) and WebSocket lifetime are independent. For Gemini 3.1 Live the app requests session resumption and keeps the latest usable server checkpoint in memory. On a server rotation or transient transport loss it makes one attempt to resume the same conversation, without replaying audio or tool calls. Audio and context since the last checkpoint may be lost. Without a usable checkpoint, with an outstanding tool call, or if Google refuses the resume, the app reports the disconnect instead of silently starting an empty conversation. Starting a new chat or deliberately disconnecting discards the checkpoint. See [Google's Live session management guide](https://aistudio.google.com/docs/live-api/session-management).
 
 #### Pepper tablet date resets after power-off

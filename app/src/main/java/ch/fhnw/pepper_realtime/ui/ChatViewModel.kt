@@ -64,8 +64,22 @@ class ChatViewModel @Inject constructor(
     // State for partial speech results (streaming STT)
     private val _partialSpeechResult = MutableStateFlow<String?>(null)
     val partialSpeechResult = _partialSpeechResult.asStateFlow()
+    @Volatile var lastUserInputMs: Long = 0
+        private set
+    @Volatile var userSpeechActive: Boolean = false
+        private set
+
+    fun markUserSpeech(active: Boolean) {
+        noteUserInput()
+        userSpeechActive = active
+    }
+
+    fun noteUserInput() {
+        lastUserInputMs = android.os.SystemClock.elapsedRealtime()
+    }
     
     fun setPartialSpeechResult(text: String?) {
+        if (!text.isNullOrBlank()) noteUserInput()
         _partialSpeechResult.value = text
     }
 
@@ -230,6 +244,7 @@ class ChatViewModel @Inject constructor(
     }
 
     fun setUserWantsMicOn(wantsMicOn: Boolean) {
+        if (_userWantsMicOn.value != wantsMicOn) markUserSpeech(false)
         _userWantsMicOn.value = wantsMicOn
     }
 
@@ -415,6 +430,7 @@ class ChatViewModel @Inject constructor(
 
     // Message Management - using StateFlow.update for atomic operations
     fun addMessage(message: ChatMessage) {
+        if (message.sender == ChatMessage.Sender.USER) noteUserInput()
         _messageList.update { current -> current + message }
     }
 

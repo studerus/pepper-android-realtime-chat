@@ -81,6 +81,8 @@ class RealtimeSessionManager internal constructor(private val socketFactory: Web
     private var pendingSetup: PendingSetup? = null
     private var updateAfterSetup = false
     private var resumeSetupHandle: String? = null
+    @Volatile var hasSentConversationInput = false
+        private set
 
     // Connection state tracking - volatile for thread-safe access from callbacks
     @Volatile
@@ -223,6 +225,7 @@ class RealtimeSessionManager internal constructor(private val socketFactory: Web
         synchronized(connectionLock) {
             if (connectionState != ConnectionState.DISCONNECTED) return
             resumeSetupHandle = handle
+            hasSentConversationInput = false
             connectionListener = listener
             connectionConfigCallback = sessionConfigCallback
             myToken = ++connectionToken
@@ -837,6 +840,7 @@ class RealtimeSessionManager internal constructor(private val socketFactory: Web
 
         return try {
             val result = ws.send(text)
+            if (result) hasSentConversationInput = true
             if (!result) {
                 Log.w(TAG, "WebSocket.send() returned false - connection may be broken")
             }

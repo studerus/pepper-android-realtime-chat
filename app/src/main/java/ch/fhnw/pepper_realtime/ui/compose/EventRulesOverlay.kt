@@ -671,7 +671,7 @@ private fun RuleEditorDialog(
                         onValueChange = { 
                             it.toLongOrNull()?.let { secs -> cooldownMs = secs * 1000 }
                         },
-                        label = { Text("Cooldown") },
+                        label = { Text(if (eventType == PersonEventType.CONVERSATION_IDLE) "Wait" else "Cooldown") },
                         suffix = { Text("s") },
                         singleLine = true,
                         modifier = Modifier.weight(0.3f)
@@ -711,6 +711,11 @@ private fun RuleEditorDialog(
                                         }
                                     },
                                     onClick = {
+                                        if (type == PersonEventType.CONVERSATION_IDLE && eventType != type) {
+                                            cooldownMs = EventRule.idleReminder.cooldownMs
+                                            conditions = conditions.filter { it.field.equals("robotState", true) }
+                                            actionType = RuleActionType.APPEND_AND_RESPOND
+                                        }
                                         eventType = type
                                         eventTypeExpanded = false
                                     }
@@ -808,7 +813,8 @@ private fun RuleEditorDialog(
                     modifier = Modifier.fillMaxWidth(),
                     supportingText = {
                         Text(
-                            "{personName} {distance} {age} {gender} {emotion} {robotState} {peopleCount}",
+                            if (eventType == PersonEventType.CONVERSATION_IDLE) "{robotState} {timestamp}"
+                            else "{personName} {distance} {robotState} {peopleCount}",
                             fontSize = 9.sp,
                             color = RulesColors.TextLight
                         )
@@ -831,7 +837,8 @@ private fun RuleEditorDialog(
                     )
                     onSave(newRule)
                 },
-                enabled = name.isNotBlank() && template.isNotBlank()
+                enabled = name.isNotBlank() && template.isNotBlank() &&
+                    (eventType != PersonEventType.CONVERSATION_IDLE || cooldownMs >= 1000L)
             ) {
                 Text(if (isEditing) "Save" else "Create")
             }
@@ -846,6 +853,7 @@ private fun RuleEditorDialog(
     // Condition editor dialog
     if (showConditionDialog) {
         ConditionEditorDialog(
+            idleEvent = eventType == PersonEventType.CONVERSATION_IDLE,
             onDismiss = { showConditionDialog = false },
             onSave = { condition ->
                 conditions = conditions + condition
@@ -858,11 +866,12 @@ private fun RuleEditorDialog(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ConditionEditorDialog(
+    idleEvent: Boolean,
     onDismiss: () -> Unit,
     onSave: (RuleCondition) -> Unit
 ) {
-    var field by remember { mutableStateOf("distance") }
-    var operator by remember { mutableStateOf(ConditionOperator.LESS_THAN) }
+    var field by remember { mutableStateOf(if (idleEvent) "robotState" else "distance") }
+    var operator by remember { mutableStateOf(if (idleEvent) ConditionOperator.EQUALS else ConditionOperator.LESS_THAN) }
     var value by remember { mutableStateOf("") }
     
     var fieldExpanded by remember { mutableStateOf(false) }
@@ -892,7 +901,7 @@ private fun ConditionEditorDialog(
                         expanded = fieldExpanded,
                         onDismissRequest = { fieldExpanded = false }
                     ) {
-                        RuleCondition.availableFields.forEach { (key, info) ->
+                        RuleCondition.availableFields.filterKeys { !idleEvent || it == "robotState" }.forEach { (key, info) ->
                             DropdownMenuItem(
                                 text = { Text("${info.displayName} (${info.type.name.lowercase()})") },
                                 onClick = {

@@ -21,6 +21,7 @@ class ChatTurnListener @Inject constructor(
     }
 
     override fun onEnterListening() {
+        viewModel.markUserSpeech(false)
         try {
             // Check robot readiness
             val qiContext = robotFocusManager.qiContext

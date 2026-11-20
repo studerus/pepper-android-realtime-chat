@@ -83,7 +83,7 @@ class EventRuleEngine @Inject constructor() {
     /**
      * Remove a rule by ID.
      */
-    fun removeRule(ruleId: String) {
+    @Synchronized fun removeRule(ruleId: String) {
         rules = rules.filter { it.id != ruleId }
         lastTriggerTimes.remove(ruleId)
     }
@@ -96,7 +96,13 @@ class EventRuleEngine @Inject constructor() {
         event: PersonEvent,
         humanInfo: PerceptionData.HumanInfo,
         allHumans: List<PerceptionData.HumanInfo>
-    ): MatchedRule? {
+    ): MatchedRule? = evaluate(event, humanInfo, allHumans.size, null)
+
+    fun evaluateIdle(quietMs: Long): MatchedRule? =
+        evaluate(PersonEvent(PersonEventType.CONVERSATION_IDLE), null, 0, quietMs)
+
+    @Synchronized
+    private fun evaluate(event: PersonEvent, humanInfo: PerceptionData.HumanInfo?, peopleCount: Int, quietMs: Long?): MatchedRule? {
         val now = System.currentTimeMillis()
 
         for (rule in rules) {
@@ -105,22 +111,24 @@ class EventRuleEngine @Inject constructor() {
 
             // Check event type match
             if (rule.eventType != event.type) continue
+            if (quietMs != null && quietMs < rule.cooldownMs.coerceAtLeast(1000L)) continue
 
             // Check cooldown
             val lastTrigger = lastTriggerTimes[rule.id] ?: 0L
-            if (now - lastTrigger < rule.cooldownMs) {
+            if (quietMs == null && now - lastTrigger < rule.cooldownMs) {
                 Log.d(TAG, "Rule '${rule.name}' on cooldown (${now - lastTrigger}ms < ${rule.cooldownMs}ms)")
                 continue
             }
 
             // Check all conditions
-            if (!checkConditions(rule, humanInfo, allHumans.size)) {
+            if (!checkConditions(rule, humanInfo, peopleCount)) {
                 Log.d(TAG, "Rule '${rule.name}' conditions not met")
                 continue
             }
 
             // Rule matched!
-            val resolvedTemplate = replacePlaceholders(rule.template, humanInfo, allHumans.size)
+            val resolvedTemplate = if (humanInfo == null) replaceCommonPlaceholders(rule.template)
+                else replacePlaceholders(rule.template, humanInfo, peopleCount)
             lastTriggerTimes[rule.id] = now
 
             Log.i(TAG, "Rule '${rule.name}' matched! Template: $resolvedTemplate")
@@ -141,7 +149,7 @@ class EventRuleEngine @Inject constructor() {
      */
     private fun checkConditions(
         rule: EventRule,
-        humanInfo: PerceptionData.HumanInfo,
+        humanInfo: PerceptionData.HumanInfo?,
         peopleCount: Int
     ): Boolean {
         if (rule.conditions.isEmpty()) return true
@@ -159,10 +167,12 @@ class EventRuleEngine @Inject constructor() {
      */
     private fun checkCondition(
         condition: RuleCondition,
-        humanInfo: PerceptionData.HumanInfo,
+        humanInfo: PerceptionData.HumanInfo?,
         peopleCount: Int
     ): Boolean {
-        val fieldValue = getFieldValue(condition.field, humanInfo, peopleCount)
+        val fieldValue = if (humanInfo != null) getFieldValue(condition.field, humanInfo, peopleCount)
+            else if (condition.field.equals("robotState", ignoreCase = true)) robotStateProvider?.getCurrentState() ?: "UNKNOWN"
+            else return false
 
         return try {
             when (condition.operator) {
@@ -232,8 +242,11 @@ class EventRuleEngine @Inject constructor() {
         result = result.replace("{trackAge}", "${humanInfo.trackAgeMs / 1000}s")
         result = result.replace("{peopleCount}", peopleCount.toString())
 
-        // Robot state
-        result = result.replace("{robotState}", robotStateProvider?.getCurrentState() ?: "unknown")
+        return replaceCommonPlaceholders(result)
+    }
+
+    private fun replaceCommonPlaceholders(template: String): String {
+        var result = template.replace("{robotState}", robotStateProvider?.getCurrentState() ?: "unknown")
 
         // Timestamp
         val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
@@ -245,7 +258,7 @@ class EventRuleEngine @Inject constructor() {
     /**
      * Reset cooldowns for all rules (e.g., after app restart).
      */
-    fun resetCooldowns() {
+    @Synchronized fun resetCooldowns() {
         lastTriggerTimes.clear()
         Log.i(TAG, "All rule cooldowns reset")
     }
