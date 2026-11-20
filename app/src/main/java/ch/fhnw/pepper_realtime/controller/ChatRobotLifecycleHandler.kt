@@ -63,7 +63,7 @@ class ChatRobotLifecycleHandler(
             
             // Proactively start face recognition server on Pepper's head
             // This ensures the server is ready before the first person is detected
-            applicationScope.launch(ioDispatcher) {
+            if (robotContext != null) applicationScope.launch(ioDispatcher) {
                 Log.i(TAG, "Starting face recognition server proactively...")
                 val started = viewModel.localFaceRecognitionService.ensureServerRunning()
                 if (started) {

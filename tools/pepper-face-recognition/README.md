@@ -83,20 +83,18 @@ Additionally, while the CPU is 64-bit, the **Userspace is 32-bit (i386)**.
 - SSH access to Pepper (default: `nao` / `nao`)
 - Pepper on same network as your PC
 
-### Build & Deploy (One-Time)
+### Build & Deploy (Windows PowerShell, One-Time)
 
-```bash
+```powershell
 cd tools/pepper-face-recognition
-
-# Windows (PowerShell)
 .\build.ps1
-.\deploy.ps1 -PepperIP "10.95.65.123"
-
-# macOS / Linux
-chmod +x build.sh deploy.sh
-./build.sh
-./deploy.sh 10.95.65.123
+.\deploy.ps1 -PepperIP "<PEPPER_IP>"
 ```
+
+The legacy shell scripts target the older dlib setup, not the current OpenCV server.
+To run the head-server unit tests without Pepper, use the Python dependencies from
+[the CI workflow](../../.github/workflows/android-ci.yml) and run
+`python -m unittest discover -s tools/pepper-face-recognition/tests -v` from the repository root.
 
 ### Configure Android App
 

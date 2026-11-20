@@ -65,6 +65,8 @@ class MemoryGameManager @Inject constructor() {
      * @return true if game started successfully
      */
     fun startGame(difficulty: String, onUpdate: (message: String, requestResponse: Boolean) -> Unit): Boolean {
+        autoCloseJob?.cancel()
+        mismatchJob?.cancel()
         updateCallback = onUpdate
 
         val totalPairs = when (difficulty.lowercase()) {

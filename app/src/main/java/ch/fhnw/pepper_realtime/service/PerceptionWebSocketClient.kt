@@ -37,7 +37,19 @@ import javax.inject.Singleton
  * - ping: Keep-alive
  */
 @Singleton
-class PerceptionWebSocketClient @Inject constructor() {
+class PerceptionWebSocketClient internal constructor(
+    private val client: WebSocket.Factory,
+    private val scope: CoroutineScope
+) {
+    @Inject constructor() : this(
+        OkHttpClient.Builder()
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(0, TimeUnit.MILLISECONDS)
+            .writeTimeout(10, TimeUnit.SECONDS)
+            .pingInterval(30, TimeUnit.SECONDS)
+            .build(),
+        CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    )
 
     companion object {
         private const val TAG = "PerceptionWS"
@@ -69,14 +81,6 @@ class PerceptionWebSocketClient @Inject constructor() {
     private var shouldReconnect = false
     private var reconnectJob: Job? = null
     private var pingJob: Job? = null
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(0, TimeUnit.MILLISECONDS) // No timeout for WebSocket
-        .writeTimeout(10, TimeUnit.SECONDS)
-        .pingInterval(30, TimeUnit.SECONDS)
-        .build()
 
     enum class ConnectionState {
         DISCONNECTED,
@@ -135,7 +139,7 @@ class PerceptionWebSocketClient @Inject constructor() {
     /**
      * Set the IP address of Pepper's head.
      */
-    fun setPepperHeadIp(ip: String) {
+    @Synchronized fun setPepperHeadIp(ip: String) {
         pepperHeadIp = ip
         Log.i(TAG, "Pepper head IP set to: $ip")
     }
@@ -143,13 +147,14 @@ class PerceptionWebSocketClient @Inject constructor() {
     /**
      * Connect to the WebSocket server.
      */
-    fun connect() {
+    @Synchronized fun connect() {
         if (_connectionState.value == ConnectionState.CONNECTING || 
             _connectionState.value == ConnectionState.CONNECTED) {
             Log.d(TAG, "Already connected or connecting")
             return
         }
 
+        reconnectJob?.cancel()
         shouldReconnect = true
         doConnect()
     }
@@ -165,34 +170,39 @@ class PerceptionWebSocketClient @Inject constructor() {
             .build()
 
         webSocket = client.newWebSocket(request, object : WebSocketListener() {
-            override fun onOpen(webSocket: WebSocket, response: Response) {
+            override fun onOpen(webSocket: WebSocket, response: Response) = withCurrent(webSocket) {
                 Log.i(TAG, "WebSocket connected")
                 _connectionState.value = ConnectionState.CONNECTED
                 startPingLoop()
             }
 
-            override fun onMessage(webSocket: WebSocket, text: String) {
+            override fun onMessage(webSocket: WebSocket, text: String) = withCurrent(webSocket) {
                 handleMessage(text)
             }
 
-            override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+            override fun onClosing(webSocket: WebSocket, code: Int, reason: String) = withCurrent(webSocket) {
                 Log.i(TAG, "WebSocket closing: $code $reason")
                 webSocket.close(1000, null)
             }
 
-            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) = withCurrent(webSocket) {
                 Log.i(TAG, "WebSocket closed: $code $reason")
                 handleDisconnect()
             }
 
-            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) = withCurrent(webSocket) {
                 Log.e(TAG, "WebSocket failure: ${t.message}")
                 handleDisconnect()
             }
         })
     }
 
+    private inline fun withCurrent(socket: WebSocket, action: () -> Unit) {
+        synchronized(this) { if (webSocket === socket) action() }
+    }
+
     private fun handleDisconnect() {
+        webSocket = null
         _connectionState.value = ConnectionState.DISCONNECTED
         pingJob?.cancel()
         
@@ -205,9 +215,11 @@ class PerceptionWebSocketClient @Inject constructor() {
         reconnectJob?.cancel()
         reconnectJob = scope.launch {
             delay(RECONNECT_DELAY_MS)
-            if (shouldReconnect && _connectionState.value == ConnectionState.DISCONNECTED) {
-                Log.i(TAG, "Attempting reconnect...")
-                doConnect()
+            synchronized(this@PerceptionWebSocketClient) {
+                if (isActive && shouldReconnect && _connectionState.value == ConnectionState.DISCONNECTED) {
+                    Log.i(TAG, "Attempting reconnect...")
+                    doConnect()
+                }
             }
         }
     }
@@ -225,12 +237,13 @@ class PerceptionWebSocketClient @Inject constructor() {
     /**
      * Disconnect from the WebSocket server.
      */
-    fun disconnect() {
+    @Synchronized fun disconnect() {
         shouldReconnect = false
         reconnectJob?.cancel()
         pingJob?.cancel()
-        webSocket?.close(1000, "Client disconnect")
+        val previous = webSocket
         webSocket = null
+        previous?.close(1000, "Client disconnect")
         _connectionState.value = ConnectionState.DISCONNECTED
         Log.i(TAG, "Disconnected")
     }
@@ -238,7 +251,7 @@ class PerceptionWebSocketClient @Inject constructor() {
     /**
      * Send a message to the server.
      */
-    private fun sendMessage(message: JSONObject): Boolean {
+    @Synchronized private fun sendMessage(message: JSONObject): Boolean {
         val ws = webSocket
         if (ws == null || _connectionState.value != ConnectionState.CONNECTED) {
             Log.w(TAG, "Cannot send message: not connected")

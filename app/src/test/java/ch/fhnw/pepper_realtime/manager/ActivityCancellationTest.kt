@@ -2,6 +2,8 @@ package ch.fhnw.pepper_realtime.manager
 
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import org.junit.Assert.*
 import org.junit.Test
@@ -68,6 +70,41 @@ class ActivityCancellationTest {
         assertEquals(1, updates.size)
         assertTrue(updates.single().first.contains("Memory"))
         assertTrue(updates.single().second)
+    }
+
+    @Test
+    fun `starting memory again cancels the previous mismatch and auto close`() = runTest {
+        val game = MemoryGameManager().apply { setCoroutineScope(backgroundScope) }
+        fun start() = game.startGame("easy") { _, _ -> }
+        start()
+        val old = game.state.value.cards
+        game.onCardClick(old.first().id)
+        game.onCardClick(old.first { it.symbol != old.first().symbol }.id)
+        runCurrent()
+        start()
+        val first = game.state.value.cards.first()
+        game.onCardClick(first.id)
+        advanceTimeBy(1600); runCurrent()
+        assertTrue(game.state.value.cards.first().isFlipped)
+        game.onCardClick(game.state.value.cards.first { it.id != first.id && it.symbol == first.symbol }.id)
+        game.state.value.cards.filterNot { it.isMatched }.groupBy { it.symbol }.values.forEach { pair ->
+            pair.forEach { game.onCardClick(it.id) }
+        }
+        assertFalse(game.state.value.isGameActive)
+        runCurrent()
+        start()
+        advanceTimeBy(5100); runCurrent()
+        assertTrue(game.state.value.isVisible && game.state.value.isGameActive)
+        game.dismissGame()
+    }
+
+    @Test
+    fun `session cleanup silently dismisses an unanswered quiz`() {
+        val quiz = QuizGameManager()
+        quiz.showQuiz("Q", listOf("A", "B"), "A", { fail("Not closed by the user") }) { _, _ -> fail() }
+        quiz.dismissQuiz()
+        quiz.onAnswerSelected("A")
+        assertFalse(quiz.state.value.isVisible)
     }
 
     @Test

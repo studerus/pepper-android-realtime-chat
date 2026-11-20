@@ -59,7 +59,7 @@ class QuizTool : Tool {
         if (context.hasUi()) {
             val activity = context.activity as? ChatActivity ?: return JSONObject().put("error", "No UI available").toString()
             context.toolHost.runOnUiThread {
-            context.operation?.let { owner -> activity.viewModel.ownChatActivity("quiz", owner) { activity.viewModel.cancelQuiz() } }
+                context.operation?.let { owner -> activity.viewModel.ownChatActivity("quiz", owner) { activity.viewModel.dismissQuiz() } }
                 if (!activity.isFinishing) {
                     activity.viewModel.showQuiz(
                         question = question,

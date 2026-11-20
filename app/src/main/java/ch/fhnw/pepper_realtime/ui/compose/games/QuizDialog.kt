@@ -16,6 +16,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.Color
 import ch.fhnw.pepper_realtime.ui.compose.ChatColors
 import androidx.compose.ui.text.font.FontWeight
@@ -74,6 +75,8 @@ fun QuizDialog(
         modifier = modifier
             .fillMaxSize()
             .background(ChatColors.Background)
+            // Make the overlay a hit target without consuming its children's gestures.
+            .pointerInput(Unit) {}
     ) {
         Column(
             modifier = Modifier

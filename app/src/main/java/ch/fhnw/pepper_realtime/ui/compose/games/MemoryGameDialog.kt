@@ -16,6 +16,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
@@ -52,6 +53,8 @@ fun MemoryGameDialog(
         modifier = modifier
             .fillMaxSize()
             .background(MemoryColors.Background)
+            // Make the overlay a hit target without consuming its children's gestures.
+            .pointerInput(Unit) {}
         ) {
             Column(
                 modifier = Modifier

@@ -245,8 +245,8 @@ Both flavors share the same core conversational AI system but differ in hardware
 
 **Option B: From Git (when publicly available)**
 ```bash
-git clone https://github.com/[ANONYMIZED]/pepper-realtime-conversation.git
-cd pepper-realtime-conversation
+git clone https://github.com/studerus/pepper-android-realtime-chat.git
+cd pepper-android-realtime-chat
 ```
 
 **Create configuration file:**
@@ -445,21 +445,15 @@ For **local face recognition** on Pepper (identify people by name without cloud 
 - Docker installed on your PC
 - SSH access to Pepper (default password: `nao`)
 
-#### Quick Setup
+#### Quick Setup (Windows PowerShell)
 
-```bash
+```powershell
 cd tools/pepper-face-recognition
-
-# Build packages (Windows)
 .\build.ps1
-
-# Build packages (Linux/macOS)
-./build.sh
-
-# Deploy to Pepper
-.\deploy.ps1 -PepperIP "<PEPPER_IP>"   # Windows
-./deploy.sh <PEPPER_IP>                 # Linux/macOS
+.\deploy.ps1 -PepperIP "<PEPPER_IP>"
 ```
+
+The legacy shell scripts target the older dlib setup; do not use them to deploy the current OpenCV server.
 
 #### Configure SSH Password
 
