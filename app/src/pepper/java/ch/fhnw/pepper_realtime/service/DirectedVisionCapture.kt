@@ -30,14 +30,17 @@ internal class VisionAlignmentException(message: String) : IllegalStateException
 internal object DirectedVisionCapture {
     private val captureMutex = Mutex()
 
+    data class Photo(val image: TimestampedImageHandle, val alignmentNote: String?)
+
     fun targetFrame(context: QiContext, x: Double, y: Double, z: Double): Frame {
         val target = context.mapping.makeFreeFrame()
         target.update(context.actuation.robotFrame(), TransformBuilder.create().fromTranslation(Vector3(x, y, z)), 0L)
         return target.frame()
     }
 
-    suspend fun capture(context: QiContext, camera: Future<TakePicture>, target: VisionLookTarget?): TimestampedImageHandle = captureMutex.withLock {
+    suspend fun capture(context: QiContext, camera: Future<TakePicture>, target: VisionLookTarget?): Photo = captureMutex.withLock {
         var gaze: Future<Void>? = null
+        var alignmentNote: String? = null
         try {
             val action = withTimeout(5000) { camera.awaitResult() }
             if (target != null) {
@@ -58,7 +61,7 @@ internal object DirectedVisionCapture {
                         }
                         started.await()
                         Log.i("DirectedVisionCapture", "Head movement started for $target t_ms=${SystemClock.elapsedRealtime()}")
-                        waitForCaptureReady(context, frame, gaze!!, readiness)
+                        alignmentNote = waitForCaptureReady(context, frame, gaze!!, readiness)
                     } finally {
                         look.async().removeOnStartedListener(listener)
                     }
@@ -73,13 +76,13 @@ internal object DirectedVisionCapture {
             val image = withTimeout(5000) { action.async().run().awaitResult() }
             check(gaze?.isDone != true) { "Head movement interrupted during capture; image discarded" }
             Log.i("DirectedVisionCapture", "Image received t_ms=${SystemClock.elapsedRealtime()}")
-            image
+            Photo(image, alignmentNote)
         } finally {
             gaze?.requestCancellation()
         }
     }
 
-    private suspend fun waitForCaptureReady(context: QiContext, frame: Frame, gaze: Future<Void>, readiness: VisionCaptureReadiness) {
+    private suspend fun waitForCaptureReady(context: QiContext, frame: Frame, gaze: Future<Void>, readiness: VisionCaptureReadiness): String? {
         val gazeFrame = context.actuation.gazeFrame()
         var lastLogAt = 0L
         while (true) {
@@ -92,7 +95,10 @@ internal object DirectedVisionCapture {
                 lastLogAt = now
             }
             when (decision) {
-                VisionCaptureReadiness.Decision.CAPTURE -> return
+                VisionCaptureReadiness.Decision.CAPTURE -> return null
+                VisionCaptureReadiness.Decision.CAPTURE_PARTIAL -> return "Partial view: the head turned toward the target " +
+                        "but the requested point is not confirmed in the photo. " +
+                        "${bearingDescription(readiness)}. Describe only what is visible."
                 VisionCaptureReadiness.Decision.OUTSIDE_VIEW -> throw VisionAlignmentException(
                     "The head has stopped, but the requested point is outside the conservative camera viewing region. " +
                         "${bearingDescription(readiness)}. No photo was taken; this is not a camera failure. " +

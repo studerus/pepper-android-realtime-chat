@@ -119,14 +119,7 @@ class MovePepperTool : Tool {
                     val isObstacleError = isObstacleRelatedError(error)
                     Log.i(TAG, "Movement error: '$error' -> obstacle-related: $isObstacleError")
                     if (isObstacleError) {
-                        messageBuilder.append(
-                            String.format(
-                                Locale.US,
-                                " Use vision analysis to identify what is blocking your path - " +
-                                        "look around your current position, starting with (%.2f, %.2f, %.2f) in front of you, to see what obstacles are nearby.",
-                                1.0, 0.0, 0.0
-                            )
-                        ) // Always look 1m forward from current position
+                        messageBuilder.append(' ').append(OBSTACLE_VISION_HINT)
                     }
 
                     message = messageBuilder.toString()

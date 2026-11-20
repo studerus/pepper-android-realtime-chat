@@ -144,7 +144,8 @@ class AnalyzeVisionTool : Tool {
                             "Analyze the attached photo.$contextMessage").toString()
                     } else if (status == "sent_to_realtime") {
                         val contextMessage = context.appContext.getString(R.string.vision_context_suffix)
-                        finalResult = JSONObject()
+                        resultJson.remove("status")
+                        finalResult = resultJson
                             .put("description", "A photo has been sent for you to analyze.$contextMessage")
                             .toString()
                     }

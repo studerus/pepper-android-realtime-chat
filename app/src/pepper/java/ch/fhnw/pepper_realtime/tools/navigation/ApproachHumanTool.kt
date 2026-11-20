@@ -121,7 +121,7 @@ class ApproachHumanTool : Tool {
                 Log.i("ApproachHumanTool", "Human temporarily unreachable - sending status update")
                 context.sendAsyncUpdate(
                     "[APPROACH INTERRUPTED] Pepper cannot reach the person. The path may be blocked by obstacles. " +
-                            "Use vision analysis to identify what is blocking your path - look around your current position, starting with (1.0, 0.0, 0.0) in front of you, to see what obstacles are nearby.",
+                            OBSTACLE_VISION_HINT,
                     true
                 )
             }
@@ -171,14 +171,7 @@ class ApproachHumanTool : Tool {
                     val isObstacleError = isObstacleRelatedApproachError(error)
                     Log.i("ApproachHumanTool", "Approach error: '$error' -> obstacle-related: $isObstacleError")
                     if (isObstacleError) {
-                        messageBuilder.append(
-                            String.format(
-                                Locale.US,
-                                " Use vision analysis to identify what is blocking your path - " +
-                                        "look around your current position, starting with (%.2f, %.2f, %.2f) in front of you, to see what obstacles are nearby.",
-                                1.0, 0.0, 0.0
-                            )
-                        ) // Always look 1m forward from current position
+                        messageBuilder.append(' ').append(OBSTACLE_VISION_HINT)
                     }
 
                     message = messageBuilder.toString()

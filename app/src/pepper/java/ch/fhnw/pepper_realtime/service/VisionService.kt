@@ -106,10 +106,10 @@ class VisionService(context: Context) {
         // Execute on IO dispatcher to avoid blocking QiSDK MainEventLoop
         serviceScope.launch {
             try {
-                val timestampedImageHandle = DirectedVisionCapture.capture(qiContext!!, action, lookAt)
+                val photo = DirectedVisionCapture.capture(qiContext!!, action, lookAt)
                 run {
                         try {
-                            val bitmap = convertToBitmap(timestampedImageHandle)
+                            val bitmap = convertToBitmap(photo.image)
                             if (bitmap == null) {
                                 working = false
                                 callback.onError("Failed to convert robot camera image")
@@ -156,6 +156,7 @@ class VisionService(context: Context) {
                                             working = false
                                             callback.onResult(JSONObject()
                                                 .put("status", "tool_response_image")
+                                                .putOpt("alignment_note", photo.alignmentNote)
                                                 .put("base64", base64)
                                                 .put("mimeType", "image/jpeg")
                                                 .toString())
@@ -164,23 +165,25 @@ class VisionService(context: Context) {
                                             val sentItem = sm.sendGoogleImageMessage(base64, "image/jpeg")
                                             if (!sentItem) throw IllegalStateException("Failed to send image message")
                                             working = false
-                                            callback.onResult(JSONObject().put("status", "sent_to_realtime").toString())
+                                            callback.onResult(JSONObject().put("status", "sent_to_realtime")
+                                                .putOpt("alignment_note", photo.alignmentNote).toString())
                                         } else {
                                             Log.d(TAG, "Sending image to OpenAI Realtime API")
                                             val sentItem = sm.sendUserImageMessage(base64, "image/jpeg")
                                             if (!sentItem) throw IllegalStateException("Failed to send image message")
                                             working = false
-                                            callback.onResult(JSONObject().put("status", "sent_to_realtime").toString())
+                                            callback.onResult(JSONObject().put("status", "sent_to_realtime")
+                                                .putOpt("alignment_note", photo.alignmentNote).toString())
                                         }
                                     } catch (e: Exception) {
                                         Log.e(TAG, "Failed to send image to realtime API, falling back to Groq", e)
-                                        analyzeWithGroq(base64, prompt, apiKey, callback)
+                                        analyzeWithGroq(base64, prompt, apiKey, callback, photo.alignmentNote)
                                     }
                                 }
                             } else {
                                 // Offload network analysis to coroutine (Groq path)
                                 serviceScope.launch {
-                                    analyzeWithGroq(base64, prompt, apiKey, callback)
+                                    analyzeWithGroq(base64, prompt, apiKey, callback, photo.alignmentNote)
                                 }
                             }
                         } catch (e: Exception) {
@@ -290,7 +293,7 @@ class VisionService(context: Context) {
         return Bitmap.createScaledBitmap(original, newWidth, newHeight, true)
     }
 
-    private fun analyzeWithGroq(base64Jpeg: String, prompt: String, apiKey: String, callback: Callback) {
+    private fun analyzeWithGroq(base64Jpeg: String, prompt: String, apiKey: String, callback: Callback, alignmentNote: String?) {
         try {
             val body = JSONObject().apply {
                 put("model", "meta-llama/llama-4-scout-17b-16e-instruct")
@@ -300,7 +303,7 @@ class VisionService(context: Context) {
                         put("content", JSONArray().apply {
                             put(JSONObject().apply {
                                 put("type", "text")
-                                put("text", if (prompt.isNotEmpty()) prompt else "What's in this image?")
+                                put("text", listOfNotNull(prompt.ifEmpty { "What's in this image?" }, alignmentNote).joinToString("\n"))
                             })
                             put(JSONObject().apply {
                                 put("type", "image_url")
@@ -356,7 +359,7 @@ class VisionService(context: Context) {
 
                 if (description.isEmpty()) description = "No description returned."
 
-                val result = JSONObject().put("description", description)
+                val result = JSONObject().put("description", description).putOpt("alignment_note", alignmentNote)
                 callback.onResult(result.toString())
             }
         } catch (e: Exception) {

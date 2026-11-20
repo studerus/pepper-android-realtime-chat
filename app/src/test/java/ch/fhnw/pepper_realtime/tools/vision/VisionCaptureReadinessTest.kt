@@ -58,13 +58,28 @@ class VisionCaptureReadinessTest {
         assertEquals(CAPTURE, sample(tracker, 1500, yaw = 20.0))
     }
 
-    @Test fun `stalled floor target outside view fails before ten seconds`() {
+    @Test fun `floor target outside inner region yields partial photo only after downward movement settles`() {
         val tracker = VisionCaptureReadiness()
         sample(tracker, 0, pitch = -50.0)
         sample(tracker, 500, pitch = -25.0)
         assertEquals(WAIT, sample(tracker, 1000, pitch = -25.0))
-        assertEquals(OUTSIDE_VIEW, sample(tracker, 1500, pitch = -25.0))
+        assertEquals(CAPTURE_PARTIAL, sample(tracker, 1500, pitch = -25.0))
         assertEquals(-25.0, tracker.lastBearing!!.verticalDegrees, 0.001)
+    }
+
+    @Test fun `partial view also works for lateral targets but rejects twitches and wrong direction`() {
+        for ((start, end, expected) in listOf(
+            Triple(60.0, 30.0, CAPTURE_PARTIAL),
+            Triple(-60.0, -30.0, CAPTURE_PARTIAL),
+            Triple(60.0, 54.0, OUTSIDE_VIEW),
+            Triple(45.0, 55.0, OUTSIDE_VIEW)
+        )) {
+            val tracker = VisionCaptureReadiness()
+            sample(tracker, 0, yaw = start)
+            sample(tracker, 400, yaw = end)
+            assertEquals(WAIT, sample(tracker, 1100, yaw = end))
+            assertEquals(expected, sample(tracker, 1500, yaw = end))
+        }
     }
 
     @Test fun `view boundary and behind targets are not captured`() {

@@ -2,10 +2,11 @@ package ch.fhnw.pepper_realtime.tools.vision
 
 import kotlin.math.abs
 import kotlin.math.atan2
+import kotlin.math.hypot
 
 /** Readiness from successive target bearings in the moving gaze frame, after LookAt starts. */
 class VisionCaptureReadiness {
-    enum class Decision { WAIT, CAPTURE, OUTSIDE_VIEW }
+    enum class Decision { WAIT, CAPTURE, CAPTURE_PARTIAL, OUTSIDE_VIEW }
 
     data class Bearing(val horizontalDegrees: Double, val verticalDegrees: Double, val inFront: Boolean) {
         // Conservative inner region, not a calibrated camera projection. Leave margin for
@@ -26,6 +27,7 @@ class VisionCaptureReadiness {
         private set
     private var firstSampleAt: Long? = null
     private var initialBearing: Bearing? = null
+    private var initialAngle = 0.0
     private var stableAnchor: Bearing? = null
     private var stableSince = 0L
     private var sampleCount = 0
@@ -39,6 +41,7 @@ class VisionCaptureReadiness {
             return Decision.WAIT
         }
         val bearing = Bearing(Math.toDegrees(atan2(y, x)), Math.toDegrees(atan2(z, x)), x > 0)
+        val angle = Math.toDegrees(atan2(hypot(y, z), x))
         lastBearing = bearing
         // LookAt is already running and will keep tracking throughout capture.
         // A centered target needs no additional settling window; off-center ones do.
@@ -46,6 +49,7 @@ class VisionCaptureReadiness {
         if (firstSampleAt == null) {
             firstSampleAt = nowMs
             initialBearing = bearing
+            initialAngle = angle
         }
         if (bearing.difference(initialBearing!!) > 1.0) movementObserved = true
         val anchor = stableAnchor
@@ -61,6 +65,10 @@ class VisionCaptureReadiness {
         if (bearing.withinView && sampleCount >= 3 && stableFor >= 250 &&
             (movementObserved || elapsed >= 1500)) return Decision.CAPTURE
         if (!bearing.withinView && sampleCount >= 3 && stableFor >= 800 && elapsed >= 1500) {
+            // A small twitch towards a distant target is not a directed photo.
+            if (bearing.inFront && initialAngle - angle >= maxOf(5.0, initialAngle / 3)) {
+                return Decision.CAPTURE_PARTIAL
+            }
             return Decision.OUTSIDE_VIEW
         }
         return Decision.WAIT
