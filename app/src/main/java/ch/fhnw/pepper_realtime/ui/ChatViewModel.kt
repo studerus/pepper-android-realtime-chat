@@ -369,12 +369,12 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    fun onDrawingChanged(bitmap: android.graphics.Bitmap) {
-        drawingGameManager.onDrawingChanged(bitmap)
+    fun onDrawingChanged(snapshot: suspend () -> String) {
+        drawingGameManager.onDrawingChanged(snapshot)
     }
 
-    fun clearDrawingCanvas() {
-        drawingGameManager.clearCanvas()
+    fun clearDrawingCanvas(blank: suspend () -> String) {
+        drawingGameManager.clearCanvas(blank)
     }
 
     fun dismissDrawingGame() {

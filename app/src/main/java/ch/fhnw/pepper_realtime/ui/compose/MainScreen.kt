@@ -345,8 +345,8 @@ fun MainScreen(
                 if (drawingState.isVisible) {
                     DrawingCanvasDialog(
                         state = drawingState,
-                        onDrawingChanged = { bitmap -> viewModel.onDrawingChanged(bitmap) },
-                        onClear = { viewModel.clearDrawingCanvas() },
+                        onDrawingChanged = viewModel::onDrawingChanged,
+                        onClear = viewModel::clearDrawingCanvas,
                         onDismiss = { viewModel.dismissDrawingGame() }
                     )
                 }

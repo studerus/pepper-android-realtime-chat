@@ -1352,14 +1352,14 @@ Draw on the tablet and let the AI guess what you drew.
 ```bash
 User: "Let's play a drawing game"
 # Canvas opens - draw with your finger
-# After 2 seconds of inactivity, drawing is sent to AI
+# After an 800 ms pause, the latest drawing is sent silently to the AI
 User: "What did I draw?"
 Robot: "That looks like a cat!"
 ```
 
 #### Features
 - **Touch Canvas**: Freehand drawing with smooth strokes
-- **Smart Detection**: Auto-sends after 2 seconds of inactivity
+- **Drawing updates**: Sends changed drawings after 800 ms without movement, with intermediate snapshots about every 2 seconds during continuous drawing, including unfinished strokes.
 - **Parallel Chat**: Talk while drawing - ask anytime
 - **Topic Support**: AI can suggest what to draw
 

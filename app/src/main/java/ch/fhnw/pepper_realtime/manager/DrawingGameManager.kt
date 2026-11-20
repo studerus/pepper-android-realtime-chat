@@ -1,190 +1,117 @@
 package ch.fhnw.pepper_realtime.manager
 
-import android.graphics.Bitmap
-import android.util.Base64
+import android.os.SystemClock
 import android.util.Log
 import ch.fhnw.pepper_realtime.ui.DrawingGameState
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.io.ByteArrayOutputStream
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/**
- * Manages Drawing game state and logic.
- * Handles inactivity detection and sends drawing to Realtime API context.
- */
 @Singleton
-class DrawingGameManager @Inject constructor() {
+class DrawingGameManager internal constructor(private val nowMs: () -> Long) {
+    @Inject constructor() : this(SystemClock::uptimeMillis)
 
-    companion object {
-        private const val TAG = "DrawingGameManager"
-        private const val INACTIVITY_TIMEOUT_MS = 2000L
-        private const val IMAGE_SIZE = 512
+    private companion object {
+        const val PAUSE_MS = 800L
+        const val PREVIEW_MS = 2000L
     }
 
-    // UI State
     private val _state = MutableStateFlow(DrawingGameState())
-    val state: StateFlow<DrawingGameState> = _state.asStateFlow()
+    val state = _state.asStateFlow()
 
-    // Current drawing bitmap
-    private var currentBitmap: Bitmap? = null
-
-    // Callback for sending images to the API
-    private var imageSendCallback: ((base64: String, mime: String) -> Boolean)? = null
+    private var imageSendCallback: ((String, String) -> Boolean)? = null
     private var closeCallback: (() -> Unit)? = null
-
-    // Coroutine management
-    private var inactivityJob: Job? = null
     private var coroutineScope: CoroutineScope? = null
+    private var worker: Job? = null
+    private var lastEdit: Long? = null
+    private var nextPreview = 0L
+    private var pending: (suspend () -> String)? = null
+    private var lastSentImage: String? = null
 
-    /**
-     * Set the coroutine scope for background operations.
-     * Should be called with viewModelScope from the ViewModel.
-     */
-    fun setCoroutineScope(scope: CoroutineScope) {
-        coroutineScope = scope
-    }
+    fun setCoroutineScope(scope: CoroutineScope) { coroutineScope = scope }
 
-    /**
-     * Set the callback for sending images to the API.
-     * @param callback Function that sends base64 image with mime type, returns success
-     */
     fun setImageSendCallback(callback: (base64: String, mime: String) -> Boolean) {
         imageSendCallback = callback
     }
 
-    /**
-     * Start the drawing game.
-     * @param topic Optional topic for the drawing (e.g., "Draw an animal")
-     * @return true if game started successfully
-     */
     fun startGame(topic: String?, onClosed: () -> Unit = {}): Boolean {
+        cancelPending()
+        lastSentImage = null
         closeCallback = onClosed
-        _state.value = DrawingGameState(
-            isVisible = true,
-            topic = topic?.takeIf { it.isNotBlank() }
-        )
-        currentBitmap = null
-        Log.i(TAG, "Drawing game started with topic: ${topic ?: "(free drawing)"}")
+        _state.value = DrawingGameState(isVisible = true, topic = topic?.takeIf { it.isNotBlank() })
         return true
     }
 
-    /**
-     * Called when the user draws on the canvas.
-     * Resets the inactivity timer and stores the current bitmap.
-     * @param bitmap The current canvas bitmap
-     */
-    fun onDrawingChanged(bitmap: Bitmap) {
-        // Recycle old bitmap to prevent memory leak
-        recycleBitmap()
-        currentBitmap = bitmap
-        _state.update { it.copy(hasUnsavedChanges = true) }
-
-        // Cancel existing timer and start new one
-        inactivityJob?.cancel()
-        inactivityJob = coroutineScope?.launch {
-            delay(INACTIVITY_TIMEOUT_MS)
-            sendDrawingToContext()
+    // Main-thread only. One worker coalesces edits, including edits made during encoding.
+    fun onDrawingChanged(snapshot: suspend () -> String) {
+        if (!state.value.isVisible) return
+        val now = nowMs()
+        val previous = lastEdit
+        if (previous == null || now - previous >= PAUSE_MS) nextPreview = now + PREVIEW_MS
+        lastEdit = now
+        pending = snapshot
+        if (!state.value.hasUnsavedChanges) _state.update { it.copy(hasUnsavedChanges = true) }
+        if (worker?.isActive == true) return
+        worker = coroutineScope?.launch {
+            while (pending != null) {
+                val wait = minOf(requireNotNull(lastEdit) + PAUSE_MS, nextPreview) - nowMs()
+                if (wait > 0) {
+                    delay(wait)
+                    continue
+                }
+                val capture = pending ?: break
+                pending = null
+                nextPreview = nowMs() + PREVIEW_MS
+                try {
+                    val image = capture()
+                    ensureActive()
+                    if (image == lastSentImage) {
+                        _state.update { it.copy(hasUnsavedChanges = pending != null) }
+                    } else if (imageSendCallback?.invoke(image, "image/png") == true) {
+                        lastSentImage = image
+                        _state.update { it.copy(hasUnsavedChanges = pending != null, lastSentTimestamp = System.currentTimeMillis()) }
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.e("DrawingGameManager", "Cannot send drawing snapshot", e)
+                }
+            }
         }
     }
 
-    /**
-     * Clear the canvas and reset state.
-     */
-    fun clearCanvas() {
-        inactivityJob?.cancel()
-        recycleBitmap()
+    fun clearCanvas(blank: suspend () -> String) {
+        cancelPending()
         _state.update { it.copy(hasUnsavedChanges = false) }
-        Log.i(TAG, "Canvas cleared")
+        if (lastSentImage != null) onDrawingChanged(blank)
     }
 
-    /**
-     * Dismiss the drawing game dialog and reset state.
-     */
+    private fun cancelPending() {
+        worker?.cancel()
+        worker = null
+        pending = null
+        lastEdit = null
+    }
+
     fun cancelGame() {
-        val wasVisible = _state.value.isVisible
+        val wasVisible = state.value.isVisible
         val callback = closeCallback
         dismissGame()
         if (wasVisible) callback?.invoke()
     }
 
     fun dismissGame() {
-        inactivityJob?.cancel()
-        inactivityJob = null
-        recycleBitmap()
+        cancelPending()
+        lastSentImage = null
         _state.value = DrawingGameState()
         closeCallback = null
-        Log.i(TAG, "Drawing game dismissed")
-    }
-
-    /**
-     * Safely recycle the current bitmap to free native memory.
-     */
-    private fun recycleBitmap() {
-        currentBitmap?.let { bitmap ->
-            if (!bitmap.isRecycled) {
-                bitmap.recycle()
-            }
-        }
-        currentBitmap = null
-    }
-
-    /**
-     * Send the current drawing to the Realtime API context.
-     * Only updates context, does not request a response.
-     */
-    private fun sendDrawingToContext() {
-        val bitmap = currentBitmap
-        if (bitmap == null) {
-            Log.w(TAG, "No bitmap to send")
-            return
-        }
-
-        val callback = imageSendCallback
-        if (callback == null) {
-            Log.w(TAG, "Image send callback not set")
-            return
-        }
-
-        try {
-            // Scale to target size
-            val scaled = Bitmap.createScaledBitmap(bitmap, IMAGE_SIZE, IMAGE_SIZE, true)
-
-            // Convert to Base64 PNG
-            val outputStream = ByteArrayOutputStream()
-            scaled.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
-            val base64 = Base64.encodeToString(outputStream.toByteArray(), Base64.NO_WRAP)
-
-            // Send to API (context only, no response requested)
-            val success = callback(base64, "image/png")
-
-            if (success) {
-                _state.update {
-                    it.copy(
-                        hasUnsavedChanges = false,
-                        lastSentTimestamp = System.currentTimeMillis()
-                    )
-                }
-                Log.i(TAG, "Drawing sent to API context (${IMAGE_SIZE}x${IMAGE_SIZE})")
-            } else {
-                Log.e(TAG, "Failed to send drawing to API")
-            }
-
-            // Clean up scaled bitmap if it's different from original
-            if (scaled != bitmap) {
-                scaled.recycle()
-            }
-
-        } catch (e: Exception) {
-            Log.e(TAG, "Error sending drawing to context", e)
-        }
     }
 }
-

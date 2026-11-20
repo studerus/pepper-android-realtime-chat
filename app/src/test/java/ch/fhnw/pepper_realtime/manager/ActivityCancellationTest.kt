@@ -28,7 +28,7 @@ class ActivityCancellationTest {
             assertFalse(manager.state.value.isVisible)
             closed++
         }
-        manager.onDrawingChanged(org.mockito.kotlin.mock<android.graphics.Bitmap>())
+        manager.onDrawingChanged { error("Closed drawing must not be rendered") }
         manager.cancelGame()
         manager.cancelGame()
         advanceUntilIdle()

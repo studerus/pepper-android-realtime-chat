@@ -10,7 +10,7 @@ import java.util.concurrent.TimeUnit
 /**
  * Tool for starting a drawing canvas game.
  * Opens a fullscreen canvas where the user can draw.
- * Drawings are automatically sent to the API context after 2 seconds of inactivity.
+ * Changed drawings are sent silently after a pause and during continuous drawing.
  */
 class DrawingGameTool : Tool {
 
@@ -20,7 +20,7 @@ class DrawingGameTool : Tool {
         return JSONObject().apply {
             put("type", "function")
             put("name", getName())
-            put("description", "Opens a drawing canvas on the tablet where the user can draw with their finger. The drawing is automatically sent to your conversation context when the user pauses - you will receive the image directly without needing any additional function calls. When the user asks 'what did I draw?' or similar, simply describe the drawing image you already have in context. Do NOT use analyze_vision for drawings - that tool is only for the robot's physical camera. Call this function directly without announcing it.")
+            put("description", "Opens a drawing canvas on the tablet. You receive drawing snapshots in context during drawing and after a pause. When asked, describe the latest drawing directly. Do NOT use analyze_vision for drawings; it uses the robot's physical camera. Call this function directly without announcing it.")
 
             put("parameters", JSONObject().apply {
                 put("type", "object")
@@ -58,7 +58,7 @@ class DrawingGameTool : Tool {
             if (topic != null) {
                 response.put("topic", topic)
             }
-            response.put("info", "The drawing will be sent to your context automatically when the user pauses. You will receive it as an image - just describe it directly when asked, no additional function calls needed.")
+            response.put("info", "Drawing snapshots arrive automatically. Describe the latest image directly when asked; no additional function call is needed.")
             response.toString()
         } else {
             JSONObject().put("error", "Could not start drawing game").toString()

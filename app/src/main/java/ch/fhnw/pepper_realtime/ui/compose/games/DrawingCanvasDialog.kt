@@ -3,6 +3,7 @@ package ch.fhnw.pepper_realtime.ui.compose.games
 import androidx.activity.compose.BackHandler
 
 import android.graphics.Bitmap
+import android.util.Base64
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -18,7 +19,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -26,9 +26,8 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.asAndroidPath
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -36,6 +35,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ch.fhnw.pepper_realtime.R
 import ch.fhnw.pepper_realtime.ui.DrawingGameState
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
+import kotlin.math.roundToInt
 
 private object DrawingColors {
     val Background = Color.White
@@ -82,14 +85,14 @@ private data class StrokePath(
 @Composable
 fun DrawingCanvasDialog(
     state: DrawingGameState,
-    onDrawingChanged: (Bitmap) -> Unit,
-    onClear: () -> Unit,
+    onDrawingChanged: (suspend () -> String) -> Unit,
+    onClear: (suspend () -> String) -> Unit,
     onDismiss: () -> Unit
 ) {
     BackHandler(onBack = onDismiss)
     // Drawing state
     var paths by remember { mutableStateOf(listOf<StrokePath>()) }
-    var currentPath by remember { mutableStateOf<StrokePath?>(null) }
+    var currentPath by remember { mutableStateOf<StrokePath?>(null, neverEqualPolicy()) }
     
     // Tool selection state
     var selectedColor by remember { mutableStateOf(DrawingColors.PaletteColors[0]) }
@@ -98,6 +101,18 @@ fun DrawingCanvasDialog(
     // Canvas size for bitmap creation
     var canvasWidth by remember { mutableIntStateOf(0) }
     var canvasHeight by remember { mutableIntStateOf(0) }
+
+    // Copy the live paths on the UI thread only when the sender actually needs an image.
+    val snapshot: suspend () -> String = remember {
+        suspend {
+            val strokes = (paths + listOfNotNull(currentPath)).map {
+                ExportStroke(android.graphics.Path(it.path.asAndroidPath()), it.color.toArgb(), it.strokeWidth)
+            }
+            val width = canvasWidth
+            val height = canvasHeight
+            withContext(Dispatchers.Default) { encodeDrawing(strokes, width, height) }
+        }
+    }
 
     // Fullscreen overlay with semi-transparent background
     Box(
@@ -127,9 +142,11 @@ fun DrawingCanvasDialog(
                     selectedStrokeWidth = selectedStrokeWidth,
                     onStrokeWidthSelected = { selectedStrokeWidth = it },
                     onClear = {
-                        paths = emptyList()
-                        currentPath = null
-                        onClear()
+                        if (paths.isNotEmpty() || currentPath != null) {
+                            paths = emptyList()
+                            currentPath = null
+                            onClear(snapshot)
+                        }
                     },
                     onDismiss = onDismiss
                 )
@@ -161,31 +178,20 @@ fun DrawingCanvasDialog(
                                     onDrag = { change, _ ->
                                         change.consume()
                                         currentPath?.let { stroke ->
-                                            val newPath = Path().apply {
-                                                addPath(stroke.path)
-                                                lineTo(change.position.x, change.position.y)
-                                            }
-                                            currentPath = stroke.copy(path = newPath)
+                                            stroke.path.lineTo(change.position.x, change.position.y)
+                                            currentPath = stroke // invalidate the canvas after the in-place edit
+                                            onDrawingChanged(snapshot)
                                         }
                                     },
                                     onDragEnd = {
                                         currentPath?.let { stroke ->
                                             paths = paths + stroke
                                             currentPath = null
-                                            
-                                            // Create bitmap and notify
-                                            if (canvasWidth > 0 && canvasHeight > 0) {
-                                                val bitmap = createBitmapFromPaths(
-                                                    paths,
-                                                    canvasWidth,
-                                                    canvasHeight
-                                                )
-                                                onDrawingChanged(bitmap)
-                                            }
                                         }
                                     },
                                     onDragCancel = {
                                         currentPath = null
+                                        if (paths.isEmpty()) onClear(snapshot) else onDrawingChanged(snapshot)
                                     }
                                 )
                             }
@@ -433,39 +439,31 @@ private fun StatusIndicator(
     }
 }
 
-/**
- * Creates a bitmap from the drawn paths.
- */
-private fun createBitmapFromPaths(
-    paths: List<StrokePath>,
-    width: Int,
-    height: Int
-): Bitmap {
-    val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-    val canvas = android.graphics.Canvas(bitmap)
-    
-    // Fill with white background
-    canvas.drawColor(android.graphics.Color.WHITE)
-    
-    // Draw all paths
-    val paint = android.graphics.Paint().apply {
-        isAntiAlias = true
-        style = android.graphics.Paint.Style.STROKE
-        strokeCap = android.graphics.Paint.Cap.ROUND
-        strokeJoin = android.graphics.Paint.Join.ROUND
+private data class ExportStroke(val path: android.graphics.Path, val color: Int, val strokeWidth: Float)
+
+private fun encodeDrawing(strokes: List<ExportStroke>, width: Int, height: Int): String {
+    require(width > 0 && height > 0)
+    val scale = 512f / maxOf(width, height)
+    val bitmap = Bitmap.createBitmap((width * scale).roundToInt().coerceAtLeast(1),
+        (height * scale).roundToInt().coerceAtLeast(1), Bitmap.Config.ARGB_8888)
+    try {
+        val canvas = android.graphics.Canvas(bitmap)
+        canvas.drawColor(android.graphics.Color.WHITE)
+        canvas.scale(scale, scale)
+        val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            style = android.graphics.Paint.Style.STROKE
+            strokeCap = android.graphics.Paint.Cap.ROUND
+            strokeJoin = android.graphics.Paint.Join.ROUND
+        }
+        for (stroke in strokes) {
+            paint.color = stroke.color
+            paint.strokeWidth = stroke.strokeWidth
+            canvas.drawPath(stroke.path, paint)
+        }
+        val output = ByteArrayOutputStream()
+        check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, output))
+        return Base64.encodeToString(output.toByteArray(), Base64.NO_WRAP)
+    } finally {
+        bitmap.recycle()
     }
-    
-    paths.forEach { stroke ->
-        // Convert Compose Color to Android Color
-        paint.color = android.graphics.Color.argb(
-            (stroke.color.alpha * 255).toInt(),
-            (stroke.color.red * 255).toInt(),
-            (stroke.color.green * 255).toInt(),
-            (stroke.color.blue * 255).toInt()
-        )
-        paint.strokeWidth = stroke.strokeWidth
-        canvas.drawPath(stroke.path.asAndroidPath(), paint)
-    }
-    
-    return bitmap
 }
