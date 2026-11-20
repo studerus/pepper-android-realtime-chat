@@ -153,7 +153,9 @@ data class EventRule(
 data class PersonEvent(
     val type: PersonEventType,
     val humanId: Int? = null,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    // Only set for a continuing gaze, never for the initial looking event.
+    val previousGazeDurationMs: Long? = null
 )
 
 /**

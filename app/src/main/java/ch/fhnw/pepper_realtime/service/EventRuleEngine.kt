@@ -101,6 +101,21 @@ class EventRuleEngine @Inject constructor() {
     fun evaluateIdle(quietMs: Long): MatchedRule? =
         evaluate(PersonEvent(PersonEventType.CONVERSATION_IDLE), null, 0, quietMs)
 
+    fun hasGazeThresholdCrossing(previousMs: Long, currentMs: Long): Boolean =
+        rules.any { it.enabled && it.eventType == PersonEventType.PERSON_LOOKING &&
+            crossesGazeThreshold(it, previousMs, currentMs) }
+
+    private fun crossesGazeThreshold(rule: EventRule, previousMs: Long, currentMs: Long): Boolean {
+        // Only evaluate the rising edge, including for rules with a bounded duration range.
+        var newlyMatched = false
+        for (condition in rule.conditions) {
+            if (!condition.field.equals("gazeDuration", ignoreCase = true)) continue
+            if (!matchesValue(condition, currentMs.toString())) return false
+            if (!matchesValue(condition, previousMs.toString())) newlyMatched = true
+        }
+        return newlyMatched
+    }
+
     @Synchronized
     private fun evaluate(event: PersonEvent, humanInfo: PerceptionData.HumanInfo?, peopleCount: Int, quietMs: Long?): MatchedRule? {
         val now = System.currentTimeMillis()
@@ -111,6 +126,8 @@ class EventRuleEngine @Inject constructor() {
 
             // Check event type match
             if (rule.eventType != event.type) continue
+            if (event.previousGazeDurationMs != null && (humanInfo == null ||
+                    !crossesGazeThreshold(rule, event.previousGazeDurationMs, humanInfo.gazeDurationMs))) continue
             if (quietMs != null && quietMs < rule.cooldownMs.coerceAtLeast(1000L)) continue
 
             // Check cooldown
@@ -175,6 +192,10 @@ class EventRuleEngine @Inject constructor() {
             else if (condition.field.equals("robotState", ignoreCase = true)) robotStateProvider?.getCurrentState() ?: "UNKNOWN"
             else return false
 
+        return matchesValue(condition, fieldValue)
+    }
+
+    private fun matchesValue(condition: RuleCondition, fieldValue: String): Boolean {
         return try {
             when (condition.operator) {
                 ConditionOperator.EQUALS -> {

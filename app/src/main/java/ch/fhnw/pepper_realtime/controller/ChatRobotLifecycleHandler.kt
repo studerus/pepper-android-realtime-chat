@@ -271,7 +271,9 @@ class ChatRobotLifecycleHandler(
                 humanInfo: PerceptionData.HumanInfo,
                 allHumans: List<PerceptionData.HumanInfo>
             ) {
-                // Evaluate event against rules on the main thread
+                val previousMs = event.previousGazeDurationMs
+                if (previousMs != null && !viewModel.eventRuleEngine.hasGazeThresholdCrossing(previousMs, humanInfo.gazeDurationMs)) return
+                // Only post a continuing gaze to the main thread when a rule becomes eligible.
                 activity.runOnUiThread {
                     viewModel.eventRuleEngine.evaluate(event, humanInfo, allHumans)
                 }

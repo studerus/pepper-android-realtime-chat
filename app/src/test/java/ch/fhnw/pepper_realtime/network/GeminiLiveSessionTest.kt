@@ -191,6 +191,27 @@ class GeminiLiveSessionTest {
     }
 
     @Test
+    fun `Google tool status reflects the tool error without changing successful results`() {
+        val cases = listOf(
+            """{"error":"No videos found"}""" to false,
+            """{"success":true,"error":"Playback failed"}""" to false,
+            """{"success":false}""" to false,
+            """{"title":"Video"}""" to true,
+            """{"success":true,"error":null}""" to true
+        )
+        for ((result, success) in cases) {
+            assertTrue(session.sendGoogleToolResult("call", "play_youtube_video", result))
+            val response = messages.last().getJSONObject("toolResponse")
+                .getJSONArray("functionResponses").getJSONObject(0).getJSONObject("response")
+            assertEquals(result, success, response.getBoolean("success"))
+            val original = JSONObject(result)
+            assertTrue(original.similar(response.getJSONObject("result")))
+            if (!original.isNull("error")) assertEquals(original.getString("error"), response.getString("error"))
+            else assertFalse(response.has("error"))
+        }
+    }
+
+    @Test
     fun `vision errors remain text only tool responses`() {
         assertTrue(session.sendGoogleToolResult("failed-call", "analyze_vision",
             """{"success":false,"error":"Camera unavailable"}"""))

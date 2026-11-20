@@ -610,15 +610,13 @@ class RealtimeSessionManager internal constructor(private val socketFactory: Web
             } catch (_: Exception) {
                 null
             }
-            val success = parsedResult?.optBoolean("success", true) ?: true
+            val error = parsedResult?.takeUnless { it.isNull("error") }?.optString("error").orEmpty()
+            val success = error.isBlank() && (parsedResult?.optBoolean("success", true) ?: true)
             val effectiveScheduling = if (RealtimeApiProvider.isGemini31Model(settingsRepository?.model)) null else scheduling
             val normalizedResponse = JSONObject().apply {
                 put("success", success)
                 put("result", parsedResult ?: resultJson)
-                if (!success) {
-                    val err = parsedResult?.optString("error", "") ?: ""
-                    if (err.isNotEmpty()) put("error", err)
-                }
+                if (error.isNotBlank()) put("error", error)
                 if (effectiveScheduling != null) {
                     put("scheduling", effectiveScheduling)
                 }

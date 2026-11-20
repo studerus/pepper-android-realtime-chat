@@ -3,7 +3,6 @@ package ch.fhnw.pepper_realtime.data
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.os.Handler
 import android.util.Log
 import com.aldebaran.qi.Future
 import com.aldebaran.qi.Promise
@@ -24,8 +23,8 @@ import java.util.concurrent.atomic.AtomicReference
  * Keeps loading resilient for aging hardware without relying on System.gc().
  */
 class NavigationMapCache(
-    private val mainHandler: Handler,
-    private val criticalSectionListener: CriticalSectionListener
+    private val criticalSectionListener: CriticalSectionListener,
+    workerDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) {
 
     interface CriticalSectionListener {
@@ -51,9 +50,9 @@ class NavigationMapCache(
     private val cachedMapGfx = AtomicReference<MapTopGraphicalRepresentation>()
     private val cachedMapBitmap = AtomicReference<Bitmap>()
     
-    private val cacheScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val cacheScope = CoroutineScope(SupervisorJob() + workerDispatcher)
 
-    fun isMapLoaded(): Boolean = mapLoadedFlag && cachedMap.get() != null
+    fun isMapLoaded(): Boolean = !isLoading() && mapLoadedFlag && cachedMap.get() != null
 
     fun isLoading(): Boolean = isMapBeingBuilt.get()
 
@@ -74,6 +73,7 @@ class NavigationMapCache(
         onMapLoaded: Runnable?,
         localizationStopper: LocalizationStopper?
     ): Future<Boolean> {
+        inFlightMapLoadPromise?.let { return it.future }
         val promise = Promise<Boolean>()
 
         if (isMapLoaded()) {
@@ -86,11 +86,7 @@ class NavigationMapCache(
             return promise.future
         }
 
-        if (!isMapBeingBuilt.compareAndSet(false, true)) {
-            inFlightMapLoadPromise?.let { return it.future }
-            promise.setValue(false)
-            return promise.future
-        }
+        isMapBeingBuilt.set(true)
 
         val generation = workGeneration
         inFlightMapLoadPromise = promise
@@ -193,32 +189,27 @@ class NavigationMapCache(
         }
     }
 
-    @Synchronized
-    private fun finishLoad(success: Boolean, mainThreadWork: Runnable?, generation: Long) {
-        if (generation != workGeneration) return
-        val promise = inFlightMapLoadPromise
-        inFlightMapLoadPromise = null
-        isMapBeingBuilt.set(false)
-
-        if (promise != null) {
-            try {
-                promise.setValue(success)
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to resolve map load promise", e)
-            }
-        }
-
-        mainHandler.post {
-            if (generation != workGeneration) return@post
-            mainThreadWork?.let {
-                try {
-                    it.run()
-                } catch (t: Throwable) {
-                    Log.w(TAG, "onMapLoaded callback error", t)
-                }
-            }
+    private suspend fun finishLoad(success: Boolean, mainThreadWork: Runnable?, generation: Long) {
+        // A promise continuation can start localization immediately. Leave the map-load
+        // phase on the UI thread first, then release waiters back on the worker.
+        withContext(Dispatchers.Main.immediate) {
+            if (generation != workGeneration) return@withContext
             criticalSectionListener.onExit(success)
+            if (generation != workGeneration) return@withContext
+            try {
+                mainThreadWork?.run()
+            } catch (t: Throwable) {
+                Log.w(TAG, "onMapLoaded callback error", t)
+            }
         }
+        val promise = synchronized(this) {
+            if (generation != workGeneration) return
+            val pending = inFlightMapLoadPromise
+            inFlightMapLoadPromise = null
+            isMapBeingBuilt.set(false)
+            pending
+        }
+        promise?.setValue(success)
     }
 
     private data class PreparedGraphics(val bitmap: Bitmap, val representation: MapTopGraphicalRepresentation)

@@ -1046,12 +1046,17 @@ Rules are evaluated continuously based on perception events and trigger context 
 |-------|-------------|
 | `PERSON_RECOGNIZED` | A known person was identified by face recognition |
 | `PERSON_APPEARED` | A new person entered the robot's field of view |
-| `PERSON_DISAPPEARED` | A person left the robot's field of view |
+| `PERSON_DISAPPEARED` | A person left the robot's field of view. Name and distance come from their last observation; `peopleCount` counts those still present. |
 | `PERSON_LOOKING` | A person started looking at the robot |
 | `PERSON_STOPPED_LOOKING` | A person stopped looking at the robot |
 | `PERSON_APPROACHED_CLOSE` | A person came within 1.5 meters |
 | `PERSON_APPROACHED_INTERACTION` | A person came within 3 meters (interaction distance) |
 | `CONVERSATION_IDLE` | No user input for the rule's wait time while Pepper is listening with an open microphone |
+
+A `PERSON_LOOKING` rule without a duration condition is evaluated when eye contact starts.
+Add `gazeDuration > 3000` to trigger on the first observation after three seconds of
+continuous looking instead. It does not repeat while the person keeps looking; a new
+look can trigger it again, subject to the rule's cooldown.
 
 After 90 seconds, the enabled **Check in after a conversation pause** rule tells the model
 how long there has been no user input and requests a response. The model chooses what

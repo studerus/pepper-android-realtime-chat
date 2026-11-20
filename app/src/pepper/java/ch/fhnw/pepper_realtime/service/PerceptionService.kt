@@ -55,18 +55,6 @@ class PerceptionService {
 
     // Event detection state tracking
     private var eventListener: EventListener? = null
-    private var previousTrackIds: Set<Int> = emptySet()
-    private var previousLookingStates: Map<Int, Boolean> = emptyMap()
-    private var previousDistances: Map<Int, Float> = emptyMap()
-    private var previousRecognizedNames: Map<Int, String> = emptyMap()
-    
-    // Distance thresholds for approach events
-    private val closeDistanceThreshold = 1.5f // meters
-    private val interactionDistanceThreshold = 3.0f // meters
-    
-    // Track which approach events have been fired to avoid duplicates
-    private var firedCloseApproach: MutableSet<Int> = mutableSetOf()
-    private var firedInteractionApproach: MutableSet<Int> = mutableSetOf()
 
     // Threading
     private var monitoringThread: HandlerThread? = null
@@ -198,6 +186,7 @@ class PerceptionService {
     private fun startPeopleCollection(wsClient: PerceptionWebSocketClient) {
         peopleCollectionJob?.cancel()
         peopleCollectionJob = ensureScopeActive().launch {
+            val detector = PersonEventDetector()
             wsClient.peopleUpdates.collectLatest { update ->
                 if (!isMonitoring) return@collectLatest
                 
@@ -208,7 +197,7 @@ class PerceptionService {
                     }
 
                     // Detect events and push to UI
-                    detectEvents(humanInfoList)
+                    eventListener?.let { detector.detectEvents(humanInfoList, it) }
                     maybePushUi(humanInfoList)
                 } catch (e: Exception) {
                     Log.e(TAG, "Error processing people update", e)
@@ -382,35 +371,32 @@ class PerceptionService {
         }
     }
 
-    /**
-     * Detect events by comparing current state with previous state.
-     * Uses stable track IDs from head-based perception.
-     */
-    private fun detectEvents(humanInfoList: List<PerceptionData.HumanInfo>) {
-        val listener = eventListener ?: return
-        
-        // Use track ID for stable identification
-        val currentIds = humanInfoList.map { it.trackId }.toSet()
-        val currentLooking = humanInfoList.associate { it.trackId to it.lookingAtRobot }
-        val currentDistances = humanInfoList.associate { it.trackId to it.distanceMeters.toFloat() }
-        val currentNames = humanInfoList.associate { it.trackId to (it.recognizedName ?: "") }
+}
+
+internal class PersonEventDetector {
+    private companion object { const val TAG = "PersonEventDetector" }
+    private var previous = emptyMap<Int, PerceptionData.HumanInfo>()
+    private val closeDistanceThreshold = 1.5f
+    private val interactionDistanceThreshold = 3.0f
+    private val firedCloseApproach = mutableSetOf<Int>()
+    private val firedInteractionApproach = mutableSetOf<Int>()
+
+    fun detectEvents(humanInfoList: List<PerceptionData.HumanInfo>, listener: PerceptionService.EventListener) {
+        val current = humanInfoList.associateBy { it.trackId }
         
         // Detect PERSON_APPEARED events
-        val appearedIds = currentIds - previousTrackIds
+        val appearedIds = current.keys - previous.keys
         for (id in appearedIds) {
-            val humanInfo = humanInfoList.find { it.trackId == id } ?: continue
+            val humanInfo = current.getValue(id)
             val event = PersonEvent(PersonEventType.PERSON_APPEARED, id)
             Log.i(TAG, "Event: PERSON_APPEARED - track $id")
             listener.onPersonEvent(event, humanInfo, humanInfoList)
         }
         
         // Detect PERSON_DISAPPEARED events
-        val disappearedIds = previousTrackIds - currentIds
+        val disappearedIds = previous.keys - current.keys
         for (id in disappearedIds) {
-            val humanInfo = PerceptionData.HumanInfo().apply { 
-                this.id = id
-                this.trackId = id 
-            }
+            val humanInfo = previous.getValue(id)
             val event = PersonEvent(PersonEventType.PERSON_DISAPPEARED, id)
             Log.i(TAG, "Event: PERSON_DISAPPEARED - track $id")
             listener.onPersonEvent(event, humanInfo, humanInfoList)
@@ -424,7 +410,8 @@ class PerceptionService {
             val id = humanInfo.trackId
             
             // Detect PERSON_RECOGNIZED events
-            val prevName = previousRecognizedNames[id] ?: ""
+            val last = previous[id]
+            val prevName = last?.recognizedName.orEmpty()
             val currName = humanInfo.recognizedName ?: ""
             if (currName.isNotEmpty() && prevName.isEmpty()) {
                 val event = PersonEvent(PersonEventType.PERSON_RECOGNIZED, id)
@@ -433,12 +420,15 @@ class PerceptionService {
             }
             
             // Detect PERSON_LOOKING / PERSON_STOPPED_LOOKING events (using head-based gaze)
-            val wasLooking = previousLookingStates[id] ?: false
+            val wasLooking = last?.lookingAtRobot == true
             val isLooking = humanInfo.lookingAtRobot
             
             if (!wasLooking && isLooking) {
                 val event = PersonEvent(PersonEventType.PERSON_LOOKING, id)
                 Log.i(TAG, "Event: PERSON_LOOKING - track $id")
+                listener.onPersonEvent(event, humanInfo, humanInfoList)
+            } else if (isLooking && last != null && humanInfo.gazeDurationMs > last.gazeDurationMs) {
+                val event = PersonEvent(PersonEventType.PERSON_LOOKING, id, previousGazeDurationMs = last.gazeDurationMs)
                 listener.onPersonEvent(event, humanInfo, humanInfoList)
             } else if (wasLooking && !isLooking) {
                 val event = PersonEvent(PersonEventType.PERSON_STOPPED_LOOKING, id)
@@ -473,10 +463,7 @@ class PerceptionService {
         }
         
         // Update previous state
-        previousTrackIds = currentIds
-        previousLookingStates = currentLooking
-        previousDistances = currentDistances
-        previousRecognizedNames = currentNames
+        previous = current
     }
 }
 

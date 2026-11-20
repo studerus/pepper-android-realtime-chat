@@ -146,7 +146,7 @@ class NavigationServiceManager(private val movementController: MovementControlle
     }
 
     init {
-        mapCache = NavigationMapCache(mainHandler, object : NavigationMapCache.CriticalSectionListener {
+        mapCache = NavigationMapCache(object : NavigationMapCache.CriticalSectionListener {
             override fun onEnter(qiContext: QiContext) {
                 beginCriticalMapLoad(qiContext)
             }
