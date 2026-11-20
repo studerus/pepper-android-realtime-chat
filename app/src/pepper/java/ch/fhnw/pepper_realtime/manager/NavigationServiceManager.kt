@@ -541,7 +541,7 @@ class NavigationServiceManager(private val movementController: MovementControlle
     private fun coordinatedMovement(qiContext: QiContext?, operation: OperationScope?,
                                     start: (OperationScope, MovementController.MovementListener) -> Unit): Future<MovementResult> {
         if (movementController == null) return failedMovement("Navigation service not available")
-        if (operation?.isActive == false) return failedMovement("Movement cancelled")
+        if (operation?.isActive == false) return failedMovement(MovementController.MOVEMENT_CANCELLED)
         val pending = PendingMovement(Promise())
         synchronized(movementLock) {
             if (mappingFinalizing) return failedMovement("Please wait until map finalization has finished")
@@ -551,7 +551,7 @@ class NavigationServiceManager(private val movementController: MovementControlle
         }
         pending.owner.onCancel {
             movementController.cancelMovement(pending.owner)
-            finishMovement(pending, false, "Movement cancelled")
+            finishMovement(pending, false, MovementController.MOVEMENT_CANCELLED)
         }
         pending.promise.setOnCancel { pending.owner.cancel() }
         pending.registration = operation?.onCancel { pending.owner.cancel() }

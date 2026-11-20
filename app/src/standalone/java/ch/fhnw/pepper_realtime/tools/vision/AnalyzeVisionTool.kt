@@ -6,6 +6,7 @@ import ch.fhnw.pepper_realtime.R
 import ch.fhnw.pepper_realtime.service.VisionService
 import ch.fhnw.pepper_realtime.tools.Tool
 import ch.fhnw.pepper_realtime.tools.ToolContext
+import kotlinx.coroutines.CancellationException
 import org.json.JSONObject
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -52,6 +53,8 @@ class AnalyzeVisionTool internal constructor(
 
         return try {
             newService(requireNotNull(context.activity)).use { analyze(it, prompt, context) }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e("AnalyzeVisionTool", "Error during vision analysis", e)
             JSONObject().put("error", "Vision analysis failed: ${e.message}").toString()
@@ -129,11 +132,11 @@ class AnalyzeVisionTool internal constructor(
             // Wait for vision analysis to complete (blocking call)
             try {
                 val finished = latch.await(timeoutMs, TimeUnit.MILLISECONDS)
+                context.ensureActive()
                 if (!finished) {
-                    return JSONObject().put("error", "Vision analysis timed out or cancelled").toString()
+                    return JSONObject().put("error", "Vision analysis timed out").toString()
                 }
 
-                context.ensureActive()
                 var finalResult = result.get()
                 try {
                     val resultJson = JSONObject(finalResult)

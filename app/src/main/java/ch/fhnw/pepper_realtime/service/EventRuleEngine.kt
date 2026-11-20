@@ -198,11 +198,16 @@ class EventRuleEngine @Inject constructor() {
     private fun matchesValue(condition: RuleCondition, fieldValue: String): Boolean {
         return try {
             when (condition.operator) {
-                ConditionOperator.EQUALS -> {
-                    fieldValue.equals(condition.value, ignoreCase = true)
-                }
-                ConditionOperator.NOT_EQUALS -> {
-                    !fieldValue.equals(condition.value, ignoreCase = true)
+                ConditionOperator.EQUALS, ConditionOperator.NOT_EQUALS -> {
+                    val type = RuleCondition.availableFields.entries.firstOrNull {
+                        it.key.equals(condition.field, ignoreCase = true)
+                    }?.value?.type
+                    val equal = if (type == FieldType.NUMBER) {
+                        val actual = fieldValue.toBigDecimalOrNull() ?: return false
+                        val expected = condition.value.toBigDecimalOrNull() ?: return false
+                        actual.compareTo(expected) == 0
+                    } else fieldValue.equals(condition.value, ignoreCase = true)
+                    if (condition.operator == ConditionOperator.EQUALS) equal else !equal
                 }
                 ConditionOperator.GREATER_THAN -> {
                     val numField = fieldValue.toDoubleOrNull() ?: return false

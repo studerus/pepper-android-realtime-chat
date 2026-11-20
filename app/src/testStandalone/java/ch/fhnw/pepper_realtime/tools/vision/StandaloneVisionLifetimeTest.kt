@@ -1,6 +1,7 @@
 package ch.fhnw.pepper_realtime.tools.vision
 
 import android.app.Activity
+import kotlinx.coroutines.CancellationException
 import ch.fhnw.pepper_realtime.service.VisionService
 import ch.fhnw.pepper_realtime.tools.OperationScope
 import ch.fhnw.pepper_realtime.tools.ToolContext
@@ -34,6 +35,7 @@ class StandaloneVisionLifetimeTest {
         assertTrue(runPhoto {}.getString("error").contains("timed out"))
     }
     @Test(timeout = 5000) fun `cancellation wakes the waiter without waiting for timeout`() {
-        assertTrue(runPhoto(60_000) { owner.cancel() }.getString("error").contains("cancelled"))
+        assertThrows(CancellationException::class.java) { runPhoto(60_000) { owner.cancel() } }
+        verify(camera).close()
     }
 }

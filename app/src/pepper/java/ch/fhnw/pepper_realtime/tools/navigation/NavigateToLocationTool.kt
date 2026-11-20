@@ -1,6 +1,9 @@
 package ch.fhnw.pepper_realtime.tools.navigation
 
 import android.util.Log
+import ch.fhnw.pepper_realtime.controller.MovementController.Companion.MOVEMENT_CANCELLED
+import ch.fhnw.pepper_realtime.manager.NavigationServiceManager.MovementResult
+import com.aldebaran.qi.Future
 import com.aldebaran.qi.sdk.QiContext
 import ch.fhnw.pepper_realtime.robot.MotionValidation
 import ch.fhnw.pepper_realtime.data.SavedLocation
@@ -147,51 +150,12 @@ class NavigateToLocationTool : Tool {
                                 val navFuture = navManager.navigateToLocation(qiContext, savedLocation, speed.toFloat(), context.operation)
 
                                 navFuture.thenConsume { navResultFuture ->
-                                    try {
-                                        val result = navResultFuture.value
-                                        val success = !navResultFuture.hasError() && result?.success == true
-                                        val error = if (navResultFuture.hasError()) {
-                                            navResultFuture.error?.message
-                                        } else {
-                                            result?.error
-                                        }
-
-                                        val message: String
-                                        if (success) {
-                                            message = String.format(
-                                                Locale.US,
-                                                "[NAVIGATION COMPLETED] Pepper has arrived at %s.",
-                                                locationName
-                                            )
-                                            Log.i(TAG, "Step 3 SUCCESS: Navigation to $locationName completed.")
-                                        } else {
-                                            val friendlyError = translateNavigationError(error)
-
-                                            val messageBuilder = StringBuilder()
-                                            messageBuilder.append(
-                                                String.format(
-                                                    Locale.US,
-                                                    "[NAVIGATION FAILED] Could not reach %s. Reason: %s.",
-                                                    locationName, friendlyError
-                                                )
-                                            )
-
-                                            // Add vision analysis suggestion for obstacle-related errors in the same message
-                                            val isObstacleError = isObstacleRelatedNavigationError(error)
-                                            Log.i(TAG, "Navigation error: '$error' -> obstacle-related: $isObstacleError")
-                                            if (isObstacleError) {
-                                                messageBuilder.append(' ').append(OBSTACLE_VISION_HINT)
-                                            }
-
-                                            message = messageBuilder.toString()
-                                            Log.e(TAG, "Step 3 FAILED: Navigation to $locationName failed. Reason: $error")
-                                        }
-                                        navManager.endNavigationProcess(context.operation)
-                                        context.sendAsyncUpdate(message, true)
-                                    } catch (e: Exception) {
-                                        Log.e(TAG, "Error processing navigation result future.", e)
+                                    val message = try {
+                                        if (context.isActive) completionMessage(navResultFuture, locationName) else null
+                                    } finally {
                                         navManager.endNavigationProcess(context.operation)
                                     }
+                                    if (message != null) context.sendAsyncUpdate(message, true)
                                 }
                             } catch (e: Exception) {
                                 Log.e(TAG, "Step 3 FAILED: Error initiating navigation.", e)
@@ -314,6 +278,20 @@ class NavigateToLocationTool : Tool {
                 lowerError.contains("safety") || lowerError.contains("emergency") ||
                 lowerError.contains("goto failed") || lowerError.contains("failed to complete")
         // Note: Cancelled/localization errors are NOT obstacle-related, so no vision suggestion
+    }
+
+    internal fun completionMessage(future: Future<MovementResult>, location: String): String? {
+        if (future.isCancelled) return null
+        val error = if (future.hasError()) {
+            future.error?.message
+        } else {
+            val result = future.value
+            if (result?.success == true) return "[NAVIGATION COMPLETED] Pepper has arrived at $location."
+            if (result?.error == MOVEMENT_CANCELLED) return null
+            result?.error
+        }
+        val hint = if (isObstacleRelatedNavigationError(error)) " $OBSTACLE_VISION_HINT" else ""
+        return "[NAVIGATION FAILED] Could not reach $location. Reason: ${translateNavigationError(error)}.$hint"
     }
 
     /**

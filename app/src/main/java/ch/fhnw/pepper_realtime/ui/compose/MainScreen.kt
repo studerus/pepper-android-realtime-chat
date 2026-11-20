@@ -127,7 +127,7 @@ fun MainScreen(
                 }
             }
         },
-        gesturesEnabled = true
+        gesturesEnabled = !drawingState.isVisible
     ) {
         Scaffold(
             contentWindowInsets = WindowInsets(0.dp),

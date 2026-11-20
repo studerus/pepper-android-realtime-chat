@@ -30,6 +30,7 @@ class MovementController(
 
     companion object {
         private const val TAG = "MovementController"
+        internal const val MOVEMENT_CANCELLED = "Movement cancelled"
         private const val MOVEMENT_TIMEOUT_SECONDS = 15L
     }
 
@@ -243,7 +244,7 @@ class MovementController(
             }
             currentMovement = movement
         }
-        val registration = owner?.onCancel { finish(movement, false, "Movement cancelled", cancel = true) }
+        val registration = owner?.onCancel { finish(movement, false, MOVEMENT_CANCELLED, cancel = true) }
         synchronized(movementLock) {
             if (movement.finished) { registration?.close(); return }
             movement.cancellation = registration
@@ -265,7 +266,7 @@ class MovementController(
                 }, MOVEMENT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                 future.thenConsume { result ->
                     when {
-                        result.isCancelled -> finish(movement, false, "Movement cancelled")
+                        result.isCancelled -> finish(movement, false, MOVEMENT_CANCELLED)
                         result.hasError() -> finish(movement, false, result.error?.message ?: "Movement failed")
                         else -> finish(movement, true, null)
                     }
@@ -296,12 +297,12 @@ class MovementController(
 
     fun cancelMovement(owner: OperationScope) {
         val movement = synchronized(movementLock) { currentMovement?.takeIf { it.owner === owner } } ?: return
-        finish(movement, false, "Movement cancelled", cancel = true)
+        finish(movement, false, MOVEMENT_CANCELLED, cancel = true)
     }
 
     fun cancelCurrentMovement() {
         val movement = synchronized(movementLock) { currentMovement } ?: return
-        finish(movement, false, "Movement cancelled", cancel = true)
+        finish(movement, false, MOVEMENT_CANCELLED, cancel = true)
     }
 
     fun shutdown() {
