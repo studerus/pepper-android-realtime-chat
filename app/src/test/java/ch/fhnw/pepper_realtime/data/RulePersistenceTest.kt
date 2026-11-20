@@ -81,6 +81,30 @@ class RulePersistenceTest {
         assertEquals(upgraded.take(1), persistence.loadRules())
     }
 
+    @Test fun `existing installation upgrades only the old stock template and keeps user settings`() {
+        val oldText = "In the current conversation language, briefly ask whether the user wants to continue."
+        val reminder = rule(EventRule.idleReminder.id).put("eventType", "CONVERSATION_IDLE")
+            .put("enabled", false).put("cooldownMs", 45000L).put("template", oldText)
+        memory["idle_default_installed"] = true
+        memory["rules_json"] = rules(reminder)
+        persistence.installIdleDefaultOnUpgrade()
+        val updated = persistence.loadRules().single()
+        assertFalse(updated.enabled)
+        assertEquals(45000L, updated.cooldownMs)
+        assertEquals(EventRule.idleReminder.template, updated.template)
+    }
+
+    @Test fun `template upgrade preserves custom text and a previously deleted reminder`() {
+        memory["idle_default_installed"] = true
+        val custom = rule(EventRule.idleReminder.id).put("eventType", "CONVERSATION_IDLE").put("template", "Custom")
+        for (raw in listOf(rules(custom), original)) {
+            memory.remove("idle_template_updated")
+            memory["rules_json"] = raw
+            persistence.installIdleDefaultOnUpgrade()
+            assertEquals(raw, memory["rules_json"])
+        }
+    }
+
     private fun reject(json: String, merge: Boolean = false, cause: String? = null) {
         val oldMemory = memory.toMap()
         val oldDisk = disk.toMap()

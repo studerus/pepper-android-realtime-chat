@@ -1053,8 +1053,9 @@ Rules are evaluated continuously based on perception events and trigger context 
 | `PERSON_APPROACHED_INTERACTION` | A person came within 3 meters (interaction distance) |
 | `CONVERSATION_IDLE` | No user input for the rule's wait time while Pepper is listening with an open microphone |
 
-The enabled **Check in after a conversation pause** rule asks a brief follow-up in the
-conversation language after 90 seconds. It repeats after each further quiet interval.
+After 90 seconds, the enabled **Check in after a conversation pause** rule tells the model
+how long there has been no user input and requests a response. The model chooses what
+to say based on the conversation. The rule repeats after each further quiet interval.
 Muting, disconnecting, assistant speech, or opening a game, drawing board or YouTube
 player resets the countdown. Edit **Wait** or the message in Event Rules, or disable
 the reminder. It does not require face recognition or automatically end the session.
@@ -1094,6 +1095,7 @@ Templates support dynamic placeholders that are automatically replaced with real
 {peopleCount}   - Number of people detected
 {robotState}    - Robot state (LISTENING, SPEAKING, THINKING, IDLE)
 {timestamp}     - Current time (HH:mm:ss)
+{idleSeconds}   - Elapsed quiet listening time in whole seconds (conversation idle only)
 ```
 
 ### Example Rule

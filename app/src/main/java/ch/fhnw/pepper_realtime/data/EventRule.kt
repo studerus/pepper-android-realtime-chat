@@ -110,7 +110,7 @@ data class EventRule(
             name = "Check in after a conversation pause",
             eventType = PersonEventType.CONVERSATION_IDLE,
             actionType = RuleActionType.APPEND_AND_RESPOND,
-            template = "In the current conversation language, briefly ask whether the user wants to continue.",
+            template = "There has been no user input for {idleSeconds} seconds.",
             cooldownMs = 90_000L
         )
         /**

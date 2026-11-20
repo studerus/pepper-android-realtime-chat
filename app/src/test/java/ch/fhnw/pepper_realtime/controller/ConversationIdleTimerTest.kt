@@ -6,6 +6,12 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class ConversationIdleTimerTest {
+    @Test fun `idle message reports elapsed seconds without prescribing a reply`() {
+        val engine = EventRuleEngine()
+        engine.loadRules(listOf(EventRule.idleReminder.copy(cooldownMs = 30_000)))
+        assertEquals("There has been no user input for 31 seconds.", engine.evaluateIdle(31_750)?.resolvedTemplate)
+    }
+
     @Test fun `quiet listening repeats and real input or ineligible periods restart the wait`() {
         val engine = EventRuleEngine().apply { loadRules(EventRule.defaultRules) }
         val timer = ConversationIdleTimer()

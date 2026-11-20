@@ -128,6 +128,7 @@ class EventRuleEngine @Inject constructor() {
 
             // Rule matched!
             val resolvedTemplate = if (humanInfo == null) replaceCommonPlaceholders(rule.template)
+                .replace("{idleSeconds}", (requireNotNull(quietMs) / 1000L).toString())
                 else replacePlaceholders(rule.template, humanInfo, peopleCount)
             lastTriggerTimes[rule.id] = now
 

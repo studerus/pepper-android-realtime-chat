@@ -813,7 +813,7 @@ private fun RuleEditorDialog(
                     modifier = Modifier.fillMaxWidth(),
                     supportingText = {
                         Text(
-                            if (eventType == PersonEventType.CONVERSATION_IDLE) "{robotState} {timestamp}"
+                            if (eventType == PersonEventType.CONVERSATION_IDLE) "{idleSeconds} {robotState} {timestamp}"
                             else "{personName} {distance} {robotState} {peopleCount}",
                             fontSize = 9.sp,
                             color = RulesColors.TextLight
