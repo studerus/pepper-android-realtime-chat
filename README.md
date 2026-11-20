@@ -918,6 +918,12 @@ The Human Perception Dashboard provides real-time visualization of all detected 
 - The `ALFaceDetection` module for face identification is no longer available on newer Android-based Pepper robots
 - Our custom solution focuses on reliable person tracking and face recognition without the unreliable metadata
 
+On Pepper, `approach_human(human_id=...)` uses the dashboard's Track #, not a QiSDK
+object ID. The app only starts a targeted approach if a recent observed position
+matches exactly one QiSDK human and no other track could be the same person.
+Deploy the updated head tracking scripts as well as the APK for this feature.
+Without an ID, the tool continues to use QiSDK's recommended person.
+
 ### How to Access
 - **Tap the dashboard symbol** in the status bar to toggle the dashboard overlay
 - **Dashboard appears** in the top-right corner as a floating overlay
@@ -1093,6 +1099,7 @@ Templates support dynamic placeholders that are automatically replaced with real
 
 ```
 {personName}    - Name from face recognition (or "Unknown")
+{trackId}       - Current head-perception track ID (also shown as Track # in the dashboard)
 {distance}      - Distance in meters (e.g., "2.3m")
 {isLooking}     - Whether person is looking at robot (true/false)
 {gazeDuration}  - How long looking at robot (e.g., "5s")

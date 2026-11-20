@@ -271,6 +271,7 @@ class FaceTracker:
         self.pending_recognition: List[int] = []
         
         self.last_update_time = time.time()
+        self.observed_ids = set()
         self.cam_offsets = DEFAULT_OFFSETS
     
     def set_camera_offsets(self, offsets):
@@ -365,7 +366,7 @@ class FaceTracker:
         return math.sqrt((t_x - d_x)**2 + (t_y - d_y)**2 + (t_z - d_z)**2)
 
     def update(self, faces, image_width, image_height, head_yaw, head_pitch, 
-               depth_data=None, depth_width=0, depth_height=0, camera_offsets=None):
+               depth_data=None, depth_width=0, depth_height=0, camera_offsets=None, pose_observed=True):
         
         now = time.time()
         dt = now - self.last_update_time
@@ -553,6 +554,7 @@ class FaceTracker:
                         new_track.update_gaze(det['ratio'], self.gaze_threshold)
                         
                         self.tracks[tid] = new_track
+                        assigned_tracks.add(tid)
                         self.pending_recognition.append(tid)
                         del self.pending_tracks[matched_pending]
                         print(f"[Tracker] New track {tid} confirmed after {self.confirm_count} detections")
@@ -595,6 +597,7 @@ class FaceTracker:
         self.lost_tracks = [t for t in self.lost_tracks 
                            if (int(now*1000) - t.last_seen_ms) < self.lost_buffer_ms]
         
+        self.observed_ids = assigned_tracks if pose_observed else set()
         return list(self.tracks.values())
 
     # Passthrough methods needed by server
@@ -637,6 +640,7 @@ class FaceTracker:
         return [
             {
                 'track_id': t.track_id,
+                'position_observed': t.track_id in self.observed_ids,
                 'name': t.name,
                 'confidence': t.confidence,
                 'world_yaw': round(t.world_yaw, 2),

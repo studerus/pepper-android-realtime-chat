@@ -258,6 +258,7 @@ class EventRuleEngine @Inject constructor() {
 
         // Person-related placeholders (head-based perception)
         result = result.replace("{personName}", humanInfo.recognizedName ?: "Unknown")
+        result = result.replace("{trackId}", humanInfo.trackId.toString())
         result = result.replace("{distance}", humanInfo.getDistanceString())
         result = result.replace("{isLooking}", humanInfo.lookingAtRobot.toString())
         result = result.replace("{gazeDuration}", "${humanInfo.gazeDurationMs / 1000}s")

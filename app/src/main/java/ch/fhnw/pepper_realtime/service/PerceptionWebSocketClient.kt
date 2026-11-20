@@ -1,6 +1,7 @@
 package ch.fhnw.pepper_realtime.service
 
 import android.util.Log
+import android.os.SystemClock
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -83,7 +84,8 @@ class PerceptionWebSocketClient @Inject constructor() {
 
     data class PeopleUpdate(
         val people: List<TrackedPerson>,
-        val timestamp: Long
+        val timestamp: Long,
+        val receivedElapsedMs: Long = SystemClock.elapsedRealtime()
     )
 
     data class TrackedPerson(
@@ -97,7 +99,8 @@ class PerceptionWebSocketClient @Inject constructor() {
         val lastSeenMs: Long,
         val timeSinceSeenMs: Long,
         val trackAgeMs: Long,
-        val gazeDurationMs: Long
+        val gazeDurationMs: Long,
+        val observed: Boolean
     )
 
     data class SettingsUpdate(
@@ -264,19 +267,19 @@ class PerceptionWebSocketClient @Inject constructor() {
                             name = p.optString("name", "Unknown"),
                             lookingAtRobot = p.optBoolean("looking_at_robot", false),
                             headDirection = p.optString("head_direction", "unknown"),
-                            worldYaw = p.optDouble("world_yaw", 0.0).toFloat(),
+                            worldYaw = p.optDouble("world_yaw", Double.NaN).toFloat(),
                             worldPitch = p.optDouble("world_pitch", 0.0).toFloat(),
                             distance = p.optDouble("distance", 0.0).toFloat(),
                             lastSeenMs = p.optLong("last_seen_ms", 0),
-                            timeSinceSeenMs = p.optLong("time_since_seen_ms", 0),
+                            timeSinceSeenMs = p.optLong("time_since_seen_ms", -1),
                             trackAgeMs = p.optLong("track_age_ms", 0),
-                            gazeDurationMs = p.optLong("gaze_duration_ms", 0)
+                            gazeDurationMs = p.optLong("gaze_duration_ms", 0),
+                            observed = p.optBoolean("position_observed", false)
                         ))
                     }
                     
-                    scope.launch {
-                        _peopleUpdates.emit(PeopleUpdate(people, timestamp))
-                    }
+                    val update = PeopleUpdate(people, timestamp)
+                    scope.launch { _peopleUpdates.emit(update) }
                 }
 
                 "settings" -> {

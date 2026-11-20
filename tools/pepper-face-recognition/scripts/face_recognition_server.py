@@ -323,12 +323,15 @@ def raw_to_image(raw_data, width, height):
 SHM_PATH = "/dev/shm/pepper_shm"
 SHM_SIZE = 4 * 1024 * 1024
 SHM_READER = None
+NO_NEW_FRAME = object()
+FRAME_STALL_SECONDS = 2.0
 
 class SharedMemoryReader:
     def __init__(self):
         self.f = None
         self.m = None
         self.last_seq = -1
+        self.last_progress = None
         self.setup()
         
     def setup(self):
@@ -362,13 +365,13 @@ class SharedMemoryReader:
                 "<4sIdIIII", header_bytes[:32]
             )
             
-            if magic != b"PSHM":
+            if magic != b"PSHM" or not 0 <= time.time() - timestamp <= FRAME_STALL_SECONDS:
                 return None
                 
             if seq_id == self.last_seq:
-                return "NO_NEW_FRAME" # Signal no change
-                
-            self.last_seq = seq_id
+                if time.monotonic() - self.last_progress < FRAME_STALL_SECONDS:
+                    return NO_NEW_FRAME
+                return None  # Frozen producer: allow recovery via HTTP/subprocess.
             
             # Read Data
             self.m.seek(64)
@@ -377,10 +380,16 @@ class SharedMemoryReader:
             
             head = json.loads(head_bytes.decode('utf-8')) if head_len > 0 else {}
             
+            image = raw_to_image(rgb_bytes, rgb_w, rgb_h) if rgb_len > 0 else None
+            if image is None:
+                return None
+            self.last_seq = seq_id
+            self.last_progress = time.monotonic()
             return {
                 'head_yaw': float(head.get('head_yaw', 0.0) or 0.0),
                 'head_pitch': float(head.get('head_pitch', 0.0) or 0.0),
-                'rgb_image': raw_to_image(rgb_bytes, rgb_w, rgb_h) if rgb_len > 0 else None,
+                'rgb_image': image,
+                'published_at': timestamp,
                 'depth_data': None,
                 'depth_width': 0,
                 'depth_height': 0,
@@ -405,7 +414,7 @@ def get_shm_reader():
     return SHM_READER
 
 
-def get_synchronized_frame():
+def get_synchronized_frame(*, for_tracking=False):
     """
     Get synchronized frame. 
     Tries Shared Memory first (Zero-Copy), falls back to HTTP.
@@ -414,11 +423,8 @@ def get_synchronized_frame():
     reader = get_shm_reader()
     frame = reader.read()
     
-    if frame == "NO_NEW_FRAME":
-        # Frame hasn't changed since last read
-        # In tracking loop, we might want to wait or return None
-        # But to match old behavior, we return None so loop waits
-        return None
+    if frame is NO_NEW_FRAME:
+        return NO_NEW_FRAME if for_tracking else None
         
     if frame is not None and isinstance(frame, dict):
         return frame
@@ -445,39 +451,29 @@ def get_synchronized_frame_http():
 
         blob = response.read()
 
-        # Binary protocol: Header (24 bytes) + HeadJSON + RGB + Depth
-        header_fmt = "<4sIHHIHHI"
-        header_size = struct.calcsize(header_fmt)
-        
-        magic, head_len, rgb_w, rgb_h, rgb_len, depth_w, depth_h, depth_len = struct.unpack(
-            header_fmt, blob[:header_size]
-        )
-        
-        if magic != b"PFR1":
-            raise RuntimeError("Invalid frame magic")
-
-        offset = header_size
+        # Current daemon sends head + RGB; older PFR1 daemons also include depth.
+        if blob[:4] == b"PFR2":
+            fmt = "<4sIHHI"
+            _, head_len, rgb_w, rgb_h, rgb_len = struct.unpack_from(fmt, blob)
+            depth_w = depth_h = depth_len = 0
+        elif blob[:4] == b"PFR1":
+            fmt = "<4sIHHIHHI"
+            _, head_len, rgb_w, rgb_h, rgb_len, depth_w, depth_h, depth_len = struct.unpack_from(fmt, blob)
+        else:
+            raise ValueError("Invalid frame magic")
+        offset = struct.calcsize(fmt)
+        if len(blob) != offset + head_len + rgb_len + depth_len:
+            raise ValueError("Invalid frame length")
         head_bytes = blob[offset:offset + head_len]
         offset += head_len
         rgb_bytes = blob[offset:offset + rgb_len]
         offset += rgb_len
-        # Depth bytes skipped or not present if daemon changed?
-        # Ideally we should update HTTP protocol too, but let's assume daemon still sends depth via HTTP for compatibility
-        # If we removed depth from daemon HTTP handler, this will break.
-        # Let's check camera_daemon.py changes... I removed get_depth_frame usage in do_GET /frame_bin
-        # So I need to update this reader too!
-        
-        # New Protocol without Depth: Header + Head + RGB
-        # Let's assume camera_daemon.py sends: <4sIHHII (Magic, HeadL, RGBW, RGBH, RGBL, DepthW=0, DepthH=0, DepthL=0)?
-        # Wait, I didn't update CameraHandler in camera_daemon.py yet!
-        # I only updated the SharedMemory part. The HTTP part still references get_depth_frame!
-        # I should have updated CameraHandler in camera_daemon.py as well to be consistent.
-        # But let's assume I only use SHM.
-        pass
+        depth_bytes = blob[offset:] if depth_len else None
 
         head = json.loads(head_bytes.decode("utf-8")) if head_bytes else {}
 
         result = {
+            'head': head,
             'head_yaw': float(head.get('head_yaw', 0.0) or 0.0),
             'head_pitch': float(head.get('head_pitch', 0.0) or 0.0),
             'rgb_image': raw_to_image(rgb_bytes, rgb_w, rgb_h) if rgb_len > 0 else None,
@@ -678,11 +674,14 @@ def update_tracking_once():
         depth_height = 0
         
         t_frame = 0
+        pose_observed = False
         
         # Try Camera Daemon first (synchronized, fast)
         if CAMERA_DAEMON_AVAILABLE:
             t0 = time.time()
-            frame = get_synchronized_frame()
+            frame = get_synchronized_frame(for_tracking=True)
+            if frame is NO_NEW_FRAME:
+                return None, 0  # No observation: don't update tracks or broadcast old data.
             t_frame = (time.time() - t0) * 1000
             if frame and frame.get('rgb_image') is not None:
                 image = frame['rgb_image']
@@ -699,7 +698,11 @@ def update_tracking_once():
                 }
                 
                 # Extract camera offsets
-                camera_offsets = frame.get('head', {}).get('camera_offsets')
+                head = frame.get('head') or {}
+                camera_offsets = head.get('camera_offsets')
+                published = frame.get('published_at')
+                pose_observed = (head.get('head_yaw') is not None and published is not None
+                                 and 0 <= time.time() - published <= 0.75)
         
         # Fallback to subprocess if daemon not available or failed
         if image is None:
@@ -778,7 +781,8 @@ def update_tracking_once():
             depth_data=depth_data,
             depth_width=depth_width,
             depth_height=depth_height,
-            camera_offsets=camera_offsets
+            camera_offsets=camera_offsets,
+            pose_observed=pose_observed
         )
         t_track = (time.time() - t2) * 1000
         
@@ -816,13 +820,17 @@ def background_tracking_loop():
     last_broadcast = None
     
     while TRACKING_RUNNING:
+        min_delay = 0.0
         try:
             people, update_ms = update_tracking_once()
-            CACHED_PEOPLE = people
-            LAST_UPDATE_MS = update_ms
+            if people is None:
+                min_delay = 0.05  # Avoid spinning even in max-speed mode.
+            else:
+                CACHED_PEOPLE = people
+                LAST_UPDATE_MS = update_ms
             
             # Broadcast to WebSocket clients if data changed
-            if WEBSOCKET_AVAILABLE and get_client_count() > 0:
+            if people is not None and WEBSOCKET_AVAILABLE and get_client_count() > 0:
                 current_state = json.dumps(people)
                 if current_state != last_broadcast:
                     schedule_broadcast({
@@ -841,13 +849,15 @@ def background_tracking_loop():
             print(f"[Tracking] Error in background loop: {e}")
         
         # Dynamic update interval from settings
-        interval = get_tracking_interval()
+        interval = max(min_delay, get_tracking_interval())
         
         # Wait before next update (but check if we should stop)
-        for _ in range(int(interval * 10)):
-            if not TRACKING_RUNNING:
+        deadline = time.monotonic() + interval
+        while TRACKING_RUNNING:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
                 break
-            time.sleep(0.1)
+            time.sleep(min(0.1, remaining))
     
     print("[Tracking] Background thread stopped")
 

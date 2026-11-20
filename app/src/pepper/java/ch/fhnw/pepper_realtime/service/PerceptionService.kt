@@ -2,6 +2,7 @@ package ch.fhnw.pepper_realtime.service
 
 import android.os.Handler
 import android.os.HandlerThread
+import android.os.SystemClock
 import android.util.Log
 import com.aldebaran.qi.sdk.QiContext
 import com.aldebaran.qi.sdk.`object`.human.Human
@@ -63,6 +64,10 @@ class PerceptionService {
     // Use a recreatable scope - gets recreated if cancelled
     private var serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var peopleCollectionJob: Job? = null
+    private class ApproachFeed {
+        @Volatile var latest: PerceptionWebSocketClient.PeopleUpdate? = null
+    }
+    @Volatile private var approachFeed: ApproachFeed? = null
     
     private fun ensureScopeActive(): CoroutineScope {
         if (!serviceScope.isActive) {
@@ -185,10 +190,14 @@ class PerceptionService {
      */
     private fun startPeopleCollection(wsClient: PerceptionWebSocketClient) {
         peopleCollectionJob?.cancel()
+        val feed = ApproachFeed()
+        approachFeed = feed
         peopleCollectionJob = ensureScopeActive().launch {
             val detector = PersonEventDetector()
             wsClient.peopleUpdates.collectLatest { update ->
                 if (!isMonitoring) return@collectLatest
+                if (update.receivedElapsedMs < (feed.latest?.receivedElapsedMs ?: 0L)) return@collectLatest
+                feed.latest = update
                 
                 try {
                     // Convert TrackedPerson to HumanInfo
@@ -223,6 +232,7 @@ class PerceptionService {
      * Stop monitoring for perception data
      */
     fun stopMonitoring() {
+        approachFeed = null
         isMonitoring = false
         peopleCollectionJob?.cancel()
         webSocketClient?.disconnect()
@@ -254,7 +264,7 @@ class PerceptionService {
             attentionState = if (person.lookingAtRobot) "LOOKING_AT_ROBOT" else "LOOKING_ELSEWHERE"
             
             // Position data
-            worldYaw = person.worldYaw
+            worldYaw = person.worldYaw.takeIf { it.isFinite() } ?: 0f
             worldPitch = person.worldPitch
             distanceMeters = person.distance.toDouble()
             
@@ -262,7 +272,7 @@ class PerceptionService {
             // worldYaw: 0=front, +=left, -=right
             // Distance * sin(yaw) gives approximate Y offset
             if (person.distance > 0) {
-                val yawRad = Math.toRadians(person.worldYaw.toDouble())
+                val yawRad = Math.toRadians(worldYaw.toDouble())
                 positionX = person.distance * kotlin.math.cos(yawRad)
                 positionY = person.distance * kotlin.math.sin(yawRad)
             }
@@ -334,22 +344,30 @@ class PerceptionService {
         }
     }
 
-    /**
-     * Find a QiSDK Human by ID (hashCode).
-     * Note: With head-based perception, track IDs from the server are used instead.
-     * This method is kept for backward compatibility with ApproachHuman tool.
-     */
-    fun getHumanById(humanId: Int): Human? {
-        if (humanAwareness == null) {
-            Log.d(TAG, "QiSDK HumanAwareness not available")
-            return null
-        }
+    internal class ApproachTarget(val human: Human, val stillMatches: () -> Boolean)
 
+    internal fun resolveApproachTrack(trackId: Int): ApproachTarget? {
+        val feed = approachFeed ?: return null
+        val qi = qiContext ?: return null
+        val sampledAt = SystemClock.elapsedRealtime()
         return try {
-            val detectedHumans = humanAwareness?.humansAround ?: return null
-            detectedHumans.find { it.hashCode() == humanId }
+            val humans = humanAwareness?.humansAround?.toList() ?: return null
+            val robot = qi.actuation.robotFrame()
+            val positions = humans.map { human ->
+                val t = human.headFrame.computeTransform(robot).transform.translation
+                ApproachTrackMatcher.Position.fromRobotFrame(t.x, t.y)
+            }
+            fun currentIndex(): Int? {
+                val now = SystemClock.elapsedRealtime()
+                if (approachFeed !== feed || qi !== qiContext ||
+                    webSocketClient?.connectionState?.value != PerceptionWebSocketClient.ConnectionState.CONNECTED ||
+                    now - sampledAt !in 0..ApproachTrackMatcher.MAX_AGE_MS) return null
+                return ApproachTrackMatcher.match(trackId, feed.latest, positions, now)
+            }
+            val index = currentIndex() ?: return null
+            ApproachTarget(humans[index]) { currentIndex() == index }
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to find human by ID $humanId", e)
+            Log.w(TAG, "Cannot resolve perception track $trackId to a current QiSDK human", e)
             null
         }
     }

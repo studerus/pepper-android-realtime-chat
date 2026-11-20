@@ -31,7 +31,8 @@ class ApproachHumanTool : Tool {
                 put("properties", JSONObject().apply {
                     put("human_id", JSONObject()
                         .put("type", "integer")
-                        .put("description", "Optional ID of specific human to approach (from human detection). If not provided, approaches the most suitable person based on engagement and attention signals."))
+                        .put("minimum", 1)
+                        .put("description", "Optional current head-perception track ID (Track # in the dashboard). Never guess an ID. If omitted, Pepper approaches the recommended person."))
                     put("speed", JSONObject()
                         .put("type", "number")
                         .put("description", "Optional movement speed in m/s (0.1-0.55)")
@@ -45,9 +46,14 @@ class ApproachHumanTool : Tool {
     }
 
     override fun execute(args: JSONObject, context: ToolContext): String {
-        val humanId = if (args.has("human_id")) args.optInt("human_id") else null
+        val humanId: Int?
         val speed: Double
         try {
+            humanId = if (args.has("human_id")) {
+                val id = MotionValidation.number(args, "human_id")
+                require(id >= 1 && id == id.toInt().toDouble()) { "human_id must be a positive integer" }
+                id.toInt()
+            } else null
             speed = MotionValidation.number(args, "speed", 0.3)
             MotionValidation.speed(speed)
         } catch (e: IllegalArgumentException) {
@@ -82,17 +88,18 @@ class ApproachHumanTool : Tool {
             // Find target human
             val targetHuman: com.aldebaran.qi.sdk.`object`.human.Human?
             val targetDescription: String
+            var confirmTrack: (() -> Boolean)? = null
 
             if (humanId != null) {
-                // Try to find specific human by ID using PerceptionService
-                targetHuman = perceptionService.getHumanById(humanId)
-
-                if (targetHuman == null) {
+                val match = perceptionService.resolveApproachTrack(humanId)
+                if (match == null) {
                     return JSONObject()
-                        .put("error", "Human with ID $humanId not found. The person may have moved away.")
+                        .put("error", "Cannot uniquely locate current track $humanId. Pepper has not moved. Do not retry without the target ID.")
                         .toString()
                 }
-                targetDescription = "human with ID $humanId"
+                targetHuman = match.human
+                confirmTrack = match.stillMatches
+                targetDescription = "person with track ID $humanId"
             } else {
                 // Get recommended human to approach using PerceptionService
                 targetHuman = perceptionService.getRecommendedHumanToApproach()
@@ -120,7 +127,15 @@ class ApproachHumanTool : Tool {
             }
 
             // Execute approach asynchronously
-            val approachFuture = context.startRobotAction { approachHuman.async().run() }
+            val approachFuture = try {
+                context.startRobotAction {
+                    check(confirmTrack?.invoke() != false) { "Target track is no longer current or unambiguous. Pepper has not moved." }
+                    approachHuman.async().run()
+                }
+            } catch (e: Exception) {
+                approachHuman.removeAllOnHumanIsTemporarilyUnreachableListeners()
+                throw e
+            }
 
             approachFuture.thenConsume { future ->
                 approachHuman.removeAllOnHumanIsTemporarilyUnreachableListeners()

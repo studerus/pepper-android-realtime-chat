@@ -3,6 +3,8 @@ package ch.fhnw.pepper_realtime.tools.navigation
 import ch.fhnw.pepper_realtime.controller.MovementController
 import ch.fhnw.pepper_realtime.data.SavedLocation
 import ch.fhnw.pepper_realtime.tools.ToolContext
+import ch.fhnw.pepper_realtime.service.PerceptionService
+import org.mockito.Answers.RETURNS_DEEP_STUBS
 import com.aldebaran.qi.sdk.QiContext
 import org.json.JSONObject
 import org.junit.Assert.*
@@ -10,6 +12,20 @@ import org.junit.Test
 import org.mockito.kotlin.*
 
 class NavigationSafetyTest {
+    @Test fun `unresolved explicit track never falls back to a recommended human`() {
+        val context = mock<ToolContext>()
+        val qi = mock<QiContext>(defaultAnswer = RETURNS_DEEP_STUBS)
+        val perception = mock<PerceptionService>()
+        whenever(qi.power.chargingFlap.state.open).thenReturn(false)
+        whenever(context.qiContext).thenReturn(qi)
+        whenever(context.perceptionService).thenReturn(perception)
+        whenever(perception.isInitialized).thenReturn(true)
+        val result = ApproachHumanTool().execute(JSONObject().put("human_id", 42), context)
+        assertTrue(JSONObject(result).getString("error").contains("track 42"))
+        verify(perception).resolveApproachTrack(42)
+        verify(perception, never()).getRecommendedHumanToApproach()
+    }
+
     @Test fun `invalid tool arguments never reach robot or navigation services`() {
         val cases = listOf(
             MovePepperTool() to """{"distance_forward":4.01}""",
@@ -21,6 +37,9 @@ class NavigationSafetyTest {
             LookAtPositionTool() to """{"x":1,"y":0}""",
             NavigateToLocationTool() to """{"location_name":"Kitchen","speed":"NaN"}""",
             ApproachHumanTool() to """{"speed":100}""",
+            ApproachHumanTool() to """{"human_id":0}""",
+            ApproachHumanTool() to """{"human_id":1.5}""",
+            ApproachHumanTool() to """{"human_id":"2"}""",
             FollowHumanTool() to """{"distance":"NaN"}""",
             FollowHumanTool() to """{"distance":0.1}"""
         )
