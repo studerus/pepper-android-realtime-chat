@@ -655,7 +655,7 @@ class ChatSessionController @Inject constructor(
         sessionManager.close(1000, "Connection lost")
         cleanupAfterDisconnect()
 
-        if (code != 1000) reportConnectionLost(reason, code)
+        reportConnectionLost(reason, code)
     }
 
     private fun cleanupAfterDisconnect() {
@@ -669,16 +669,13 @@ class ChatSessionController @Inject constructor(
     }
 
     private fun reportConnectionLost(reason: String, code: Int?) {
-        val errorMsg = if (code == 1007) {
-            // Protocol error - likely invalid message format
-            viewModel.getApplication<android.app.Application>().getString(R.string.error_connection_protocol, reason)
-        } else {
-            viewModel.getApplication<android.app.Application>().getString(R.string.error_connection_lost)
+        val app = viewModel.getApplication<android.app.Application>()
+        if (code != 1000) {
+            val errorMsg = if (code == 1007) app.getString(R.string.error_connection_protocol, reason)
+                else app.getString(R.string.error_connection_lost)
+            viewModel.addMessage(ChatMessage(errorMsg, ChatMessage.Sender.ROBOT))
         }
-        viewModel.addMessage(ChatMessage(errorMsg, ChatMessage.Sender.ROBOT))
-        viewModel.setStatusText(
-            viewModel.getApplication<android.app.Application>().getString(R.string.error_disconnected)
-        )
+        viewModel.setStatusText(app.getString(R.string.error_disconnected))
     }
 
     private fun setupAudioPlayerListener() {

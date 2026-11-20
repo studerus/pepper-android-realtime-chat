@@ -65,12 +65,8 @@ class ChatTurnListener @Inject constructor(
     }
 
     override fun onEnterThinking() {
-        // Physically stop the mic so nothing is recognized during THINKING (only if running)
-        if (audioInputController.isSttRunning) {
-            audioInputController.stopContinuousRecognition()
-        } else {
-            Log.d(TAG, "STT already stopped, skipping redundant stop in THINKING state")
-        }
+        // Also invalidates a queued capture start, even if neither backend is recording yet.
+        audioInputController.stopContinuousRecognition()
         viewModel.setStatusText(getString(R.string.status_thinking))
         viewModel.setInterruptFabVisible(false)
     }

@@ -22,8 +22,9 @@ class ChatWorkRegistry @Inject constructor() {
         }
 
         fun cancelCall(id: String) {
-            val operation = synchronized(calls) { calls[id] }
-            operation?.cancel()
+            val operation = synchronized(calls) { calls[id] } ?: return
+            operation.cancel()
+            completeCall(id) // Retain the call ID for deduplication, but do not block session resumption.
         }
 
         fun completeCall(id: String) { synchronized(calls) { pendingCalls.remove(id) } }

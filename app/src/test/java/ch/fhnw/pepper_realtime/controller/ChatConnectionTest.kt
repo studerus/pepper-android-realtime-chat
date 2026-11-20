@@ -72,6 +72,47 @@ class ChatConnectionTest {
         f.controller.disconnectWebSocketGracefully()
     }
 
+    @Test fun `normal server close marks an established chat disconnected once without an error message`() = runTest {
+        val f = Fixture(this)
+        f.controller.connectWebSocket(null)
+        f.acknowledge()
+        val listener = f.listeners.last()
+        listener.onClosing(1000, "Session ended")
+        listener.onClosed(1000, "Session ended")
+        verify(f.viewModel).setStatusText("resource:${R.string.error_disconnected}")
+        verify(f.audio).cleanupForRestart()
+        verify(f.viewModel, never()).addMessage(any())
+        assertNull(f.registry.current)
+    }
+
+    @Test fun `normal close callback after local disconnect does not overwrite local status`() = runTest {
+        val f = Fixture(this)
+        f.controller.connectWebSocket(null)
+        f.acknowledge()
+        val listener = f.listeners.last()
+        f.controller.disconnectWebSocket()
+        listener.onClosed(1000, "User initiated disconnect")
+        verify(f.viewModel, never()).setStatusText("resource:${R.string.error_disconnected}")
+    }
+
+    @Test fun `cancelled tool no longer prevents Gemini resume on a normal server close`() = runTest {
+        val f = Fixture(this)
+        whenever(f.settings.apiProviderEnum).thenReturn(RealtimeApiProvider.GOOGLE_GEMINI)
+        whenever(f.settings.model).thenReturn("models/gemini-3.1-flash-live-preview")
+        f.controller.connectWebSocket(null)
+        f.acknowledge()
+        val owner = f.registry.current!!
+        owner.beginCall("cancelled")
+        owner.cancelCall("cancelled")
+        f.controller.updateGoogleCheckpoint(GoogleLiveEvents.SessionResumptionUpdate("saved", true))
+        f.listeners.last().onClosing(1000, "Server rotation")
+        advanceTimeBy(1000); runCurrent()
+        verify(f.network).resumeGoogleSession(any(), anyOrNull(), eq("saved"))
+        f.acknowledge()
+        assertSame(owner, f.registry.current)
+        verify(f.viewModel, never()).setStatusText("resource:${R.string.error_disconnected}")
+    }
+
     @Test fun `clock preparation is shared and the handshake timeout starts only afterwards`() = runTest {
         val f = Fixture(this)
         val ready = CompletableDeferred<Boolean>()

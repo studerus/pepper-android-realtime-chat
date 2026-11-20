@@ -29,6 +29,9 @@ class ChatWorkRegistryTest {
         session.cancelCall("a")
         assertFalse(a.isActive)
         assertTrue(b.isActive)
+        assertTrue(session.hasPendingCalls())
+        session.completeCall("b")
+        assertFalse(session.hasPendingCalls())
         assertNull(session.beginCall("a")) // No duplicate execution after cancellation.
     }
 
