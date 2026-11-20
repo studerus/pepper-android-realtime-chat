@@ -67,6 +67,24 @@ class ClockRecoveryTest {
         assertEquals(ClockRecovery.MAX_DURATION_MS, testScheduler.currentTime)
     }
 
+    @Test fun `progress distinguishes offline wait and synchronization without duplicate updates`() = runTest {
+        val environment = Environment(testScheduler).apply { connected = false }
+        val stages = mutableListOf<ClockRecoveryStage>()
+        launch {
+            delay(15000)
+            environment.connected = true
+            delay(15000)
+            environment.connected = false
+            delay(15000)
+            environment.connected = true
+            delay(5000)
+            environment.wallTime = ClockRecovery.MIN_VALID_TIME_MS
+        }
+        assertEquals(ClockRecovery.Result.RECOVERED, ClockRecovery(environment).recover(stages::add))
+        assertEquals(listOf(ClockRecoveryStage.WAITING_FOR_NETWORK, ClockRecoveryStage.SYNCHRONIZING,
+            ClockRecoveryStage.WAITING_FOR_NETWORK, ClockRecoveryStage.SYNCHRONIZING), stages)
+    }
+
     @Test fun `requests are rate limited and bounded even if wall clock moves backwards`() = runTest {
         val environment = Environment(testScheduler).apply { onRequest = { wallTime -= 1000000 } }
         assertEquals(ClockRecovery.Result.EXHAUSTED, ClockRecovery(environment).recover())

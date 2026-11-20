@@ -14,6 +14,8 @@ import ch.fhnw.pepper_realtime.manager.ApiKeyManager
 import ch.fhnw.pepper_realtime.manager.AudioPlayer
 import ch.fhnw.pepper_realtime.manager.SessionImageManager
 import ch.fhnw.pepper_realtime.manager.SettingsRepository
+import ch.fhnw.pepper_realtime.manager.SystemTimeRecovery
+import ch.fhnw.pepper_realtime.manager.ClockRecoveryStage
 import ch.fhnw.pepper_realtime.manager.TurnManager
 import ch.fhnw.pepper_realtime.network.RealtimeApiProvider
 import ch.fhnw.pepper_realtime.network.RealtimeEventHandler
@@ -51,7 +53,8 @@ class ChatSessionController @Inject constructor(
     private val eventHandler: RealtimeEventHandler,
     private val sessionImageManager: SessionImageManager,
     private val workRegistry: ChatWorkRegistry,
-    private val navigationServiceManager: NavigationServiceManager
+    private val navigationServiceManager: NavigationServiceManager,
+    private val systemTimeRecovery: SystemTimeRecovery
 ) : RealtimeMessageSender {
 
     companion object {
@@ -350,6 +353,51 @@ class ChatSessionController @Inject constructor(
         connectionAttempt = pending
         setupSessionManagerListeners(session)
         clearChatActivities(session)
+        if (systemTimeRecovery.needsRecovery()) {
+            Log.i(TAG, "Waiting for a valid clock before opening the voice connection")
+            session.lifetime.launchIn(applicationScope, ioDispatcher) {
+                try {
+                    val ready = systemTimeRecovery.awaitValidClock { stage ->
+                        inSession(session) {
+                            if (connectionAttempt === pending) {
+                                val status = if (stage == ClockRecoveryStage.WAITING_FOR_NETWORK)
+                                    R.string.status_waiting_for_network else R.string.status_synchronizing_clock
+                                viewModel.setStatusText(viewModel.getApplication<android.app.Application>().getString(status))
+                            }
+                        }
+                    }
+                    inSession(session) {
+                        if (connectionAttempt === pending) {
+                            if (ready) openPreparedConnection(pending) else failClockPreparation()
+                        }
+                    }
+                } catch (_: CancellationException) {
+                    // Backgrounding, disconnecting, or starting a newer session cancels preparation.
+                } catch (error: Exception) {
+                    inSession(session) {
+                        if (connectionAttempt === pending) {
+                            Log.w(TAG, "Clock preparation failed", error)
+                            failClockPreparation()
+                        }
+                    }
+                }
+            }
+        } else {
+            openPreparedConnection(pending)
+        }
+    }
+
+    private fun failClockPreparation() {
+        val app = viewModel.getApplication<android.app.Application>()
+        failConnectionPromise(app.getString(R.string.error_clock_sync_failed))
+        if (workRegistry.current == null) viewModel.setStatusText(app.getString(R.string.status_clock_sync_failed))
+    }
+
+    // Caller holds the controller lock and has verified that this attempt is still current.
+    private fun openPreparedConnection(pending: ConnectionAttempt) {
+        val session = pending.session
+        viewModel.setStatusText(viewModel.getApplication<android.app.Application>().getString(R.string.status_connecting))
+        // Clock recovery can take minutes; the handshake deadline starts only once it is done.
         pending.timeout = session.lifetime.launchIn(applicationScope, ioDispatcher) {
             delay(CONNECTION_TIMEOUT_MS)
             inSession(session) {

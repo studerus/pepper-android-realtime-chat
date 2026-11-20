@@ -2,6 +2,8 @@ package ch.fhnw.pepper_realtime.manager
 
 import kotlinx.coroutines.delay
 
+enum class ClockRecoveryStage { WAITING_FOR_NETWORK, SYNCHRONIZING }
+
 /** Bounded recovery of a reset clock; Android remains responsible for setting the time. */
 internal class ClockRecovery(private val environment: Environment) {
     interface Environment {
@@ -14,11 +16,12 @@ internal class ClockRecovery(private val environment: Environment) {
 
     enum class Result { ALREADY_VALID, RECOVERED, DISABLED, TIMED_OUT, EXHAUSTED, REJECTED }
 
-    suspend fun recover(): Result {
+    suspend fun recover(onProgress: (ClockRecoveryStage) -> Unit = {}): Result {
         if (environment.wallTimeMs() >= MIN_VALID_TIME_MS) return Result.ALREADY_VALID
         val startedAt = environment.elapsedTimeMs()
         var attempts = 0
         var lastAttemptAt: Long? = null
+        var lastStage: ClockRecoveryStage? = null
         while (true) {
             if (environment.wallTimeMs() >= MIN_VALID_TIME_MS) return Result.RECOVERED
             if (!environment.automaticTimeEnabled()) return Result.DISABLED
@@ -27,7 +30,13 @@ internal class ClockRecovery(private val environment: Environment) {
             val retryDue = lastAttemptAt?.let { now - it >= RETRY_INTERVAL_MS } ?: true
             // Give the final request time to complete before reporting exhaustion.
             if (attempts >= MAX_ATTEMPTS && retryDue) return Result.EXHAUSTED
-            if (attempts < MAX_ATTEMPTS && retryDue && environment.isConnected()) {
+            val connected = environment.isConnected()
+            val stage = if (connected) ClockRecoveryStage.SYNCHRONIZING else ClockRecoveryStage.WAITING_FOR_NETWORK
+            if (stage != lastStage) {
+                onProgress(stage)
+                lastStage = stage
+            }
+            if (attempts < MAX_ATTEMPTS && retryDue && connected) {
                 try {
                     environment.requestNetworkTime()
                 } catch (_: SecurityException) {

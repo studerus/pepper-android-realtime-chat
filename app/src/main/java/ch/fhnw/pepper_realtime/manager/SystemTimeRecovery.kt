@@ -25,24 +25,28 @@ class SystemTimeRecovery @Inject constructor(
 ) {
     private val mutex = Mutex()
 
-    /** Runs only while the caller's lifecycle coroutine is active. */
-    suspend fun recoverIfNeeded(): Boolean = withContext(ioDispatcher) {
-        if (!ClockRecovery.isSupported(BuildConfig.FLAVOR, Build.VERSION.SDK_INT)) return@withContext false
+    fun needsRecovery(): Boolean =
+        ClockRecovery.isSupported(BuildConfig.FLAVOR, Build.VERSION.SDK_INT) &&
+            System.currentTimeMillis() < ClockRecovery.MIN_VALID_TIME_MS
+
+    /** True means connection may proceed. Cancellation belongs to the connection attempt. */
+    suspend fun awaitValidClock(onProgress: (ClockRecoveryStage) -> Unit): Boolean = withContext(ioDispatcher) {
+        if (!ClockRecovery.isSupported(BuildConfig.FLAVOR, Build.VERSION.SDK_INT)) return@withContext true
         mutex.withLock {
             try {
                 val environment = AndroidClockRecoveryEnvironment(context)
                 if (environment.wallTimeMs() >= ClockRecovery.MIN_VALID_TIME_MS) {
                     Log.d(TAG, "Clock is plausible; no recovery needed")
-                    return@withLock false
+                    return@withLock true
                 }
                 Log.w(TAG, "Reset clock detected; checking automatic time and waiting for network")
-                val result = ClockRecovery(environment).recover()
+                val result = ClockRecovery(environment).recover(onProgress)
                 if (result == ClockRecovery.Result.RECOVERED) {
                     Log.i(TAG, "Clock is plausible again; ending recovery")
                 } else {
                     Log.w(TAG, "Clock recovery ended: $result")
                 }
-                result == ClockRecovery.Result.RECOVERED
+                result == ClockRecovery.Result.RECOVERED || result == ClockRecovery.Result.ALREADY_VALID
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

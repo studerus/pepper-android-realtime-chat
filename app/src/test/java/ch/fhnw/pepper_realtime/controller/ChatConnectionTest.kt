@@ -7,6 +7,7 @@ import ch.fhnw.pepper_realtime.network.*
 import ch.fhnw.pepper_realtime.tools.ChatWorkRegistry
 import ch.fhnw.pepper_realtime.ui.ChatViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.*
 import org.junit.Assert.*
 import org.junit.Test
@@ -29,6 +30,7 @@ class ChatConnectionTest {
         val keys = mock<ApiKeyManager>()
         val audio = mock<AudioInputController>()
         val turn = mock<TurnManager>()
+        val clock = mock<SystemTimeRecovery>()
         val registry = ChatWorkRegistry()
         val listeners = mutableListOf<RealtimeSessionManager.Listener>()
         val configurations = mutableListOf<RealtimeSessionManager.SessionConfigCallback>()
@@ -50,12 +52,109 @@ class ChatConnectionTest {
             doAnswer { listeners.add(it.getArgument(0)); null }.whenever(network).listener = any()
             doAnswer { configurations.add(it.getArgument(0)); null }.whenever(network).setSessionConfigCallback(any())
             controller = ChatSessionController(viewModel, network, settings, keys, audio,
-                StandardTestDispatcher(scope.testScheduler), scope, mock(), turn, mock(), mock(), mock(), mock(), registry, mock())
+                StandardTestDispatcher(scope.testScheduler), scope, mock(), turn, mock(), mock(), mock(), mock(), registry, mock(), clock)
         }
         fun acknowledge() {
             ready = true
             configurations.last().onSessionConfigured(true, null)
         }
+    }
+
+    @Test fun `valid clock opens the connection immediately without asynchronous preparation`() = runTest {
+        val f = Fixture(this)
+        val result = Result()
+        f.controller.connectWebSocket(result)
+        // No scheduler advance: a plausible clock retains the synchronous connection fast path.
+        verify(f.network, times(1)).connect(any(), anyOrNull())
+        verify(f.clock, never()).awaitValidClock(any())
+        assertEquals(0L, testScheduler.currentTime)
+        f.acknowledge()
+        f.controller.disconnectWebSocketGracefully()
+    }
+
+    @Test fun `clock preparation is shared and the handshake timeout starts only afterwards`() = runTest {
+        val f = Fixture(this)
+        val ready = CompletableDeferred<Boolean>()
+        whenever(f.clock.needsRecovery()).thenReturn(true)
+        whenever(f.clock.awaitValidClock(any())).doSuspendableAnswer {
+            it.getArgument<(ClockRecoveryStage) -> Unit>(0)(ClockRecoveryStage.WAITING_FOR_NETWORK)
+            ready.await()
+        }
+        val first = Result(); val second = Result()
+        f.controller.connectWebSocket(first)
+        f.controller.connectWebSocket(second)
+        runCurrent()
+        advanceTimeBy(60000); runCurrent()
+        verify(f.network, never()).connect(any(), anyOrNull())
+        verify(f.viewModel).setStatusText("resource:${R.string.status_waiting_for_network}")
+        assertTrue(first.errors.isEmpty() && second.errors.isEmpty())
+        ready.complete(true)
+        runCurrent()
+        verify(f.clock, times(1)).awaitValidClock(any())
+        verify(f.network, times(1)).connect(any(), anyOrNull())
+        advanceTimeBy(ChatSessionController.CONNECTION_TIMEOUT_MS - 1); runCurrent()
+        assertTrue(first.errors.isEmpty())
+        f.acknowledge()
+        advanceUntilIdle()
+        assertEquals(1, first.successes)
+        assertEquals(1, second.successes)
+        f.controller.disconnectWebSocketGracefully()
+    }
+
+    @Test fun `failed clock recovery fails all waiters without opening a socket`() = runTest {
+        val f = Fixture(this)
+        whenever(f.clock.needsRecovery()).thenReturn(true)
+        whenever(f.clock.awaitValidClock(any())).thenReturn(false)
+        val first = Result(); val second = Result()
+        f.controller.connectWebSocket(first)
+        f.controller.connectWebSocket(second)
+        advanceUntilIdle()
+        assertEquals(1, first.errors.size)
+        assertEquals(1, second.errors.size)
+        assertEquals("resource:${R.string.error_clock_sync_failed}", first.errors.single().message)
+        verify(f.network, never()).connect(any(), anyOrNull())
+        verify(f.viewModel).setStatusText("resource:${R.string.status_clock_sync_failed}")
+        assertNull(f.registry.current)
+    }
+
+    @Test fun `disconnect during clock recovery cannot open a delayed connection`() = runTest {
+        val f = Fixture(this)
+        val ready = CompletableDeferred<Boolean>()
+        whenever(f.clock.needsRecovery()).thenReturn(true)
+        whenever(f.clock.awaitValidClock(any())).doSuspendableAnswer { ready.await() }
+        val result = Result()
+        f.controller.connectWebSocket(result)
+        runCurrent()
+        f.controller.disconnectWebSocketGracefully()
+        ready.complete(true)
+        advanceUntilIdle()
+        verify(f.network, never()).connect(any(), anyOrNull())
+        assertTrue(result.errors.isEmpty())
+        assertEquals(0, result.successes)
+        assertNull(f.registry.current)
+    }
+
+    @Test fun `new connection supersedes a cancelled clock preparation`() = runTest {
+        val f = Fixture(this)
+        val oldReady = CompletableDeferred<Boolean>()
+        whenever(f.clock.needsRecovery()).thenReturn(true)
+        whenever(f.clock.awaitValidClock(any())).doSuspendableAnswer { oldReady.await() }
+        val oldResult = Result()
+        f.controller.connectWebSocket(oldResult)
+        runCurrent()
+        f.controller.disconnectWebSocketGracefully()
+        whenever(f.clock.needsRecovery()).thenReturn(false)
+        val retry = Result()
+        f.controller.connectWebSocket(retry)
+        oldReady.complete(true)
+        runCurrent()
+        verify(f.network, times(1)).connect(any(), anyOrNull())
+        f.acknowledge()
+        advanceUntilIdle()
+        assertEquals(0, oldResult.successes)
+        assertTrue(oldResult.errors.isEmpty())
+        assertEquals(1, retry.successes)
+        f.controller.disconnectWebSocketGracefully()
     }
 
     @Test fun `failed new chat reports its error and a subsequent restart can succeed`() = runTest {

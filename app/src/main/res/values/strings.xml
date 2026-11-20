@@ -8,6 +8,11 @@
     <string name="status_updating_recognizer">Updating recognizer…</string>
     <string name="status_starting_new_session">Starting new session…</string>
     <string name="status_reconnecting">Reconnecting…</string>
+    <string name="status_connecting">Connecting…</string>
+    <string name="status_waiting_for_network">Waiting for network…</string>
+    <string name="status_synchronizing_clock">Synchronizing clock…</string>
+    <string name="status_clock_sync_failed">Clock synchronization failed</string>
+    <string name="error_clock_sync_failed">Could not synchronize tablet time. Check automatic date and time and the network, then retry.</string>
     <string name="status_recognizer_not_ready">Recognizer not ready.</string>
     <string name="status_warming_up">Warming up recognizer…</string>
     <string name="status_muted_tap_to_unmute">Muted</string>

@@ -40,7 +40,6 @@ import ch.fhnw.pepper_realtime.manager.NavigationServiceManager
 import ch.fhnw.pepper_realtime.manager.PermissionManager
 import ch.fhnw.pepper_realtime.manager.SessionImageManager
 import ch.fhnw.pepper_realtime.manager.SettingsRepository
-import ch.fhnw.pepper_realtime.manager.SystemTimeRecovery
 import ch.fhnw.pepper_realtime.manager.TouchSensorManager
 import ch.fhnw.pepper_realtime.manager.TurnManager
 import ch.fhnw.pepper_realtime.network.RealtimeSessionManager
@@ -79,7 +78,6 @@ class ChatActivity : AppCompatActivity(), ToolHost {
     @Inject internal lateinit var toolContextFactory: ToolContextFactory
     @Inject internal lateinit var lifecycleController: ChatLifecycleController
     @Inject internal lateinit var videoInputController: VideoInputController
-    @Inject internal lateinit var systemTimeRecovery: SystemTimeRecovery
     @Inject @IoDispatcher internal lateinit var ioDispatcher: CoroutineDispatcher
     @Inject @ApplicationScope internal lateinit var applicationScope: CoroutineScope
 
@@ -164,15 +162,6 @@ class ChatActivity : AppCompatActivity(), ToolHost {
         // Collect StateFlows for ViewModel events
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                launch {
-                    val recovered = systemTimeRecovery.recoverIfNeeded()
-                    if (recovered && robotFocusManager.isFocusAvailable &&
-                        permissionManager.hasMicrophonePermission(this@ChatActivity) && !sessionManager.isConnected) {
-                        // A reset date can make the initial TLS connection fail certificate checks.
-                        Log.i(TAG, "Clock recovered; restarting the disconnected voice session")
-                        viewModel.startNewSession()
-                    }
-                }
                 // Settings events
                 launch {
                     settingsViewModel.restartSessionEvent.collect { restart ->

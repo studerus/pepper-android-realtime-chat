@@ -16,6 +16,9 @@ import org.mockito.kotlin.*
 class ChatSessionLifetimeTest {
     @Test fun `events from an old connection cannot reach the new session`() = runTest {
         val viewModel = mock<ChatViewModel>(defaultAnswer = RETURNS_DEEP_STUBS)
+        val app = mock<Application>()
+        whenever(viewModel.getApplication<Application>()).thenReturn(app)
+        whenever(app.getString(any())).thenReturn("status")
         val network = mock<RealtimeSessionManager>()
         val settings = mock<SettingsRepository>()
         val keys = mock<ApiKeyManager>()
@@ -30,7 +33,7 @@ class ChatSessionLifetimeTest {
         val listeners = mutableListOf<RealtimeSessionManager.Listener>()
         doAnswer { listeners.add(it.getArgument(0)); null }.whenever(network).listener = any()
         val controller = ChatSessionController(viewModel, network, settings, keys, mock(),
-            StandardTestDispatcher(testScheduler), this, mock(), null, mock(), mock(), events, mock(), registry, mock())
+            StandardTestDispatcher(testScheduler), this, mock(), null, mock(), mock(), events, mock(), registry, mock(), mock())
         controller.connectWebSocket(null)
         val old = listeners.last()
         controller.disconnectWebSocketGracefully()
@@ -57,7 +60,7 @@ class ChatSessionLifetimeTest {
         var stopped = 0
         call.onCancel { stopped++ }
         val controller = ChatSessionController(viewModel, network, mock(), mock(), mock(),
-            StandardTestDispatcher(testScheduler), this, mock(), null, mock(), mock(), mock(), mock(), registry, navigation)
+            StandardTestDispatcher(testScheduler), this, mock(), null, mock(), mock(), mock(), mock(), registry, navigation, mock())
         controller.startNewSession()
         assertEquals(1, stopped)
         runCurrent() // Restart is now waiting for its delay.

@@ -47,7 +47,7 @@ class ChatMessageSchedulingTest {
             whenever(app.getString(any())).thenReturn("message")
             doAnswer { generating.value = false; playing.value = false; null }.whenever(interrupt).interruptSpeech()
             controller = ChatSessionController(viewModel, network, settings, mock(), mock(), dispatcher,
-                scope, mock(), turn, interrupt, player, events, mock(), registry, mock())
+                scope, mock(), turn, interrupt, player, events, mock(), registry, mock(), mock())
             handler.sessionController = controller
             events.isGoogleProvider = provider.isGoogleProvider()
         }
