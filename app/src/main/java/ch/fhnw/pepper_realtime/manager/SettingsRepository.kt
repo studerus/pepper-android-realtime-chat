@@ -205,8 +205,12 @@ class SettingsRepository @Inject constructor(
         set(value) = settings.edit().putInt(KEY_SILENCE_DURATION, value).apply()
 
     var idleTimeout: Int?
-        get() = settings.getInt(KEY_IDLE_TIMEOUT, 0)
-        set(value) = settings.edit().putInt(KEY_IDLE_TIMEOUT, value ?: 0).apply()
+        get() = settings.getInt(KEY_IDLE_TIMEOUT, 0).takeIf { it > 0 }
+        set(value) {
+            val editor = settings.edit()
+            if (value == null || value <= 0) editor.remove(KEY_IDLE_TIMEOUT) else editor.putInt(KEY_IDLE_TIMEOUT, value)
+            editor.apply()
+        }
 
     var noiseReduction: String
         get() = settings.getString(KEY_NOISE_REDUCTION, "off") ?: "off"

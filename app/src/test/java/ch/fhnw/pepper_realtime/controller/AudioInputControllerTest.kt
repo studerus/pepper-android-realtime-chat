@@ -57,4 +57,12 @@ class AudioInputControllerTest {
         controller.startContinuousRecognition(); controller.shutdown(); runCurrent()
         verify(speech, never()).start(); verify(speech).shutdown()
     }
+
+    @Test fun `Azure capture indicator follows recognizer callbacks`() = runTest {
+        val controller = fixture(this, realtime = false)
+        controller.setSttRunning(true)
+        org.junit.Assert.assertTrue(controller.captureState.value)
+        controller.setSttRunning(false)
+        org.junit.Assert.assertFalse(controller.captureState.value)
+    }
 }

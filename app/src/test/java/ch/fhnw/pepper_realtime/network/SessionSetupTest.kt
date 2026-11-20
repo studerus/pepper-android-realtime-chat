@@ -94,6 +94,31 @@ class SessionSetupTest {
         assertEquals(listOf(true to null), f.callbacks)
     }
 
+    @Test fun `disabling the idle timeout omits it from server VAD configuration`() {
+        for (timeout in listOf(9000, null)) {
+            val f = Fixture()
+            whenever(f.settings.isUsingRealtimeAudioInput).thenReturn(true)
+            whenever(f.settings.turnDetectionType).thenReturn("server_vad")
+            whenever(f.settings.transcriptionModel).thenReturn("whisper-1")
+            whenever(f.settings.noiseReduction).thenReturn("off")
+            whenever(f.settings.idleTimeout).thenReturn(timeout)
+            f.setup()
+            val vad = f.messages.single().getJSONObject("session").getJSONObject("audio")
+                .getJSONObject("input").getJSONObject("turn_detection")
+            if (timeout == null) assertFalse(vad.has("idle_timeout_ms")) else assertEquals(timeout, vad.getInt("idle_timeout_ms"))
+        }
+    }
+
+    @Test fun `mic connection signal stays off until setup and clears on transport failure`() {
+        val f = Fixture()
+        f.setup()
+        assertFalse(f.manager.connectedState.value)
+        f.manager.onSessionUpdated()
+        assertTrue(f.manager.connectedState.value)
+        f.transport.onFailure(f.socket, java.io.IOException("Disconnected"), null)
+        assertFalse(f.manager.connectedState.value)
+    }
+
     @Test fun `setup rejection matches nested client event id and closes the socket`() {
         val f = Fixture()
         f.setup()

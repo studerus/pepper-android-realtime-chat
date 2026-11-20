@@ -276,9 +276,9 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun setIdleTimeout(timeout: Int) {
+    fun setIdleTimeout(timeout: Int?) {
         val current = settingsRepository.idleTimeout
-        if (current == null || timeout != current) {
+        if (timeout != current) {
             settingsRepository.idleTimeout = timeout
             _settingsState.update { it.copy(idleTimeout = timeout) }
             triggerRealtimeSettingChange()

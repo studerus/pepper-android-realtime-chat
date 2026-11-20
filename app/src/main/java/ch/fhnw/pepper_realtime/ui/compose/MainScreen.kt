@@ -44,6 +44,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun MainScreen(
     viewModel: ChatViewModel,
+    micConnected: Boolean,
+    micCapturing: Boolean,
     settingsViewModel: SettingsViewModel,
     keyManager: ApiKeyManager,
     toolRegistry: ToolRegistry,
@@ -240,7 +242,8 @@ fun MainScreen(
                     if (statusText.isNotEmpty()) {
                         MicrophoneButton(
                             userWantsMicOn = userWantsMicOn,
-                            isRobotSpeakingOrThinking = isRobotSpeakingOrThinking,
+                            connected = micConnected,
+                            capturing = micCapturing,
                             onClick = onMicToggle
                         )
                     }

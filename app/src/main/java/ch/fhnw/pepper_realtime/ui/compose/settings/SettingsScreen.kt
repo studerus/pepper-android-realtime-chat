@@ -49,7 +49,6 @@ fun SettingsScreen(
     LaunchedEffect(systemPrompt) { viewModel.setSystemPrompt(systemPrompt) }
     LaunchedEffect(transcriptionLanguage) { viewModel.setTranscriptionLanguage(transcriptionLanguage) }
     LaunchedEffect(transcriptionPrompt) { viewModel.setTranscriptionPrompt(transcriptionPrompt) }
-    LaunchedEffect(idleTimeoutText) { idleTimeoutText.toIntOrNull()?.let { viewModel.setIdleTimeout(it) } }
     LaunchedEffect(enabledTools) { viewModel.setEnabledTools(enabledTools) }
     
     // Derived values
@@ -525,7 +524,12 @@ fun SettingsScreen(
                         SettingsTextField(
                             label = "Idle Timeout (ms, Optional)",
                             value = idleTimeoutText,
-                            onValueChange = { idleTimeoutText = it },
+                            onValueChange = { text ->
+                                if (text.isEmpty() || text.all { it in '0'..'9' } && text.toIntOrNull() != null) {
+                                    idleTimeoutText = text
+                                    viewModel.setIdleTimeout(text.toIntOrNull()?.takeIf { it > 0 })
+                                }
+                            },
                             hint = "Milliseconds - leave empty to disable"
                         )
                     } else {

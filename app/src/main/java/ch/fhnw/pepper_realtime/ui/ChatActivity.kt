@@ -15,6 +15,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import android.os.SystemClock
 import ch.fhnw.pepper_realtime.controller.ConversationIdleTimer
@@ -146,6 +147,8 @@ class ChatActivity : AppCompatActivity(), ToolHost {
             MaterialTheme {
                 MainScreen(
                     viewModel = viewModel,
+                    micConnected = sessionManager.connectedState.collectAsStateWithLifecycle().value,
+                    micCapturing = audioInputController.captureState.collectAsStateWithLifecycle().value,
                     settingsViewModel = settingsViewModel,
                     keyManager = keyManager,
                     toolRegistry = _toolRegistry,
@@ -321,9 +324,9 @@ class ChatActivity : AppCompatActivity(), ToolHost {
             val currentState = chatDeps.turnManager.state
 
             // If currently LISTENING, apply immediately
-            if (currentState == TurnManager.State.LISTENING) {
+            if (sessionManager.isConnected && currentState == TurnManager.State.LISTENING) {
                 if (newIntent) {
-                unmute()
+                    unmute()
                 } else {
                 mute()
                 }

@@ -36,6 +36,12 @@ enum class MicrophoneVisualState {
     MUTED
 }
 
+internal fun microphoneVisualState(wanted: Boolean, connected: Boolean, capturing: Boolean) = when {
+    !wanted -> MicrophoneVisualState.MUTED
+    connected && capturing -> MicrophoneVisualState.ACTIVE
+    else -> MicrophoneVisualState.PAUSED
+}
+
 private object MicButtonColors {
     // Active state - blue, filled
     val ActiveBackground = Color(0xFF1976D2)
@@ -62,21 +68,17 @@ private object MicButtonColors {
  * 3. MUTED: Red with slash - microphone is off
  * 
  * @param userWantsMicOn User's desired microphone state
- * @param isRobotSpeakingOrThinking True when robot is in SPEAKING or THINKING state
  * @param onClick Called when button is tapped to toggle mute intent
  */
 @Composable
 fun MicrophoneButton(
     userWantsMicOn: Boolean,
-    isRobotSpeakingOrThinking: Boolean,
+    connected: Boolean,
+    capturing: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val visualState = when {
-        !userWantsMicOn -> MicrophoneVisualState.MUTED
-        isRobotSpeakingOrThinking -> MicrophoneVisualState.PAUSED
-        else -> MicrophoneVisualState.ACTIVE
-    }
+    val visualState = microphoneVisualState(userWantsMicOn, connected, capturing)
     
     val backgroundColor by animateColorAsState(
         targetValue = when (visualState) {

@@ -94,6 +94,18 @@ class SettingsViewModelTest {
 
     // ========== Model Change Tests ==========
 
+    @Test fun `clearing idle timeout saves disabled and schedules a VAD update`() {
+        whenever(repository.idleTimeout).thenReturn(9000)
+        whenever(repository.isUsingRealtimeAudioInput).thenReturn(true)
+        viewModel.beginEditing()
+        viewModel.setIdleTimeout(null)
+        verify(repository).idleTimeout = null
+        assertEquals(null, viewModel.settingsState.value.idleTimeout)
+        assertFalse(viewModel.updateSessionEvent.value)
+        viewModel.commitChanges()
+        assertTrue(viewModel.updateSessionEvent.value)
+    }
+
     @Test
     fun `Gemini prompt change needs fresh setup even without changing model`() {
         whenever(repository.apiProviderEnum).thenReturn(RealtimeApiProvider.GOOGLE_GEMINI)

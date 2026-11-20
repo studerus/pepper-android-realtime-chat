@@ -10,6 +10,8 @@ import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import okio.ByteString
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import org.json.JSONArray
 import org.json.JSONObject
 import javax.inject.Inject
@@ -85,8 +87,14 @@ class RealtimeSessionManager internal constructor(private val socketFactory: Web
         private set
 
     // Connection state tracking - volatile for thread-safe access from callbacks
+    private val connected = MutableStateFlow(false)
+    val connectedState = connected.asStateFlow()
     @Volatile
     private var connectionState = ConnectionState.DISCONNECTED
+        set(value) {
+            field = value
+            connected.value = value == ConnectionState.CONNECTED
+        }
 
     /**
      * Monotonically increasing token to invalidate callbacks from previous/stale WebSockets.

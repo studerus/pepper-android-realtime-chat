@@ -88,7 +88,7 @@
     
     <!-- Microphone Button Content Descriptions -->
     <string name="mic_button_active">Microphone active - tap to mute</string>
-    <string name="mic_button_paused">Microphone paused - will activate when robot finishes</string>
+    <string name="mic_button_paused">Microphone enabled but not listening</string>
     <string name="mic_button_muted">Microphone muted - tap to unmute</string>
     
     <!-- Video Button Content Descriptions -->

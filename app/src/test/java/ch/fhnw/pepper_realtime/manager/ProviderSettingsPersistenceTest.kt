@@ -33,6 +33,18 @@ class ProviderSettingsPersistenceTest {
         assertEquals(keep, values)
     }
 
+    @Test fun `clearing a saved idle timeout remains disabled after reopening settings`() {
+        val repo = repository()
+        whenever(prefs.getInt(any(), any())).thenAnswer { values[it.getArgument<String>(0)]?.toInt() ?: it.getArgument<Int>(1) }
+        whenever(editor.putInt(any(), any())).thenAnswer { values[it.getArgument(0)] = it.getArgument<Int>(1).toString(); editor }
+        repo.idleTimeout = 9000
+        assertEquals(9000, repo.idleTimeout)
+        repo.idleTimeout = null
+        assertEquals(null, SettingsRepository(context, mock()).idleTimeout)
+        values["idleTimeout"] = "0"
+        assertEquals(null, repo.idleTimeout)
+    }
+
     @Test fun `provider switch restores scoped choices and migrates legacy values only once`() {
         val repo = repository()
         whenever(context.getString(ch.fhnw.pepper_realtime.R.string.openai_default_model)).thenReturn("default-model")

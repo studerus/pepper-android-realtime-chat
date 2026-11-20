@@ -31,6 +31,7 @@ class RealtimeAudioInputManager internal constructor(
     private var current: Capture? = null
     @Volatile var isGoogleProvider = false
     @Volatile var onCaptureError: ((String) -> Unit)? = null
+    var onCaptureChanged: ((Boolean) -> Unit)? = null
     val isCapturing: Boolean get() = synchronized(lock) { current?.active?.get() == true }
 
     fun start(): Boolean = synchronized(lock) {
@@ -49,6 +50,7 @@ class RealtimeAudioInputManager internal constructor(
             run = capture
             current = capture
             capture.thread = launchCapture(Runnable { captureLoop(capture) })
+            onCaptureChanged?.invoke(capture.active.get())
             true
         } catch (error: Exception) {
             current = null
@@ -70,6 +72,7 @@ class RealtimeAudioInputManager internal constructor(
                 try { sessionManager.sendGoogleAudioStreamEnd() }
                 catch (error: Exception) { Log.w(TAG, "Could not end audio stream", error) }
             }
+            onCaptureChanged?.invoke(false)
             capture
         }
         val thread = run.thread
@@ -133,7 +136,10 @@ class RealtimeAudioInputManager internal constructor(
                 val notify = current === run && run.active.get()
                 run.active.set(false)
                 release(run)
-                if (current === run) current = null
+                if (current === run) {
+                    current = null
+                    onCaptureChanged?.invoke(false)
+                }
                 if (notify) {
                     try { onCaptureError?.invoke(failure ?: "Microphone capture stopped unexpectedly") }
                     catch (error: Exception) { Log.w(TAG, "Audio failure callback failed", error) }

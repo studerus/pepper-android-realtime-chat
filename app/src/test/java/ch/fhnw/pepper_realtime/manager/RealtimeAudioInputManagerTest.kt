@@ -26,6 +26,8 @@ class RealtimeAudioInputManagerTest {
     }
 
     @Test fun `fatal read releases recorder and permits a new attempt`() {
+        val events = mutableListOf<Boolean>()
+        manager.onCaptureChanged = { events.add(it) }
         val old = recorder()
         assertTrue(manager.start())
         work.removeFirst().run()
@@ -36,6 +38,8 @@ class RealtimeAudioInputManagerTest {
         assertTrue(manager.start())
         assertTrue(manager.isCapturing)
         verify(next).startRecording()
+        manager.stop()
+        assertEquals(listOf(true, false, true, false), events)
     }
 
     @Test fun `invalid and repeated read errors reset capture state`() {

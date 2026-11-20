@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bolt
@@ -30,6 +31,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -623,6 +625,14 @@ private fun RuleCard(
     }
 }
 
+private val secondsInput = Regex("""[0-9]{1,17}([.,][0-9]{1,3})?""")
+
+internal fun ruleCooldownMillis(text: String, idleRule: Boolean): Long? {
+    if (!secondsInput.matches(text)) return null
+    val millis = text.replace(',', '.').toBigDecimal().movePointRight(3).toPlainString().toLongOrNull()
+    return millis?.takeIf { !idleRule || it >= 1000L }
+}
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun RuleEditorDialog(
@@ -637,7 +647,10 @@ private fun RuleEditorDialog(
     var actionType by remember(rule) { mutableStateOf(rule?.actionType ?: RuleActionType.INTERRUPT_AND_RESPOND) }
     var template by remember(rule) { mutableStateOf(rule?.template ?: "") }
     var conditions by remember(rule) { mutableStateOf(rule?.conditions ?: emptyList()) }
-    var cooldownMs by remember(rule) { mutableStateOf(rule?.cooldownMs ?: 5000L) }
+    var seconds by remember(rule) {
+        mutableStateOf(java.math.BigDecimal.valueOf(rule?.cooldownMs ?: 5000L, 3).stripTrailingZeros().toPlainString())
+    }
+    val cooldownMs = ruleCooldownMillis(seconds, eventType == PersonEventType.CONVERSATION_IDLE)
     
     var eventTypeExpanded by remember { mutableStateOf(false) }
     var actionTypeExpanded by remember { mutableStateOf(false) }
@@ -645,12 +658,13 @@ private fun RuleEditorDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        modifier = Modifier.imePadding(),
         title = {
             Text(if (isEditing) "Edit Rule" else "New Rule")
         },
         text = {
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 // Row 1: Name (70%) + Cooldown (30%)
@@ -667,10 +681,10 @@ private fun RuleEditorDialog(
                         modifier = Modifier.weight(0.7f)
                     )
                     OutlinedTextField(
-                        value = (cooldownMs / 1000).toString(),
-                        onValueChange = { 
-                            it.toLongOrNull()?.let { secs -> cooldownMs = secs * 1000 }
-                        },
+                        value = seconds,
+                        onValueChange = { seconds = it },
+                        isError = seconds.isNotEmpty() && cooldownMs == null,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         label = { Text(if (eventType == PersonEventType.CONVERSATION_IDLE) "Wait" else "Cooldown") },
                         suffix = { Text("s") },
                         singleLine = true,
@@ -712,7 +726,7 @@ private fun RuleEditorDialog(
                                     },
                                     onClick = {
                                         if (type == PersonEventType.CONVERSATION_IDLE && eventType != type) {
-                                            cooldownMs = EventRule.idleReminder.cooldownMs
+                                            seconds = (EventRule.idleReminder.cooldownMs / 1000).toString()
                                             conditions = conditions.filter { it.field.equals("robotState", true) }
                                             actionType = RuleActionType.APPEND_AND_RESPOND
                                         }
@@ -833,12 +847,11 @@ private fun RuleEditorDialog(
                         conditions = conditions,
                         actionType = actionType,
                         template = template,
-                        cooldownMs = cooldownMs
+                        cooldownMs = cooldownMs ?: return@Button
                     )
                     onSave(newRule)
                 },
-                enabled = name.isNotBlank() && template.isNotBlank() &&
-                    (eventType != PersonEventType.CONVERSATION_IDLE || cooldownMs >= 1000L)
+                enabled = name.isNotBlank() && template.isNotBlank() && cooldownMs != null
             ) {
                 Text(if (isEditing) "Save" else "Create")
             }
@@ -881,7 +894,7 @@ private fun ConditionEditorDialog(
         onDismissRequest = onDismiss,
         title = { Text("Add Condition") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 // Field dropdown
                 ExposedDropdownMenuBox(
                     expanded = fieldExpanded,

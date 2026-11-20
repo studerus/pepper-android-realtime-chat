@@ -14,6 +14,8 @@ import ch.fhnw.pepper_realtime.ui.ChatMessage
 import ch.fhnw.pepper_realtime.ui.ChatViewModel
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import java.util.concurrent.atomic.AtomicLong
@@ -34,6 +36,8 @@ class AudioInputController @Inject constructor(
     private var sttManager: SpeechRecognizerManager? = null
     private var realtimeAudioInput: RealtimeAudioInputManager? = null
     private val inputRequest = AtomicLong()
+    private val captureActive = MutableStateFlow(false)
+    val captureState = captureActive.asStateFlow()
     var isMuted: Boolean = false
         private set
     @Volatile var isSttRunning: Boolean = false
@@ -52,6 +56,7 @@ class AudioInputController @Inject constructor(
 
     fun setSttRunning(running: Boolean) {
         this.isSttRunning = running
+        if (!settingsRepository.isUsingRealtimeAudioInput) captureActive.value = running
     }
 
     fun mute() {
@@ -104,6 +109,11 @@ class AudioInputController @Inject constructor(
             if (realtimeAudioInput == null) {
                 realtimeAudioInput = RealtimeAudioInputManager(sessionManager).apply {
                     this.isGoogleProvider = isGoogle
+                    onCaptureChanged = { active ->
+                        if (realtimeAudioInput === this && settingsRepository.isUsingRealtimeAudioInput) {
+                            captureActive.value = active
+                        }
+                    }
                     onCaptureError = { message ->
                         if (realtimeAudioInput === this && !isMuted && sessionManager.isConnected) {
                             Log.e(TAG, message)
@@ -168,6 +178,7 @@ class AudioInputController @Inject constructor(
 
     fun shutdown() {
         inputRequest.incrementAndGet()
+        captureActive.value = false
         sttManager?.shutdown()
         sttManager = null
         realtimeAudioInput?.stop()
@@ -176,6 +187,7 @@ class AudioInputController @Inject constructor(
 
     fun cleanupForRestart() {
         inputRequest.incrementAndGet()
+        captureActive.value = false
         realtimeAudioInput?.let {
             it.stop()
             Log.i(TAG, "Stopped Realtime audio capture")
