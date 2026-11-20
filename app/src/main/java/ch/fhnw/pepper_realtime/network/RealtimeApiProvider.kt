@@ -42,12 +42,17 @@ enum class RealtimeApiProvider(
             requestedModel
         }
         return when (this) {
-            AZURE_OPENAI -> if (isOpenAiGaRealtimeModel(actualModel)) {
-                // Azure GA Realtime endpoint
-                "wss://$azureEndpoint/openai/v1/realtime?model=$actualModel"
-            } else {
-                // Azure preview endpoint
-                "wss://$azureEndpoint/openai/realtime?api-version=2025-04-01-preview&deployment=$actualModel"
+            AZURE_OPENAI -> {
+                val endpoint = azureEndpoint.orEmpty().trim().trimEnd('/')
+                val uri = java.net.URI(if ("://" in endpoint) endpoint else "wss://$endpoint")
+                require((uri.scheme.equals("https", true) || uri.scheme.equals("wss", true)) &&
+                    uri.host != null && uri.rawUserInfo == null && uri.rawQuery == null &&
+                    uri.rawFragment == null && uri.rawPath.isNullOrEmpty()) { "Expected an Azure resource hostname or secure base URL" }
+                if (isOpenAiGaRealtimeModel(actualModel)) {
+                    "wss://${uri.rawAuthority}/openai/v1/realtime?model=$actualModel"
+                } else {
+                    "wss://${uri.rawAuthority}/openai/realtime?api-version=2025-04-01-preview&deployment=$actualModel"
+                }
             }
             OPENAI_DIRECT -> "wss://api.openai.com/v1/realtime?model=$actualModel"
             XAI -> "wss://api.x.ai/v1/realtime?model=$actualModel"

@@ -34,7 +34,7 @@ android {
         buildConfigField "String", "AZURE_OPENAI_ENDPOINT", "\"${localProps.getProperty('AZURE_OPENAI_ENDPOINT', '')}\""
         buildConfigField "String", "OPENAI_API_KEY", "\"${localProps.getProperty('OPENAI_API_KEY', '')}\""
         buildConfigField "String", "AZURE_SPEECH_KEY", "\"${localProps.getProperty('AZURE_SPEECH_KEY', '')}\""
-        buildConfigField "String", "AZURE_SPEECH_REGION", "\"${localProps.getProperty('AZURE_SPEECH_REGION', 'switzerlandnorth')}\""
+        buildConfigField "String", "AZURE_SPEECH_REGION", "\"${localProps.getProperty('AZURE_SPEECH_REGION', '')}\""
         
         // Optional API keys (enable additional features)
         buildConfigField "String", "GROQ_API_KEY", "\"${localProps.getProperty('GROQ_API_KEY', '')}\""

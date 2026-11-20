@@ -251,7 +251,7 @@ ws://198.18.0.1:5002
         "track_id": 42,
         "name": "John",
         "looking_at_robot": true,
-        "head_direction": "looking",
+        "head_direction": 0.0,
         "world_yaw": -5.2,
         "world_pitch": 3.1,
         "distance": 1.5,

@@ -165,6 +165,7 @@ class TrackedPerson:
     last_recognition_ms: int = 0
     recognition_attempts: int = 0
     is_lost: bool = False
+    buffered_at_ms: int = 0
     
     # Kalman Filter
     # State: [yaw, pitch, distance, v_yaw, v_pitch, v_dist]
@@ -375,6 +376,10 @@ class FaceTracker:
         if camera_offsets:
             self.set_camera_offsets(camera_offsets)
             
+        now_ms = int(now * 1000)
+        self.lost_tracks = [t for t in self.lost_tracks
+                            if now_ms - t.buffered_at_ms < self.lost_buffer_ms]
+
         # 1. Predict all tracks
         for track in self.tracks.values():
             track.predict(dt)
@@ -583,20 +588,18 @@ class FaceTracker:
         for tid in current_ids:
             if tid not in assigned_tracks:
                 track = self.tracks[tid]
-                since_seen = (int(now * 1000) - track.last_seen_ms)
+                since_seen = now_ms - track.last_seen_ms
                 
                 if since_seen > self.track_timeout_ms:
                     # Move to lost buffer instead of deleting immediately
                     if not track.is_lost:
-                         track.is_lost = True
-                         self.lost_tracks.append(track)
-                         del self.tracks[tid]
-                         print(f"[Tracker] Track {tid} lost (buffered)")
-        
-        # Cleanup Lost Buffer (older than lost_buffer_ms)
-        self.lost_tracks = [t for t in self.lost_tracks 
-                           if (int(now*1000) - t.last_seen_ms) < self.lost_buffer_ms]
-        
+                        track.is_lost = True
+                        if self.lost_buffer_ms > 0:
+                            track.buffered_at_ms = now_ms
+                            self.lost_tracks.append(track)
+                        del self.tracks[tid]
+                        print(f"[Tracker] Track {tid} lost")
+
         self.observed_ids = assigned_tracks if pose_observed else set()
         return list(self.tracks.values())
 

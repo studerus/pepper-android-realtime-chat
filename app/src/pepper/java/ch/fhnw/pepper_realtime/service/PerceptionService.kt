@@ -254,13 +254,7 @@ class PerceptionService {
             
             // Gaze detection
             lookingAtRobot = person.lookingAtRobot
-            // Convert head direction string to float: "looking"=0, "left"=+1, "right"=-1
-            headDirection = when (person.headDirection) {
-                "looking", "center" -> 0f
-                "left" -> 1f
-                "right" -> -1f
-                else -> 0f
-            }
+            headDirection = person.headDirection
             attentionState = if (person.lookingAtRobot) "LOOKING_AT_ROBOT" else "LOOKING_ELSEWHERE"
             
             // Position data

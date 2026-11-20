@@ -5,6 +5,25 @@ import org.junit.Test
 
 class RealtimeApiProviderTest {
 
+    @Test fun `Azure endpoint accepts host or secure base URL for GA and preview`() {
+        val host = "example.openai.azure.com"
+        for (input in listOf(host, "$host/", "https://$host/", "wss://$host", "  HTTPS://$host//  ")) {
+            assertEquals("wss://$host/openai/v1/realtime?model=gpt-realtime",
+                RealtimeApiProvider.AZURE_OPENAI.getWebSocketUrl(input, "gpt-realtime"))
+            assertEquals("wss://$host/openai/realtime?api-version=2025-04-01-preview&deployment=gpt-4o-realtime-preview",
+                RealtimeApiProvider.AZURE_OPENAI.getWebSocketUrl(input, "gpt-4o-realtime-preview"))
+        }
+    }
+
+    @Test fun `short configured Azure speech regions win over stored values`() {
+        fun region(config: String?, stored: String?) =
+            ch.fhnw.pepper_realtime.manager.ApiKeyManager.resolveSpeechRegion(config, stored)
+        assertEquals("eastus", region("eastus", "westeurope"))
+        assertEquals("westeurope", region("westeurope", null))
+        assertEquals("eastus2", region("your_region", "eastus2"))
+        assertEquals("switzerlandnorth", region("", null))
+    }
+
     @Test
     fun `xai explicit voice 3 and blank selection use voice 3`() {
         listOf(XAI_VOICE_3_MODEL, "", "  ").forEach { model ->

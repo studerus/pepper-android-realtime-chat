@@ -786,7 +786,7 @@ class RealtimeSessionManager internal constructor(private val socketFactory: Web
             if (!tool.isAvailable(toolContext!!)) continue
 
             try {
-                val openAiDef = tool.getDefinition()
+                val openAiDef = toolRegistry!!.definitionForSession(tool, toolContext!!)
                 
                 // Convert OpenAI format to Google format
                 val googleDecl = JSONObject().apply {

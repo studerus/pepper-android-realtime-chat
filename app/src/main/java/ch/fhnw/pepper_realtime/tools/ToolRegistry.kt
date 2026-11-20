@@ -157,14 +157,7 @@ class ToolRegistry {
             }
 
             try {
-                val toolDefinition = tool.getDefinition()
-
-                // For navigate_to_location tool, dynamically add available locations to description
-                if (toolName == "navigate_to_location") {
-                    enhanceNavigationToolDescription(toolDefinition, context)
-                }
-
-                tools.put(toolDefinition)
+                tools.put(definitionForSession(tool, context))
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to get definition for tool: $toolName", e)
             }
@@ -173,6 +166,11 @@ class ToolRegistry {
         Log.d(TAG, "Built tools definition with ${tools.length()} tools")
         return tools
     }
+
+    internal fun definitionForSession(tool: Tool, context: ToolContext): JSONObject =
+        tool.getDefinition().also {
+            if (tool.getName() == "navigate_to_location") enhanceNavigationToolDescription(it, context)
+        }
 
     /**
      * Enhance navigation tool description with available locations

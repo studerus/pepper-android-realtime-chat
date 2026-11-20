@@ -77,23 +77,7 @@ class SearchInternetTool : Tool {
                 val responseBody = response.body
                     ?: return JSONObject().put("error", "Internet search failed: Empty response body").toString()
 
-                val resp = responseBody.string()
-                val data = JSONObject(resp)
-                var result = data.optString("answer", "")
-
-                if (result.isEmpty()) {
-                    val results = data.optJSONArray("results")
-                    if (results != null && results.length() > 0) {
-                        val first = results.getJSONObject(0)
-                        result = first.optString("content", "")
-                    }
-                }
-
-                if (result.isEmpty()) {
-                    result = "Sorry, I couldn't find any information about that."
-                }
-
-                JSONObject().put("answer", result).toString()
+                JSONObject().put("answer", searchAnswer(JSONObject(responseBody.string()))).toString()
             }
         } catch (e: Exception) {
             Log.e("SearchInternetTool", "Error in internet search", e)
@@ -102,6 +86,16 @@ class SearchInternetTool : Tool {
     }
 
     override val apiKeyRequirement = ApiKeyRequirement.Required(ApiKeyType.TAVILY)
+
+    internal fun searchAnswer(data: JSONObject): String {
+        (data.opt("answer") as? String)?.takeIf { it.isNotBlank() }?.let { return it }
+        val results = data.optJSONArray("results")
+        for (index in 0 until (results?.length() ?: 0)) {
+            val content = results?.optJSONObject(index)?.opt("content") as? String
+            if (!content.isNullOrBlank()) return content
+        }
+        return "Sorry, I couldn't find any information about that."
+    }
 
 
 }

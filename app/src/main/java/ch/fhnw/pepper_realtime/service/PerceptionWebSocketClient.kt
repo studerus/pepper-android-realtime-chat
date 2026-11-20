@@ -1,5 +1,7 @@
 package ch.fhnw.pepper_realtime.service
 
+import ch.fhnw.pepper_realtime.data.readHeadDirection
+
 import android.util.Log
 import android.os.SystemClock
 import kotlinx.coroutines.*
@@ -92,7 +94,7 @@ class PerceptionWebSocketClient @Inject constructor() {
         val trackId: Int,
         val name: String,
         val lookingAtRobot: Boolean,
-        val headDirection: String,
+        val headDirection: Float,
         val worldYaw: Float,
         val worldPitch: Float,
         val distance: Float,
@@ -266,7 +268,7 @@ class PerceptionWebSocketClient @Inject constructor() {
                             trackId = p.getInt("track_id"),
                             name = p.optString("name", "Unknown"),
                             lookingAtRobot = p.optBoolean("looking_at_robot", false),
-                            headDirection = p.optString("head_direction", "unknown"),
+                            headDirection = p.readHeadDirection(),
                             worldYaw = p.optDouble("world_yaw", Double.NaN).toFloat(),
                             worldPitch = p.optDouble("world_pitch", 0.0).toFloat(),
                             distance = p.optDouble("distance", 0.0).toFloat(),

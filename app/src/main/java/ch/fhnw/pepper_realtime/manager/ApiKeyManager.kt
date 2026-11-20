@@ -35,7 +35,14 @@ class ApiKeyManager @Inject constructor(context: Context) {
         get() = getBuildConfigKey("AZURE_SPEECH_KEY", settings.getString("AZURE_SPEECH_KEY", "") ?: "")
 
     val azureSpeechRegion: String
-        get() = getBuildConfigKey("AZURE_SPEECH_REGION", settings.getString("AZURE_SPEECH_REGION", "switzerlandnorth") ?: "switzerlandnorth")
+        get() = resolveSpeechRegion(BuildConfig.AZURE_SPEECH_REGION, settings.getString("AZURE_SPEECH_REGION", null))
+
+    internal companion object {
+        private val regionName = Regex("[a-z][a-z0-9]*")
+        fun resolveSpeechRegion(configured: String?, stored: String?): String =
+            sequenceOf(configured, stored).filterNotNull().map { it.trim().lowercase(java.util.Locale.ROOT) }
+                .firstOrNull { it.matches(regionName) } ?: "switzerlandnorth"
+    }
 
     // Optional API Keys (for additional features)
     val groqApiKey: String

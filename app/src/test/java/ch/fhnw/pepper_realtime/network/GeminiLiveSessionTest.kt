@@ -1,6 +1,8 @@
 package ch.fhnw.pepper_realtime.network
 
 import ch.fhnw.pepper_realtime.manager.MemoryGameManager
+import ch.fhnw.pepper_realtime.data.LocationProvider
+import ch.fhnw.pepper_realtime.data.SavedLocation
 import ch.fhnw.pepper_realtime.manager.SettingsRepository
 import ch.fhnw.pepper_realtime.tools.ToolContext
 import ch.fhnw.pepper_realtime.tools.ToolRegistry
@@ -33,6 +35,25 @@ class GeminiLiveSessionTest {
         setField("settingsRepository", settings)
         setField("webSocket", socket)
         setField("connectionState", RealtimeSessionManager.ConnectionState.CONNECTED)
+    }
+
+    @Test
+    fun `navigation declaration includes current saved locations only when enabled`() {
+        val locations = mock<LocationProvider>()
+        val context = mock<ToolContext>()
+        whenever(context.locationProvider).thenReturn(locations)
+        setField("toolRegistry", ToolRegistry())
+        setField("toolContext", context)
+        whenever(settings.enabledTools).thenReturn(setOf("navigate_to_location"))
+        fun declaration() = setupPayload().getJSONArray("tools").getJSONObject(0)
+            .getJSONArray("functionDeclarations").getJSONObject(0)
+        whenever(locations.getSavedLocations()).thenReturn(listOf(SavedLocation("Kitchen"), SavedLocation("Lab")))
+        assertEquals("navigate_to_location", declaration().getString("name"))
+        assertTrue(declaration().getString("description").contains("Kitchen, Lab"))
+        whenever(locations.getSavedLocations()).thenReturn(emptyList())
+        assertTrue(declaration().getString("description").contains("no saved locations"))
+        whenever(settings.enabledTools).thenReturn(emptySet())
+        assertFalse(setupPayload().has("tools"))
     }
 
     @Test

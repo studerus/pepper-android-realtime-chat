@@ -7,7 +7,7 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ApproachTrackMatcherTest {
-    private val target = TrackedPerson(42, "Unknown", false, "", 30f, 0f, 2f, 0, 100, 0, 0, true)
+    private val target = TrackedPerson(42, "Unknown", false, 0f, 30f, 0f, 2f, 0, 100, 0, 0, true)
     private val candidate = Position.fromRobotFrame(1.732, 1.0)
     private fun frame(vararg people: TrackedPerson) = PeopleUpdate(people.toList(), 0L, 1000L)
     private fun resolve(update: PeopleUpdate?, vararg positions: Position, now: Long = 1020L) =

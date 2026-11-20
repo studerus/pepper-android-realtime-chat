@@ -278,6 +278,8 @@ OPENWEATHER_API_KEY=your_weather_key
 YOUTUBE_API_KEY=your_youtube_api_key
 ```
 
+`AZURE_OPENAI_ENDPOINT` accepts the resource hostname or its `https://` or `wss://` base URL, with or without a trailing slash. Do not include a deployment path or query string. Set `AZURE_SPEECH_REGION` to the region of your Speech resource, for example `eastus` or `westeurope`.
+
 ### 3. Build Your Flavor
 
 **🤖 Pepper Flavor (Default)**

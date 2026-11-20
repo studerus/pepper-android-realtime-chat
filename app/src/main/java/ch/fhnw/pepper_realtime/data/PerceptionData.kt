@@ -1,6 +1,21 @@
 package ch.fhnw.pepper_realtime.data
 
 import java.util.Locale
+import org.json.JSONObject
+
+internal fun JSONObject.readHeadDirection(): Float {
+    val value = opt("head_direction")
+    val ratio = when (value) {
+        is Number -> value.toFloat()
+        is String -> when (val text = value.trim().lowercase(Locale.ROOT)) {
+            "left" -> 1f
+            "right" -> -1f
+            else -> text.toFloatOrNull()
+        }
+        else -> null
+    }
+    return ratio?.takeIf { it.isFinite() }?.coerceIn(-1f, 1f) ?: 0f
+}
 
 /**
  * Data structures for perception information from Pepper's sensors

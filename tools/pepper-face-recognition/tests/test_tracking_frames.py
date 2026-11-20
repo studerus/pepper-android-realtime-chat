@@ -12,6 +12,27 @@ from face_tracker import FaceTracker
 
 
 class TrackingFramesTest(unittest.TestCase):
+    def test_recovery_window_starts_at_transfer_and_expires_before_matching(self):
+        faces = [{'location': {'left': 140, 'right': 180, 'top': 80, 'bottom': 120}}]
+        for return_at, same_id in [(16.49, True), (16.5, False), (18, False)]:
+            with self.subTest(return_at=return_at), patch('face_tracker.time.time', return_value=10) as clock:
+                tracker = FaceTracker(confirm_count=2, track_timeout_ms=3000, lost_buffer_ms=2500)
+                def frame(detections):
+                    tracker.update(detections, 320, 240, 0, 0)
+                frame(faces)
+                frame(faces)
+                old_id, = tracker.tracks
+                clock.return_value = 14
+                frame([])
+                self.assertNotIn(old_id, tracker.tracks)
+                self.assertEqual([old_id], [t.track_id for t in tracker.lost_tracks])
+                clock.return_value = return_at
+                frame(faces)
+                frame(faces)
+                current_id, = tracker.tracks
+                self.assertEqual(same_id, old_id == current_id)
+                self.assertFalse(tracker.lost_tracks)
+
     def test_timing_is_aggregated_and_counters_reset(self):
         timing = server.TrackingTiming(clock=Mock(side_effect=[0, 1, 59, 60, 121]))
         with patch('builtins.print') as log:

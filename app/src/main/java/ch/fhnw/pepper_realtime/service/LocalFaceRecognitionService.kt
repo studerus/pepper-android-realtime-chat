@@ -1,5 +1,7 @@
 package ch.fhnw.pepper_realtime.service
 
+import ch.fhnw.pepper_realtime.data.readHeadDirection
+
 import android.util.Log
 import ch.fhnw.pepper_realtime.BuildConfig
 import ch.fhnw.pepper_realtime.di.IoDispatcher
@@ -163,7 +165,7 @@ class LocalFaceRecognitionService @Inject constructor(
         val trackId: Int,
         val name: String,
         val lookingAtRobot: Boolean,
-        val headDirection: String,
+        val headDirection: Float,
         val worldYaw: Float,
         val worldPitch: Float,
         val distance: Float,
@@ -799,7 +801,7 @@ class LocalFaceRecognitionService @Inject constructor(
                     trackId = personObj.getInt("track_id"),
                     name = personObj.optString("name", "Unknown"),
                     lookingAtRobot = personObj.optBoolean("looking_at_robot", false),
-                    headDirection = personObj.optString("head_direction", "unknown"),
+                    headDirection = personObj.readHeadDirection(),
                     worldYaw = personObj.optDouble("world_yaw", 0.0).toFloat(),
                     worldPitch = personObj.optDouble("world_pitch", 0.0).toFloat(),
                     distance = personObj.optDouble("distance", 0.0).toFloat(),
