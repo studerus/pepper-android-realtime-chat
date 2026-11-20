@@ -4,7 +4,6 @@ import android.Manifest
 import android.app.Activity
 import android.content.Context
 import android.content.pm.PackageManager
-import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 
@@ -31,54 +30,26 @@ class PermissionManager {
      * Check and request necessary permissions
      */
     fun checkAndRequestPermissions(activity: Activity) {
-        // Check microphone permission
-        if (!hasMicrophonePermission(activity)) {
-            ActivityCompat.requestPermissions(
-                activity,
-                arrayOf(Manifest.permission.RECORD_AUDIO),
-                MICROPHONE_PERMISSION_REQUEST_CODE
-            )
-        } else {
-            Log.i(TAG, "Microphone permission available - STT will be initialized during warmup")
+        val missing = buildList {
+            if (!hasMicrophonePermission(activity)) add(Manifest.permission.RECORD_AUDIO)
+            if (!hasCameraPermission(activity)) add(Manifest.permission.CAMERA)
         }
-
-        // Check camera permission
-        if (!hasCameraPermission(activity)) {
-            ActivityCompat.requestPermissions(
-                activity,
-                arrayOf(Manifest.permission.CAMERA),
-                CAMERA_PERMISSION_REQUEST_CODE
-            )
+        if (missing.isNotEmpty()) {
+            ActivityCompat.requestPermissions(activity, missing.toTypedArray(), MEDIA_PERMISSION_REQUEST)
         }
     }
 
-    /**
-     * Handle permission request results
-     */
-    fun handlePermissionResult(requestCode: Int, grantResults: IntArray): Boolean {
-        return when (requestCode) {
-            MICROPHONE_PERMISSION_REQUEST_CODE -> {
-                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    Log.i(TAG, "Microphone permission granted - STT will be initialized during warmup")
-                    callback?.onMicrophoneGranted()
-                } else {
-                    Log.w(TAG, "Microphone permission denied")
-                    callback?.onMicrophoneDenied()
-                }
-                true
+    fun handlePermissionResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray): Boolean {
+        if (requestCode != MEDIA_PERMISSION_REQUEST) return false
+        permissions.forEachIndexed { index, permission ->
+            val result = grantResults.getOrNull(index) ?: return@forEachIndexed
+            val granted = result == PackageManager.PERMISSION_GRANTED
+            when (permission) {
+                Manifest.permission.RECORD_AUDIO -> if (granted) callback?.onMicrophoneGranted() else callback?.onMicrophoneDenied()
+                Manifest.permission.CAMERA -> if (granted) callback?.onCameraGranted() else callback?.onCameraDenied()
             }
-            CAMERA_PERMISSION_REQUEST_CODE -> {
-                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    Log.i(TAG, "Camera permission granted - vision analysis now available")
-                    callback?.onCameraGranted()
-                } else {
-                    Log.w(TAG, "Camera permission denied - vision analysis will not work")
-                    callback?.onCameraDenied()
-                }
-                true
-            }
-            else -> false
         }
+        return true
     }
 
     /**
@@ -102,9 +73,7 @@ class PermissionManager {
     }
 
     companion object {
-        private const val TAG = "PermissionManager"
-        private const val MICROPHONE_PERMISSION_REQUEST_CODE = 2
-        private const val CAMERA_PERMISSION_REQUEST_CODE = 3
+        internal const val MEDIA_PERMISSION_REQUEST = 2
     }
 }
 

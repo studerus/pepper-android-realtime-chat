@@ -29,6 +29,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
+import java.io.Closeable
 import java.io.File
 import java.io.FileOutputStream
 
@@ -36,7 +37,7 @@ import java.io.FileOutputStream
  * Standalone implementation of VisionService using Android device camera.
  * Automatically captures photos with the front camera and sends them to vision API.
  */
-class VisionService(context: Context) {
+class VisionService(context: Context) : Closeable {
 
     interface Callback {
         fun onResult(resultJson: String)
@@ -80,8 +81,9 @@ class VisionService(context: Context) {
      */
     fun initialize(@Suppress("UNUSED_PARAMETER") qiContext: Any?) {
         Log.i(TAG, "VisionService initialized (Android camera ready)")
+    }
 
-        // Start camera background thread
+    private fun startCameraThread() {
         cameraThread = HandlerThread("CameraBackground").also {
             it.start()
             cameraHandler = Handler(it.looper)
@@ -132,6 +134,7 @@ class VisionService(context: Context) {
         }
 
         working = true
+        startCameraThread()
         Log.i(TAG, "Starting automatic photo capture with front camera...")
 
         // Capture photo automatically
@@ -170,10 +173,9 @@ class VisionService(context: Context) {
             // Setup ImageReader for capture (2 buffers to prevent starvation)
             imageReader = ImageReader.newInstance(1280, 720, ImageFormat.JPEG, 2).also { reader ->
                 reader.setOnImageAvailableListener({ r ->
-                    val image = r.acquireLatestImage()
-                    if (image != null) {
+                    if (!working || r !== imageReader) return@setOnImageAvailableListener
+                    r.acquireLatestImage()?.use { image ->
                         processCapturedImage(image, prompt, apiKey, callback)
-                        image.close()
                     }
                 }, cameraHandler)
             }
@@ -181,6 +183,7 @@ class VisionService(context: Context) {
             // Open camera
             cameraManager.openCamera(frontCameraId, object : CameraDevice.StateCallback() {
                 override fun onOpened(camera: CameraDevice) {
+                    if (!working) { camera.close(); return }
                     cameraDevice = camera
                     Log.i(TAG, "Front camera opened, capturing photo...")
                     takePictureNow(callback)
@@ -234,6 +237,7 @@ class VisionService(context: Context) {
                 listOf(reader.surface, previewSurface),
                 object : CameraCaptureSession.StateCallback() {
                     override fun onConfigured(session: CameraCaptureSession) {
+                        if (!working) { session.close(); return }
                         captureSession = session
                         try {
                             // 2. Start Preview (activates sensor/AE/AF)
@@ -247,6 +251,7 @@ class VisionService(context: Context) {
 
                             // 3. Wait for sensor to adjust (warmup) then capture
                             cameraHandler?.postDelayed({
+                                if (!working) return@postDelayed
                                 try {
                                     Log.i(TAG, "Taking picture after preview warmup...")
                                     val captureBuilder = device.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE)
@@ -410,21 +415,19 @@ class VisionService(context: Context) {
                     jpegBytes = baos.toByteArray()
                 }
 
-                // Save to cache file (async, non-blocking)
-                serviceScope.launch {
-                    try {
-                        val out = File(context.cacheDir, "vision_${System.currentTimeMillis()}.jpg")
-                        FileOutputStream(out).use { fos ->
-                            fos.write(jpegBytes)
-                        }
-                        callback.onPhotoCaptured(out.absolutePath)
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Failed to save preview file", e)
-                    }
+                // Finish the preview on this IO worker before delivering the terminal result.
+                ensureActive()
+                try {
+                    val out = File(context.cacheDir, "vision_${System.currentTimeMillis()}.jpg")
+                    FileOutputStream(out).use { it.write(jpegBytes) }
+                    callback.onPhotoCaptured(out.absolutePath)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to save preview file", e)
                 }
 
                 // Convert to Base64
                 val base64 = Base64.encodeToString(jpegBytes, Base64.NO_WRAP)
+                ensureActive()
 
                 // Decide path: if Realtime API is active (OpenAI or Google), send image directly via WS
                 val useRealtimeImagePath = shouldSendImageDirectToRealtime()
@@ -613,19 +616,12 @@ class VisionService(context: Context) {
     /**
      * Shuts down the service
      */
-    fun shutdown() {
+    override fun close() {
         working = false
-        cleanupCamera()
-        cameraThread?.let { thread ->
-            thread.quitSafely()
-            try {
-                thread.join()
-                cameraThread = null
-                cameraHandler = null
-            } catch (e: InterruptedException) {
-                Log.e(TAG, "Camera thread interrupted during shutdown", e)
-            }
-        }
+        serviceScope.cancel()
+        // Serialize cleanup with queued Camera2 callbacks. Never join the callback thread.
+        cameraHandler?.post { cleanupCamera() }
+        cameraThread?.quitSafely()
         Log.i(TAG, "VisionService shutdown")
     }
 }

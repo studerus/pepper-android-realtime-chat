@@ -53,10 +53,10 @@ class TicTacToeGameState {
     
     fun isValidMove(position: Int): Boolean = game.isValidMove(position)
     
-    fun makeMove(position: Int, player: Int) {
-        if (!game.isValidMove(position)) return
-        game.makeMove(position, player)
-        syncStateFromEngine()
+    fun makeMove(position: Int, player: Int): String? {
+        val error = game.makeMove(position, player)
+        if (error == null) syncStateFromEngine()
+        return error
     }
     
     fun getBoardString(): String = game.getBoardString()

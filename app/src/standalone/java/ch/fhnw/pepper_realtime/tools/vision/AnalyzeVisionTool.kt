@@ -1,5 +1,6 @@
 package ch.fhnw.pepper_realtime.tools.vision
 
+import android.content.Context
 import android.util.Log
 import ch.fhnw.pepper_realtime.R
 import ch.fhnw.pepper_realtime.service.VisionService
@@ -15,9 +16,11 @@ import java.util.concurrent.atomic.AtomicReference
  * Uses Groq API or Realtime API to analyze what the camera sees.
  */
 @Suppress("SpellCheckingInspection") // "Groq" is the correct API provider name
-class AnalyzeVisionTool : Tool {
-
-
+class AnalyzeVisionTool internal constructor(
+    private val newService: (Context) -> VisionService,
+    private val timeoutMs: Long
+) : Tool {
+    constructor() : this(::VisionService, 60_000)
 
     override fun getName(): String = "analyze_vision"
 
@@ -48,26 +51,31 @@ class AnalyzeVisionTool : Tool {
         Log.i("AnalyzeVisionTool[Standalone]", "Analyzing vision with Android camera, prompt: ${if (prompt.isEmpty()) "(default analysis)" else prompt}")
 
         return try {
-            // Use VisionService - pass Activity for access to SettingsManager and SessionManager
-            val visionService = VisionService(context.activity!!)
+            newService(requireNotNull(context.activity)).use { analyze(it, prompt, context) }
+        } catch (e: Exception) {
+            Log.e("AnalyzeVisionTool", "Error during vision analysis", e)
+            JSONObject().put("error", "Vision analysis failed: ${e.message}").toString()
+        }
+    }
 
-            // Initialize with null qiContext (standalone mode)
-            visionService.initialize(null)
+    private fun analyze(visionService: VisionService, prompt: String, context: ToolContext): String {
+        // Initialize with null qiContext (standalone mode)
+        visionService.initialize(null)
 
-            if (!visionService.isInitialized) {
-                return JSONObject().put("error", "Camera not available on this device.").toString()
-            }
+        if (!visionService.isInitialized) {
+            return JSONObject().put("error", "Camera not available on this device.").toString()
+        }
 
-            val apiKey = context.apiKeyManager.groqApiKey
+        val apiKey = context.apiKeyManager.groqApiKey
 
-            // Update UI status
-            context.sendAsyncUpdate("📸 Opening camera to take photo...", false)
+        // Update UI status
+        context.sendAsyncUpdate("📸 Opening camera to take photo...", false)
 
-            // Use CountDownLatch to handle async vision analysis
-            val latch = CountDownLatch(1)
-            val result = AtomicReference<String>()
+        // Use CountDownLatch to handle async vision analysis
+        val latch = CountDownLatch(1)
+        val result = AtomicReference<String>()
 
-            context.onCancel { visionService.pause() }
+        return context.onCancel { latch.countDown() }.use {
             context.ensureActive()
             visionService.startAnalyze(prompt, apiKey, object : VisionService.Callback {
                 override fun onResult(resultJson: String) {
@@ -120,11 +128,12 @@ class AnalyzeVisionTool : Tool {
 
             // Wait for vision analysis to complete (blocking call)
             try {
-                val finished = latch.await(60, TimeUnit.SECONDS) // 60s timeout
+                val finished = latch.await(timeoutMs, TimeUnit.MILLISECONDS)
                 if (!finished) {
                     return JSONObject().put("error", "Vision analysis timed out or cancelled").toString()
                 }
 
+                context.ensureActive()
                 var finalResult = result.get()
                 try {
                     val resultJson = JSONObject(finalResult)
@@ -148,10 +157,6 @@ class AnalyzeVisionTool : Tool {
                 Thread.currentThread().interrupt()
                 JSONObject().put("error", "Vision analysis interrupted").toString()
             }
-
-        } catch (e: Exception) {
-            Log.e("AnalyzeVisionTool", "Error during vision analysis", e)
-            JSONObject().put("error", "Vision analysis failed: ${e.message}").toString()
         }
     }
 

@@ -56,6 +56,7 @@ class TicTacToeGameManager @Inject constructor() {
      * @param onUpdate Callback for sending game updates to the AI
      * @return true if game started successfully
      */
+    @Synchronized
     fun startGame(onUpdate: (message: String, requestResponse: Boolean) -> Unit): Boolean {
         updateCallback = onUpdate
         _gameState.reset()
@@ -73,12 +74,9 @@ class TicTacToeGameManager @Inject constructor() {
      * Handle user move (X player).
      * @param position Board position 0-8
      */
+    @Synchronized
     fun onUserMove(position: Int) {
-        val state = _uiState.value
-        if (!state.isVisible || _gameState.isGameOver) return
-        if (!_gameState.isValidMove(position)) return
-
-        _gameState.makeMove(position, TicTacToeGame.PLAYER_X)
+        if (!_uiState.value.isVisible || _gameState.makeMove(position, TicTacToeGame.PLAYER_X) != null) return
         updateUiState()
 
         val result = _gameState.gameResult
@@ -121,19 +119,15 @@ class TicTacToeGameManager @Inject constructor() {
      * @param position Board position 0-8
      * @return Result of the move attempt
      */
+    @Synchronized
     fun makeAIMove(position: Int): AIMoveResult {
         val state = _uiState.value
         if (!state.isVisible) {
             return AIMoveResult(success = false, error = "No active game")
         }
-        if (_gameState.isGameOver) {
-            return AIMoveResult(success = false, error = "Game is already over")
+        _gameState.makeMove(position, TicTacToeGame.PLAYER_O)?.let { error ->
+            return AIMoveResult(success = false, error = error)
         }
-        if (!_gameState.isValidMove(position)) {
-            return AIMoveResult(success = false, error = "Position $position is already occupied")
-        }
-
-        _gameState.makeMove(position, TicTacToeGame.PLAYER_O)
         updateUiState()
 
         val result = _gameState.gameResult
@@ -167,6 +161,7 @@ class TicTacToeGameManager @Inject constructor() {
         }
     }
 
+    @Synchronized
     fun dismissGame() {
         autoCloseJob?.cancel()
         autoCloseJob = null

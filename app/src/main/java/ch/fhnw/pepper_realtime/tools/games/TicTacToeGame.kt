@@ -36,13 +36,17 @@ class TicTacToeGame {
      * Make a move on the board
      * @param position Position 0-8
      * @param player PLAYER_X or PLAYER_O
-     * @throws IllegalArgumentException if move is invalid
+     * @return the rejection reason, or null if the move was played
      */
-    fun makeMove(position: Int, player: Int) {
-        require(isValidMove(position)) { "Invalid move at position $position" }
+    fun makeMove(position: Int, player: Int): String? {
+        if (isGameOver) return "Game is already over"
+        if (player != currentPlayer) return if (currentPlayer == PLAYER_X) "Wait for the user's turn" else "Wait for Pepper's turn"
+        if (position !in board.indices) return "Position must be between 0 and 8"
+        if (!isValidMove(position)) return "Position $position is already occupied"
 
         board[position] = player
         currentPlayer = if (player == PLAYER_X) PLAYER_O else PLAYER_X
+        return null
     }
 
     /**

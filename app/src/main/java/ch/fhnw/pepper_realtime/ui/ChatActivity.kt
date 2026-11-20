@@ -492,7 +492,7 @@ class ChatActivity : AppCompatActivity(), ToolHost {
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        permissionManager.handlePermissionResult(requestCode, grantResults)
+        permissionManager.handlePermissionResult(requestCode, permissions, grantResults)
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
