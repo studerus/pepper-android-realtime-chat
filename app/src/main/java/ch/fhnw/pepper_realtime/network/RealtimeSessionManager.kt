@@ -80,6 +80,7 @@ class RealtimeSessionManager internal constructor(private val socketFactory: Web
     )
     private var pendingSetup: PendingSetup? = null
     private var updateAfterSetup = false
+    private var resumeSetupHandle: String? = null
 
     // Connection state tracking - volatile for thread-safe access from callbacks
     @Volatile
@@ -170,6 +171,7 @@ class RealtimeSessionManager internal constructor(private val socketFactory: Web
         connectionState = ConnectionState.DISCONNECTED
         pendingSetup = null
         connectionConfigCallback = null
+        resumeSetupHandle = null
         updateAfterSetup = false
         return webSocket.also { webSocket = null }
     }
@@ -203,6 +205,14 @@ class RealtimeSessionManager internal constructor(private val socketFactory: Web
         get() = connectionState
 
     fun connect(url: String, headers: Map<String, String>?) {
+        openSocket(url, headers, null)
+    }
+
+    fun resumeGoogleSession(url: String, headers: Map<String, String>?, handle: String) {
+        openSocket(url, headers, handle)
+    }
+
+    private fun openSocket(url: String, headers: Map<String, String>?, handle: String?) {
         val builder = okhttp3.Request.Builder().url(url)
         headers?.forEach { (key, value) ->
             builder.addHeader(key, value)
@@ -212,6 +222,7 @@ class RealtimeSessionManager internal constructor(private val socketFactory: Web
         val myToken: Long
         synchronized(connectionLock) {
             if (connectionState != ConnectionState.DISCONNECTED) return
+            resumeSetupHandle = handle
             connectionListener = listener
             connectionConfigCallback = sessionConfigCallback
             myToken = ++connectionToken
@@ -684,6 +695,7 @@ class RealtimeSessionManager internal constructor(private val socketFactory: Web
         // Thinking config - format differs between model generations
         val isGemini31 = RealtimeApiProvider.isGemini31Model(settings.model)
         if (isGemini31) {
+            setup.put("sessionResumption", JSONObject().apply { resumeSetupHandle?.let { put("handle", it) } })
             generationConfig.put("thinkingConfig", JSONObject().apply {
                 put("thinkingLevel", settings.googleThinkingLevel)
             })

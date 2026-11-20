@@ -10,6 +10,7 @@ class ChatWorkRegistry @Inject constructor() {
         val lifetime = OperationScope()
         private val calls = mutableMapOf<String, OperationScope>()
         private val pendingCalls = mutableSetOf<String>()
+        fun hasPendingCalls(): Boolean = synchronized(calls) { pendingCalls.isNotEmpty() }
 
         fun beginCall(id: String): OperationScope? = synchronized(calls) {
             if (!lifetime.isActive || calls.containsKey(id)) return null

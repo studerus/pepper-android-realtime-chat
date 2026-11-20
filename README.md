@@ -1755,6 +1755,9 @@ app/src/
 
 ### Common Issues
 
+#### Gemini 3.1 Live disconnects during a long conversation
+Context window compression (enabled by default) and WebSocket lifetime are independent. For Gemini 3.1 Live the app requests session resumption and keeps the latest usable server checkpoint in memory. On a server rotation or transient transport loss it makes one attempt to resume the same conversation, without replaying audio or tool calls. Audio and context since the last checkpoint may be lost. Without a usable checkpoint, with an outstanding tool call, or if Google refuses the resume, the app reports the disconnect instead of silently starting an empty conversation. Starting a new chat or deliberately disconnecting discards the checkpoint. See [Google's Live session management guide](https://aistudio.google.com/docs/live-api/session-management).
+
 #### Pepper tablet date resets after power-off
 - Some Pepper tablets reset to 2010 after being powered off. Incorrect dates can also break TLS connections to AI services.
 - Keep Android's **Automatic date & time** enabled and configure a reachable NTP server. On the FHNW legacy WLAN, use `adb shell settings put global ntp_server ntp.fhnw.ch`; external NTP servers are blocked. Restart the tablet after changing its time server.

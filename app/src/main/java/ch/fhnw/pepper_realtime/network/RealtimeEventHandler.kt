@@ -60,6 +60,7 @@ class RealtimeEventHandler(val listener: Listener) {
 
         // Google Live API events
         @Suppress("EmptyMethod") fun onGoogleSetupComplete() {}
+        fun onGoogleResumptionUpdate(update: GoogleLiveEvents.SessionResumptionUpdate) {}
         @Suppress("EmptyMethod") fun onGoogleInterrupted() {}
         @Suppress("EmptyMethod") fun onGoogleModelTurnStarted() {}  // First modelTurn in a response - signal to enter THINKING
         @Suppress("EmptyMethod") fun onGoogleToolCall(functionCalls: List<GoogleLiveEvents.FunctionCall>) {}
@@ -293,10 +294,15 @@ class RealtimeEventHandler(val listener: Listener) {
 
             // Parse the server message
             val serverMessage = gson.fromJson(jsonObject, GoogleLiveEvents.ServerMessage::class.java)
+            serverMessage.sessionResumptionUpdate?.let(listener::onGoogleResumptionUpdate)
 
             // Handle setupComplete
             if (serverMessage.setupComplete != null) {
                 hasReceivedGoogleAudio = false
+                hasSignaledModelTurnStart = false
+                googleThinkingBuffer.clear()
+                googleInputBuffer.clear()
+                googleOutputBuffer.clear()
                 lastGoogleInputTranscriptAt = null
                 Log.i(TAG, "Google: Setup complete")
                 listener.onGoogleSetupComplete()

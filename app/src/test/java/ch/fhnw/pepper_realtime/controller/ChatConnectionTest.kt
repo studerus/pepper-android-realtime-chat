@@ -157,6 +157,42 @@ class ChatConnectionTest {
         f.controller.disconnectWebSocketGracefully()
     }
 
+    @Test fun `Gemini close and late callbacks resume once using newest checkpoint without replacing chat`() = runTest {
+        val f = Fixture(this)
+        whenever(f.settings.apiProviderEnum).thenReturn(RealtimeApiProvider.GOOGLE_GEMINI)
+        whenever(f.settings.model).thenReturn("models/gemini-3.1-flash-live-preview")
+        f.controller.connectWebSocket(null)
+        f.acknowledge()
+        val owner = f.registry.current
+        val old = f.listeners.last()
+        f.controller.updateGoogleCheckpoint(GoogleLiveEvents.SessionResumptionUpdate("first", true))
+        f.controller.updateGoogleCheckpoint(GoogleLiveEvents.SessionResumptionUpdate("latest", true))
+        old.onClosing(1001, "server rotation")
+        old.onClosed(1001, "server rotation")
+        advanceTimeBy(1000); runCurrent()
+        verify(f.network).resumeGoogleSession(any(), anyOrNull(), eq("latest"))
+        f.acknowledge()
+        assertSame(owner, f.registry.current)
+        verify(f.viewModel, never()).clearMessages()
+        verify(f.turn).setState(TurnManager.State.LISTENING)
+        f.listeners.last().onFailure(java.io.IOException("lost again before new checkpoint"), null)
+        advanceUntilIdle()
+        verify(f.network, times(1)).resumeGoogleSession(any(), anyOrNull(), any())
+    }
+
+    @Test fun `nonresumable Gemini update invalidates the old checkpoint`() = runTest {
+        val f = Fixture(this)
+        whenever(f.settings.apiProviderEnum).thenReturn(RealtimeApiProvider.GOOGLE_GEMINI)
+        whenever(f.settings.model).thenReturn("models/gemini-3.1-flash-live-preview")
+        f.controller.connectWebSocket(null)
+        f.acknowledge()
+        f.controller.updateGoogleCheckpoint(GoogleLiveEvents.SessionResumptionUpdate("old", true))
+        f.controller.updateGoogleCheckpoint(GoogleLiveEvents.SessionResumptionUpdate(null, false))
+        f.listeners.last().onClosing(1001, "going away")
+        advanceUntilIdle()
+        verify(f.network, never()).resumeGoogleSession(any(), anyOrNull(), any())
+    }
+
     @Test fun `failed new chat reports its error and a subsequent restart can succeed`() = runTest {
         val f = Fixture(this)
         f.controller.startNewSession()

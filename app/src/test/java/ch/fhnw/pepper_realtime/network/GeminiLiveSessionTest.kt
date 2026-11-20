@@ -204,6 +204,15 @@ class GeminiLiveSessionTest {
     private fun lastText(): String = messages.last().getJSONObject("clientContent")
         .getJSONArray("turns").getJSONObject(0).getJSONArray("parts").getJSONObject(0).getString("text")
 
+    @Test fun `3_1 setup opts into resumption and sends the handle only on resume`() {
+        whenever(settings.model).thenReturn("models/gemini-3.1-flash-live-preview")
+        assertEquals(0, setupPayload().getJSONObject("sessionResumption").length())
+        setField("resumeSetupHandle", "checkpoint")
+        assertEquals("checkpoint", setupPayload().getJSONObject("sessionResumption").getString("handle"))
+        whenever(settings.model).thenReturn("models/gemini-3.8-live")
+        assertFalse(setupPayload().has("sessionResumption"))
+    }
+
     private fun setupPayload(): JSONObject = RealtimeSessionManager::class.java
         .getDeclaredMethod("createGoogleSetupPayload").apply { isAccessible = true }
         .invoke(session).let { (it as JSONObject).getJSONObject("setup") }

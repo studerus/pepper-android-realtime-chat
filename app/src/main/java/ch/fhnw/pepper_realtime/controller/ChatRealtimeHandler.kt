@@ -384,6 +384,10 @@ class ChatRealtimeHandler(
         sessionManager.onGoogleSetupComplete()
     }
 
+    override fun onGoogleResumptionUpdate(update: GoogleLiveEvents.SessionResumptionUpdate) {
+        sessionController?.updateGoogleCheckpoint(update)
+    }
+
     override fun onGoogleModelTurnStarted() {
         viewModel.setResponseGenerating(true)
         // First modelTurn received - Google has started responding

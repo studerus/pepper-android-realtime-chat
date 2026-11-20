@@ -18,6 +18,7 @@ import ch.fhnw.pepper_realtime.manager.SystemTimeRecovery
 import ch.fhnw.pepper_realtime.manager.ClockRecoveryStage
 import ch.fhnw.pepper_realtime.manager.TurnManager
 import ch.fhnw.pepper_realtime.network.RealtimeApiProvider
+import ch.fhnw.pepper_realtime.network.GoogleLiveEvents
 import ch.fhnw.pepper_realtime.network.RealtimeEventHandler
 import ch.fhnw.pepper_realtime.network.RealtimeSessionManager
 import ch.fhnw.pepper_realtime.network.WebSocketConnectionCallback
@@ -62,11 +63,21 @@ class ChatSessionController @Inject constructor(
         internal const val CONNECTION_TIMEOUT_MS = 20_000L
     }
 
-    private class ConnectionAttempt(val session: ChatWorkRegistry.Session) {
+    private class ConnectionAttempt(val session: ChatWorkRegistry.Session, val resumeHandle: String? = null) {
         val callbacks = mutableListOf<WebSocketConnectionCallback>()
         var timeout: Job? = null
     }
     private var connectionAttempt: ConnectionAttempt? = null
+    private var checkpointModel: String? = null
+    private var checkpoint: String? = null
+    private var transportGeneration = 0L
+
+    @Synchronized
+    fun updateGoogleCheckpoint(update: GoogleLiveEvents.SessionResumptionUpdate) {
+        if (checkpointModel != null) {
+            checkpoint = update.newHandle?.takeIf { update.resumable == true && it.isNotBlank() }
+        }
+    }
     private val messageResponseMutex = Mutex()
     private val mainHandler = Handler(Looper.getMainLooper())
     @Volatile private var restartOperation: OperationScope? = null
@@ -448,7 +459,9 @@ class ChatSessionController @Inject constructor(
             }
 
             val headersOrNull = if (headers.isEmpty()) null else headers
-            sessionManager.connect(url, headersOrNull)
+            checkpointModel = selectedModel.takeIf { provider.isGoogleProvider() && RealtimeApiProvider.isGemini31Model(it) }
+            if (pending.resumeHandle != null) sessionManager.resumeGoogleSession(url, headersOrNull, pending.resumeHandle)
+            else sessionManager.connect(url, headersOrNull)
 
         } catch (e: Exception) {
             Log.e(TAG, "Error generating WebSocket connection parameters", e)
@@ -508,6 +521,8 @@ class ChatSessionController @Inject constructor(
 
     @Synchronized
     fun stopChatWork() {
+        checkpoint = null
+        checkpointModel = null
         connectionAttempt?.timeout?.cancel()
         connectionAttempt = null
         restartOperation?.cancel()
@@ -531,8 +546,12 @@ class ChatSessionController @Inject constructor(
     }
 
     private fun setupSessionManagerListeners(session: ChatWorkRegistry.Session? = null) {
+        val generation = ++transportGeneration
+        fun current(action: () -> Unit) = inSession(session) {
+            if (generation == transportGeneration) action()
+        }
         sessionManager.setSessionConfigCallback { success, error ->
-            inSession(session) {
+            current {
                 if (success) {
                     Log.i(TAG, "Session configured successfully - completing connection promise")
                     completeConnectionPromise()
@@ -545,34 +564,34 @@ class ChatSessionController @Inject constructor(
         sessionManager.listener = object : RealtimeSessionManager.Listener {
             override fun onOpen(response: Response) {
                 Log.i(TAG, "WebSocket onOpen() - configuring initial session")
-                inSession(session) { sessionManager.configureInitialSession() }
+                current { sessionManager.configureInitialSession() }
             }
 
             override fun onTextMessage(text: String) {
-                inSession(session) { eventHandler.handle(text) }
+                current { eventHandler.handle(text) }
             }
 
             override fun onBinaryMessage(bytes: ByteString) {
                 // Google Live API sends binary messages - decode as text JSON
                 val text = bytes.utf8()
                 if (text.startsWith("{") || text.startsWith("[")) {
-                    inSession(session) { eventHandler.handle(text) }
+                    current { eventHandler.handle(text) }
                 }
             }
 
             override fun onClosing(code: Int, reason: String) {
                 Log.d(TAG, "WebSocket closing: $code $reason")
-                inSession(session) { handleConnectionLost(reason, code) }
+                current { handleConnectionLost(reason, code) }
             }
 
             override fun onClosed(code: Int, reason: String) {
                 Log.d(TAG, "WebSocket closed: $code $reason")
-                inSession(session) { handleConnectionLost(reason, code) }
+                current { handleConnectionLost(reason, code) }
             }
 
             override fun onFailure(t: Throwable, response: Response?) {
                 Log.e(TAG, "WebSocket Failure: ${t.message}")
-                inSession(session) { handleConnectionLost(t.message ?: "Unknown error", null) }
+                current { handleConnectionLost(t.message ?: "Unknown error", response?.code) }
             }
         }
     }
@@ -581,6 +600,42 @@ class ChatSessionController @Inject constructor(
     private fun handleConnectionLost(reason: String, code: Int?) {
         if (connectionAttempt != null) {
             failConnectionPromise("Connection lost during setup: $reason")
+            return
+        }
+        val session = workRegistry.current
+        val handle = checkpoint
+        if (session != null && handle != null && settingsRepository.apiProviderEnum.isGoogleProvider() &&
+            settingsRepository.model == checkpointModel && !session.hasPendingCalls() &&
+            (code == null || code in setOf(1000, 1001, 1006, 1011, 1012, 1013))) {
+            checkpoint = null // One attempt per server checkpoint; never loop on a rejected handle.
+            sessionManager.close(1000, "Replacing Gemini transport")
+            setupSessionManagerListeners(session)
+            val pending = ConnectionAttempt(session, handle)
+            connectionAttempt = pending
+            audioInputController.stopContinuousRecognition()
+            audioPlayer.interruptNow()
+            viewModel.setAudioPlaying(false)
+            viewModel.setResponseGenerating(false)
+            turnManager?.setState(TurnManager.State.IDLE)
+            Log.i(TAG, "Resuming Gemini Live after transport loss (code=$code)")
+            pending.callbacks.add(object : WebSocketConnectionCallback {
+                override fun onSuccess() {
+                    Log.i(TAG, "Gemini Live session resumed")
+                    turnManager?.setState(TurnManager.State.LISTENING)
+                }
+                override fun onError(error: Throwable) = reportConnectionLost("Gemini session could not be resumed", null)
+            })
+            viewModel.setStatusText(viewModel.getApplication<android.app.Application>().getString(R.string.status_reconnecting))
+            session.lifetime.launchIn(applicationScope, ioDispatcher) {
+                delay(1000)
+                inSession(session) {
+                    if (connectionAttempt === pending) {
+                        if (settingsRepository.model == checkpointModel && settingsRepository.apiProviderEnum.isGoogleProvider())
+                            openPreparedConnection(pending)
+                        else failConnectionPromise("Session settings changed during reconnection")
+                    }
+                }
+            }
             return
         }
         stopChatWork()
